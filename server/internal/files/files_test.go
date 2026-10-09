@@ -124,6 +124,18 @@ func TestNonImagesAreDownloadOnly(t *testing.T) {
 	require.False(t, broken.Inline, "a corrupt image is kept as a plain file")
 }
 
+func TestMediaIsServedForPlaying(t *testing.T) {
+	_, alice, _, _, ch := setup(t)
+	a := alice.Upload(ch, "song.flac", []byte("fLaC\x00\x00\x00\x22rest of the stream"), http.StatusCreated)
+	require.Equal(t, "audio/flac", a.ContentType)
+	require.False(t, a.Inline, "inline is for images")
+	resp, _ := alice.Raw(http.MethodGet, a.URL, nil, "", http.StatusOK)
+	require.Equal(t, "audio/flac", resp.Header.Get("Content-Type"))
+	require.Equal(t, "inline; filename=song.flac", resp.Header.Get("Content-Disposition"))
+	require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+	require.Equal(t, "default-src 'none'; sandbox", resp.Header.Get("Content-Security-Policy"))
+}
+
 func TestFilenameIsSanitized(t *testing.T) {
 	_, alice, _, _, ch := setup(t)
 	a := alice.Upload(ch, "../../etc/passwd", []byte("x"), http.StatusCreated)

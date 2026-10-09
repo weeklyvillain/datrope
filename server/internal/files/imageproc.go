@@ -35,7 +35,10 @@ var errBadImage = errors.New("malformed image")
 
 // Sniff detects a file's type from its first bytes (up to 512).
 func Sniff(head []byte) (contentType string, kind Kind) {
-	ct := http.DetectContentType(head)
+	ct := sniffMedia(head)
+	if ct == "" {
+		ct = http.DetectContentType(head)
+	}
 	switch ct {
 	case "image/jpeg":
 		return ct, KindJPEG
@@ -48,6 +51,36 @@ func Sniff(head []byte) (contentType string, kind Kind) {
 	}
 	return ct, ""
 }
+
+// sniffMedia recognises the audio and video formats http.DetectContentType
+// misses or misnames, or returns "".
+func sniffMedia(head []byte) string {
+	if bytes.HasPrefix(head, []byte("fLaC")) {
+		return "audio/flac"
+	}
+	if bytes.HasPrefix(head, []byte("OggS")) {
+		return "audio/ogg" // nearly always Opus or Vorbis; browsers play either way
+	}
+	if len(head) >= 12 && string(head[4:8]) == "ftyp" {
+		switch string(head[8:12]) { // the major brand
+		case "M4A ", "M4B ":
+			return "audio/mp4"
+		case "qt  ":
+			return "video/quicktime"
+		}
+	}
+	return ""
+}
+
+// playable lists the audio and video types clients may play in a message.
+// They are served with their own type rather than as downloads.
+var playable = map[string]bool{
+	"audio/mpeg": true, "audio/wave": true, "audio/ogg": true, "audio/flac": true, "audio/mp4": true,
+	"video/mp4": true, "video/webm": true, "video/quicktime": true,
+}
+
+// Playable reports whether clients may play a file of this type in a message.
+func Playable(contentType string) bool { return playable[contentType] }
 
 // Clean removes metadata (EXIF, XMP, text chunks, comments) from an image.
 // A JPEG whose EXIF says it is rotated is re-encoded upright first, since

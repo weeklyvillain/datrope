@@ -122,7 +122,7 @@ func (s *Service) download(w http.ResponseWriter, r *http.Request, thumbnail boo
 		return err
 	}
 	sum, ct, disposition := a.sum, "application/octet-stream", "attachment"
-	if a.Inline {
+	if a.Inline || Playable(a.ContentType) {
 		ct, disposition = a.ContentType, "inline"
 	}
 	if thumbnail {

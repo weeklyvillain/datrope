@@ -23,11 +23,22 @@ func TestSniff(t *testing.T) {
 		{gifImage(2, 2), "image/gif", files.KindGIF},
 		{webpWithExif("x"), "image/webp", files.KindWebP},
 		{[]byte("hello there"), "text/plain; charset=utf-8", ""},
+		{[]byte("fLaC\x00\x00\x00\x22"), "audio/flac", ""},
+		{[]byte("OggS\x00\x02\x00\x00"), "audio/ogg", ""},
+		{ftyp("M4A ", "mp42"), "audio/mp4", ""},
+		{ftyp("qt  ", "qt  "), "video/quicktime", ""},
+		{ftyp("isom", "mp41"), "video/mp4", ""},
 	} {
 		ct, kind := files.Sniff(tc.data)
 		require.Equal(t, tc.ct, ct)
 		require.Equal(t, tc.kind, kind)
 	}
+}
+
+// ftyp returns the start of an MP4-family file with these brands.
+func ftyp(major, compatible string) []byte {
+	b := binary.BigEndian.AppendUint32(nil, 20)
+	return append(b, "ftyp"+major+"\x00\x00\x02\x00"+compatible...)
 }
 
 func TestCleanJPEGStripsLosslessly(t *testing.T) {

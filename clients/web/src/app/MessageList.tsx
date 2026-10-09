@@ -17,6 +17,10 @@ import { MessageToolbar } from "./MessageToolbar";
 import { ReplyQuote } from "./ReplyQuote";
 import { ThreadSummary } from "./ThreadSummary";
 import { firstUnreadIndex, idTime } from "./unread";
+import { AudioPlayer } from "./attachments/AudioPlayer";
+import { ImageViewer } from "./attachments/ImageViewer";
+import { VideoPlayer } from "./attachments/VideoPlayer";
+import { fitBox, mediaKind, showable } from "./attachments/media";
 
 /** A plain button that forwards its ref, for use as a popover trigger. */
 const NameButton = forwardRef<HTMLButtonElement, ComponentProps<"button">>((props, ref) => <button ref={ref} type="button" {...props} />);
@@ -399,37 +403,66 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   );
 }
 
-/** Fits an image into 400x300 without upscaling, keeping its shape. */
-function fitBox(w: number, h: number) {
-  const scale = Math.min(1, 400 / w, 300 / h);
-  return { width: Math.max(1, Math.round(w * scale)), height: Math.max(1, Math.round(h * scale)) };
-}
+/** Images beyond this many are reached through the viewer. */
+const MAX_TILES = 4;
 
-/** Whether to show an image in the message: its thumbnail, or the original only
- *  when it is small (or a modest GIF), so no viewer decodes a huge image. */
-function showable(a: Attachment): a is Attachment & { width: number; height: number } {
-  if (!a.inline || !a.width || !a.height) return false;
-  if (a.thumbnail_url) return true;
-  if (a.width <= 400 && a.height <= 400) return true;
-  return a.content_type === "image/gif" && a.width * a.height <= 4096 * 4096;
+/** An image thumbnail that opens the viewer; modified clicks still open the original in a new tab. */
+function ImageLink({ image: a, onOpen, className, more = 0, width, height }:
+  { image: Attachment; onOpen: () => void; className: string; more?: number; width?: number; height?: number }) {
+  return (
+    <a href={client.url(a.url)} target="_blank" rel="noopener noreferrer"
+      className="relative block overflow-hidden rounded-lg border bg-card"
+      onClick={(e) => {
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onOpen();
+      }}>
+      <img className={cn("block cursor-zoom-in transition-opacity hover:opacity-90", className)}
+        src={client.url(a.thumbnail_url || a.url)} alt={a.filename} loading="lazy" width={width} height={height} />
+      {more > 0 && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/70 text-2xl font-semibold text-foreground">
+          +{more}
+        </span>
+      )}
+    </a>
+  );
 }
 
 export function Attachments({ items }: { items: Attachment[] }) {
+  const [viewing, setViewing] = useState<number | null>(null);
   if (items.length === 0) return null;
+  const images = items.filter(showable);
+  const others = items.filter((a) => !showable(a));
+  const tiles = images.slice(0, MAX_TILES);
+  const hidden = images.length - tiles.length;
   return (
-    <div className="mt-1 flex flex-wrap gap-2">
-      {items.map((a) => (showable(a) ? (
-        <a key={a.id} href={client.url(a.url)} target="_blank" rel="noopener noreferrer">
-          <img className="block h-auto max-w-full rounded-lg border bg-card" src={client.url(a.thumbnail_url || a.url)} alt={a.filename}
-            loading="lazy" {...fitBox(a.width, a.height)} />
-        </a>
-      ) : (
-        <a key={a.id} className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-foreground no-underline" href={client.url(a.url)} download={a.filename}>
-          <span aria-hidden="true">📎</span>
-          <span>{a.filename}</span>
-          <span className="text-muted-foreground">{formatBytes(a.size)}</span>
-        </a>
-      )))}
+    <div className="mt-1 flex flex-col items-start gap-2">
+      {images.length === 1 && (
+        <ImageLink image={images[0]} onOpen={() => setViewing(0)}
+          className="h-auto max-w-full" {...fitBox(images[0].width, images[0].height)} />
+      )}
+      {/* Several images share one row of square tiles; the last tile counts any that do not fit. */}
+      {images.length > 1 && (
+        <div className="grid w-[480px] max-w-full gap-1" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
+          {tiles.map((a, i) => (
+            <ImageLink key={a.id} image={a} onOpen={() => setViewing(i)} className="aspect-square size-full object-cover"
+              more={i === tiles.length - 1 ? hidden : 0} />
+          ))}
+        </div>
+      )}
+      {images.length > 0 && <ImageViewer images={images} index={viewing} onIndexChange={setViewing} />}
+      {others.map((a) => {
+        const kind = mediaKind(a);
+        if (kind === "audio") return <AudioPlayer key={a.id} attachment={a} />;
+        if (kind === "video") return <VideoPlayer key={a.id} attachment={a} />;
+        return (
+          <a key={a.id} className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-foreground no-underline" href={client.url(a.url)} download={a.filename}>
+            <span aria-hidden="true">📎</span>
+            <span>{a.filename}</span>
+            <span className="text-muted-foreground">{formatBytes(a.size)}</span>
+          </a>
+        );
+      })}
     </div>
   );
 }
