@@ -199,7 +199,7 @@ function leaveServer(s: State): State {
 
 export function publicUser(u: User): PublicUser {
   return { id: u.id, username: u.username, display_name: u.display_name, custom_status: u.custom_status,
-    pronouns: u.pronouns, about_me: u.about_me, avatar_url: u.avatar_url };
+    pronouns: u.pronouns, about_me: u.about_me, avatar_url: u.avatar_url, links: u.links, banner_url: u.banner_url };
 }
 
 /** A person's public profile from wherever the state has it: the server, a DM, or me. */
@@ -233,7 +233,7 @@ function renameUser(s: State, u: PublicUser): State {
       channels[id] = { ...c, participants: c.participants.map((p) => (p.id === u.id ? u : p)) };
     }
   }
-  const profile = { display_name: u.display_name, custom_status: u.custom_status, pronouns: u.pronouns, about_me: u.about_me, avatar_url: u.avatar_url };
+  const profile = { display_name: u.display_name, custom_status: u.custom_status, pronouns: u.pronouns, about_me: u.about_me, avatar_url: u.avatar_url, links: u.links, banner_url: u.banner_url };
   const me = s.me?.id === u.id ? { ...s.me, ...profile } : s.me;
   return { ...s, server, channels, me };
 }

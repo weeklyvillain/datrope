@@ -109,7 +109,12 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     setFiles([]);
     setError(undefined);
     setReplyTo(null);
-    client.send(channelId, content, ready, replyTo ?? undefined).catch((e) => setError(errorText(e)));
+    void (async () => {
+      // From a detached window (an old message jumped to), go back to the present first.
+      // If that fails, the message is sent anyway (the store still shows my own message).
+      if (client.store.getState().messages[channelId]?.hasNewer) await client.loadLatest(channelId).catch(() => undefined);
+      await client.send(channelId, content, ready, replyTo ?? undefined);
+    })().catch((e) => setError(errorText(e)));
   };
 
   return (

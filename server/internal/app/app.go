@@ -92,6 +92,10 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		mux.Handle("PUT /api/users/@me/avatar", authSvc.RequireHTTP(authSvc.AvatarUploadHandler()))
 		mux.Handle("DELETE /api/users/@me/avatar", authSvc.RequireHTTP(authSvc.AvatarDeleteHandler()))
 		mux.Handle("GET /api/avatars/{userID}", authSvc.AvatarHandler())
+		filesSvc.AddBlobTable("users", "banner_sha256")
+		mux.Handle("PUT /api/users/@me/banner", authSvc.RequireHTTP(authSvc.BannerUploadHandler()))
+		mux.Handle("DELETE /api/users/@me/banner", authSvc.RequireHTTP(authSvc.BannerDeleteHandler()))
+		mux.Handle("GET /api/banners/{userID}", authSvc.BannerHandler())
 		filesSvc.Start()
 		a.closers = append(a.closers, filesSvc.Close)
 		a.Files = filesSvc

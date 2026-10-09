@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { usePalette } from "@/hooks/use-palette";
 import { client, useApp } from "../session";
 import { NotAMember } from "./NotAMember";
+import { NotificationListener } from "./NotificationListener";
 import { ServerSidebar } from "./ServerSidebar";
 import { SoundboardListener } from "./voice/SoundboardPanel";
 
@@ -19,6 +20,11 @@ export function AppShell() {
     return () => clearInterval(t);
   }, []);
 
+  // A fresh READY resets the inbox; load it again after every (re)connect.
+  useEffect(() => {
+    if (connection === "ready") client.loadMentions().catch(() => undefined);
+  }, [connection]);
+
   if (notMember) return <NotAMember />;
   // While the rules gate is on, the welcome channel is the only page.
   if (gated && welcomeId && pathname !== `/channels/${welcomeId}`) return <Navigate to={`/channels/${welcomeId}`} replace />;
@@ -28,6 +34,7 @@ export function AppShell() {
       {!pathname.startsWith("/server-settings") && <ServerSidebar />}
       <Outlet />
       <SoundboardListener />
+      <NotificationListener />
       {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
     </div>
   );

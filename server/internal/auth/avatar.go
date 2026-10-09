@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/datrope/datrope/server/internal/httpx"
+	"github.com/datrope/datrope/server/internal/id"
 )
 
 // Blobs is what this package needs from files: cleaned, stored images.
@@ -28,8 +29,34 @@ const (
 	maxAvatarSide  = 1024
 )
 
-func errAvatarTooLarge() *httpx.Error {
-	return httpx.E(http.StatusRequestEntityTooLarge, "TOO_LARGE", "avatars can be at most 512 KB")
+// imageKind describes one per-user image (avatar or banner): its columns on
+// users, its public URL, and its limits. The column names are constants,
+// never user input.
+type imageKind struct {
+	col      string // "avatar" -> avatar_sha256, avatar_content_type
+	path     string // public URL prefix, "/api/avatars/"
+	maxBytes int
+	maxSide  int
+	limitMsg string
+	sizeMsg  string
+}
+
+var (
+	avatarKind = imageKind{col: "avatar", path: "/api/avatars/", maxBytes: MaxAvatarBytes, maxSide: maxAvatarSide,
+		limitMsg: "avatars can be at most 512 KB", sizeMsg: "avatars can be at most 1024 × 1024 pixels"}
+	bannerKind = imageKind{col: "banner", path: "/api/banners/", maxBytes: MaxBannerBytes, maxSide: maxBannerSide,
+		limitMsg: "banners can be at most 1 MB", sizeMsg: "banners can be at most 2048 × 2048 pixels"}
+)
+
+func (k imageKind) sumCol() string  { return k.col + "_sha256" }
+func (k imageKind) typeCol() string { return k.col + "_content_type" }
+
+// imageURL is the public, versioned URL of a user's image, or "" when they have none.
+func (k imageKind) imageURL(userID id.ID, sum *string) string {
+	if sum == nil || len(*sum) < 12 {
+		return ""
+	}
+	return k.path + userID.String() + "?v=" + (*sum)[:12]
 }
 
 func writeUser(w http.ResponseWriter, r *http.Request, u *User, err error) {
@@ -40,23 +67,16 @@ func writeUser(w http.ResponseWriter, r *http.Request, u *User, err error) {
 	httpx.WriteJSON(w, http.StatusOK, u)
 }
 
-// AvatarUploadHandler serves PUT /api/users/@me/avatar (multipart "file").
-// It must run behind RequireHTTP.
-func (s *Service) AvatarUploadHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, err := s.uploadAvatar(w, r)
-		writeUser(w, r, u, err)
-	})
-}
-
-func (s *Service) uploadAvatar(w http.ResponseWriter, r *http.Request) (*User, error) {
-	ctx := r.Context()
-	me := Current(ctx).User.ID
-	r.Body = http.MaxBytesReader(w, r.Body, MaxAvatarBytes+64<<10)
-	if err := r.ParseMultipartForm(MaxAvatarBytes + 64<<10); err != nil {
+// readImageUpload reads and validates the multipart "file" field: size cap,
+// image type and dimensions.
+func (s *Service) readImageUpload(w http.ResponseWriter, r *http.Request, k imageKind) ([]byte, error) {
+	tooLarge := httpx.E(http.StatusRequestEntityTooLarge, "TOO_LARGE", k.limitMsg)
+	limit := int64(k.maxBytes) + 64<<10
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	if err := r.ParseMultipartForm(limit); err != nil {
 		var tooBig *http.MaxBytesError
 		if errors.As(err, &tooBig) {
-			return nil, errAvatarTooLarge()
+			return nil, tooLarge
 		}
 		return nil, httpx.BadRequest("VALIDATION_FAILED", "expected a multipart/form-data body")
 	}
@@ -66,31 +86,47 @@ func (s *Service) uploadAvatar(w http.ResponseWriter, r *http.Request) (*User, e
 		return nil, httpx.BadRequest("MISSING_FILE", `the form has no "file" field`)
 	}
 	defer f.Close()
-	if hdr.Size > MaxAvatarBytes {
-		return nil, errAvatarTooLarge()
+	if hdr.Size > int64(k.maxBytes) {
+		return nil, tooLarge
 	}
-	data, err := io.ReadAll(io.LimitReader(f, MaxAvatarBytes+1))
+	data, err := io.ReadAll(io.LimitReader(f, int64(k.maxBytes)+1))
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > MaxAvatarBytes {
-		return nil, errAvatarTooLarge()
+	if len(data) > k.maxBytes {
+		return nil, tooLarge
 	}
 	width, height, err := s.blobs.ImageSize(data)
 	if err != nil {
 		return nil, httpx.BadRequest("NOT_AN_IMAGE", "upload a PNG, JPEG, WebP or GIF image")
 	}
-	if width > maxAvatarSide || height > maxAvatarSide {
-		return nil, httpx.BadRequest("IMAGE_TOO_BIG", "avatars can be at most 1024 × 1024 pixels")
+	if width > k.maxSide || height > k.maxSide {
+		return nil, httpx.BadRequest("IMAGE_TOO_BIG", k.sizeMsg)
 	}
+	return data, nil
+}
 
+func (s *Service) imageUploadHandler(k imageKind) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, err := s.uploadImage(w, r, k)
+		writeUser(w, r, u, err)
+	})
+}
+
+func (s *Service) uploadImage(w http.ResponseWriter, r *http.Request, k imageKind) (*User, error) {
+	ctx := r.Context()
+	me := Current(ctx).User.ID
+	data, err := s.readImageUpload(w, r, k)
+	if err != nil {
+		return nil, err
+	}
 	tx, err := s.store.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
 	var old *string
-	if err := tx.QueryRow(ctx, `SELECT avatar_sha256 FROM users WHERE id = $1 FOR UPDATE`, me).Scan(&old); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT `+k.sumCol()+` FROM users WHERE id = $1 FOR UPDATE`, me).Scan(&old); err != nil {
 		return nil, err
 	}
 	sum, ct, err := s.blobs.StoreImageBlob(ctx, tx, data) // sniffs the type and strips metadata
@@ -98,7 +134,7 @@ func (s *Service) uploadAvatar(w http.ResponseWriter, r *http.Request) (*User, e
 		return nil, err
 	}
 	u, err := scanUser(tx.QueryRow(ctx,
-		`UPDATE users u SET avatar_sha256 = $2, avatar_content_type = $3 WHERE u.id = $1 RETURNING `+userCols, me, sum, ct))
+		`UPDATE users u SET `+k.sumCol()+` = $2, `+k.typeCol()+` = $3 WHERE u.id = $1 RETURNING `+userCols, me, sum, ct))
 	if err != nil {
 		return nil, err
 	}
@@ -107,28 +143,21 @@ func (s *Service) uploadAvatar(w http.ResponseWriter, r *http.Request) (*User, e
 	}
 	if old != nil && *old != sum {
 		if err := s.blobs.RemoveBlobs(ctx, []string{*old}); err != nil {
-			slog.WarnContext(ctx, "auth: removing the old avatar; the sweep will retry", "err", err)
+			slog.WarnContext(ctx, "auth: removing the old "+k.col+"; the sweep will retry", "err", err)
 		}
 	}
 	s.publishUser(u)
 	return u, nil
 }
 
-// AvatarDeleteHandler serves DELETE /api/users/@me/avatar. It must run behind RequireHTTP.
-func (s *Service) AvatarDeleteHandler() http.Handler {
+func (s *Service) imageDeleteHandler(k imageKind) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		me := Current(ctx).User.ID
-		var old *string
-		if err := s.store.db.QueryRow(ctx, `SELECT avatar_sha256 FROM users WHERE id = $1`, me).Scan(&old); err != nil {
-			httpx.WriteHTTPError(w, r, err)
-			return
-		}
-		u, err := scanUser(s.store.db.QueryRow(ctx,
-			`UPDATE users u SET avatar_sha256 = NULL, avatar_content_type = NULL WHERE u.id = $1 RETURNING `+userCols, me))
+		u, old, err := s.clearImage(ctx, k, me)
 		if err == nil && old != nil {
 			if rerr := s.blobs.RemoveBlobs(ctx, []string{*old}); rerr != nil {
-				slog.WarnContext(ctx, "auth: removing an avatar; the sweep will retry", "err", rerr)
+				slog.WarnContext(ctx, "auth: removing a "+k.col+"; the sweep will retry", "err", rerr)
 			}
 			s.publishUser(u)
 		}
@@ -136,8 +165,30 @@ func (s *Service) AvatarDeleteHandler() http.Handler {
 	})
 }
 
-// AvatarHandler serves GET /api/avatars/{userID} without a session.
-func (s *Service) AvatarHandler() http.Handler {
+// clearImage nulls the user's image columns and returns the user and the hash
+// it had, read under a row lock so a concurrent upload cannot slip between.
+func (s *Service) clearImage(ctx context.Context, k imageKind, me id.ID) (*User, *string, error) {
+	tx, err := s.store.db.Begin(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback(ctx)
+	var old *string
+	if err := tx.QueryRow(ctx, `SELECT `+k.sumCol()+` FROM users WHERE id = $1 FOR UPDATE`, me).Scan(&old); err != nil {
+		return nil, nil, err
+	}
+	u, err := scanUser(tx.QueryRow(ctx,
+		`UPDATE users u SET `+k.sumCol()+` = NULL, `+k.typeCol()+` = NULL WHERE u.id = $1 RETURNING `+userCols, me))
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, err
+	}
+	return u, old, nil
+}
+
+func (s *Service) imageServeHandler(k imageKind) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		uid, err := httpx.ParseID(r.PathValue("userID"), "user")
 		if err != nil {
@@ -146,9 +197,9 @@ func (s *Service) AvatarHandler() http.Handler {
 		}
 		var sum, ct string
 		err = s.store.db.QueryRow(r.Context(),
-			`SELECT avatar_sha256, avatar_content_type FROM users WHERE id = $1 AND avatar_sha256 IS NOT NULL`, uid).Scan(&sum, &ct)
+			`SELECT `+k.sumCol()+`, `+k.typeCol()+` FROM users WHERE id = $1 AND `+k.sumCol()+` IS NOT NULL`, uid).Scan(&sum, &ct)
 		if errors.Is(err, pgx.ErrNoRows) {
-			httpx.WriteHTTPError(w, r, httpx.NotFound("avatar"))
+			httpx.WriteHTTPError(w, r, httpx.NotFound(k.col))
 			return
 		}
 		if err != nil {
@@ -159,3 +210,10 @@ func (s *Service) AvatarHandler() http.Handler {
 		s.blobs.ServeBlob(w, r, sum, ct, len(sum) >= 12 && r.URL.Query().Get("v") == sum[:12])
 	})
 }
+
+// AvatarUploadHandler serves PUT /api/users/@me/avatar (multipart "file"),
+// AvatarDeleteHandler DELETE of the same, and AvatarHandler the public
+// GET /api/avatars/{userID}. The first two must run behind RequireHTTP.
+func (s *Service) AvatarUploadHandler() http.Handler { return s.imageUploadHandler(avatarKind) }
+func (s *Service) AvatarDeleteHandler() http.Handler { return s.imageDeleteHandler(avatarKind) }
+func (s *Service) AvatarHandler() http.Handler       { return s.imageServeHandler(avatarKind) }

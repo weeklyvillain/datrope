@@ -1,11 +1,14 @@
 // A remark plugin for chat syntax that Markdown lacks: ||spoilers||, :emoji: and @mentions.
 // It rewrites text nodes only, never inside code or links.
 
+import { splitHighlights } from "./highlight";
+
 export type ChatOptions = {
   custom: Map<string, { id: string; url: string }>; // custom emoji by lower-cased name
   shortcodes: Map<string, string> | null; // Unicode emoji by lower-cased shortcode; null while loading
   users: Map<string, { id: string; name: string }>; // mentionable users by lower-cased username
   meId?: string;
+  highlight?: string[]; // search terms to mark (outside spoilers, code and links)
 };
 
 type Node = { type: string; value?: string; children?: Node[]; data?: Record<string, unknown> };
@@ -71,16 +74,22 @@ function splitText(value: string, o: ChatOptions): Node[] | null {
   return out;
 }
 
+/** Marks search terms in plain text nodes; other nodes (spoilers, mentions, emoji) are left alone. */
+function highlight(nodes: Node[], terms: string[] | undefined): Node[] {
+  if (!terms?.length) return nodes;
+  return nodes.flatMap((n) => n.type !== "text" || !n.value ? [n]
+    : splitHighlights(n.value, terms).map((p) => (p.mark
+      ? { type: "chatMark", data: { hName: "mark" }, children: [text(p.text)] }
+      : text(p.text))));
+}
+
 function walk(node: Node, o: ChatOptions) {
   if (!node.children) return;
   const next: Node[] = [];
   for (const child of node.children) {
     if (child.type === "text" && child.value) {
-      const split = splitText(child.value, o);
-      if (split) {
-        next.push(...split);
-        continue;
-      }
+      next.push(...highlight(splitText(child.value, o) ?? [child], o.highlight));
+      continue;
     } else if (!SKIP.has(child.type)) {
       walk(child, o);
     }

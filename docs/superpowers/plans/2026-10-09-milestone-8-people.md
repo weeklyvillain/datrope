@@ -2571,3 +2571,50 @@ export function notificationBody(content: string, attachments: number): string {
   - browser notifications, set per device in Your settings.
 - [ ] **Step 4: Full verification** — `go -C server vet ./...`; `go -C server test -p 2 ./...` (PowerShell, `$env:GOTOOLCHAIN='local'`); `gofmt -l server` (empty); `pnpm -C clients/core exec vitest run`; `pnpm -C clients/web exec vitest run`; `pnpm -C clients/web run build`; the e2e. Expected: all PASS. Also confirm (read-only `git status` / `git diff`) that `clients/web/src/sounds.ts` and `clients/web/src/assets/sounds/` are untouched and `main.tsx`/`voice/voice.ts` have no new hunks.
 - [ ] **Step 5: Checkpoint** — stop; the controller reviews and stages. Suggested message: `test(e2e): profiles, search and the mentions inbox; docs`
+
+
+---
+
+## Addendum (requested by the user during execution): social links and profile banner
+
+User decisions (binding):
+- **Social links:** up to 5 links per profile, each an `https://` URL of at most 200 characters (no other schemes; no credentials in the URL; host required). Known sites are recognised by host and shown with their name and icon; anything else shows as "Website" with the host as text. Known sites (host suffix → name): `github.com` GitHub, `gitlab.com` GitLab, `youtube.com`/`youtu.be` YouTube, `twitch.tv` Twitch, `steamcommunity.com` Steam, `x.com`/`twitter.com` X, `bsky.app` Bluesky, `instagram.com` Instagram, `reddit.com` Reddit, `open.spotify.com` Spotify, `soundcloud.com` SoundCloud, `tiktok.com` TikTok, `linkedin.com` LinkedIn, `discord.gg`/`discord.com` Discord; a URL whose path starts with `/@` on any other host is shown as "Mastodon".
+- **Profile banner:** same flow as the avatar. The browser accepts PNG/JPEG/WebP/GIF up to 5 MB, a crop dialog crops to a 3:1 strip, and the browser uploads a 960 × 320 image (WebP, PNG fallback; a GIF becomes still). The server caps the banner at 1 MB and 2048 × 2048 px (`TOO_LARGE` / `IMAGE_TOO_BIG`), sniffs the type like avatars, and serves it publicly. "Remove banner" falls back to the current colour rule (highest role colour, else initials colour).
+
+### Task 13: Profile links and banner (server)
+
+**Files:**
+- Create: `server/internal/db/migrations/00021_profile_links_banner.sql` (`ALTER TABLE users ADD COLUMN links TEXT[] NOT NULL DEFAULT '{}', ADD COLUMN banner_sha256 BYTEA, ADD COLUMN banner_content_type TEXT`; Down drops them), `server/internal/auth/banner.go`, `server/internal/auth/links.go`, `server/internal/auth/links_test.go`, `server/internal/auth/banner_test.go`
+- Modify: `server/internal/auth/{store.go,handlers.go,avatar.go}` (share the image-validation helper between avatar and banner instead of copying it), `server/internal/app/app.go` (routes; blob table if avatars use one), `clients/core/openapi.json`, `clients/core/src/schema.d.ts` (regenerate with `pnpm -C clients/core run gen`)
+
+**Interfaces — produces:**
+- `User` / `PublicUser` gain `links []string` (`json:"links,omitempty"`) and `banner_url string` (`json:"banner_url,omitempty"`, `/api/banners/{userID}?v=<hash prefix>` like `avatar_url`).
+- `PATCH /api/users/@me` accepts `links` (array, max 5 items); `validateLinks([]string) ([]string, error)` trims, drops empty entries, de-duplicates, and rejects with `400 BAD_LINK` when an entry is not `https://`, has userinfo, has no host, or is longer than 200 characters.
+- `PUT /api/users/@me/banner` (multipart `file`), `DELETE /api/users/@me/banner`, `GET /api/banners/{userID}` (public, same headers as avatars: stored content type, `nosniff`, long cache with the hash in the URL).
+- `USER_UPDATE` and READY carry the new fields (omitempty; clients clear omitted fields as with pronouns).
+
+- [ ] **Step 1: Failing tests** — `links_test.go` table test for `validateLinks`: valid https kept; `http://`, `javascript:`, `https://user:pw@x.com`, `https://`, 201-character URL → `BAD_LINK`; 6 links → error; duplicates and blanks removed. `banner_test.go`: upload a 960×320 PNG → `banner_url` set and `GET` serves it with the stored type and `nosniff`; upload a 3000×100 PNG → `IMAGE_TOO_BIG`; > 1 MB → `TOO_LARGE`; a text file → rejected; `DELETE` clears it; another user cannot remove mine; PATCH `links` round-trips and appears in `USER_UPDATE`.
+- [ ] **Step 2: Run** — expected FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** — `go vet`, `go test -count=1 -p 2 ./...`, `gofmt -l server` empty, core/web typecheck. Expected: PASS.
+- [ ] **Step 5: Checkpoint** — stop; the controller reviews and stages. Suggested message: `feat(server): profile links and banner`
+
+### Task 14: Profile links and banner (core + web + e2e)
+
+**Files:**
+- Create: `clients/web/src/lib/social.ts`, `clients/web/src/lib/social.test.ts`, `clients/web/src/app/people/ProfileLinks.tsx`
+- Modify: `clients/core/src/{store.ts,client.ts,types.ts}` (`publicUser`/`renameUser` copy `links` and `banner_url`; `client.uploadBanner(Blob)`, `client.removeBanner()`, `updateMe` accepts `links`), `clients/core/src/*.test.ts`; `clients/web/src/app/settings/avatar.ts` (generalise crop maths to an aspect ratio and output size: avatar 1:1 → 256×256, banner 3:1 → 960×320; keep the existing tests passing and add banner cases), `clients/web/src/app/settings/AvatarCropDialog.tsx` (an `aspect`/`output` prop and a title prop; the banner dialog is titled "Crop your banner"), `clients/web/src/app/settings/ProfileSettings.tsx`, `clients/web/src/app/people/ProfileCard.tsx` (and the popover/panel banner), `clients/web/e2e/chat.spec.ts`, `deploy/README.md`
+
+**Behaviour:**
+- `social.ts`: `describeLink(url: string): { name: string; host: string; icon: string }` using the host table above (match the host or any subdomain of it); unknown → `{ name: "Website", host }`; Mastodon rule as above. Tests cover every table entry, a subdomain (`www.youtube.com`), an unknown host, and the Mastodon path rule.
+- Icons: use `lucide-react` icons where it has one (e.g. `Github`, `Gitlab`, `Youtube`, `Twitch`, `Instagram`, `Linkedin`); every other site uses `Globe`. No new packages.
+- **Settings (Profile card):** under About me, a "Links" section: each link is an input (`aria-label="Link <n>"`) with a "Remove link <n>" icon button; an "Add link" button while fewer than 5; links save with the other text fields on "Save" (client-side check: `https://` only, ≤200 chars, error text "Use a full https:// link"). Above the avatar row, a banner preview strip (3:1, the current banner or the fallback colour) with "Change banner" and "Remove banner" (only when a banner exists); "Change banner" opens the crop dialog with 3:1 and uploads on "Apply", like the avatar.
+- **Profile card / popover / panel:** the banner area shows the banner image (`object-cover`, `alt=""`) when present, else the colour; a "Links" section after About me lists each link as an anchor with its icon and name ("GitHub") and the host in muted text, `target="_blank" rel="noopener noreferrer"`, accessible name "<Name> on <host>" (e.g. "GitHub on github.com"). Hidden when there are no links. The live preview in settings shows both.
+- **e2e:** in the existing profile step, add a link `https://github.com/alice` and assert bob's popover for alice shows a link named "GitHub on github.com"; upload a banner (generated PNG buffer, 3:1) and assert the popover banner image is present.
+- **README:** add links and banner to the profile feature line.
+
+- [ ] **Step 1: Failing tests** — `social.test.ts`, the generalised crop maths, core store/client tests for `links`/`banner_url`/`uploadBanner`/`removeBanner`.
+- [ ] **Step 2: Run** — expected FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** — core vitest + tsc; web vitest + typecheck + build; the e2e stack (as in Task 12, always `down -v`). Expected: PASS.
+- [ ] **Step 5: Checkpoint** — stop; the controller reviews, checks in the browser, and stages. Suggested message: `feat(web): profile links and banner`

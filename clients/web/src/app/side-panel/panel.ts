@@ -5,7 +5,7 @@ import { createStore } from "zustand/vanilla";
 export type Panel =
   | null
   | { kind: "threads" }
-  | { kind: "thread"; threadId: string }
+  | { kind: "thread"; threadId: string; parentId?: string } // parentId: kept open when that channel opens
   | { kind: "profile"; userId: string }
   | { kind: "search" };
 

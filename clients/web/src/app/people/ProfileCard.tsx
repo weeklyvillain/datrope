@@ -8,9 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
 import { avatarColor } from "@/lib/avatar-color";
+import { isHttpsLink } from "@/lib/social";
 import { cn } from "@/lib/utils";
 import { client, displayName, errorText, roleColor, useApp } from "@/session";
 import { openPanel } from "../side-panel/panel";
+import { ProfileLinks } from "./ProfileLinks";
 import { useAssignableRoles } from "./use-assignable-roles";
 
 const joined = new Intl.DateTimeFormat(undefined, { dateStyle: "long" });
@@ -61,7 +63,9 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
 
   return (
     <div>
-      <div className={panel ? "h-24" : "h-16"} style={{ background: roleColor(sv, userId) ?? avatarColor(userId) }} />
+      <div className={cn("overflow-hidden", panel ? "h-24" : "h-16")} style={{ background: roleColor(sv, userId) ?? avatarColor(userId) }}>
+        {user.banner_url && <img src={client.url(user.banner_url)} alt="" className="size-full object-cover" />}
+      </div>
       <div className={cn("pb-4", panel ? "px-5" : "px-4")}>
         <div className="-mt-10 w-fit">
           <UserAvatar user={user} size="xl" status={presence} ringClassName={panel ? "ring-card" : "ring-popover"}
@@ -83,6 +87,12 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
           <section className="mb-3">
             <h3 className={sec}>About me</h3>
             <p className="m-0 whitespace-pre-wrap text-sm wrap-anywhere">{user.about_me}</p>
+          </section>
+        )}
+        {user.links?.some(isHttpsLink) && (
+          <section className="mb-3">
+            <h3 className={sec}>Links</h3>
+            <ProfileLinks links={user.links} />
           </section>
         )}
         {(held.length > 0 || rolesFooter) && (

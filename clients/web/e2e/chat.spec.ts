@@ -1,3 +1,4 @@
+import { deflateSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -7,6 +8,36 @@ const PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkY
 const PARROT_PNG = fileURLToPath(new URL("./fixtures/parrot.png", import.meta.url));
 // The Ocean palette's accent (#4aa3ff) as getComputedStyle reports it.
 const OCEAN = "rgb(74, 163, 255)";
+
+// A solid-colour RGB PNG of the given size (for the banner upload).
+function solidPng(width: number, height: number): Buffer {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (b: Buffer) => {
+    let c = 0xffffffff;
+    for (const x of b) c = crcTable[(c ^ x) & 0xff]! ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const out = Buffer.alloc(12 + data.length);
+    out.writeUInt32BE(data.length, 0);
+    body.copy(out, 4);
+    out.writeUInt32BE(crc(body), 8 + data.length);
+    return out;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // RGB
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, 0x66)]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
 
 // A silent 0.5 s mono 16-bit 8 kHz WAV: the server measures the length from the file.
 function silentWav(): Buffer {
@@ -330,4 +361,71 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(pizzaInGeneral.getByRole("button", { name: "Unpin message", exact: true })).toBeVisible();
   await bobGeneral.getByRole("button", { name: "Pinned messages" }).click();
   await expect(bob.getByRole("dialog").getByText("who wants pizza?")).toBeVisible();
+  await bob.keyboard.press("Escape");
+
+  // Profile: alice fills in her pronouns and "About me", and uploads an avatar.
+  await alice.getByRole("link", { name: "Your settings" }).click();
+  await alice.getByLabel("Pronouns", { exact: true }).fill("she/her");
+  await alice.getByLabel("About me", { exact: true }).fill("Board games and synths");
+  await alice.getByRole("button", { name: "Add link", exact: true }).click();
+  await alice.getByLabel("Link 1", { exact: true }).fill("https://github.com/alice");
+  await alice.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(alice.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+  await alice.getByLabel("Choose an avatar image").setInputFiles(PARROT_PNG);
+  const crop = alice.getByRole("dialog", { name: "Crop your avatar" });
+  await expect(crop).toBeVisible();
+  await crop.getByRole("button", { name: "Apply" }).click();
+  // The avatar's <img> has alt="" (decorative), so it has no img role.
+  await expect(alice.getByRole("region", { name: "Profile" }).locator('img[src*="/api/avatars/"]')).toBeVisible();
+  // The banner: a 3:1 strip is cropped to 960 x 320 and uploaded.
+  await alice.getByLabel("Choose a banner image").setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: solidPng(600, 200) });
+  const bannerCrop = alice.getByRole("dialog", { name: "Crop your banner" });
+  await expect(bannerCrop).toBeVisible();
+  await bannerCrop.getByRole("button", { name: "Apply" }).click();
+  await expect(alice.getByRole("region", { name: "Profile" }).locator('img[src*="/api/banners/"]')).toBeVisible();
+  await alice.getByRole("link", { name: "general" }).click();
+
+  // Popover: bob opens alice's profile from her name, then the full profile in the side panel.
+  const aliceName = bobGeneral.getByRole("article").getByRole("button", { name: "alice", exact: true }).first();
+  await aliceName.click();
+  const popover = bob.getByRole("dialog", { name: "alice" });
+  await expect(popover.getByText("she/her")).toBeVisible();
+  await expect(popover.getByText("Board games and synths")).toBeVisible();
+  await expect(popover.getByText("Member since")).toBeVisible();
+  const githubLink = popover.getByRole("link", { name: "GitHub on github.com" });
+  await expect(githubLink).toHaveAttribute("href", "https://github.com/alice");
+  await expect(githubLink).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(popover.locator('img[src*="/api/banners/"]')).toBeVisible();
+  await popover.getByRole("button", { name: "View full profile" }).click();
+  const profile = bob.getByRole("complementary", { name: "Profile" });
+  await expect(profile.getByText("Board games and synths")).toBeVisible();
+  await profile.getByRole("button", { name: "Close profile" }).click();
+  await expect(profile).toHaveCount(0);
+
+  // Search: bob finds the pizza message and jumps to it.
+  const searchBox = bob.getByRole("textbox", { name: "Search", exact: true });
+  await searchBox.fill("pizza");
+  await searchBox.press("Enter");
+  const results = bob.getByRole("complementary", { name: "Search results" });
+  const hit = results.getByRole("button").filter({ hasText: "who wants pizza?" }).first();
+  await expect(hit).toBeVisible();
+  await hit.click();
+  await expect(bobGeneral.getByRole("article").filter({ hasText: "who wants pizza? @bob" }).first()).toBeInViewport();
+  await results.getByRole("button", { name: "Close search" }).click();
+
+  // Inbox: bob has read #general, so he opens the DM with alice and she mentions him again; the badge counts it.
+  await bob.getByRole("tab", { name: /^Messages/ }).click();
+  await bob.getByRole("link", { name: /alice/ }).click();
+  await expect(bob.getByRole("heading", { name: "alice" })).toBeVisible();
+  await alice.getByRole("link", { name: "general" }).click();
+  await send(alice, "@bob pizza is here");
+  await expect(bob.getByRole("button", { name: "Inbox", exact: true })).toContainText("1"); // the badge is aria-hidden
+  // Both mentions are listed; "Mark all read" clears the unread dot.
+  await bob.getByRole("button", { name: "Inbox", exact: true }).click();
+  const inbox = bob.getByRole("dialog", { name: "Inbox" });
+  await expect(inbox.getByText("who wants pizza?")).toBeVisible();
+  await expect(inbox.getByRole("img", { name: "Unread" })).toHaveCount(1);
+  await inbox.getByRole("button", { name: "Mark all read" }).click();
+  await expect(inbox.getByRole("img", { name: "Unread" })).toHaveCount(0);
+  await bob.keyboard.press("Escape");
 });

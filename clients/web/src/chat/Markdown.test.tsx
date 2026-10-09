@@ -58,3 +58,19 @@ describe("inline Markdown (topics)", () => {
     expect(out).toContain("rules");
   });
 });
+
+describe("search highlights", () => {
+  const marked = (text: string, inline = false) =>
+    renderToStaticMarkup(<MarkdownView text={text} options={opts} inline={inline} highlight={["wingspan"]} />);
+
+  it("marks terms in text, but not in code or spoilers", () => {
+    const out = marked("I have **Wingspan**, `wingspan` and ||wingspan||");
+    expect(out).toContain("<strong><mark>Wingspan</mark></strong>");
+    expect(out).toContain("<code>wingspan</code>");
+    expect(out.match(/<mark>/g)).toHaveLength(1);
+  });
+
+  it("marks terms in inline rendering", () => {
+    expect(marked("try wingspan", true)).toContain("<mark>wingspan</mark>");
+  });
+});

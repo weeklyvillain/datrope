@@ -31,6 +31,12 @@ need an invite by default (Server settings → Invites); change this under Serve
 - A text chat beside every voice channel.
 - A "New messages" line at the first unread message, with a bar to jump to it or mark the channel read.
 - Voice, camera and screen sharing (see below).
+- Avatars (PNG, JPEG, WebP or GIF up to 2 MB, cropped to 256 × 256 in the browser), a profile banner (up to 5 MB, cropped 3:1 to 960 × 320), up to five https links with site names, pronouns and "About me".
+- A profile popover on every name and avatar, and a full profile in the side panel (people with Manage roles can change roles there).
+- A member list with avatars, presence and status.
+- Message search in the header (operators `from:`, `in:`, `has:link`/`has:file`, `before:` and `after:`); it covers only the channels you can read and your DMs.
+- A mentions inbox, with unread count and "Mark all read".
+- Browser notifications, set per device in Your settings.
 - Voice layouts: a grid of everyone, or a stage with one large tile and a strip of the rest.
 - Per-person volume (0-200 %) and "Mute for me", just for you: set on your device only, never sent, and a small badge on the tile reminds you.
 - A soundboard (Server settings → Soundboard, needs Manage expressions): short sounds anyone with permission to speak and the "Use soundboard" permission (on for @everyone by default) can play in a call. Up to 100 sounds per server; OGG, MP3 or WAV, at most 5 seconds and 512 KB each, with one emoji and a name of up to 32 characters. One play per person every 2 seconds. Shift-click a sound to preview it only for yourself.

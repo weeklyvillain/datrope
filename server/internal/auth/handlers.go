@@ -48,10 +48,11 @@ type InstanceInfo struct {
 }
 
 type UpdateMeRequest struct {
-	DisplayName  *string `json:"display_name,omitempty" minLength:"1" maxLength:"32"`
-	CustomStatus *string `json:"custom_status,omitempty" maxLength:"80" doc:"Shown under your name; empty clears it"`
-	Pronouns     *string `json:"pronouns,omitempty" maxLength:"40" doc:"Empty clears them"`
-	AboutMe      *string `json:"about_me,omitempty" maxLength:"190" doc:"Empty clears it"`
+	DisplayName  *string   `json:"display_name,omitempty" minLength:"1" maxLength:"32"`
+	CustomStatus *string   `json:"custom_status,omitempty" maxLength:"80" doc:"Shown under your name; empty clears it"`
+	Pronouns     *string   `json:"pronouns,omitempty" maxLength:"40" doc:"Empty clears them"`
+	AboutMe      *string   `json:"about_me,omitempty" maxLength:"190" doc:"Empty clears it"`
+	Links        *[]string `json:"links,omitempty" maxItems:"10" doc:"At most 5 https:// links of 200 characters each, after blanks and duplicates are removed; an empty list clears them"`
 }
 
 func Register(api huma.API, s *Service) {
@@ -116,9 +117,17 @@ func Register(api huma.API, s *Service) {
 			if name != nil && *name == "" {
 				return nil, httpx.BadRequest("VALIDATION_FAILED", "display name cannot be blank")
 			}
+			var links *[]string
+			if in.Body.Links != nil {
+				l, err := validateLinks(*in.Body.Links)
+				if err != nil {
+					return nil, err
+				}
+				links = &l
+			}
 			u, err := s.store.UpdateProfile(ctx, Current(ctx).User.ID, ProfilePatch{
 				DisplayName: name, CustomStatus: trim(in.Body.CustomStatus),
-				Pronouns: trim(in.Body.Pronouns), AboutMe: trim(in.Body.AboutMe)})
+				Pronouns: trim(in.Body.Pronouns), AboutMe: trim(in.Body.AboutMe), Links: links})
 			if err != nil {
 				return nil, err
 			}

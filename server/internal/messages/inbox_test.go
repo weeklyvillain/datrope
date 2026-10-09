@@ -124,3 +124,51 @@ func TestMentionsInboxHidesDeletedAndKicked(t *testing.T) {
 	require.Len(t, acked.ReadStates, 1)
 	require.Equal(t, inDM.ChannelID, acked.ReadStates[0].ChannelID)
 }
+
+func TestMentionsAckNeverMovesBackwards(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	general := alice.General()
+
+	mention := alice.Send(general, "@bob first")
+	newest := alice.Send(general, "plain, but newer")
+	bob.Do(http.MethodPost, "/api/channels/"+general.String()+"/ack", map[string]any{"message_id": newest.ID.String()}, http.StatusNoContent, nil)
+
+	var acked messages.AckMentionsResult
+	bob.Do(http.MethodPost, "/api/users/@me/mentions/ack", nil, http.StatusOK, &acked)
+	require.Len(t, acked.ReadStates, 1)
+	require.Equal(t, newest.ID, *acked.ReadStates[0].LastReadID, "read position stays past the mention")
+
+	var p messages.MentionsPage
+	bob.Do(http.MethodGet, "/api/users/@me/mentions", nil, http.StatusOK, &p)
+	require.Equal(t, []id.ID{mention.ID}, itemIDs(p.Items))
+	require.False(t, p.Items[0].Unread)
+	require.Equal(t, 0, *p.UnreadCount)
+}
+
+func TestMentionsInboxHeldAtRulesGate(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	alice.Do(http.MethodPut, "/api/server/welcome", map[string]any{"markdown": "Rules: be nice.", "rules_gate": true}, http.StatusOK, nil)
+	dave := env.Register("dave")
+	alice.Send(alice.General(), "@dave welcome")
+	var p messages.MentionsPage
+	dave.Do(http.MethodGet, "/api/users/@me/mentions", nil, http.StatusOK, &p)
+	require.Empty(t, p.Items)
+	require.Equal(t, 0, *p.UnreadCount)
+}
+
+func TestMentionsUnreadCountCapped(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	general := alice.General()
+	for i := 0; i < 105; i++ {
+		alice.Send(general, "@bob ping")
+	}
+	var p messages.MentionsPage
+	bob.Do(http.MethodGet, "/api/users/@me/mentions", nil, http.StatusOK, &p)
+	require.Equal(t, 100, *p.UnreadCount)
+	require.Len(t, p.Items, 25)
+}

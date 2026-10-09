@@ -1,4 +1,4 @@
-import { compareIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
+import { ApiError, compareIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Pin } from "lucide-react";
 import { client, displayName, errorText, formatBytes, outranksUser, roleColor, useApp } from "../session";
@@ -16,6 +16,7 @@ import { ProfilePopover } from "./people/ProfilePopover";
 import { MessageToolbar } from "./MessageToolbar";
 import { ReplyQuote } from "./ReplyQuote";
 import { ThreadSummary } from "./ThreadSummary";
+import { clearPendingJump, usePendingJump } from "./jump";
 import { firstUnreadIndex, idTime } from "./unread";
 import { AudioPlayer } from "./attachments/AudioPlayer";
 import { ImageViewer } from "./attachments/ImageViewer";
@@ -42,28 +43,44 @@ function relativeDay(d: Date): string | null {
   return d.toDateString() === day.toDateString() ? "Yesterday" : null;
 }
 const dayLabel = (d: Date) => relativeDay(d) ?? shortDate.format(d);
-function stamp(d: Date) {
+export function stamp(d: Date) {
   const day = relativeDay(d);
   return day ? `${day} at ${timeOnly.format(d)}` : dateTime.format(d);
 }
 
-/** Scrolls to a message and flashes it, loading up to 5 older pages to find it.
- *  Returns false when it is not found. */
+/** Scrolls to a message and flashes it. When it is not loaded, loads up to 2 older pages, then a
+ *  window around it (a detached window when it is far back). Returns false when it does not exist;
+ *  other load errors are thrown. */
 export async function jumpTo(channelId: string, messageId: string): Promise<boolean> {
-  for (let page = 0; ; page++) {
-    const el = document.getElementById(`message-${messageId}`);
-    if (el) {
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
-      el.classList.remove("message-flash");
-      void el.offsetWidth; // restart the animation if it is still running
-      el.classList.add("message-flash");
-      setTimeout(() => el.classList.remove("message-flash"), 1500);
-      return true;
-    }
-    if (page >= 5 || !client.store.getState().messages[channelId]?.hasMore) return false;
+  const find = () => document.getElementById(`message-${messageId}`);
+  // Older pages can only hold it when it is older than the oldest loaded message.
+  const older = () => {
+    const list = client.store.getState().messages[channelId];
+    const oldest = list?.items.find((m) => !m.pending)?.id;
+    return !!list?.hasMore && !!oldest && compareIds(messageId, oldest) < 0;
+  };
+  for (let page = 0; !find() && page < 2 && older(); page++) {
     await client.loadOlder(channelId);
     await nextFrame(); // let React render the page
   }
+  if (!find()) {
+    try {
+      await client.loadAround(channelId, messageId);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return false; // deleted
+      throw e;
+    }
+    await nextFrame();
+    await nextFrame();
+  }
+  const el = find();
+  if (!el) return false;
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  el.classList.remove("message-flash");
+  void el.offsetWidth; // restart the animation if it is still running
+  el.classList.add("message-flash");
+  setTimeout(() => el.classList.remove("message-flash"), 1500);
+  return true;
 }
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -104,6 +121,9 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   const bottom = useRef<HTMLDivElement>(null);
   const divider = useRef<HTMLDivElement>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
+  const [jumpError, setJumpError] = useState<string>();
+  const pendingJump = usePendingJump(channelId);
   const [jumping, setJumping] = useState(false);
   const [bottomVisible, setBottomVisible] = useState(false);
   const [dividerAbove, setDividerAbove] = useState(false);
@@ -118,11 +138,12 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   const opened = useRef<string>();
 
   const items = list?.items ?? [];
+  const detached = !!list?.hasNewer; // a window of older messages: nothing is marked read
   const lastId = items.at(-1)?.id;
   const lastConfirmed = items.filter((m) => !m.pending).at(-1)?.id;
   const oldestId = items.find((m) => !m.pending)?.id;
   let markId = mark.channelId === channelId ? mark.id : readMarker(channelId);
-  if (noLine.current && bottomVisible && focused && lastConfirmed && (!markId || compareIds(lastConfirmed, markId) > 0)) markId = lastConfirmed;
+  if (!detached && noLine.current && bottomVisible && focused && lastConfirmed && (!markId || compareIds(lastConfirmed, markId) > 0)) markId = lastConfirmed;
   const unreadAt = unreadLine && list ? firstUnreadIndex(items, markId, meId) : -1;
   // The first unread message is older than the loaded page.
   const olderUnread = unreadLine && !!list?.hasMore && (!markId || (!!oldestId && compareIds(markId, oldestId) < 0));
@@ -142,6 +163,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
 
   // Opening scrolls the "New messages" line near the top, or else to the bottom. Later, a new last
   // message keeps you at the bottom if you were there, and always scrolls there when it is your own.
+  // A detached window never scrolls to the bottom.
   useLayoutEffect(() => {
     if (!list) return;
     if (opened.current !== channelId) {
@@ -151,8 +173,25 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
         return;
       }
     } else if (!stick.current && items.at(-1)?.author.id !== meId) return;
+    if (list.hasNewer) return;
     bottom.current?.scrollIntoView({ block: "end" });
   }, [channelId, !!list, lastId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A jump asked for by openMessage (search, inbox, notifications) runs once the messages are loaded.
+  useEffect(() => {
+    if (!pendingJump || !list) return;
+    clearPendingJump();
+    setJumpError(undefined);
+    jumpTo(channelId, pendingJump).then((found) => {
+      if (!found) setJumpError("That message is no longer available.");
+    }, (e) => setJumpError(errorText(e)));
+  }, [pendingJump, !!list]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!jumpError) return;
+    const t = setTimeout(() => setJumpError(undefined), 4000);
+    return () => clearTimeout(t);
+  }, [jumpError]);
 
   useEffect(() => {
     const el = bottom.current;
@@ -164,11 +203,11 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
 
   // Reaching the bottom while the window has focus marks the channel read.
   useEffect(() => {
-    if (lastConfirmed && bottomVisible && focused) client.ack(channelId, lastConfirmed).catch(() => undefined);
-  }, [channelId, lastConfirmed, bottomVisible, focused]);
+    if (!detached && lastConfirmed && bottomVisible && focused) client.ack(channelId, lastConfirmed).catch(() => undefined);
+  }, [channelId, lastConfirmed, bottomVisible, focused, detached]);
 
   const markRead = () => {
-    if (!lastConfirmed) return;
+    if (!lastConfirmed || detached) return;
     setMark({ channelId, id: lastConfirmed });
     client.ack(channelId, lastConfirmed).catch(() => undefined);
   };
@@ -197,7 +236,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   if (!list) return <div className="grid flex-1 place-items-center overflow-y-auto p-8 text-center text-muted-foreground">Loading…</div>;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {(dividerAbove || olderUnread) && (
+      {!detached && (dividerAbove || olderUnread) && (
         <div className="mx-4 flex shrink-0 items-center gap-1 rounded-b-lg bg-primary py-1 pl-3 pr-1 text-sm text-primary-foreground shadow-md">
           <span className="min-w-0 flex-1 truncate font-medium">New messages{since && ` since ${stamp(since)}`}</span>
           <Button size="sm" variant="ghost" className="h-7 hover:bg-primary-foreground/15 hover:text-primary-foreground" disabled={jumping}
@@ -248,8 +287,34 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
             </Fragment>
           );
         })}
+        {list.hasNewer && (
+          <Button variant="outline" className="mx-4 mt-2" disabled={loadingNewer} onClick={async () => {
+            setLoadingNewer(true);
+            try {
+              await client.loadNewer(channelId);
+            } finally {
+              setLoadingNewer(false);
+            }
+          }}>{loadingNewer ? "Loading…" : "Load newer messages"}</Button>
+        )}
         <div ref={bottom} className="h-px shrink-0" />
       </div>
+      {list.hasNewer && (
+        <div className="mx-4 flex shrink-0 items-center gap-1 rounded-t-lg bg-secondary py-1 pl-3 pr-1 text-sm text-secondary-foreground shadow-md">
+          <span className="min-w-0 flex-1 truncate font-medium">You're viewing older messages</span>
+          <Button size="sm" variant="ghost" className="h-7" disabled={jumping} onClick={async () => {
+            setJumping(true);
+            try {
+              await client.loadLatest(channelId);
+              await nextFrame(); // let React render the page
+              bottom.current?.scrollIntoView({ block: "end" });
+            } finally {
+              setJumping(false);
+            }
+          }}>Jump to present</Button>
+        </div>
+      )}
+      {jumpError && <div className="shrink-0 px-4"><ErrorText error={jumpError} /></div>}
     </div>
   );
 }
@@ -305,7 +370,11 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
     : undefined;
   const jump = async (id: string) => {
     setError(undefined);
-    if (!(await jumpTo(m.channel_id, id))) setError("That message is too far back.");
+    try {
+      if (!(await jumpTo(m.channel_id, id))) setError("That message is no longer available.");
+    } catch (e) {
+      setError(errorText(e));
+    }
   };
 
   return (

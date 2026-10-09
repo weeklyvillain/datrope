@@ -8,8 +8,10 @@ import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { useApp, usePerms } from "../../session";
 import { Topic } from "../ChannelView";
 import { Composer } from "../Composer";
+import { usePendingJump } from "../jump";
 import { MessageList } from "../MessageList";
 import { ProfilePanel } from "../people/ProfilePanel";
+import { SearchPanel } from "../search/SearchPanel";
 import { closePanel, usePanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
 import { SoundboardButton } from "./SoundboardPanel";
@@ -21,7 +23,13 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   const canRead = hasPerm(perms, Perm.ReadHistory);
   const [chat, setChat] = useState(true);
   const profile = usePanel((s) => (s.panel?.kind === "profile" ? s.panel.userId : undefined));
+  const searching = usePanel((s) => s.panel?.kind === "search");
   useEffect(() => setChat(true), [channelId]);
+  // A jump to a message here (a search result) opens the chat, whose message list runs it.
+  const pendingJump = usePendingJump(channelId);
+  useEffect(() => {
+    if (pendingJump) setChat(true);
+  }, [pendingJump]);
   const { layout, setLayout, canStage } = useVoiceLayout(channelId);
 
   if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
@@ -65,6 +73,8 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
       </main>
       {profile ? (
         <ProfilePanel key={profile} userId={profile} onClose={closePanel} />
+      ) : searching ? (
+        <SearchPanel />
       ) : chat && canRead && (
         <SidePanel title="Chat" subtitle={`#${ch.name}`} onClose={() => setChat(false)}>
           <VoiceChat channelId={channelId} name={ch.name} />

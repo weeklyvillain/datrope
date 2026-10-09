@@ -121,6 +121,7 @@
 .chat-md ul { list-style: disc; }
 .chat-md ol { list-style: decimal; }
 .chat-md a { text-decoration: underline; }
+.chat-md mark { background: color-mix(in srgb, var(--idle) 35%, transparent); color: var(--foreground); border-radius: 3px; padding: 0 1px; }
 /* "(edited)" follows the last paragraph on its line. */
 .chat-md:has(+ .edited), .chat-md:has(+ .edited) > p:last-child { display: inline; }
 .spoiler {

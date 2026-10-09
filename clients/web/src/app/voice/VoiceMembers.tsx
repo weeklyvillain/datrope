@@ -94,7 +94,7 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
 function MemberItem({ userId, channelId, movable, children }: { userId: string; channelId: string; movable: boolean; children: ReactNode }) {
   const { setNodeRef, listeners, isDragging } = useDraggable({ id: `vm:${userId}`, data: { from: channelId }, disabled: !movable });
   return (
-    <li ref={setNodeRef} onPointerDown={listeners?.onPointerDown as PointerEventHandler | undefined} className={cn("flex items-center gap-1", isDragging && "opacity-40")}>
+    <li ref={setNodeRef} onPointerDownCapture={listeners?.onPointerDown as PointerEventHandler | undefined} className={cn("flex items-center gap-1", isDragging && "opacity-40")}>
       {children}
     </li>
   );

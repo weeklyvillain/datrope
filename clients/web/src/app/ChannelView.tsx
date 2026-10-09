@@ -12,10 +12,13 @@ import { Markdown } from "../chat/Markdown";
 import { ChannelSettingsDialog } from "./dialogs/ChannelSettingsDialog";
 import { useVoice, voice } from "../voice/voice";
 import { Composer } from "./Composer";
+import { InboxButton } from "./InboxButton";
 import { MemberList } from "./MemberList";
 import { MessageList, jumpTo } from "./MessageList";
 import { PinsPanel } from "./PinsPanel";
 import { ProfilePanel } from "./people/ProfilePanel";
+import { SearchBox } from "./search/SearchBox";
+import { SearchPanel } from "./search/SearchPanel";
 import { closePanel, openPanel, panelStore, usePanel } from "./side-panel/panel";
 import { ThreadPanel } from "./side-panel/ThreadPanel";
 import { SidePanel } from "./side-panel/SidePanel";
@@ -38,8 +41,9 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
   useEffect(() => {
     setReplyTo(null);
     // A thread or the threads list belongs to its channel; a profile (and search) stays open.
-    const kind = panelStore.getState().panel?.kind;
-    if (kind === "thread" || kind === "threads") closePanel();
+    // A thread opened from a search result is opened along with its parent channel, so it stays.
+    const p = panelStore.getState().panel;
+    if (p?.kind === "threads" || (p?.kind === "thread" && p.parentId !== channelId)) closePanel();
   }, [channelId]);
 
   if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
@@ -55,6 +59,7 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
           <h2 className="flex-none">{title}</h2>
           {ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
           <div className="ml-auto flex flex-none items-center gap-1">
+            <InboxButton />
             {threads && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -69,11 +74,12 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
                 <TooltipContent>Threads</TooltipContent>
               </Tooltip>
             )}
-            <PinsPanel channelId={channelId} onJump={(id) => void jumpTo(channelId, id)} />
+            <PinsPanel channelId={channelId} onJump={(id) => void jumpTo(channelId, id).catch(() => undefined)} />
           </div>
           {ch.type === "dm" && !here && inCall === 0 && (
             <Button variant="outline" size="sm" onClick={() => void voice.join(channelId)}><Phone /> Start call</Button>
           )}
+          <SearchBox />
         </header>
         {ch.type === "dm" && (inCall > 0 || here) && (
           <div className="border-b"><VoiceStage channelId={channelId} joinLabel="Join call" compact /></div>
@@ -93,6 +99,8 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
         <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={channelId} onClose={closePanel} />
       ) : panel?.kind === "profile" ? (
         <ProfilePanel key={panel.userId} userId={panel.userId} onClose={closePanel} />
+      ) : panel?.kind === "search" ? (
+        <SearchPanel />
       ) : members && <MemberList />}
     </>
   );

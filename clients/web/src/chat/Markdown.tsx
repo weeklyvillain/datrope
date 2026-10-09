@@ -7,7 +7,7 @@ import { remarkChat, type ChatOptions } from "./remarkChat";
 import { useEmojiData } from "./emoji-data";
 
 // Everything else (headings, images, tables, rules, raw HTML) renders as its text.
-const ALLOWED = ["p", "br", "strong", "em", "del", "code", "pre", "blockquote", "ul", "ol", "li", "a", "span", "img"];
+const ALLOWED = ["p", "br", "strong", "em", "del", "code", "pre", "blockquote", "ul", "ol", "li", "a", "span", "img", "mark"];
 
 export function Spoiler({ children }: { children?: ReactNode }) {
   const [shown, setShown] = useState(false);
@@ -42,14 +42,18 @@ const components: Components = {
 };
 
 // One-line rendering (a channel topic in a header): inline formatting only, no links or spoiler buttons.
-const INLINE_ALLOWED = ["strong", "em", "del", "code", "span", "img"];
+const INLINE_ALLOWED = ["strong", "em", "del", "code", "span", "img", "mark"];
 const inlineComponents: Components = {
   ...components,
   span: ({ node: _n, className, children, ...p }) => <span className={className} {...p}>{children}</span>,
 };
 
-/** Renders message Markdown with the given emoji and mention lookups. `inline` flattens it to one line of inline formatting. */
-export function MarkdownView({ text, options, inline = false }: { text: string; options: ChatOptions; inline?: boolean }) {
+/** Renders message Markdown with the given emoji and mention lookups. `inline` flattens it to one line of inline formatting.
+ *  `highlight` marks those search terms. */
+export function MarkdownView({ text, options: base, inline = false, highlight }: {
+  text: string; options: ChatOptions; inline?: boolean; highlight?: string[];
+}) {
+  const options = highlight ? { ...base, highlight } : base;
   if (inline) {
     return (
       <span className="chat-md">
@@ -72,12 +76,13 @@ export function MarkdownView({ text, options, inline = false }: { text: string; 
 
 /** Renders a message's content. `mentions` are the user IDs the server parsed from it;
  *  when given, only those users are highlighted. */
-export function Markdown({ text, mentions, inline }: { text: string; mentions?: string[]; inline?: boolean }) {
+export function Markdown({ text, mentions, inline, highlight }: { text: string; mentions?: string[]; inline?: boolean; highlight?: string[] }) {
   const emoji = useApp((s) => s.emoji);
   const members = useApp((s) => s.server?.members);
   const meId = useApp((s) => s.me?.id);
   const data = useEmojiData();
   const mentionKey = mentions?.join(",");
+  const highlightKey = highlight?.join(" ");
   const options = useMemo<ChatOptions>(() => {
     const mentioned = mentionKey === undefined ? null : new Set(mentionKey.split(","));
     return {
@@ -87,7 +92,8 @@ export function Markdown({ text, mentions, inline }: { text: string; mentions?: 
         .filter((m) => !mentioned || mentioned.has(m.user.id))
         .map((m) => [m.user.username.toLowerCase(), { id: m.user.id, name: m.user.display_name }])),
       meId,
+      highlight: highlightKey ? highlightKey.split(" ") : undefined,
     };
-  }, [emoji, members, meId, data, mentionKey]);
+  }, [emoji, members, meId, data, mentionKey, highlightKey]);
   return <MarkdownView text={text} options={options} inline={inline} />;
 }

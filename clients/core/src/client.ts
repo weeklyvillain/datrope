@@ -228,7 +228,7 @@ export class DatropeClient {
   }
 
   /** Updates my profile; omitted fields are unchanged. */
-  async updateMe(patch: { display_name?: string; custom_status?: string; pronouns?: string; about_me?: string }): Promise<User> {
+  async updateMe(patch: { display_name?: string; custom_status?: string; pronouns?: string; about_me?: string; links?: string[] }): Promise<User> {
     const u = await unwrap(this.api.PATCH("/api/users/@me", { body: patch }));
     this.apply("USER_UPDATE", publicUser(u));
     return u;
@@ -242,6 +242,20 @@ export class DatropeClient {
 
   async removeAvatar(): Promise<User> {
     const res = await fetch(this.url("/api/users/@me/avatar"), { method: "DELETE", headers: this.authHeaders(), credentials: "include" });
+    if (!res.ok) await this.throwApiError(res);
+    const u = (await res.json()) as User;
+    this.apply("USER_UPDATE", publicUser(u));
+    return u;
+  }
+
+  async uploadBanner(image: Blob): Promise<User> {
+    const u = (await this.multipart("PUT", "/api/users/@me/banner", image, "banner.png")) as User;
+    this.apply("USER_UPDATE", publicUser(u));
+    return u;
+  }
+
+  async removeBanner(): Promise<User> {
+    const res = await fetch(this.url("/api/users/@me/banner"), { method: "DELETE", headers: this.authHeaders(), credentials: "include" });
     if (!res.ok) await this.throwApiError(res);
     const u = (await res.json()) as User;
     this.apply("USER_UPDATE", publicUser(u));

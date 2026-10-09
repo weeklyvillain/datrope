@@ -346,6 +346,20 @@ describe("sounds", () => {
     expect(findUser(s, "999")).toBeUndefined();
   });
 
+  it("carries links and banner on USER_UPDATE and clears them when omitted", () => {
+    let s = loaded();
+    const base = { id: "20", username: "bob", display_name: "Bob", custom_status: "" };
+    s = applyEvent(s, "USER_UPDATE", { ...base, links: ["https://github.com/bob"], banner_url: "/api/banners/20?v=abc" });
+    expect(findUser(s, "20")).toMatchObject({ links: ["https://github.com/bob"], banner_url: "/api/banners/20?v=abc" });
+    expect(s.me?.links).toEqual(["https://github.com/bob"]);
+    expect(s.me?.banner_url).toBe("/api/banners/20?v=abc");
+    s = applyEvent(s, "USER_UPDATE", base);
+    expect(findUser(s, "20")?.links).toBeUndefined();
+    expect(findUser(s, "20")?.banner_url).toBeUndefined();
+    expect(s.me?.links).toBeUndefined();
+    expect(s.me?.banner_url).toBeUndefined();
+  });
+
   it("finds a DM participant and my 1:1 DM", () => {
     const meUser = { id: "20", username: "bob", display_name: "Bob", custom_status: "" };
     const carol = { id: "30", username: "carol", display_name: "Carol", custom_status: "" };

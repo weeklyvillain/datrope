@@ -1157,10 +1157,14 @@ export interface components {
             about_me?: string;
             /** @description A 256 × 256 image; absent when the user has none, and clients draw initials */
             avatar_url?: string;
+            /** @description A 960 × 320 image; absent when the user has none */
+            banner_url?: string;
             custom_status: string;
             display_name: string;
             /** @description Snowflake ID as a decimal string */
             id: string;
+            /** @description Up to 5 https:// links */
+            links?: string[] | null;
             /** @description Up to 40 characters */
             pronouns?: string;
             username: string;
@@ -1447,6 +1451,8 @@ export interface components {
             /** @description Shown under your name; empty clears it */
             custom_status?: string;
             display_name?: string;
+            /** @description At most 5 https:// links of 200 characters each, after blanks and duplicates are removed; an empty list clears them */
+            links?: string[];
             /** @description Empty clears them */
             pronouns?: string;
         };
@@ -1486,6 +1492,8 @@ export interface components {
             about_me?: string;
             /** @description A 256 × 256 image; absent when the user has none, and clients draw initials */
             avatar_url?: string;
+            /** @description A 960 × 320 image; absent when the user has none */
+            banner_url?: string;
             /** Format: date-time */
             created_at: string;
             custom_status: string;
@@ -1495,6 +1503,8 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             id: string;
             is_admin: boolean;
+            /** @description Up to 5 https:// links */
+            links?: string[] | null;
             /** @description Up to 40 characters */
             pronouns?: string;
             username: string;

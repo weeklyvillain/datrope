@@ -1088,6 +1088,10 @@
             "description": "A 256 × 256 image; absent when the user has none, and clients draw initials",
             "type": "string"
           },
+          "banner_url": {
+            "description": "A 960 × 320 image; absent when the user has none",
+            "type": "string"
+          },
           "custom_status": {
             "type": "string"
           },
@@ -1098,6 +1102,16 @@
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
             "type": "string"
+          },
+          "links": {
+            "description": "Up to 5 https:// links",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "pronouns": {
             "description": "Up to 40 characters",
@@ -2104,6 +2118,14 @@
             "minLength": 1,
             "type": "string"
           },
+          "links": {
+            "description": "At most 5 https:// links of 200 characters each, after blanks and duplicates are removed; an empty list clears them",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          },
           "pronouns": {
             "description": "Empty clears them",
             "maxLength": 40,
@@ -2227,6 +2249,10 @@
             "description": "A 256 × 256 image; absent when the user has none, and clients draw initials",
             "type": "string"
           },
+          "banner_url": {
+            "description": "A 960 × 320 image; absent when the user has none",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "type": "string"
@@ -2250,6 +2276,16 @@
           },
           "is_admin": {
             "type": "boolean"
+          },
+          "links": {
+            "description": "Up to 5 https:// links",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "pronouns": {
             "description": "Up to 40 characters",

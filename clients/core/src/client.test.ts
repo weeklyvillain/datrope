@@ -401,6 +401,39 @@ it("removes an avatar", async () => {
   expect(client.store.getState().me?.avatar_url).toBeUndefined();
 });
 
+it("uploads a banner and applies the USER_UPDATE", async () => {
+  let hasFile = false;
+  server.use(http.put(`${BASE}/api/users/@me/banner`, async ({ request }) => {
+    hasFile = (await request.formData()).get("file") instanceof File;
+    return HttpResponse.json({ ...ready.user, banner_url: "/api/banners/1?v=0123456789ab" });
+  }));
+  const client = readyClient();
+  const u = await client.uploadBanner(new Blob(["x"], { type: "image/png" }));
+  expect(hasFile).toBe(true);
+  expect(u.banner_url).toBe("/api/banners/1?v=0123456789ab");
+  expect(client.store.getState().me?.banner_url).toBe("/api/banners/1?v=0123456789ab");
+});
+
+it("removes a banner", async () => {
+  server.use(http.delete(`${BASE}/api/users/@me/banner`, () => HttpResponse.json({ ...ready.user })));
+  const client = readyClient();
+  client.apply("USER_UPDATE", { id: "1", username: "alice", display_name: "Alice", custom_status: "", banner_url: "/b" });
+  await client.removeBanner();
+  expect(client.store.getState().me?.banner_url).toBeUndefined();
+});
+
+it("updateMe sends links and applies them", async () => {
+  let sent: unknown;
+  server.use(http.patch(`${BASE}/api/users/@me`, async ({ request }) => {
+    sent = await request.json();
+    return HttpResponse.json({ ...ready.user, links: ["https://github.com/alice"] });
+  }));
+  const client = readyClient();
+  await client.updateMe({ links: ["https://github.com/alice"] });
+  expect(sent).toEqual({ links: ["https://github.com/alice"] });
+  expect(client.store.getState().me?.links).toEqual(["https://github.com/alice"]);
+});
+
 it("updateMe patches and applies the change", async () => {
   let sent: unknown;
   server.use(http.patch(`${BASE}/api/users/@me`, async ({ request }) => {

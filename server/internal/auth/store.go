@@ -37,22 +37,26 @@ type User struct {
 	Pronouns     string    `json:"pronouns,omitempty" doc:"Up to 40 characters"`
 	AboutMe      string    `json:"about_me,omitempty" doc:"Up to 190 characters"`
 	AvatarURL    string    `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
+	BannerURL    string    `json:"banner_url,omitempty" doc:"A 960 × 320 image; absent when the user has none"`
+	Links        []string  `json:"links,omitempty" doc:"Up to 5 https:// links"`
 }
 
 // PublicUser is what other users may see.
 type PublicUser struct {
-	ID           id.ID  `json:"id"`
-	Username     string `json:"username"`
-	DisplayName  string `json:"display_name"`
-	CustomStatus string `json:"custom_status"`
-	Pronouns     string `json:"pronouns,omitempty" doc:"Up to 40 characters"`
-	AboutMe      string `json:"about_me,omitempty" doc:"Up to 190 characters"`
-	AvatarURL    string `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
+	ID           id.ID    `json:"id"`
+	Username     string   `json:"username"`
+	DisplayName  string   `json:"display_name"`
+	CustomStatus string   `json:"custom_status"`
+	Pronouns     string   `json:"pronouns,omitempty" doc:"Up to 40 characters"`
+	AboutMe      string   `json:"about_me,omitempty" doc:"Up to 190 characters"`
+	AvatarURL    string   `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
+	BannerURL    string   `json:"banner_url,omitempty" doc:"A 960 × 320 image; absent when the user has none"`
+	Links        []string `json:"links,omitempty" doc:"Up to 5 https:// links"`
 }
 
 func (u *User) Public() PublicUser {
 	return PublicUser{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, CustomStatus: u.CustomStatus,
-		Pronouns: u.Pronouns, AboutMe: u.AboutMe, AvatarURL: u.AvatarURL}
+		Pronouns: u.Pronouns, AboutMe: u.AboutMe, AvatarURL: u.AvatarURL, BannerURL: u.BannerURL, Links: u.Links}
 }
 
 type Session struct {
@@ -74,13 +78,13 @@ type Store struct{ db *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{db: pool} }
 
-const userCols = `u.id, u.username, u.email, u.display_name, u.custom_status, u.is_admin, u.disabled, u.created_at, u.password_hash, u.pronouns, u.about_me, u.avatar_sha256`
+const userCols = `u.id, u.username, u.email, u.display_name, u.custom_status, u.is_admin, u.disabled, u.created_at, u.password_hash, u.pronouns, u.about_me, u.avatar_sha256, u.banner_sha256, u.links`
 
 func scanUser(row pgx.Row, extra ...any) (*User, error) {
 	var u User
-	var avatar *string
+	var avatar, banner *string
 	dest := append(extra, &u.ID, &u.Username, &u.Email, &u.DisplayName, &u.CustomStatus, &u.IsAdmin, &u.Disabled, &u.CreatedAt, &u.PasswordHash,
-		&u.Pronouns, &u.AboutMe, &avatar)
+		&u.Pronouns, &u.AboutMe, &avatar, &banner, &u.Links)
 	err := row.Scan(dest...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -88,16 +92,9 @@ func scanUser(row pgx.Row, extra ...any) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	u.AvatarURL = avatarURL(u.ID, avatar)
+	u.AvatarURL = avatarKind.imageURL(u.ID, avatar)
+	u.BannerURL = bannerKind.imageURL(u.ID, banner)
 	return &u, nil
-}
-
-// avatarURL is the public, versioned URL of a user's avatar, or "" when they have none.
-func avatarURL(userID id.ID, sum *string) string {
-	if sum == nil || len(*sum) < 12 {
-		return ""
-	}
-	return "/api/avatars/" + userID.String() + "?v=" + (*sum)[:12]
 }
 
 // CreateUser inserts u. The first user ever created becomes the instance
@@ -164,7 +161,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicUser, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256 FROM users WHERE id = ANY($1)`, id.Int64s(ids))
+	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256, banner_sha256, links FROM users WHERE id = ANY($1)`, id.Int64s(ids))
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +169,12 @@ func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicU
 	out := make(map[id.ID]PublicUser, len(ids))
 	for rows.Next() {
 		var p PublicUser
-		var avatar *string
-		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar); err != nil {
+		var avatar, banner *string
+		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar, &banner, &p.Links); err != nil {
 			return nil, err
 		}
-		p.AvatarURL = avatarURL(p.ID, avatar)
+		p.AvatarURL = avatarKind.imageURL(p.ID, avatar)
+		p.BannerURL = bannerKind.imageURL(p.ID, banner)
 		out[p.ID] = p
 	}
 	return out, rows.Err()
@@ -185,14 +183,22 @@ func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicU
 // ProfilePatch holds the profile fields to change; nil leaves a field as it is.
 type ProfilePatch struct {
 	DisplayName, CustomStatus, Pronouns, AboutMe *string
+	Links                                        *[]string
 }
 
 // UpdateProfile changes the fields that are not nil.
 func (s *Store) UpdateProfile(ctx context.Context, userID id.ID, p ProfilePatch) (*User, error) {
+	var links []string // nil (SQL NULL) leaves the column as it is
+	if p.Links != nil {
+		links = *p.Links
+		if links == nil {
+			links = []string{}
+		}
+	}
 	return scanUser(s.db.QueryRow(ctx, `
 		UPDATE users u SET display_name = COALESCE($2, display_name), custom_status = COALESCE($3, custom_status),
-		                   pronouns = COALESCE($4, pronouns), about_me = COALESCE($5, about_me)
-		WHERE u.id = $1 RETURNING `+userCols, userID, p.DisplayName, p.CustomStatus, p.Pronouns, p.AboutMe))
+		                   pronouns = COALESCE($4, pronouns), about_me = COALESCE($5, about_me), links = COALESCE($6, links)
+		WHERE u.id = $1 RETURNING `+userCols, userID, p.DisplayName, p.CustomStatus, p.Pronouns, p.AboutMe, links))
 }
 
 func (s *Store) SetPassword(ctx context.Context, userID id.ID, hash string) error {
