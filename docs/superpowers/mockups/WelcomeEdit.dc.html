@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — edit welcome page</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/datrope/tokens.css">
+<link rel="stylesheet" href="ds/datrope/components/bundle.css">
+<script src="ds/datrope/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body { margin: 0; background: #131313; }
+a { color: var(--primary); text-decoration: none; } a:hover { text-decoration: underline; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm { width: 14px; height: 14px; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; }
+.chan:hover { background: var(--accent); color: var(--foreground); }
+.label { display: flex; align-items: center; gap: 4px; padding: 16px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.msg { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 4px 16px; }
+.msg:hover { background: #171717; }
+.cont { padding: 2px 16px 2px 68px; }
+.cont:hover { background: #171717; }
+.who { font-weight: 600; color: var(--foreground); }
+.time { font-size: 12px; color: var(--muted-foreground); }
+.react { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 13px; }
+.react-mine { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; border: 0; background: transparent; color: var(--muted-foreground); }
+.iconbtn:hover { background: var(--accent); color: var(--foreground); }
+code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; background: #0d0d0d; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+</style>
+</helmet>
+
+<div style="--primary: {{accent}}; --ring: {{accent}}; display: flex; flex-wrap: wrap; height: 100vh; min-height: 900px; background: var(--background); color: var(--foreground); font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif; font-size: 15px; line-height: 1.45; overflow: hidden;">
+
+  <!-- ============ LEFT: server, channels, DMs, voice, me ============ -->
+  <nav aria-label="Channels" style="flex: 1 1 260px; max-width: 280px; min-width: 240px; display: flex; flex-direction: column; background: var(--card); border-right: 1px solid var(--border); min-height: 0;">
+
+    <button style="display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--foreground); text-align: left;">
+      <svg viewBox="0 0 1254 1254" style="width: 28px; height: 28px; flex: none; color: var(--primary);" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M 611.65,241.24 C 631.23,239.87 651.17,241.16 670.68,244.90 C 690.18,248.64 709.26,254.82 727.12,263.21 C 744.97,271.59 761.60,282.19 776.21,294.76 C 790.83,307.34 803.31,321.92 813.92,337.94 C 824.54,353.96 833.32,371.40 840.57,389.67 C 847.83,407.94 853.56,427.03 858.10,446.36 C 862.63,465.68 865.79,485.27 870.56,504.07 C 875.34,522.87 882.10,540.85 892.69,557.11 C 903.28,573.38 916.95,588.04 931.71,600.74 C 946.48,613.44 962.30,624.03 977.95,635.24 C 993.60,646.46 1009.11,658.74 1023.10,672.98 C 1037.09,687.23 1049.48,703.11 1058.96,720.25 C 1068.44,737.40 1075.23,755.77 1079.46,774.73 C 1083.70,793.70 1085.39,813.26 1084.69,832.79 C 1083.98,852.32 1080.88,871.81 1075.53,890.65 C 1070.18,909.48 1062.59,927.66 1052.89,944.55 C 1043.20,961.43 1031.41,977.03 1017.68,990.71 C 1003.94,1004.39 988.25,1016.15 970.78,1025.37 C 953.32,1034.60 934.19,1041.35 914.57,1045.59 C 894.95,1049.83 874.89,1051.59 855.34,1050.65 C 835.79,1049.70 816.71,1046.01 798.90,1039.19 C 781.08,1032.37 764.73,1022.13 748.38,1011.31 C 732.04,1000.50 715.48,989.22 697.94,980.18 C 680.41,971.13 662.11,964.27 643.18,962.01 C 624.25,959.76 604.66,962.14 585.79,967.86 C 566.91,973.58 548.99,982.81 532.52,993.64 C 516.05,1004.47 500.48,1016.51 483.58,1025.96 C 466.69,1035.41 448.27,1042.03 429.16,1045.89 C 410.04,1049.75 390.23,1050.88 370.58,1049.41 C 350.94,1047.94 331.45,1043.86 312.98,1037.32 C 294.50,1030.79 277.11,1021.74 261.30,1010.54 C 245.50,999.35 231.25,986.03 218.96,971.00 C 206.68,955.98 196.35,939.26 188.40,921.26 C 180.45,903.27 174.91,883.96 171.83,864.19 C 168.75,844.42 168.14,824.21 170.04,804.43 C 171.94,784.66 176.35,765.31 183.31,747.29 C 190.27,729.27 199.94,712.78 211.63,697.68 C 223.33,682.57 236.96,668.74 251.55,655.61 C 266.15,642.48 281.71,630.06 297.26,617.78 C 312.81,605.51 328.52,593.54 341.94,579.98 C 355.35,566.43 365.89,550.82 372.98,532.78 C 380.07,514.74 384.40,494.83 388.34,475.06 C 392.29,455.30 395.91,435.79 400.97,417.01 C 406.02,398.22 412.69,380.13 422.13,363.18 C 431.57,346.23 443.41,330.43 456.93,316.21 C 470.45,302.00 485.63,289.39 502.03,278.75 C 518.42,268.10 536.04,259.41 554.46,253.04 C 572.87,246.67 592.08,242.62 611.65,241.24 Z M 389.45,629.59 C 390.44,637.33 409.32,644.99 422.98,652.10 C 436.63,659.21 448.92,666.71 460.42,675.47 C 471.93,684.22 482.73,693.83 493.64,703.67 C 504.54,713.50 515.42,723.64 526.06,734.08 C 536.71,744.51 547.11,755.25 557.05,766.27 C 566.99,777.29 576.40,788.63 585.31,800.19 C 594.23,811.76 602.76,823.52 611.36,835.26 C 619.96,847.01 628.63,858.73 637.86,870.22 C 647.08,881.71 656.47,894.94 668.24,900.70 C 680.01,906.46 695.23,901.15 708.89,893.88 C 722.56,886.61 734.70,877.42 744.64,866.53 C 754.59,855.64 762.25,842.92 767.46,829.16 C 772.68,815.40 775.50,800.65 775.96,785.88 C 776.41,771.11 774.49,756.32 770.21,742.47 C 765.94,728.62 759.22,715.87 750.44,704.61 C 741.66,693.35 730.91,683.43 718.97,674.66 C 707.04,665.88 693.91,658.24 680.37,651.53 C 666.84,644.82 653.00,639.02 639.09,634.02 C 625.17,629.01 611.12,624.80 596.93,621.31 C 582.74,617.81 568.42,615.02 553.98,612.86 C 539.53,610.70 524.97,609.13 510.26,608.18 C 495.54,607.24 480.67,606.94 465.54,607.47 C 450.41,608.01 434.64,609.04 419.86,612.19 C 405.09,615.33 388.45,621.85 389.45,629.59 Z"></path></svg>
+      <span style="flex: 1; min-width: 0;">
+        <span style="display: block; font-weight: 600; font-size: 15px;">The Basement</span>
+        <span style="display: block; font-size: 12px; color: var(--muted-foreground);">5 members · 3 online</span>
+      </span>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+
+    <div role="tablist" aria-label="Views" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 8px 8px 0;">
+      <button role="tab" aria-selected="true" style="height: 32px; border: 0; border-radius: 6px; background: var(--accent); color: var(--foreground); font: inherit; font-size: 14px; font-weight: 600;">Channels</button>
+      <button role="tab" aria-selected="false" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); font: inherit; font-size: 14px;">Messages <span style="min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--destructive); color: #131313; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center;" aria-label="1 unread conversation">1</span></button>
+    </div>
+    <div style="flex: 1; overflow-y: auto; padding: 8px;">
+      <a class="chan" href="#" aria-current="page" style="background: var(--accent); color: var(--foreground);">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></svg>
+        <span>welcome</span>
+      </a>
+
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Hangout</span><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+        <span style="flex: 1;">general</span>
+      </a>
+      <a class="chan" href="#" style="color: var(--foreground); font-weight: 600;">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+        <span style="flex: 1;">games</span>
+        <span style="min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--destructive); color: #131313; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center;" aria-label="2 mentions">2</span>
+      </a>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+        <span>music</span>
+      </a>
+      <a class="chan" href="#" style="opacity: 0.6;">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+        <span style="flex: 1;">memes</span>
+        <svg class="ico ico-sm" viewBox="0 0 24 24" aria-label="Muted"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path><path d="m2 2 20 20"></path></svg>
+      </a>
+
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Voice</span><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></div>
+      <a class="chan" href="#" style="color: var(--foreground);">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+        <span>Lounge</span>
+      </a>
+      <ul aria-label="In voice: Lounge" style="list-style: none; margin: 0 0 4px; padding: 0 0 0 20px;">
+        <li style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 14px; color: var(--muted-foreground);">
+          <span style="display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 10px; font-weight: 600; box-shadow: 0 0 0 2px var(--online);">FE</span>
+          <span style="flex: 1;">Filip</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 14px; color: var(--muted-foreground);">
+          <span style="display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 10px; font-weight: 600;">BO</span>
+          <span style="flex: 1;">Bob</span>
+          <span style="padding: 0 4px; border-radius: 4px; background: var(--destructive); color: #131313; font-size: 10px; font-weight: 700;">LIVE</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 14px; color: var(--muted-foreground);">
+          <span style="display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 10px; font-weight: 600;">CA</span>
+          <span style="flex: 1;">Carol</span>
+          <svg class="ico ico-sm" viewBox="0 0 24 24" aria-label="Muted"><line x1="2" x2="22" y1="2" y2="22"></line><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"></path><path d="M5 10v2a7 7 0 0 0 12 5"></path><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"></path><path d="M9 9v3a3 3 0 0 0 5.12 2.12"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+        </li>
+      </ul>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>
+        <span>Gaming</span>
+      </a>
+
+    </div>
+
+    <!-- voice panel -->
+    <section aria-label="Voice" style="border-top: 1px solid var(--border); background: var(--card); padding: 10px 12px; display: grid; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="flex: 1; min-width: 0;">
+          <p role="status" style="margin: 0; font-size: 14px; font-weight: 600; color: var(--online);">Voice connected</p>
+          <p style="margin: 0; font-size: 12px; color: var(--muted-foreground);">Lounge</p>
+        </div>
+        <button class="iconbtn" aria-label="Disconnect" style="color: var(--destructive);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.1 13.9a14 14 0 0 0 3.732 2.668 1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 .244.473"></path><path d="m2 2 20 20"></path></svg></button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+        <button class="iconbtn" aria-label="Mute" aria-pressed="false" style="width: auto; border: 1px solid var(--border);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg></button>
+        <button class="iconbtn" aria-label="Deafen" aria-pressed="false" style="width: auto; border: 1px solid var(--border);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"></path></svg></button>
+        <button class="iconbtn" aria-label="Camera" aria-pressed="false" style="width: auto; border: 1px solid var(--border);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect></svg></button>
+        <button class="iconbtn" aria-label="Share screen" aria-pressed="false" style="width: auto; border: 1px solid var(--border);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"></path><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="m17 8 5-5"></path><path d="M17 3h5v5"></path></svg></button>
+      </div>
+    </section>
+
+    <!-- me -->
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--card); border-top: 1px solid var(--border);">
+      <span style="position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--primary); color: #131313; font-size: 12px; font-weight: 700;">FE<span style="position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 999px; background: var(--online); box-shadow: 0 0 0 2px var(--card);"></span></span>
+      <span style="flex: 1; min-width: 0;">
+        <span style="display: block; font-size: 14px; font-weight: 600;">Filip</span>
+        <span style="display: block; font-size: 12px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Building Datrope</span>
+      </span>
+      <button class="iconbtn" aria-label="Your settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg></button>
+    </div>
+  </nav>
+
+  <!-- ============ MIDDLE: editing the welcome page ============ -->
+  <main aria-label="Edit welcome page" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; min-height: 0;">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--border); background: var(--card);">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--muted-foreground);"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></svg>
+      <h2 style="margin: 0; font-size: 1.05rem; font-weight: 600;">Edit welcome page</h2>
+      <span style="flex: 1; font-size: 13px; color: var(--muted-foreground);">Unsaved changes</span>
+      <a href="Welcome.dc.html" style="display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); color: var(--foreground); font-size: 14px; text-decoration: none;">Cancel</a>
+      <x-import component-from-global-scope="Datrope.Button" size="sm">Save page</x-import>
+    </header>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border);">
+      <label style="display: grid; gap: 4px; font-size: 13px; color: var(--muted-foreground);">Banner image
+        <span style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 6px; border: 1px dashed var(--border); color: var(--foreground); font-size: 14px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>banner.jpg <span style="color: var(--muted-foreground);">· Replace</span></span>
+      </label>
+      <label style="display: grid; gap: 4px; font-size: 13px; color: var(--muted-foreground);">New members
+        <span style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); color: var(--foreground); font-size: 14px;"><span style="display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; background: var(--primary); color: #131313;"><svg class="ico ico-sm" style="width: 12px; height: 12px;" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>Must accept the rules before they can post</span>
+      </label>
+      <label style="display: grid; gap: 4px; font-size: 13px; color: var(--muted-foreground);">Show to
+        <span style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); color: var(--foreground); font-size: 14px;">Everyone, first thing after joining</span>
+      </label>
+    </div>
+
+    <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); min-height: 0;">
+      <section aria-label="Markdown" style="display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border);">
+        <div role="toolbar" aria-label="Formatting" style="display: flex; align-items: center; gap: 2px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--card);">
+          <button class="iconbtn" aria-label="Bold" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"></path></svg></button><button class="iconbtn" aria-label="Italic" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" x2="10" y1="4" y2="4"></line><line x1="14" x2="5" y1="20" y2="20"></line><line x1="15" x2="9" y1="4" y2="20"></line></svg></button><button class="iconbtn" aria-label="Heading" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"></path><path d="M6 20V4"></path><path d="M18 20V4"></path></svg></button><button class="iconbtn" aria-label="Numbered list" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 12h11"></path><path d="M10 18h11"></path><path d="M10 6h11"></path><path d="M4 10h2"></path><path d="M4 6h1v4"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg></button><button class="iconbtn" aria-label="Link" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></button><button class="iconbtn" aria-label="Insert image" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></button><button class="iconbtn" aria-label="Insert channel card" style="width: 30px; height: 30px;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg></button>
+          <span style="flex: 1;"></span>
+          <span style="font-size: 12px; color: var(--muted-foreground);">Markdown</span>
+        </div>
+        <textarea aria-label="Welcome page in Markdown" spellcheck="false" style="flex: 1; min-height: 0; resize: none; border: 0; outline: none; padding: 16px; background: var(--background); color: var(--foreground); font-family: ui-monospace, &quot;Cascadia Code&quot;, Consolas, monospace; font-size: 13px; line-height: 1.6;"># Welcome to The Basement
+
+A small server for friends who game, plan board-game nights and send each other links at 2 am.
+
+Hi, and thanks for joining! This server runs on Filip's home server, so everything you post stays between us. Have a look at the rules, say hi in #general, and jump into #Lounge whenever you see people hanging out there.
+
+## House rules
+
+1. **Be kind.** Disagree with ideas, not people. No harassment, slurs or pile-ons.
+2. **Keep it legal.** No pirated content or anything you would not want on the server owner's disk.
+3. **Use the right channel.** #games for games, #music for music, #general for everything else.
+4. **Spoilers go in spoiler tags.** Wrap them like ||this|| so people can choose to look.
+5. **Ask before you record.** Everyone in a voice channel has to agree before a call is recorded or streamed outside.
+
+## Where to start
+
+[[channel:general "Say hi and introduce yourself"]]
+[[channel:games "Find people to play with tonight"]]
+[[channel:Lounge "Hang out in voice, no plans needed"]]
+
+## Last game night
+
+![Wingspan, round three](table.jpg) ![Bob's snack tower](snacks.jpg)</textarea>
+      </section>
+      <section aria-label="Preview" style="display: flex; flex-direction: column; min-height: 0;">
+        <div style="display: flex; align-items: center; height: 43px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--card); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground);">Preview</div>
+        <div style="flex: 1; overflow-y: auto; min-height: 0; padding: 20px; display: grid; align-content: start; gap: 16px;">
+          <div style="height: 96px; border-radius: 8px; background: color-mix(in srgb, var(--primary) 28%, var(--background));"></div>
+          <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Welcome to The Basement</h1>
+          <p style="margin: 0; color: var(--muted-foreground);">A small server for friends who game, plan board-game nights and send each other links at 2 am.</p>
+          <p style="margin: 0;">Hi, and thanks for joining! This server runs on Filip's home server, so everything you post stays between us.</p>
+          <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--foreground); text-wrap: balance;">House rules</h2>
+          <ol style="margin: 0; padding-left: 20px; display: grid; gap: 6px;">
+            <li><strong>Be kind.</strong> <span style="color: var(--muted-foreground);">Disagree with ideas, not people.</span></li>
+            <li><strong>Keep it legal.</strong> <span style="color: var(--muted-foreground);">No pirated content.</span></li>
+            <li><strong>Use the right channel.</strong> <span style="color: var(--muted-foreground);">#games for games…</span></li>
+          </ol>
+          <h2 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--foreground); text-wrap: balance;">Where to start</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+            <span style="display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>general</span>
+            <span style="display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>games</span>
+            <span style="display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path><path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path></svg>Lounge</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"palette":{"editor":"enum","options":["Emerald","Ocean","Violet","Amber","Rose"],"default":"Emerald","section":"Server look"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const palettes = { Emerald: '#2ecc71', Ocean: '#4aa3ff', Violet: '#a78bfa', Amber: '#f5a524', Rose: '#fb7185' };
+    return { accent: palettes[this.props.palette] ?? palettes.Emerald };
+  }
+}
+</script>
+</body>
+</html>

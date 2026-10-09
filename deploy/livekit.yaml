@@ -1,0 +1,23 @@
+# LiveKit: voice, camera and screen share (spec section 2.2).
+# The API key/secret come from LIVEKIT_KEYS, which docker-compose.yml builds
+# from LIVEKIT_API_SECRET in .env. Media does not go through Caddy: open
+# 7881/tcp, 7882/udp, 3478/udp and 30000-30050/udp to this machine (see README.md).
+port: 7880
+rtc:
+  tcp_port: 7881        # WebRTC over TCP, when UDP is blocked
+  udp_port: 7882        # all WebRTC UDP traffic on one port
+  use_external_ip: true # find the public IP with STUN
+turn:
+  enabled: true         # built-in TURN/UDP for clients behind strict NATs
+  udp_port: 3478
+  relay_range_start: 30000 # UDP ports TURN relays through
+  relay_range_end: 30050
+room:
+  empty_timeout: 300
+  departure_timeout: 20
+webhook:
+  api_key: datrope
+  urls:
+    - http://server:8080/api/voice/webhook
+logging:
+  level: info

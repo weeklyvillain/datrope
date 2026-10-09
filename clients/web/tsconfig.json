@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@datrope/core": ["../core/src/index.ts"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "e2e", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+}

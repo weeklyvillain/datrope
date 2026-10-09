@@ -1,0 +1,473 @@
+import { ApiError, createApi, unwrap, type Api } from "./api";
+import { Gateway } from "./gateway";
+import {
+  ackLocal, addPending, applyEvent, applyReady, createAppStore, initialState, markFailed, prependHistory,
+  appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, type State,
+} from "./store";
+import type { Attachment, Category, Channel, Emoji, JoinVoiceResponse, Member, Message, PresenceStatus, SearchResponse, ReplyRef, Sound, ThreadListItem, User } from "./types";
+
+export interface ClientOptions {
+  baseUrl: string; // "" for the web app
+  wsUrl: string; // e.g. "wss://chat.example.com/ws"
+  token?: () => string | undefined;
+  WebSocket?: typeof WebSocket;
+  onSignedOut?: () => void;
+}
+
+/** API + gateway + store: everything a Datrope UI needs. */
+export class DatropeClient {
+  readonly api: Api;
+  readonly store = createAppStore();
+  private gateway?: Gateway;
+  private lastTyping: Record<string, number> = {};
+  private listeners = new Set<(type: string, data: unknown) => void>();
+
+  constructor(private readonly o: ClientOptions) {
+    this.api = createApi({ baseUrl: o.baseUrl, token: o.token });
+  }
+
+  private set(fn: (s: State) => State) {
+    this.store.setState(fn(this.store.getState()), true);
+  }
+
+  connect(status: PresenceStatus = "online") {
+    this.gateway?.close();
+    this.set((s) => ({ ...s, presence: status }));
+    this.gateway = new Gateway({
+      url: this.o.wsUrl,
+      token: this.o.token,
+      WebSocket: this.o.WebSocket,
+      status,
+      onReady: (r) => this.set((s) => applyReady(s, r)),
+      onDispatch: (type, data) => this.apply(type, data),
+      onStatus: (connection) => this.set((s) => ({ ...s, connection })),
+      onSessionInvalid: () => {
+        this.store.setState(initialState, true);
+        this.o.onSignedOut?.();
+      },
+    });
+    this.gateway.connect();
+  }
+
+  disconnect() {
+    this.gateway?.close();
+    this.gateway = undefined;
+    this.store.setState(initialState, true);
+  }
+
+  setPresence(status: PresenceStatus) {
+    this.set((s) => ({ ...s, presence: status }));
+    this.gateway?.setPresence(status);
+  }
+
+  /**
+   * Applies an event. The gateway calls this for every DISPATCH; UIs call it
+   * with a REST response (e.g. MESSAGE_CREATE after sending)
+   * when they need the state before the event arrives. Applying twice is safe.
+   */
+  apply(type: string, data: unknown) {
+    const wasGated = isGated(this.store.getState());
+    this.set((s) => applyEvent(s, type, data));
+    if (wasGated && !isGated(this.store.getState())) {
+      // The gate lifted (rules accepted in another tab, or the gate switched off): redo READY.
+      this.connect(this.store.getState().presence);
+    } else {
+      this.follow(type, data);
+    }
+    for (const fn of this.listeners) {
+      try {
+        fn(type, data);
+      } catch (e) {
+        console.error("datrope: event listener failed", e);
+      }
+    }
+  }
+
+  /** Calls fn for every event applied (see apply). Returns a function that stops it. */
+  onEvent(fn: (type: string, data: unknown) => void): () => void {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  }
+
+  /** Some events only say "something changed"; fetch what they imply. */
+  private follow(type: string, data: unknown) {
+    if (type === "MEMBER_UPDATE" && (data as Member).user.id === this.store.getState().me?.id) {
+      this.refreshChannels(); // my roles changed what I can see
+    } else if (type === "ROLE_UPDATE" || type === "ROLE_DELETE") {
+      this.refreshChannels();
+    }
+  }
+
+  private refreshTimer?: ReturnType<typeof setTimeout>;
+  private refreshing = false;
+  private refreshAgain = false;
+
+  /** Reloads the channels once for a burst of events: one request in flight, at most one more queued. */
+  private refreshChannels() {
+    if (this.refreshTimer) return;
+    this.refreshTimer = setTimeout(() => void this.runRefresh(), 50);
+  }
+
+  private async runRefresh() {
+    this.refreshTimer = undefined;
+    if (this.refreshing) {
+      this.refreshAgain = true;
+      return;
+    }
+    this.refreshing = true;
+    try {
+      await this.loadChannels();
+    } catch (e) {
+      console.warn("datrope: refreshing channels failed", e);
+    } finally {
+      this.refreshing = false;
+    }
+    if (this.refreshAgain) {
+      this.refreshAgain = false;
+      this.refreshChannels();
+    }
+  }
+
+  async loadChannels() {
+    if (!this.store.getState().server) return;
+    const chs = await unwrap(this.api.GET("/api/server/channels"));
+    this.set((s) => setChannels(s, chs ?? []));
+  }
+
+  async createCategory(name: string): Promise<Category> {
+    return unwrap(this.api.POST("/api/server/categories", { body: { name } }));
+  }
+
+  async updateCategory(id: string, patch: { name?: string; position?: number }): Promise<Category> {
+    return unwrap(this.api.PATCH("/api/server/categories/{categoryID}", { params: { path: { categoryID: id } }, body: patch }));
+  }
+
+  async deleteCategory(id: string) {
+    await unwrap(this.api.DELETE("/api/server/categories/{categoryID}", { params: { path: { categoryID: id } } }));
+  }
+
+  /** Moves a channel into a category (null: out of any) at a position inside that group. */
+  async moveChannel(id: string, to: { categoryId: string | null; position: number }): Promise<Channel> {
+    return unwrap(this.api.PATCH("/api/channels/{id}", {
+      params: { path: { id } },
+      body: { ...(to.categoryId === null ? { clear_category: true } : { category_id: to.categoryId }), position: to.position },
+    }));
+  }
+
+  async setTopic(id: string, topic: string): Promise<Channel> {
+    return unwrap(this.api.PATCH("/api/channels/{id}", { params: { path: { id } }, body: { topic } }));
+  }
+
+  async pin(channelId: string, messageId: string) {
+    await unwrap(this.api.PUT("/api/channels/{id}/pins/{messageID}", { params: { path: { id: channelId, messageID: messageId } } }));
+  }
+
+  async unpin(channelId: string, messageId: string) {
+    await unwrap(this.api.DELETE("/api/channels/{id}/pins/{messageID}", { params: { path: { id: channelId, messageID: messageId } } }));
+  }
+
+  /** Pinned messages, newest pin first. */
+  async listPins(channelId: string): Promise<Message[]> {
+    return (await unwrap(this.api.GET("/api/channels/{id}/pins", { params: { path: { id: channelId } } }))) ?? [];
+  }
+
+  /** Starts a thread on a message (or returns its existing one) and stores the thread channel. */
+  async createThread(channelId: string, messageId: string, name?: string): Promise<Channel> {
+    const ch = await unwrap(this.api.POST("/api/channels/{id}/messages/{messageID}/thread", {
+      params: { path: { id: channelId, messageID: messageId } },
+      body: name ? { name } : {},
+    }));
+    this.apply("CHANNEL_CREATE", ch);
+    return ch;
+  }
+
+  async listThreads(channelId: string): Promise<ThreadListItem[]> {
+    return (await unwrap(this.api.GET("/api/channels/{id}/threads", { params: { path: { id: channelId } } }))) ?? [];
+  }
+
+  /** Fetches one channel (e.g. a thread I have not seen yet) and stores it. */
+  async getChannel(id: string): Promise<Channel> {
+    const ch = await unwrap(this.api.GET("/api/channels/{id}", { params: { path: { id } } }));
+    this.apply("CHANNEL_CREATE", ch);
+    return ch;
+  }
+
+  async loadMembers() {
+    const ms = await unwrap(this.api.GET("/api/server/members"));
+    this.set((s) => setMembers(s, ms ?? []));
+  }
+
+  async loadWelcome() {
+    const w = await unwrap(this.api.GET("/api/server/welcome"));
+    this.set((s) => ({ ...s, welcome: w }));
+  }
+
+  /** Accepts the rules, then reconnects so READY includes everything the gate hid. */
+  async acceptRules() {
+    await unwrap(this.api.POST("/api/server/welcome/accept"));
+    this.connect(this.store.getState().presence);
+  }
+
+  /** Rejoins the server with an invite (after a kick), then reconnects. */
+  async joinServer(code: string) {
+    await unwrap(this.api.POST("/api/invites/{code}/accept", { params: { path: { code } } }));
+    this.connect(this.store.getState().presence);
+  }
+
+  /** Uploads the server icon or banner (PUT) or a welcome-page image (POST). */
+  async uploadServerImage(kind: "icon" | "banner" | "page", file: Blob): Promise<{ url: string; id?: string }> {
+    const path = kind === "page" ? "/api/server/images" : `/api/server/${kind}`;
+    return (await this.multipart(kind === "page" ? "POST" : "PUT", path, file, "image")) as { url: string; id?: string };
+  }
+
+  async deleteServerImage(kind: "icon" | "banner") {
+    const res = await fetch(this.url(`/api/server/${kind}`), { method: "DELETE", headers: this.authHeaders(), credentials: "include" });
+    if (!res.ok) await this.throwApiError(res);
+  }
+
+  /** Updates my profile; omitted fields are unchanged. */
+  async updateMe(patch: { display_name?: string; custom_status?: string; pronouns?: string; about_me?: string }): Promise<User> {
+    const u = await unwrap(this.api.PATCH("/api/users/@me", { body: patch }));
+    this.apply("USER_UPDATE", publicUser(u));
+    return u;
+  }
+
+  async uploadAvatar(image: Blob): Promise<User> {
+    const u = (await this.multipart("PUT", "/api/users/@me/avatar", image, "avatar.png")) as User;
+    this.apply("USER_UPDATE", publicUser(u));
+    return u;
+  }
+
+  async removeAvatar(): Promise<User> {
+    const res = await fetch(this.url("/api/users/@me/avatar"), { method: "DELETE", headers: this.authHeaders(), credentials: "include" });
+    if (!res.ok) await this.throwApiError(res);
+    const u = (await res.json()) as User;
+    this.apply("USER_UPDATE", publicUser(u));
+    return u;
+  }
+
+  /** My 1:1 DM with a user: the existing one, or a new one. */
+  async openDM(userId: string): Promise<Channel> {
+    const existing = findDM(this.store.getState(), userId);
+    if (existing) return this.store.getState().channels[existing]!;
+    const ch = await unwrap(this.api.POST("/api/dms", { body: { recipient_ids: [userId] } }));
+    this.apply("CHANNEL_CREATE", ch);
+    return ch;
+  }
+
+  private windowGen(channelId: string): number {
+    return this.store.getState().messages[channelId]?.gen ?? 0;
+  }
+
+  /** Applies a loaded page unless the channel's window was replaced while the request was in flight. */
+  private setIfCurrent(channelId: string, gen: number, fn: (s: State) => State) {
+    this.set((s) => ((s.messages[channelId]?.gen ?? 0) === gen ? fn(s) : s));
+  }
+
+  /** Loads the next page of older messages (or the first page). */
+  async loadOlder(channelId: string, limit = 50) {
+    const gen = this.windowGen(channelId);
+    const oldest = this.store.getState().messages[channelId]?.items.find((m) => !m.pending)?.id;
+    const page = await unwrap(this.api.GET("/api/channels/{id}/messages", {
+      params: { path: { id: channelId }, query: { limit, ...(oldest ? { before: oldest } : {}) } },
+    }));
+    this.setIfCurrent(channelId, gen, (s) => prependHistory(s, channelId, page ?? [], limit));
+  }
+
+  /** Replaces the loaded messages with a window around a message. */
+  async loadAround(channelId: string, messageId: string, limit = 50) {
+    const gen = this.windowGen(channelId);
+    const page = await unwrap(this.api.GET("/api/channels/{id}/messages", {
+      params: { path: { id: channelId }, query: { limit, around: messageId } },
+    }));
+    this.setIfCurrent(channelId, gen, (s) => replaceWindow(s, channelId, page ?? []));
+  }
+
+  /** Loads the next page of newer messages after a detached window. */
+  async loadNewer(channelId: string, limit = 50) {
+    const gen = this.windowGen(channelId);
+    const newest = this.store.getState().messages[channelId]?.items.filter((m) => !m.pending).at(-1)?.id;
+    const page = await unwrap(this.api.GET("/api/channels/{id}/messages", {
+      params: { path: { id: channelId }, query: { limit, ...(newest ? { after: newest } : {}) } },
+    }));
+    this.setIfCurrent(channelId, gen, (s) => appendNewer(s, channelId, page ?? []));
+  }
+
+  /** Replaces the loaded messages with the latest page (leaves a detached window). */
+  async loadLatest(channelId: string, limit = 50) {
+    const gen = this.windowGen(channelId);
+    const page = await unwrap(this.api.GET("/api/channels/{id}/messages", {
+      params: { path: { id: channelId }, query: { limit } },
+    }));
+    this.setIfCurrent(channelId, gen, (s) => latestWindow(s, channelId, page ?? [], limit));
+  }
+
+  async search(q: string, cursor?: string): Promise<SearchResponse> {
+    return unwrap(this.api.GET("/api/search", {
+      params: { query: { q, utc_offset: -new Date().getTimezoneOffset(), ...(cursor ? { cursor } : {}) } },
+    }));
+  }
+
+  async loadMentions() {
+    const page = await unwrap(this.api.GET("/api/users/@me/mentions", { params: { query: {} } }));
+    this.set((s) => setMentions(s, page, false));
+  }
+
+  async loadOlderMentions() {
+    const oldest = this.store.getState().mentions.items.at(-1)?.message.id;
+    const page = await unwrap(this.api.GET("/api/users/@me/mentions", { params: { query: oldest ? { before: oldest } : {} } }));
+    this.set((s) => setMentions(s, page, true));
+  }
+
+  async markMentionsRead() {
+    const r = await unwrap(this.api.POST("/api/users/@me/mentions/ack"));
+    this.set((s) => markMentionsRead(s, r.read_states ?? []));
+  }
+
+  async send(channelId: string, content: string, attachments: Attachment[] = [], replyTo?: ReplyRef) {
+    const nonce = crypto.randomUUID();
+    this.set((s) => addPending(s, channelId, nonce, content, attachments, replyTo));
+    try {
+      const m = await unwrap(this.api.POST("/api/channels/{id}/messages", {
+        params: { path: { id: channelId } },
+        body: {
+          content, nonce,
+          ...(attachments.length > 0 ? { attachment_ids: attachments.map((a) => a.id) } : {}),
+          ...(replyTo ? { reply_to_id: replyTo.id } : {}),
+        },
+      }));
+      // The gateway usually delivers this first; applying it twice is harmless.
+      this.set((s) => applyEvent(s, "MESSAGE_CREATE", m));
+    } catch (e) {
+      this.set((s) => markFailed(s, channelId, nonce));
+      throw e;
+    }
+  }
+
+  async react(channelId: string, messageId: string, emoji: string) {
+    await unwrap(this.api.PUT("/api/channels/{id}/messages/{messageID}/reactions/{emoji}", {
+      params: { path: { id: channelId, messageID: messageId, emoji } },
+    }));
+  }
+
+  async unreact(channelId: string, messageId: string, emoji: string) {
+    await unwrap(this.api.DELETE("/api/channels/{id}/messages/{messageID}/reactions/{emoji}", {
+      params: { path: { id: channelId, messageID: messageId, emoji } },
+    }));
+  }
+
+  /** Adds a custom emoji (MANAGE_EXPRESSIONS). */
+  async uploadEmoji(name: string, file: Blob): Promise<Emoji> {
+    const form = new FormData();
+    form.append("name", name);
+    form.append("file", file, `${name}.img`);
+    return (await this.multipartForm("POST", "/api/server/emoji", form)) as Emoji;
+  }
+
+  async renameEmoji(id: string, name: string): Promise<Emoji> {
+    return unwrap(this.api.PATCH("/api/server/emoji/{emojiID}", { params: { path: { emojiID: id } }, body: { name } }));
+  }
+
+  async deleteEmoji(id: string) {
+    await unwrap(this.api.DELETE("/api/server/emoji/{emojiID}", { params: { path: { emojiID: id } } }));
+  }
+
+  /** Adds a soundboard sound (MANAGE_EXPRESSIONS). */
+  async uploadSound(name: string, emoji: string, file: Blob): Promise<Sound> {
+    const form = new FormData();
+    form.append("name", name);
+    form.append("emoji", emoji);
+    form.append("file", file, `${name}.audio`);
+    return (await this.multipartForm("POST", "/api/server/sounds", form)) as Sound;
+  }
+
+  async updateSound(id: string, patch: { name?: string; emoji?: string }): Promise<Sound> {
+    return unwrap(this.api.PATCH("/api/server/sounds/{soundID}", { params: { path: { soundID: id } }, body: patch }));
+  }
+
+  async deleteSound(id: string) {
+    await unwrap(this.api.DELETE("/api/server/sounds/{soundID}", { params: { path: { soundID: id } } }));
+  }
+
+  /** Plays a sound to the call you are in (USE_SOUNDBOARD, SPEAK). */
+  async playSound(soundId: string) {
+    await unwrap(this.api.POST("/api/voice/soundboard", { body: { sound_id: soundId } }));
+  }
+
+  /** Uploads a file for a message in channelId; pass the result to send(). */
+  async upload(channelId: string, file: Blob, filename: string): Promise<Attachment> {
+    return (await this.multipart("POST", `/api/attachments?channel_id=${encodeURIComponent(channelId)}`, file, filename)) as Attachment;
+  }
+
+  private authHeaders(): Headers {
+    const headers = new Headers();
+    const token = this.o.token?.();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    else headers.set("X-Datrope-CSRF", "1");
+    return headers;
+  }
+
+  private async multipart(method: string, path: string, file: Blob, filename: string): Promise<unknown> {
+    const form = new FormData();
+    form.append("file", file, filename);
+    return this.multipartForm(method, path, form);
+  }
+
+  private async multipartForm(method: string, path: string, form: FormData): Promise<unknown> {
+    const res = await fetch(this.url(path), { method, body: form, headers: this.authHeaders(), credentials: "include" });
+    if (!res.ok) await this.throwApiError(res);
+    return res.json();
+  }
+
+  private async throwApiError(res: Response): Promise<never> {
+    const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string; details?: Record<string, unknown> };
+    throw new ApiError(res.status, body.code ?? "UNKNOWN", body.message ?? res.statusText, body.details);
+  }
+
+  /** Absolute URL for a server path such as an attachment's url. */
+  url(path: string): string {
+    return `${this.o.baseUrl}${path}`;
+  }
+
+  async ack(channelId: string, messageId: string) {
+    const before = this.store.getState();
+    this.set((s) => ackLocal(s, channelId, messageId));
+    if (this.store.getState() === before) return; // already read
+    await unwrap(this.api.POST("/api/channels/{id}/ack", { params: { path: { id: channelId } }, body: { message_id: messageId } }));
+  }
+
+  /** Tells others you are typing, at most every 8 seconds per channel. */
+  async typing(channelId: string) {
+    const now = Date.now();
+    if ((this.lastTyping[channelId] ?? 0) > now - 8000) return;
+    this.lastTyping[channelId] = now;
+    await unwrap(this.api.POST("/api/channels/{id}/typing", { params: { path: { id: channelId } } }));
+  }
+
+  /** Asks to join a channel's (or DM's) voice; connect to LiveKit with the answer. */
+  async joinVoice(channelId: string, self: { self_mute: boolean; self_deaf: boolean }): Promise<JoinVoiceResponse> {
+    return unwrap(this.api.POST("/api/voice/{id}/join", { params: { path: { id: channelId } }, body: self }));
+  }
+
+  /** Tells others I muted or deafened myself (the muting itself happens locally). */
+  async setVoiceSelf(patch: { self_mute?: boolean; self_deaf?: boolean }) {
+    await unwrap(this.api.PATCH("/api/voice/state", { body: patch }));
+  }
+
+  async serverMute(userId: string, muted: boolean) {
+    await unwrap(this.api.POST("/api/voice/members/{userID}/mute", { params: { path: { userID: userId } }, body: { muted } }));
+  }
+
+  async moveVoice(userId: string, channelId: string) {
+    await unwrap(this.api.POST("/api/voice/members/{userID}/move", {
+      params: { path: { userID: userId } }, body: { channel_id: channelId },
+    }));
+  }
+
+  /** Takes a member (or myself) out of voice. */
+  async disconnectVoice(userId: string) {
+    await unwrap(this.api.DELETE("/api/voice/members/{userID}", { params: { path: { userID: userId } } }));
+  }
+}

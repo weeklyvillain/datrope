@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — Your settings: profile and notifications (M8)</title>
+<style>
+/* Shared styles for the M8 mockups (People, Search, Inbox, SettingsProfile). Tokens copied from clients/web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --popover: #1c1c1c;
+  --primary: #2ecc71; --primary-foreground: #131313; --secondary: #424242;
+  --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a;
+  --destructive: #e74c3c; --border: #424242; --sidebar: #0d0d0d;
+  --online: #2ecc71; --idle: #d39b14; --offline: #6b7075;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1.frame { margin: 0; padding: 14px 16px 4px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); background: var(--sidebar); }
+p.note { margin: 0; padding: 4px 16px 14px; font-size: 13px; color: var(--muted-foreground); background: var(--sidebar); }
+.app { display: flex; height: 640px; border-bottom: 1px solid var(--border); overflow: hidden; position: relative; }
+.side { width: 240px; flex: none; background: var(--card); border-right: 1px solid var(--border); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+.side .srv { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; border-bottom: 1px solid var(--border); margin-bottom: 8px; font-weight: 600; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); }
+.chan.on { background: var(--accent); color: var(--foreground); }
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+header.bar { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); background: var(--card); flex: none; }
+header.bar h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.grow { flex: 1; min-width: 0; }
+.muted { color: var(--muted-foreground); }
+.small { font-size: 13px; } .xs { font-size: 12px; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); position: relative; flex: none; }
+.iconbtn.on { background: var(--accent); color: var(--foreground); }
+.badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--destructive); color: #131313; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.iconbtn .badge { position: absolute; top: -3px; right: -4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 14px; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+.btn.ghost { border-color: transparent; color: var(--muted-foreground); }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; }
+.input { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); font-size: 14px; }
+.input.focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent); }
+.log { flex: 1; overflow: hidden; padding: 12px 0; display: flex; flex-direction: column; gap: 2px; }
+.msg { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 4px 16px; }
+.msg.hl { background: color-mix(in srgb, var(--idle) 10%, transparent); box-shadow: inset 2px 0 var(--idle); }
+.msg p { margin: 0; }
+.who { font-weight: 600; color: var(--foreground); }
+.time { font-size: 12px; color: var(--muted-foreground); margin-left: 8px; }
+.mention { padding: 0 3px; border-radius: 4px; background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); font-weight: 500; }
+mark { background: color-mix(in srgb, var(--idle) 35%, transparent); color: var(--foreground); border-radius: 3px; padding: 0 1px; }
+.av { display: inline-grid; place-items: center; flex: none; border-radius: 999px; background: var(--muted); color: var(--foreground); font-weight: 600; position: relative; background-size: cover; background-position: center; }
+.av.s20 { width: 20px; height: 20px; font-size: 9px; } .av.s32 { width: 32px; height: 32px; font-size: 12px; }
+.av.s40 { width: 40px; height: 40px; font-size: 13px; } .av.s80 { width: 80px; height: 80px; font-size: 26px; } .av.s96 { width: 96px; height: 96px; font-size: 30px; }
+.img1 { background-image: linear-gradient(135deg, #e67e22, #8e44ad); }
+.img2 { background-image: linear-gradient(135deg, #16a085, #2c3e50); }
+.img3 { background-image: linear-gradient(135deg, #f1c40f, #e74c3c); }
+.c1 { background: #34495e; } .c2 { background: #5b3a6e; } .c3 { background: #2d5a46; }
+.dot { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 999px; box-shadow: 0 0 0 3px var(--card); }
+.s80 .dot { width: 20px; height: 20px; right: 0; bottom: 0; box-shadow: 0 0 0 4px var(--popover); }
+.on-c { background: var(--online); } .idle-c { background: var(--idle); } .off-c { background: var(--offline); }
+.members { width: 240px; flex: none; background: var(--card); border-left: 1px solid var(--border); padding: 4px 8px; overflow: hidden; }
+.members h3 { margin: 12px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.mem { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; }
+.mem.on { background: var(--accent); }
+.mem .st { display: block; font-size: 12px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mem.offline { opacity: .5; }
+.pop { position: absolute; width: 300px; border-radius: 10px; background: var(--popover); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.5); overflow: hidden; z-index: 5; }
+.banner { height: 64px; }
+.role { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--muted); font-size: 12px; }
+.role i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.sec { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); margin: 0 0 6px; }
+.panel { width: 380px; flex: none; background: var(--card); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.panel > header { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--border); flex: none; }
+.panel > header h3 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--muted-foreground); background: transparent; }
+.chip.on { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.result { margin: 0 8px; padding: 8px; border-radius: 8px; border: 1px solid transparent; }
+.result.on { background: var(--background); border-color: var(--border); }
+.tabs { display: inline-grid; grid-auto-flow: column; gap: 4px; padding: 4px; border-radius: 8px; background: var(--background); }
+.tab { height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; padding: 0 10px; }
+.tab.on { background: var(--accent); color: var(--foreground); font-weight: 600; }
+.radio { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.radio.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.radio .r { width: 16px; height: 16px; border-radius: 999px; border: 2px solid var(--border); flex: none; margin-top: 2px; }
+.radio.on .r { border: 5px solid var(--primary); }
+.switch { width: 36px; height: 20px; border-radius: 999px; background: var(--secondary); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 999px; background: var(--foreground); }
+.switch.on { background: var(--primary); } .switch.on::after { left: 18px; background: #131313; }
+.toast { position: absolute; right: 16px; top: 16px; width: 340px; padding: 12px; border-radius: 10px; background: #2b2b2b; border: 1px solid #555; box-shadow: 0 12px 32px rgba(0,0,0,.5); display: grid; grid-template-columns: 32px 1fr; gap: 10px; font-size: 13px; z-index: 6; }
+</style>
+<style>
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.card h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--foreground); }
+label.f { display: grid; gap: 6px; font-size: 14px; font-weight: 500; }
+.ta { min-height: 72px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<h1 class="frame">6 · Your settings → Profile (avatar, pronouns, about me)</h1>
+<p class="note">Extends the existing Profile card. Avatar: PNG, JPEG, WebP or GIF up to 2 MB; you pick the square crop in a dialog and the browser uploads a 256 × 256 image (a GIF becomes a still image). "Remove" goes back to initials. Pronouns up to 40 characters, About me up to 190. A live preview of your popover sits on the right.</p>
+<div class="app" style="height:auto;min-height:620px">
+  <main style="background:var(--background)">
+    <header class="bar"><h2>Your settings</h2></header>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;padding:24px;max-width:900px;align-items:start">
+      <section class="card" aria-label="Profile">
+        <h3>Profile</h3>
+        <div style="display:flex;align-items:center;gap:16px">
+          <span class="av s80 img2"></span>
+          <div style="display:grid;gap:8px"><div style="display:flex;gap:8px"><button class="btn sm">Change avatar</button><button class="btn ghost sm">Remove</button></div><span class="xs muted">PNG, JPEG, WebP or GIF, up to 2 MB.</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label class="f">Display name<span class="input">Filip</span></label>
+          <label class="f">Pronouns<span class="input muted">he/him</span></label>
+        </div>
+        <label class="f">Custom status<span class="input">Building Datrope</span></label>
+        <label class="f">About me<span class="ta">Writes chat apps on weekends. Ask me about mechanical keyboards.</span><span class="xs muted" style="text-align:right;font-weight:400">63 / 190</span></label>
+        <label class="f">Status<span class="input">Online ▾</span></label>
+        <div><button class="btn primary">Save</button></div>
+      </section>
+      <div>
+        <p class="sec">Preview</p>
+        <div class="pop" style="position:relative;width:300px">
+          <div class="banner" style="background:#16a085"></div>
+          <div style="padding:0 16px 16px;margin-top:-40px">
+            <span class="av s80 img2" style="box-shadow:0 0 0 5px var(--popover)"><span class="dot on-c"></span></span>
+            <div style="margin-top:8px"><div style="font-size:18px;font-weight:700;color:var(--foreground)">Filip</div><div class="small muted">filip · he/him</div></div>
+            <p class="small" style="margin:8px 0 0">Building Datrope</p>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <p class="sec">About me</p><p class="small" style="margin:0">Writes chat apps on weekends. Ask me about mechanical keyboards.</p>
+          </div>
+        </div>
+        <p class="xs muted" style="margin-top:8px">The banner takes your highest role colour, or your initials colour if you have no coloured role.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<h1 class="frame">6b · Crop dialog</h1>
+<p class="note">Drag to move, slider to zoom; the circle shows what others see.</p>
+<div class="app" style="height:380px;background:rgba(0,0,0,.6);justify-content:center;align-items:center">
+  <div class="pop" role="dialog" aria-label="Crop your avatar" style="position:relative;width:380px;padding:16px">
+    <h3 style="margin:0 0 12px;font-size:16px;color:var(--foreground)">Crop your avatar</h3>
+    <div style="height:220px;border-radius:8px;background:linear-gradient(135deg,#16a085,#2c3e50);display:grid;place-items:center;position:relative;overflow:hidden">
+      <div style="width:180px;height:180px;border-radius:999px;box-shadow:0 0 0 999px rgba(0,0,0,.55);border:2px solid #fff"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0"><span class="xs muted">Zoom</span><input type="range" aria-label="Zoom" style="flex:1;accent-color:var(--primary)"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn sm">Cancel</button><button class="btn primary sm">Apply</button></div>
+  </div>
+</div>
+
+<h1 class="frame">7 · Your settings → Notifications</h1>
+<p class="note">Per device (stored in the browser, like voice settings). The switch asks the browser for permission the first time; if the browser blocked it, the card says how to allow it. The level applies to all channels; DMs always count as "mentions".</p>
+<div class="app" style="height:auto;min-height:420px">
+  <main style="background:var(--background)">
+    <div style="padding:24px;max-width:620px">
+      <section class="card" aria-label="Notifications">
+        <h3>Notifications</h3>
+        <div style="display:flex;align-items:center;gap:12px"><div class="grow"><div style="font-weight:500;color:var(--foreground)">Desktop notifications</div><div class="small muted">Show a system notification when Datrope is in the background or you are in another conversation.</div></div><span class="switch on" role="switch" aria-checked="true" aria-label="Desktop notifications"></span></div>
+        <p class="sec" style="margin-top:4px">Notify me about</p>
+        <div role="radiogroup" aria-label="Notify me about" style="display:grid;gap:8px">
+          <div class="radio"><span class="r"></span><div><div style="font-weight:500;color:var(--foreground)">All messages</div><div class="small muted">Every message in channels you can read, plus DMs.</div></div></div>
+          <div class="radio on"><span class="r"></span><div><div style="font-weight:500;color:var(--foreground)">Mentions and direct messages</div><div class="small muted">Recommended.</div></div></div>
+          <div class="radio"><span class="r"></span><div><div style="font-weight:500;color:var(--foreground)">Nothing</div></div></div>
+        </div>
+        <div class="small" style="padding:10px 12px;border-radius:8px;border:1px solid var(--idle);color:var(--idle)">Your browser is blocking notifications for this site. Allow them in the address bar site settings, then turn this on again.</div>
+        <p class="xs muted" style="margin:0">(The warning above only shows when permission is denied.)</p>
+      </section>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

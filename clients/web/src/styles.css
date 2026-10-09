@@ -1,0 +1,154 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  color-scheme: dark;
+  font-size: 15px;
+  --radius: 0.5rem;
+  --background: #131313;
+  --foreground: #bdc3c7;
+  --card: #1c1c1c;
+  --card-foreground: #bdc3c7;
+  --popover: #1c1c1c;
+  --popover-foreground: #bdc3c7;
+  --primary: #2ecc71;
+  --primary-foreground: #131313;
+  --secondary: #424242;
+  --secondary-foreground: #bdc3c7;
+  --muted: #2a2a2a;
+  --muted-foreground: #969da2;
+  --accent: #2a2a2a;
+  --accent-foreground: #bdc3c7;
+  --destructive: #e74c3c;
+  --destructive-foreground: #131313;
+  --border: #424242;
+  --input: #424242;
+  --ring: #2ecc71;
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #bdc3c7;
+  --online: #2ecc71;
+  --idle: #d39b14;
+  --offline: #6b7075;
+  --avatar-1: #34495e;
+  --avatar-2: #5b3a6e;
+  --avatar-3: #2d5a46;
+  --avatar-4: #6e4b2a;
+  --avatar-5: #2a4f6e;
+  --avatar-6: #6e2a3f;
+  --avatar-7: #4b5a2a;
+  --avatar-8: #3f3f6e;
+}
+
+@theme inline {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-online: var(--online);
+  --color-idle: var(--idle);
+  --color-offline: var(--offline);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-6: var(--avatar-6);
+  --color-avatar-7: var(--avatar-7);
+  --color-avatar-8: var(--avatar-8);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background font-sans text-foreground; line-height: 1.45; }
+  h1, h2, h3 { @apply font-semibold; }
+  h1 { font-size: 1rem; }
+  h2 { font-size: 1.05rem; }
+  h3 { @apply text-muted-foreground uppercase; font-size: 0.8rem; letter-spacing: 0.04em; }
+  a { @apply text-primary; }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  a:focus-visible { @apply outline-2 outline-offset-2 outline-ring; }
+}
+
+/* Message Markdown (src/chat/Markdown.tsx). */
+.chat-md p { margin: 0; white-space: pre-wrap; }
+.chat-md code {
+  background: var(--muted);
+  border-radius: calc(var(--radius) - 4px);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.3em;
+}
+.chat-md pre {
+  background: var(--sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  margin: 6px 0 0;
+  overflow-x: auto;
+  padding: 10px 12px;
+  white-space: pre;
+}
+.chat-md pre code { background: none; padding: 0; border-radius: 0; }
+.chat-md blockquote {
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+  margin: 0.125rem 0;
+  padding-left: 0.625rem;
+}
+.chat-md ul, .chat-md ol { margin: 0.125rem 0; padding-left: 1.5rem; }
+.chat-md ul { list-style: disc; }
+.chat-md ol { list-style: decimal; }
+.chat-md a { text-decoration: underline; }
+/* "(edited)" follows the last paragraph on its line. */
+.chat-md:has(+ .edited), .chat-md:has(+ .edited) > p:last-child { display: inline; }
+.spoiler {
+  background: var(--muted);
+  border-radius: calc(var(--radius) - 4px);
+  color: transparent;
+  cursor: pointer;
+  padding: 0 0.15em;
+}
+.spoiler[data-shown] { color: inherit; cursor: text; }
+.mention {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 4px;
+  color: var(--foreground);
+  font-weight: 600;
+  padding: 0 3px;
+}
+.mention[data-me] { background: color-mix(in srgb, var(--primary) 35%, transparent); }
+img.emoji {
+  display: inline;
+  height: 1.375em;
+  object-fit: contain;
+  vertical-align: -0.3em;
+  width: 1.375em;
+}
+
+/* A message jumped to (jumpTo in src/app/MessageList.tsx): a short highlight that fades out. */
+.message-flash { animation: message-flash 1.5s ease-out; }
+@keyframes message-flash {
+  from { background-color: var(--accent); }
+}

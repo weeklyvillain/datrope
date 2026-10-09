@@ -1,0 +1,23 @@
+{
+  "name": "@datrope/core",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "gen": "go -C ../../server run ./cmd/datrope openapi ../clients/core/openapi.json && openapi-typescript openapi.json -o src/schema.d.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.13.4",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "mock-socket": "^9.3.1",
+    "msw": "^2.6.6",
+    "openapi-typescript": "^7.4.4",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,308 @@
+package auth
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/datrope/datrope/server/internal/db"
+	"github.com/datrope/datrope/server/internal/id"
+)
+
+var (
+	ErrNotFound = errors.New("not found")
+	ErrTaken    = errors.New("username or email already in use")
+)
+
+const (
+	ModeInviteOnly = "invite_only"
+	ModeOpen       = "open"
+	ModeAdminOnly  = "admin_only"
+)
+
+// User is the full account. Only its owner and admins see it.
+type User struct {
+	ID           id.ID     `json:"id"`
+	Username     string    `json:"username"`
+	Email        *string   `json:"email,omitempty"`
+	DisplayName  string    `json:"display_name"`
+	CustomStatus string    `json:"custom_status"`
+	IsAdmin      bool      `json:"is_admin"`
+	Disabled     bool      `json:"disabled"`
+	CreatedAt    time.Time `json:"created_at"`
+	PasswordHash string    `json:"-"`
+	Pronouns     string    `json:"pronouns,omitempty" doc:"Up to 40 characters"`
+	AboutMe      string    `json:"about_me,omitempty" doc:"Up to 190 characters"`
+	AvatarURL    string    `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
+}
+
+// PublicUser is what other users may see.
+type PublicUser struct {
+	ID           id.ID  `json:"id"`
+	Username     string `json:"username"`
+	DisplayName  string `json:"display_name"`
+	CustomStatus string `json:"custom_status"`
+	Pronouns     string `json:"pronouns,omitempty" doc:"Up to 40 characters"`
+	AboutMe      string `json:"about_me,omitempty" doc:"Up to 190 characters"`
+	AvatarURL    string `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
+}
+
+func (u *User) Public() PublicUser {
+	return PublicUser{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, CustomStatus: u.CustomStatus,
+		Pronouns: u.Pronouns, AboutMe: u.AboutMe, AvatarURL: u.AvatarURL}
+}
+
+type Session struct {
+	ID         id.ID     `json:"id"`
+	UserID     id.ID     `json:"-"`
+	DeviceName string    `json:"device_name"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastUsedAt time.Time `json:"last_used_at"`
+	Current    bool      `json:"current"`
+	TokenHash  []byte    `json:"-"`
+}
+
+type Settings struct {
+	RegistrationMode string `json:"registration_mode" enum:"invite_only,open,admin_only"`
+	MaxUploadBytes   int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
+}
+
+type Store struct{ db *pgxpool.Pool }
+
+func NewStore(pool *pgxpool.Pool) *Store { return &Store{db: pool} }
+
+const userCols = `u.id, u.username, u.email, u.display_name, u.custom_status, u.is_admin, u.disabled, u.created_at, u.password_hash, u.pronouns, u.about_me, u.avatar_sha256`
+
+func scanUser(row pgx.Row, extra ...any) (*User, error) {
+	var u User
+	var avatar *string
+	dest := append(extra, &u.ID, &u.Username, &u.Email, &u.DisplayName, &u.CustomStatus, &u.IsAdmin, &u.Disabled, &u.CreatedAt, &u.PasswordHash,
+		&u.Pronouns, &u.AboutMe, &avatar)
+	err := row.Scan(dest...)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	u.AvatarURL = avatarURL(u.ID, avatar)
+	return &u, nil
+}
+
+// avatarURL is the public, versioned URL of a user's avatar, or "" when they have none.
+func avatarURL(userID id.ID, sum *string) string {
+	if sum == nil || len(*sum) < 12 {
+		return ""
+	}
+	return "/api/avatars/" + userID.String() + "?v=" + (*sum)[:12]
+}
+
+// CreateUser inserts u. The first user ever created becomes the instance
+// admin; u.IsAdmin and u.CreatedAt are filled in.
+func (s *Store) CreateUser(ctx context.Context, u *User) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	// Serialise sign-ups so exactly one user can be the first.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(1001)`); err != nil {
+		return err
+	}
+	var n int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n); err != nil {
+		return err
+	}
+	u.IsAdmin = n == 0
+	err = tx.QueryRow(ctx, `
+		INSERT INTO users (id, username, email, display_name, password_hash, is_admin)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING created_at`,
+		u.ID, u.Username, u.Email, u.DisplayName, u.PasswordHash, u.IsAdmin).Scan(&u.CreatedAt)
+	if db.IsUniqueViolation(err) {
+		return ErrTaken
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *Store) CountUsers(ctx context.Context) (int, error) {
+	var n int
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n)
+	return n, err
+}
+
+func (s *Store) UserByID(ctx context.Context, userID id.ID) (*User, error) {
+	return scanUser(s.db.QueryRow(ctx, `SELECT `+userCols+` FROM users u WHERE u.id = $1`, userID))
+}
+
+// UserByLogin finds a user by username or email, ignoring case.
+func (s *Store) UserByLogin(ctx context.Context, login string) (*User, error) {
+	return scanUser(s.db.QueryRow(ctx,
+		`SELECT `+userCols+` FROM users u WHERE lower(u.username) = lower($1) OR lower(u.email) = lower($1)`, login))
+}
+
+func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+userCols+` FROM users u ORDER BY u.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []User{}
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *u)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicUser, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256 FROM users WHERE id = ANY($1)`, id.Int64s(ids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[id.ID]PublicUser, len(ids))
+	for rows.Next() {
+		var p PublicUser
+		var avatar *string
+		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar); err != nil {
+			return nil, err
+		}
+		p.AvatarURL = avatarURL(p.ID, avatar)
+		out[p.ID] = p
+	}
+	return out, rows.Err()
+}
+
+// ProfilePatch holds the profile fields to change; nil leaves a field as it is.
+type ProfilePatch struct {
+	DisplayName, CustomStatus, Pronouns, AboutMe *string
+}
+
+// UpdateProfile changes the fields that are not nil.
+func (s *Store) UpdateProfile(ctx context.Context, userID id.ID, p ProfilePatch) (*User, error) {
+	return scanUser(s.db.QueryRow(ctx, `
+		UPDATE users u SET display_name = COALESCE($2, display_name), custom_status = COALESCE($3, custom_status),
+		                   pronouns = COALESCE($4, pronouns), about_me = COALESCE($5, about_me)
+		WHERE u.id = $1 RETURNING `+userCols, userID, p.DisplayName, p.CustomStatus, p.Pronouns, p.AboutMe))
+}
+
+func (s *Store) SetPassword(ctx context.Context, userID id.ID, hash string) error {
+	return s.execOne(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1`, userID, hash)
+}
+
+func (s *Store) SetDisabled(ctx context.Context, userID id.ID, disabled bool) error {
+	return s.execOne(ctx, `UPDATE users SET disabled = $2 WHERE id = $1`, userID, disabled)
+}
+
+func (s *Store) execOne(ctx context.Context, sql string, args ...any) error {
+	tag, err := s.db.Exec(ctx, sql, args...)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) CreateSession(ctx context.Context, sess *Session) error {
+	return s.db.QueryRow(ctx, `
+		INSERT INTO sessions (id, user_id, token_hash, device_name) VALUES ($1, $2, $3, $4)
+		RETURNING created_at, last_used_at`,
+		sess.ID, sess.UserID, sess.TokenHash, sess.DeviceName).Scan(&sess.CreatedAt, &sess.LastUsedAt)
+}
+
+func (s *Store) SessionByTokenHash(ctx context.Context, hash []byte) (*Session, *User, error) {
+	var sess Session
+	u, err := scanUser(s.db.QueryRow(ctx, `
+		SELECT s.id, s.user_id, s.device_name, s.created_at, s.last_used_at, `+userCols+`
+		FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1`, hash),
+		&sess.ID, &sess.UserID, &sess.DeviceName, &sess.CreatedAt, &sess.LastUsedAt)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &sess, u, nil
+}
+
+func (s *Store) ListSessions(ctx context.Context, userID id.ID) ([]Session, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT id, user_id, device_name, created_at, last_used_at FROM sessions
+		WHERE user_id = $1 ORDER BY last_used_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Session{}
+	for rows.Next() {
+		var x Session
+		if err := rows.Scan(&x.ID, &x.UserID, &x.DeviceName, &x.CreatedAt, &x.LastUsedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+
+// DeleteSession deletes one session of userID and reports whether it existed.
+func (s *Store) DeleteSession(ctx context.Context, userID, sessionID id.ID) (bool, error) {
+	tag, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE id = $1 AND user_id = $2`, sessionID, userID)
+	return tag.RowsAffected() > 0, err
+}
+
+// DeleteSessions deletes all sessions of a user and returns their IDs.
+func (s *Store) DeleteSessions(ctx context.Context, userID id.ID) ([]id.ID, error) {
+	rows, err := s.db.Query(ctx, `DELETE FROM sessions WHERE user_id = $1 RETURNING id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[id.ID])
+}
+
+func (s *Store) Settings(ctx context.Context) (Settings, error) {
+	var x Settings
+	err := s.db.QueryRow(ctx, `SELECT registration_mode, max_upload_bytes FROM instance_settings`).
+		Scan(&x.RegistrationMode, &x.MaxUploadBytes)
+	return x, err
+}
+
+func (s *Store) UpdateSettings(ctx context.Context, x Settings) error {
+	_, err := s.db.Exec(ctx, `UPDATE instance_settings SET registration_mode = $1, max_upload_bytes = $2`,
+		x.RegistrationMode, x.MaxUploadBytes)
+	return err
+}
+
+// TouchSession records use, at most once a minute per session.
+func (s *Store) TouchSession(ctx context.Context, sessionID id.ID) error {
+	_, err := s.db.Exec(ctx, `
+		UPDATE sessions SET last_used_at = now()
+		WHERE id = $1 AND last_used_at < now() - interval '1 minute'`, sessionID)
+	return err
+}
+
+// UserIDsByUsername maps lower-cased usernames to user IDs; unknown names are absent.
+func (s *Store) UserIDsByUsername(ctx context.Context, names []string) (map[string]id.ID, error) {
+	rows, err := s.db.Query(ctx, `SELECT lower(username), id FROM users WHERE lower(username) = ANY($1)`, names)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]id.ID{}
+	for rows.Next() {
+		var n string
+		var uid id.ID
+		if err := rows.Scan(&n, &uid); err != nil {
+			return nil, err
+		}
+		out[n] = uid
+	}
+	return out, rows.Err()
+}

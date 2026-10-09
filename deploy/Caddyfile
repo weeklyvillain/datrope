@@ -1,0 +1,27 @@
+{$DATROPE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		?X-Content-Type-Options "nosniff"
+		?Referrer-Policy "no-referrer"
+		?X-Frame-Options "DENY"
+	}
+
+	# LiveKit signalling (a WebSocket). Media goes straight to LiveKit's ports.
+	handle_path /livekit/* {
+		reverse_proxy livekit:7880
+	}
+
+	@backend path /api/* /ws
+	handle @backend {
+		# The server sets its own headers, including the strict CSP on file downloads.
+		reverse_proxy server:8080
+	}
+
+	handle {
+		header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

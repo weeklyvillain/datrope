@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — People (M8)</title>
+<style>
+/* Shared styles for the M8 mockups (People, Search, Inbox, SettingsProfile). Tokens copied from clients/web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --popover: #1c1c1c;
+  --primary: #2ecc71; --primary-foreground: #131313; --secondary: #424242;
+  --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a;
+  --destructive: #e74c3c; --border: #424242; --sidebar: #0d0d0d;
+  --online: #2ecc71; --idle: #d39b14; --offline: #6b7075;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1.frame { margin: 0; padding: 14px 16px 4px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); background: var(--sidebar); }
+p.note { margin: 0; padding: 4px 16px 14px; font-size: 13px; color: var(--muted-foreground); background: var(--sidebar); }
+.app { display: flex; height: 640px; border-bottom: 1px solid var(--border); overflow: hidden; position: relative; }
+.side { width: 240px; flex: none; background: var(--card); border-right: 1px solid var(--border); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+.side .srv { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; border-bottom: 1px solid var(--border); margin-bottom: 8px; font-weight: 600; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); }
+.chan.on { background: var(--accent); color: var(--foreground); }
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+header.bar { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); background: var(--card); flex: none; }
+header.bar h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.grow { flex: 1; min-width: 0; }
+.muted { color: var(--muted-foreground); }
+.small { font-size: 13px; } .xs { font-size: 12px; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); position: relative; flex: none; }
+.iconbtn.on { background: var(--accent); color: var(--foreground); }
+.badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--destructive); color: #131313; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; }
+.iconbtn .badge { position: absolute; top: -3px; right: -4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 14px; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+.btn.ghost { border-color: transparent; color: var(--muted-foreground); }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; }
+.input { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); font-size: 14px; }
+.input.focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent); }
+.log { flex: 1; overflow: hidden; padding: 12px 0; display: flex; flex-direction: column; gap: 2px; }
+.msg { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 4px 16px; }
+.msg.hl { background: color-mix(in srgb, var(--idle) 10%, transparent); box-shadow: inset 2px 0 var(--idle); }
+.msg p { margin: 0; }
+.who { font-weight: 600; color: var(--foreground); }
+.time { font-size: 12px; color: var(--muted-foreground); margin-left: 8px; }
+.mention { padding: 0 3px; border-radius: 4px; background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); font-weight: 500; }
+mark { background: color-mix(in srgb, var(--idle) 35%, transparent); color: var(--foreground); border-radius: 3px; padding: 0 1px; }
+.av { display: inline-grid; place-items: center; flex: none; border-radius: 999px; background: var(--muted); color: var(--foreground); font-weight: 600; position: relative; background-size: cover; background-position: center; }
+.av.s20 { width: 20px; height: 20px; font-size: 9px; } .av.s32 { width: 32px; height: 32px; font-size: 12px; }
+.av.s40 { width: 40px; height: 40px; font-size: 13px; } .av.s80 { width: 80px; height: 80px; font-size: 26px; } .av.s96 { width: 96px; height: 96px; font-size: 30px; }
+.img1 { background-image: linear-gradient(135deg, #e67e22, #8e44ad); }
+.img2 { background-image: linear-gradient(135deg, #16a085, #2c3e50); }
+.img3 { background-image: linear-gradient(135deg, #f1c40f, #e74c3c); }
+.c1 { background: #34495e; } .c2 { background: #5b3a6e; } .c3 { background: #2d5a46; }
+.dot { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 999px; box-shadow: 0 0 0 3px var(--card); }
+.s80 .dot { width: 20px; height: 20px; right: 0; bottom: 0; box-shadow: 0 0 0 4px var(--popover); }
+.on-c { background: var(--online); } .idle-c { background: var(--idle); } .off-c { background: var(--offline); }
+.members { width: 240px; flex: none; background: var(--card); border-left: 1px solid var(--border); padding: 4px 8px; overflow: hidden; }
+.members h3 { margin: 12px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.mem { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; }
+.mem.on { background: var(--accent); }
+.mem .st { display: block; font-size: 12px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mem.offline { opacity: .5; }
+.pop { position: absolute; width: 300px; border-radius: 10px; background: var(--popover); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.5); overflow: hidden; z-index: 5; }
+.banner { height: 64px; }
+.role { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--muted); font-size: 12px; }
+.role i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+.sec { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); margin: 0 0 6px; }
+.panel { width: 380px; flex: none; background: var(--card); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.panel > header { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--border); flex: none; }
+.panel > header h3 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--muted-foreground); background: transparent; }
+.chip.on { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.result { margin: 0 8px; padding: 8px; border-radius: 8px; border: 1px solid transparent; }
+.result.on { background: var(--background); border-color: var(--border); }
+.tabs { display: inline-grid; grid-auto-flow: column; gap: 4px; padding: 4px; border-radius: 8px; background: var(--background); }
+.tab { height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; padding: 0 10px; }
+.tab.on { background: var(--accent); color: var(--foreground); font-weight: 600; }
+.radio { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.radio.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.radio .r { width: 16px; height: 16px; border-radius: 999px; border: 2px solid var(--border); flex: none; margin-top: 2px; }
+.radio.on .r { border: 5px solid var(--primary); }
+.switch { width: 36px; height: 20px; border-radius: 999px; background: var(--secondary); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 999px; background: var(--foreground); }
+.switch.on { background: var(--primary); } .switch.on::after { left: 18px; background: #131313; }
+.toast { position: absolute; right: 16px; top: 16px; width: 340px; padding: 12px; border-radius: 10px; background: #2b2b2b; border: 1px solid #555; box-shadow: 0 12px 32px rgba(0,0,0,.5); display: grid; grid-template-columns: 32px 1fr; gap: 10px; font-size: 13px; z-index: 6; }
+</style>
+</head>
+<body>
+
+<h1 class="frame">1 · Avatars everywhere, member list, profile popover</h1>
+<p class="note">Click a name or avatar (message, member list, voice, mention) to open the popover. Avatars are uploaded images; people without one get initials on a colour picked from their user ID. Member list keeps the M4 grouping (roles shown separately, then Online / Offline) and adds avatars, presence dots and custom status.</p>
+<div class="app">
+  <nav class="side" aria-label="Channels">
+    <div class="srv"><span class="av s32 img2"></span>The Basement</div>
+    <a class="chan"># welcome</a><a class="chan on"># general</a><a class="chan"># games</a><a class="chan"># music</a>
+  </nav>
+  <main aria-label="# general">
+    <header class="bar">
+      <h2># general</h2><span class="grow muted small">Plans, links and everything that does not fit elsewhere</span>
+      <button class="iconbtn" aria-label="Inbox"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg><span class="badge">3</span></button>
+      <button class="iconbtn on" aria-label="Members"><svg class="ico" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+      <label class="input" style="width:200px"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="muted">Search</span></label>
+    </header>
+    <div class="log" role="log" aria-label="Messages">
+      <article class="msg"><span class="av s40 img3"></span><div><span class="who">Dan</span><span class="time">Yesterday at 21:14</span><p>Pushed the new server to the NAS. Voice works through the router now.</p></div></article>
+      <article class="msg"><span class="av s40 img1" style="outline:2px solid var(--primary);outline-offset:2px"></span><div><span class="who" style="color:#e67e22;text-decoration:underline">Alice</span><span class="time">Today at 09:02</span><p><strong>Saturday:</strong> board games at mine? I have Wingspan and the new Cascadia expansion.</p></div></article>
+      <article class="msg hl"><span class="av s40 c2">BO</span><div><span class="who">Bob</span><span class="time">Today at 09:10</span><p><span class="mention">@Filip</span> you in? Bring the snacks this time.</p></div></article>
+      <article class="msg"><span class="av s40 c1">CA</span><div><span class="who">Carol</span><span class="time">Today at 09:12</span><p>Count me in, I will be late though.</p></div></article>
+    </div>
+    <div style="padding:0 16px 16px"><div class="input" style="height:44px">Message #general</div></div>
+  </main>
+
+  <!-- popover anchored to Alice -->
+  <div class="pop" role="dialog" aria-label="Alice" style="left:330px;top:150px">
+    <div class="banner" style="background:#e67e22"></div>
+    <div style="padding:0 16px 16px;margin-top:-40px">
+      <span class="av s80 img1" style="box-shadow:0 0 0 5px var(--popover)"><span class="dot on-c"></span></span>
+      <div style="margin-top:8px"><div style="font-size:18px;font-weight:700;color:var(--foreground)">Alice</div><div class="small muted">alice · she/her</div></div>
+      <p class="small" style="margin:8px 0 0">🎲 Hosting games night Saturday</p>
+      <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+      <p class="sec">About me</p>
+      <p class="small" style="margin:0 0 12px">Board games, synths and too many houseplants.</p>
+      <p class="sec">Roles</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"><span class="role"><i style="background:#e67e22"></i>Admins</span><span class="role"><i style="background:#3498db"></i>Board gamers</span></div>
+      <p class="sec">Member since</p>
+      <p class="small" style="margin:0 0 14px">12 March 2026</p>
+      <div style="display:flex;gap:8px"><button class="btn primary sm" style="flex:1">Message</button><button class="btn sm">View full profile</button></div>
+    </div>
+  </div>
+
+  <aside class="members" aria-label="Members">
+    <h3>Admins — 1</h3>
+    <div class="mem on"><span class="av s32 img1"><span class="dot on-c"></span></span><span class="grow"><span style="color:#e67e22;font-weight:500">Alice</span><span class="st">🎲 Hosting games night Saturday</span></span></div>
+    <h3>Online — 3</h3>
+    <div class="mem"><span class="av s32 c2">BO<span class="dot on-c"></span></span><span class="grow">Bob<span class="st">In voice: Lounge</span></span></div>
+    <div class="mem"><span class="av s32 c1">CA<span class="dot idle-c"></span></span><span class="grow">Carol</span></div>
+    <div class="mem"><span class="av s32 img2"><span class="dot on-c"></span></span><span class="grow">Filip<span class="st">Building Datrope</span></span></div>
+    <h3>Offline — 1</h3>
+    <div class="mem offline"><span class="av s32 img3"><span class="dot off-c"></span></span><span class="grow">Dan</span></div>
+  </aside>
+</div>
+
+<h1 class="frame">2 · Full profile in the side panel</h1>
+<p class="note">"View full profile" opens the profile in the side panel slot (where threads and pins open). It is larger, shows the voice channel they are in and, for people with Manage roles, quick role add/remove (same rules as Server settings → Members). Your own profile shows "Edit profile" instead of "Message".</p>
+<div class="app" style="height:600px">
+  <nav class="side"><div class="srv"><span class="av s32 img2"></span>The Basement</div><a class="chan"># welcome</a><a class="chan on"># general</a><a class="chan"># games</a></nav>
+  <main>
+    <header class="bar"><h2># general</h2><span class="grow"></span></header>
+    <div class="log">
+      <article class="msg"><span class="av s40 img1"></span><div><span class="who" style="color:#e67e22">Alice</span><span class="time">Today at 09:02</span><p><strong>Saturday:</strong> board games at mine?</p></div></article>
+      <article class="msg"><span class="av s40 c2">BO</span><div><span class="who">Bob</span><span class="time">Today at 09:10</span><p><span class="mention">@Filip</span> you in? Bring the snacks this time.</p></div></article>
+    </div>
+  </main>
+  <aside class="panel" aria-label="Profile">
+    <header><h3>Profile</h3><button class="iconbtn" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>
+    <div style="overflow:hidden">
+      <div class="banner" style="height:96px;background:#5b3a6e"></div>
+      <div style="padding:0 20px 20px;margin-top:-48px">
+        <span class="av s96 c2" style="box-shadow:0 0 0 6px var(--card)">BO<span class="dot on-c" style="width:22px;height:22px;right:2px;bottom:2px;box-shadow:0 0 0 4px var(--card)"></span></span>
+        <div style="display:flex;align-items:flex-end;gap:8px;margin-top:8px"><div class="grow"><div style="font-size:20px;font-weight:700;color:var(--foreground)">Bob</div><div class="small muted">bob</div></div><button class="btn primary sm">Message</button></div>
+        <p class="small" style="margin:10px 0 0"><span class="muted">In voice:</span> Lounge</p>
+        <div style="border-top:1px solid var(--border);margin:14px 0"></div>
+        <p class="sec">About me</p><p class="small" style="margin:0 0 14px">Snack logistics.</p>
+        <p class="sec">Roles</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"><span class="role"><i style="background:#3498db"></i>Board gamers</span><button class="role" style="border:1px dashed var(--border);background:transparent;color:var(--muted-foreground)" aria-label="Add role">+ Add role</button></div>
+        <p class="xs muted" style="margin:0 0 14px">Only shown to people who can manage roles.</p>
+        <p class="sec">Member since</p><p class="small" style="margin:0 0 4px">2 April 2026</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+</body>
+</html>

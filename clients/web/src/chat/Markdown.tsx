@@ -1,0 +1,93 @@
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useMemo, useState, type ReactNode } from "react";
+import { MentionTrigger } from "@/app/people/MentionTrigger";
+import { client, useApp } from "@/session";
+import { remarkChat, type ChatOptions } from "./remarkChat";
+import { useEmojiData } from "./emoji-data";
+
+// Everything else (headings, images, tables, rules, raw HTML) renders as its text.
+const ALLOWED = ["p", "br", "strong", "em", "del", "code", "pre", "blockquote", "ul", "ol", "li", "a", "span", "img"];
+
+export function Spoiler({ children }: { children?: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <span className="spoiler" data-shown={shown || undefined} role="button" tabIndex={0} aria-expanded={shown}
+      aria-label={shown ? undefined : "Spoiler, select to show"}
+      onClick={() => setShown(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setShown(true);
+        }
+      }}>
+      {children}
+    </span>
+  );
+}
+
+const components: Components = {
+  a: ({ node: _n, ...p }) => <a {...p} target="_blank" rel="noopener noreferrer" />,
+  // Only our custom emoji are images; a Markdown image shows its alt text.
+  img: ({ node: _n, ...p }) =>
+    (p as Record<string, unknown>)["data-emoji"] === "custom" ? <img {...p} className="emoji" loading="lazy" /> : <>{p.alt}</>,
+  span: ({ node: _n, className, children, ...p }) => {
+    if (className === "spoiler") return <Spoiler>{children}</Spoiler>;
+    const userId = (p as Record<string, unknown>)["data-user-id"];
+    if (className === "mention" && typeof userId === "string") {
+      return <MentionTrigger userId={userId} me={"data-me" in p}>{children}</MentionTrigger>;
+    }
+    return <span className={className} {...p}>{children}</span>;
+  },
+};
+
+// One-line rendering (a channel topic in a header): inline formatting only, no links or spoiler buttons.
+const INLINE_ALLOWED = ["strong", "em", "del", "code", "span", "img"];
+const inlineComponents: Components = {
+  ...components,
+  span: ({ node: _n, className, children, ...p }) => <span className={className} {...p}>{children}</span>,
+};
+
+/** Renders message Markdown with the given emoji and mention lookups. `inline` flattens it to one line of inline formatting. */
+export function MarkdownView({ text, options, inline = false }: { text: string; options: ChatOptions; inline?: boolean }) {
+  if (inline) {
+    return (
+      <span className="chat-md">
+        <ReactMarkdown remarkPlugins={[remarkGfm, [remarkChat, options]]} allowedElements={INLINE_ALLOWED} unwrapDisallowed skipHtml
+          components={inlineComponents}>
+          {text.replace(/\s*\n\s*/g, " ")}
+        </ReactMarkdown>
+      </span>
+    );
+  }
+  return (
+    <div className="chat-md">
+      <ReactMarkdown remarkPlugins={[remarkGfm, [remarkChat, options]]} allowedElements={ALLOWED} unwrapDisallowed skipHtml
+        components={components}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+/** Renders a message's content. `mentions` are the user IDs the server parsed from it;
+ *  when given, only those users are highlighted. */
+export function Markdown({ text, mentions, inline }: { text: string; mentions?: string[]; inline?: boolean }) {
+  const emoji = useApp((s) => s.emoji);
+  const members = useApp((s) => s.server?.members);
+  const meId = useApp((s) => s.me?.id);
+  const data = useEmojiData();
+  const mentionKey = mentions?.join(",");
+  const options = useMemo<ChatOptions>(() => {
+    const mentioned = mentionKey === undefined ? null : new Set(mentionKey.split(","));
+    return {
+      custom: new Map(Object.values(emoji).map((e) => [e.name.toLowerCase(), { id: e.id, url: client.url(e.url) }])),
+      shortcodes: data?.byShortcode ?? null,
+      users: new Map(Object.values(members ?? {})
+        .filter((m) => !mentioned || mentioned.has(m.user.id))
+        .map((m) => [m.user.username.toLowerCase(), { id: m.user.id, name: m.user.display_name }])),
+      meId,
+    };
+  }, [emoji, members, meId, data, mentionKey]);
+  return <MarkdownView text={text} options={options} inline={inline} />;
+}

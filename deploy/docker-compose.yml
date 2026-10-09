@@ -1,0 +1,72 @@
+name: datrope
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: datrope
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: datrope
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datrope -d datrope"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build: ../server
+    restart: unless-stopped
+    environment:
+      DATROPE_DATABASE_URL: postgres://datrope:${POSTGRES_PASSWORD}@postgres:5432/datrope?sslmode=disable
+      DATROPE_PUBLIC_URL: https://${DATROPE_DOMAIN:?set DATROPE_DOMAIN in deploy/.env}
+      DATROPE_TRUST_PROXY: "true"
+      DATROPE_DATA_DIR: /data
+      DATROPE_LIVEKIT_URL: http://livekit:7880
+      DATROPE_LIVEKIT_API_KEY: datrope
+      DATROPE_LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET in deploy/.env}
+    volumes:
+      - files:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  livekit:
+    image: livekit/livekit-server:v1.13.7
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "datrope: ${LIVEKIT_API_SECRET}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7881:7881"
+      - "7882:7882/udp"
+      - "3478:3478/udp"
+      - "30000-30050:30000-30050/udp"
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/caddy.Dockerfile
+    restart: unless-stopped
+    environment:
+      DATROPE_DOMAIN: ${DATROPE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  postgres:
+  files:
+  caddy_data:
+  caddy_config:

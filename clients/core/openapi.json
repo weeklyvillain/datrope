@@ -1,0 +1,5829 @@
+{
+  "components": {
+    "schemas": {
+      "AckMentionsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "read_states": {
+            "items": {
+              "$ref": "#/components/schemas/ReadState"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "read_states"
+        ],
+        "type": "object"
+      },
+      "AckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "type": "object"
+      },
+      "Admin-reset-passwordRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
+      "Admin-set-disabledRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "disabled"
+        ],
+        "type": "object"
+      },
+      "Attachment": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "content_type": {
+            "description": "Detected from the contents, not the name",
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "inline": {
+            "description": "An image the client may show in the message",
+            "type": "boolean"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "thumbnail_url": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "channel_id",
+          "filename",
+          "content_type",
+          "size",
+          "inline",
+          "url"
+        ],
+        "type": "object"
+      },
+      "AuthResult": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "description": "Session token for native clients. Web clients get a cookie instead.",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "type": "object"
+      },
+      "Ban": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/PublicUser"
+          }
+        },
+        "required": [
+          "user",
+          "reason",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "BanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Category": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position"
+        ],
+        "type": "object"
+      },
+      "CategoryDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "CategoryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Channel": {
+        "additionalProperties": false,
+        "properties": {
+          "category_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "overrides": {
+            "items": {
+              "$ref": "#/components/schemas/Override"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "parent_channel_id": {
+            "description": "Threads only",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "parent_message_id": {
+            "description": "Threads only; the message the thread was started from",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "participants": {
+            "description": "DMs only",
+            "items": {
+              "$ref": "#/components/schemas/PublicUser"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "position": {
+            "description": "Dense index inside the channel's group (its category, or none)",
+            "format": "int64",
+            "type": "integer"
+          },
+          "topic": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "text",
+              "voice",
+              "welcome",
+              "dm",
+              "thread"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "position",
+          "topic",
+          "overrides"
+        ],
+        "type": "object"
+      },
+      "ChannelDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ChannelRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "description": "Empty for DMs: clients name them after the other people",
+            "type": "string"
+          },
+          "parent_id": {
+            "description": "For threads: the channel they belong to",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "parent_name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
+      "Create-categoryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateChannelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "category_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "text",
+              "voice"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "type": "object"
+      },
+      "CreateDMRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "recipient_ids": {
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "recipient_ids"
+        ],
+        "type": "object"
+      },
+      "CreateInviteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_seconds": {
+            "format": "int64",
+            "maximum": 2592000,
+            "minimum": 60,
+            "type": "integer"
+          },
+          "max_uses": {
+            "format": "int64",
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "CreateRoleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "enum": [
+              "#e74c3c",
+              "#f5a524",
+              "#2ecc71",
+              "#2dd4bf",
+              "#4aa3ff",
+              "#a78bfa",
+              "#fb7185",
+              "#969da2"
+            ],
+            "type": "string"
+          },
+          "hoist": {
+            "description": "Show members with this role separately in the member list",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "permissions": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ],
+        "type": "object"
+      },
+      "CreateThreadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CreateUserRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 32,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 32,
+            "minLength": 2,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "type": "object"
+      },
+      "EditRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 4000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "Emoji": {
+        "additionalProperties": false,
+        "properties": {
+          "creator_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "description": "Public image URL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
+      "EmojiUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "emoji": {
+            "description": "Every custom emoji on the server",
+            "items": {
+              "$ref": "#/components/schemas/Emoji"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "emoji"
+        ],
+        "type": "object"
+      },
+      "Error": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "Hello": {
+        "additionalProperties": false,
+        "properties": {
+          "heartbeat_interval": {
+            "description": "Milliseconds between client HEARTBEATs",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "heartbeat_interval"
+        ],
+        "type": "object"
+      },
+      "InstanceInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "has_users": {
+            "description": "False until the first (admin) account exists",
+            "type": "boolean"
+          },
+          "max_upload_bytes": {
+            "description": "Largest file a user may upload",
+            "format": "int64",
+            "type": "integer"
+          },
+          "registration_mode": {
+            "enum": [
+              "invite_only",
+              "open",
+              "admin_only"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "registration_mode",
+          "has_users",
+          "max_upload_bytes"
+        ],
+        "type": "object"
+      },
+      "Invite": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "creator_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "max_uses": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "uses": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "creator_id",
+          "uses",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "InvitePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "member_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "server_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "server_name",
+          "member_count"
+        ],
+        "type": "object"
+      },
+      "JoinRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "self_deaf": {
+            "description": "The client starts deafened",
+            "type": "boolean"
+          },
+          "self_mute": {
+            "description": "The client starts muted",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "JoinResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "description": "LiveKit access token for the channel's room",
+            "type": "string"
+          },
+          "url": {
+            "description": "LiveKit server to connect to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "token"
+        ],
+        "type": "object"
+      },
+      "LoginRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "enum": [
+              "web",
+              "native"
+            ],
+            "type": "string"
+          },
+          "device_name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "login": {
+            "description": "Username or email",
+            "maxLength": 254,
+            "minLength": 1,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "login",
+          "password",
+          "device_name",
+          "client"
+        ],
+        "type": "object"
+      },
+      "Member": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_rules_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "joined_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "role_ids": {
+            "description": "Excludes @everyone, which every member holds",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "user": {
+            "$ref": "#/components/schemas/PublicUser"
+          }
+        },
+        "required": [
+          "user",
+          "role_ids",
+          "joined_at"
+        ],
+        "type": "object"
+      },
+      "MemberRemoved": {
+        "additionalProperties": false,
+        "properties": {
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "MentionItem": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/ChannelRef"
+          },
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          },
+          "unread": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "channel",
+          "unread"
+        ],
+        "type": "object"
+      },
+      "MentionsPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MentionItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "unread_count": {
+            "description": "First page only; capped at 100",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "Message": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "author": {
+            "$ref": "#/components/schemas/PublicUser"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "edited_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "embed": {
+            "$ref": "#/components/schemas/Preview",
+            "description": "Text preview of the first link; attached after send by MESSAGE_UPDATE"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "mentions": {
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nonce": {
+            "description": "Echoes the sender's nonce on create",
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "pinned_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reactions": {
+            "items": {
+              "$ref": "#/components/schemas/Reaction"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "reply_to": {
+            "$ref": "#/components/schemas/ReplyRef"
+          },
+          "thread": {
+            "$ref": "#/components/schemas/ThreadSummary",
+            "description": "The thread started from this message"
+          }
+        },
+        "required": [
+          "id",
+          "channel_id",
+          "author",
+          "content",
+          "attachments",
+          "created_at",
+          "deleted",
+          "mentions",
+          "reactions",
+          "pinned"
+        ],
+        "type": "object"
+      },
+      "MessageDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "channel_id"
+        ],
+        "type": "object"
+      },
+      "MoveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id"
+        ],
+        "type": "object"
+      },
+      "Override": {
+        "additionalProperties": false,
+        "properties": {
+          "allow": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "deny": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "target_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "target_type": {
+            "enum": [
+              "role",
+              "member"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_type",
+          "target_id",
+          "allow",
+          "deny"
+        ],
+        "type": "object"
+      },
+      "OverrideRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "allow": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "deny": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "allow",
+          "deny"
+        ],
+        "type": "object"
+      },
+      "PlaySoundRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sound_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sound_id"
+        ],
+        "type": "object"
+      },
+      "PresenceUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "online",
+              "idle",
+              "offline"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "Preview": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "site": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "site",
+          "title",
+          "description"
+        ],
+        "type": "object"
+      },
+      "PublicUser": {
+        "additionalProperties": false,
+        "properties": {
+          "about_me": {
+            "description": "Up to 190 characters",
+            "type": "string"
+          },
+          "avatar_url": {
+            "description": "A 256 × 256 image; absent when the user has none, and clients draw initials",
+            "type": "string"
+          },
+          "custom_status": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "pronouns": {
+            "description": "Up to 40 characters",
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "custom_status"
+        ],
+        "type": "object"
+      },
+      "Reaction": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "emoji": {
+            "description": "A Unicode emoji or custom:\u003cemoji id\u003e",
+            "type": "string"
+          },
+          "user_ids": {
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "emoji",
+          "count",
+          "user_ids"
+        ],
+        "type": "object"
+      },
+      "ReactionEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "message_id",
+          "emoji",
+          "user_id"
+        ],
+        "type": "object"
+      },
+      "ReadState": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "last_message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "last_read_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id"
+        ],
+        "type": "object"
+      },
+      "Ready": {
+        "additionalProperties": false,
+        "properties": {
+          "dms": {
+            "items": {
+              "$ref": "#/components/schemas/Channel"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "emoji": {
+            "description": "The server custom emoji; empty when the user is not a member",
+            "items": {
+              "$ref": "#/components/schemas/Emoji"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "presences": {
+            "description": "People who share the server and are not offline",
+            "items": {
+              "$ref": "#/components/schemas/PresenceUpdate"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "read_states": {
+            "description": "One per visible channel and DM",
+            "items": {
+              "$ref": "#/components/schemas/ReadState"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "server": {
+            "$ref": "#/components/schemas/ReadyServer",
+            "description": "Absent when the user is not a member"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "sounds": {
+            "description": "The server soundboard sounds; empty when the user is not a member",
+            "items": {
+              "$ref": "#/components/schemas/Sound"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "voice_states": {
+            "description": "Who is in voice, in channels and DMs the user can see",
+            "items": {
+              "$ref": "#/components/schemas/VoiceState"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "session_id",
+          "user",
+          "dms",
+          "presences",
+          "read_states",
+          "voice_states",
+          "emoji",
+          "sounds"
+        ],
+        "type": "object"
+      },
+      "ReadyServer": {
+        "additionalProperties": false,
+        "properties": {
+          "banner_url": {
+            "type": "string"
+          },
+          "categories": {
+            "description": "Empty for a member held at the rules gate",
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "channels": {
+            "description": "Only channels the user can see",
+            "items": {
+              "$ref": "#/components/schemas/Channel"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon_url": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Also the ID of the @everyone role",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "palette": {
+            "enum": [
+              "emerald",
+              "ocean",
+              "violet",
+              "amber",
+              "rose",
+              "mint"
+            ],
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "rules_gate": {
+            "description": "New members see only the welcome page until they accept the rules",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "roles",
+          "members",
+          "channels",
+          "categories",
+          "id",
+          "name",
+          "description",
+          "palette",
+          "owner_id",
+          "created_at",
+          "rules_gate"
+        ],
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "enum": [
+              "web",
+              "native"
+            ],
+            "type": "string"
+          },
+          "device_name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "invite_code": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 32,
+            "minLength": 2,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "device_name",
+          "client"
+        ],
+        "type": "object"
+      },
+      "RenameRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z0-9_]{2,32}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "ReplyRef": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/PublicUser"
+          },
+          "content": {
+            "description": "Up to 200 characters; empty when deleted",
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "content",
+          "deleted"
+        ],
+        "type": "object"
+      },
+      "Role": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "enum": [
+              "#e74c3c",
+              "#f5a524",
+              "#2ecc71",
+              "#2dd4bf",
+              "#4aa3ff",
+              "#a78bfa",
+              "#fb7185",
+              "#969da2"
+            ],
+            "type": "string"
+          },
+          "hoist": {
+            "description": "Members with this role are shown separately in the member list",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "position": {
+            "description": "Higher is more senior; @everyone is 0",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "permissions",
+          "position",
+          "hoist"
+        ],
+        "type": "object"
+      },
+      "RoleDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "SearchFilters": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "type": "string"
+          },
+          "before": {
+            "type": "string"
+          },
+          "from": {
+            "$ref": "#/components/schemas/PublicUser"
+          },
+          "has": {
+            "type": "string"
+          },
+          "in_channel": {
+            "$ref": "#/components/schemas/ChannelRef"
+          },
+          "in_dm_with": {
+            "$ref": "#/components/schemas/PublicUser"
+          },
+          "terms": {
+            "description": "Lower-cased words that were searched",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "terms"
+        ],
+        "type": "object"
+      },
+      "SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/SearchFilters"
+          },
+          "next_cursor": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "total": {
+            "description": "First page only; capped at 1001",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "filters"
+        ],
+        "type": "object"
+      },
+      "SearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/ChannelRef"
+          },
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        },
+        "required": [
+          "message",
+          "channel"
+        ],
+        "type": "object"
+      },
+      "SelfStateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "self_deaf": {
+            "type": "boolean"
+          },
+          "self_mute": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "SendRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_ids": {
+            "description": "Uploads (POST /api/attachments) to send with the message",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "content": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "nonce": {
+            "description": "Client-chosen; echoed in MESSAGE_CREATE so the sender can match its pending message",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "reply_to_id": {
+            "description": "Reply to this message (same channel)",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "Server": {
+        "additionalProperties": false,
+        "properties": {
+          "banner_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon_url": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Also the ID of the @everyone role",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "palette": {
+            "enum": [
+              "emerald",
+              "ocean",
+              "violet",
+              "amber",
+              "rose",
+              "mint"
+            ],
+            "type": "string"
+          },
+          "rules_gate": {
+            "description": "New members see only the welcome page until they accept the rules",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "palette",
+          "owner_id",
+          "created_at",
+          "rules_gate"
+        ],
+        "type": "object"
+      },
+      "ServerMuteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "muted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "muted"
+        ],
+        "type": "object"
+      },
+      "ServerWithRoles": {
+        "additionalProperties": false,
+        "properties": {
+          "banner_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon_url": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Also the ID of the @everyone role",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "palette": {
+            "enum": [
+              "emerald",
+              "ocean",
+              "violet",
+              "amber",
+              "rose",
+              "mint"
+            ],
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "rules_gate": {
+            "description": "New members see only the welcome page until they accept the rules",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "roles",
+          "id",
+          "name",
+          "description",
+          "palette",
+          "owner_id",
+          "created_at",
+          "rules_gate"
+        ],
+        "type": "object"
+      },
+      "Session": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "device_name": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "device_name",
+          "created_at",
+          "last_used_at",
+          "current"
+        ],
+        "type": "object"
+      },
+      "Settings": {
+        "additionalProperties": false,
+        "properties": {
+          "max_upload_bytes": {
+            "description": "Largest file a user may upload",
+            "format": "int64",
+            "type": "integer"
+          },
+          "registration_mode": {
+            "enum": [
+              "invite_only",
+              "open",
+              "admin_only"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "registration_mode",
+          "max_upload_bytes"
+        ],
+        "type": "object"
+      },
+      "Sound": {
+        "additionalProperties": false,
+        "properties": {
+          "creator_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "duration_ms": {
+            "description": "Length measured by the server from the file",
+            "format": "int64",
+            "type": "integer"
+          },
+          "emoji": {
+            "description": "One Unicode emoji",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "description": "Public audio URL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "emoji",
+          "duration_ms",
+          "url"
+        ],
+        "type": "object"
+      },
+      "SoundPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "emoji": {
+            "description": "One Unicode emoji",
+            "type": "string"
+          },
+          "name": {
+            "description": "1 to 32 characters",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SoundUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "sounds": {
+            "description": "Every soundboard sound on the server",
+            "items": {
+              "$ref": "#/components/schemas/Sound"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sounds"
+        ],
+        "type": "object"
+      },
+      "SoundboardPlay": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "sound_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "user_id",
+          "sound_id"
+        ],
+        "type": "object"
+      },
+      "ThreadListItem": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "parent_message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ThreadSummary"
+          }
+        },
+        "required": [
+          "channel",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "ThreadSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "last_message_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "message_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "participants": {
+            "description": "Up to three of the first people who posted",
+            "items": {
+              "$ref": "#/components/schemas/PublicUser"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "message_count",
+          "participants"
+        ],
+        "type": "object"
+      },
+      "ThreadUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "The parent channel",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "message_id": {
+            "description": "The parent message",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "thread": {
+            "$ref": "#/components/schemas/ThreadSummary"
+          }
+        },
+        "required": [
+          "channel_id",
+          "message_id",
+          "thread"
+        ],
+        "type": "object"
+      },
+      "TypingStart": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "user_id",
+          "at"
+        ],
+        "type": "object"
+      },
+      "UpdateChannelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "category_id": {
+            "description": "Move into this category",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "clear_category": {
+            "description": "Move out of any category",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "position": {
+            "description": "Index inside the channel's (new) group",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "topic": {
+            "maxLength": 1024,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateMeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "about_me": {
+            "description": "Empty clears it",
+            "maxLength": 190,
+            "type": "string"
+          },
+          "custom_status": {
+            "description": "Shown under your name; empty clears it",
+            "maxLength": 80,
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "pronouns": {
+            "description": "Empty clears them",
+            "maxLength": 40,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateRoleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "clear_color": {
+            "description": "Remove the role's colour (ignored when color is set)",
+            "type": "boolean"
+          },
+          "color": {
+            "enum": [
+              "#e74c3c",
+              "#f5a524",
+              "#2ecc71",
+              "#2dd4bf",
+              "#4aa3ff",
+              "#a78bfa",
+              "#fb7185",
+              "#969da2"
+            ],
+            "type": "string"
+          },
+          "hoist": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "permissions": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "position": {
+            "description": "Higher is more senior; @everyone is always 0",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateServerRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "palette": {
+            "enum": [
+              "emerald",
+              "ocean",
+              "violet",
+              "amber",
+              "rose",
+              "mint"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateSettingsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "max_upload_bytes": {
+            "format": "int64",
+            "maximum": 10737418240,
+            "minimum": 1048576,
+            "type": "integer"
+          },
+          "registration_mode": {
+            "enum": [
+              "invite_only",
+              "open",
+              "admin_only"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateWelcomeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "markdown": {
+            "maxLength": 50000,
+            "type": "string"
+          },
+          "rules_gate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "markdown"
+        ],
+        "type": "object"
+      },
+      "User": {
+        "additionalProperties": false,
+        "properties": {
+          "about_me": {
+            "description": "Up to 190 characters",
+            "type": "string"
+          },
+          "avatar_url": {
+            "description": "A 256 × 256 image; absent when the user has none, and clients draw initials",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "custom_status": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "is_admin": {
+            "type": "boolean"
+          },
+          "pronouns": {
+            "description": "Up to 40 characters",
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "custom_status",
+          "is_admin",
+          "disabled",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "VoiceMove": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id"
+        ],
+        "type": "object"
+      },
+      "VoiceState": {
+        "additionalProperties": false,
+        "properties": {
+          "camera": {
+            "type": "boolean"
+          },
+          "channel_id": {
+            "description": "Absent when the user left voice",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "screen": {
+            "description": "Sharing their screen",
+            "type": "boolean"
+          },
+          "self_deaf": {
+            "type": "boolean"
+          },
+          "self_mute": {
+            "type": "boolean"
+          },
+          "server_mute": {
+            "description": "Muted by a moderator",
+            "type": "boolean"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "self_mute",
+          "self_deaf",
+          "server_mute",
+          "camera",
+          "screen"
+        ],
+        "type": "object"
+      },
+      "Welcome": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "rules_gate": {
+            "description": "New members see only this page until they accept the rules",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "channel_id",
+          "markdown",
+          "rules_gate"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "description": "Session token. Web clients send the datrope_session cookie (plus X-Datrope-CSRF: 1 on writes) instead.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Datrope API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/admin/settings": {
+      "get": {
+        "operationId": "admin-get-settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "admin-update-settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "operationId": "admin-list-users",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "admin-create-user",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/disabled": {
+      "put": {
+        "operationId": "admin-set-disabled",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Admin-set-disabledRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/password": {
+      "put": {
+        "operationId": "admin-reset-password",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Admin-reset-passwordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/channels/{id}": {
+      "delete": {
+        "operationId": "delete-channel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "get": {
+        "operationId": "get-channel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "patch": {
+        "operationId": "update-channel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/channels/{id}/ack": {
+      "post": {
+        "operationId": "ack-channel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/messages": {
+      "get": {
+        "operationId": "list-messages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only messages older than this ID",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Only messages older than this ID",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only messages newer than this ID",
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "description": "Only messages newer than this ID",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Messages around this ID, itself included",
+            "explode": false,
+            "in": "query",
+            "name": "around",
+            "schema": {
+              "description": "Messages around this ID, itself included",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Message"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      },
+      "post": {
+        "operationId": "send-message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/messages/{messageID}": {
+      "delete": {
+        "operationId": "delete-message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      },
+      "patch": {
+        "operationId": "edit-message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/messages/{messageID}/reactions/{emoji}": {
+      "delete": {
+        "operationId": "remove-reaction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "emoji",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      },
+      "put": {
+        "operationId": "add-reaction",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "emoji",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/messages/{messageID}/thread": {
+      "post": {
+        "operationId": "create-thread",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateThreadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/overrides/{targetType}/{targetID}": {
+      "delete": {
+        "operationId": "delete-override",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "targetType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "role",
+                "member"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "targetID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "put": {
+        "operationId": "put-override",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "targetType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "role",
+                "member"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "targetID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/channels/{id}/pins": {
+      "get": {
+        "operationId": "list-pins",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Message"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/pins/{messageID}": {
+      "delete": {
+        "operationId": "unpin-message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      },
+      "put": {
+        "operationId": "pin-message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/threads": {
+      "get": {
+        "operationId": "list-threads",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ThreadListItem"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/typing": {
+      "post": {
+        "operationId": "start-typing",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/dms": {
+      "get": {
+        "operationId": "list-dms",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Channel"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "post": {
+        "operationId": "create-dm",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDMRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/instance": {
+      "get": {
+        "operationId": "get-instance",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/invites/{code}": {
+      "delete": {
+        "operationId": "delete-invite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "get": {
+        "operationId": "get-invite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/invites/{code}/accept": {
+      "post": {
+        "operationId": "accept-invite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "search-messages",
+        "parameters": [
+          {
+            "description": "Words plus from:, in:, has:, before:, after:",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words plus from:, in:, has:, before:, after:",
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "description": "next_cursor from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "next_cursor from the previous page",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Minutes east of UTC, for before:/after: dates",
+            "explode": false,
+            "in": "query",
+            "name": "utc_offset",
+            "schema": {
+              "description": "Minutes east of UTC, for before:/after: dates",
+              "format": "int64",
+              "maximum": 840,
+              "minimum": -840,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/server": {
+      "get": {
+        "operationId": "get-server",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerWithRoles"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "patch": {
+        "operationId": "update-server",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateServerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Server"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/bans": {
+      "get": {
+        "operationId": "list-bans",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Ban"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/bans/{userID}": {
+      "delete": {
+        "operationId": "unban-member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "put": {
+        "operationId": "ban-member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/categories": {
+      "get": {
+        "operationId": "list-categories",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "post": {
+        "operationId": "create-category",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Create-categoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/server/categories/{categoryID}": {
+      "delete": {
+        "operationId": "delete-category",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "categoryID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "patch": {
+        "operationId": "update-category",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "categoryID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/server/channels": {
+      "get": {
+        "operationId": "list-channels",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Channel"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      },
+      "post": {
+        "operationId": "create-channel",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChannelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Channel"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
+        ]
+      }
+    },
+    "/api/server/emoji": {
+      "get": {
+        "operationId": "list-emoji",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Emoji"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/emoji/{emojiID}": {
+      "delete": {
+        "operationId": "delete-emoji",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emojiID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      },
+      "patch": {
+        "operationId": "rename-emoji",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emojiID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Emoji"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/invites": {
+      "get": {
+        "operationId": "list-invites",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Invite"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "post": {
+        "operationId": "create-invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invite"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/members": {
+      "get": {
+        "operationId": "list-members",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Member"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/members/{userID}": {
+      "delete": {
+        "operationId": "remove-member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/members/{userID}/roles/{roleID}": {
+      "delete": {
+        "operationId": "remove-member-role",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "roleID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "put": {
+        "operationId": "add-member-role",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "roleID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/roles": {
+      "post": {
+        "operationId": "create-role",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/roles/{roleID}": {
+      "delete": {
+        "operationId": "delete-role",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roleID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "patch": {
+        "operationId": "update-role",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roleID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/sounds": {
+      "get": {
+        "operationId": "list-sounds",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Sound"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/sounds/{soundID}": {
+      "delete": {
+        "operationId": "delete-sound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soundID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      },
+      "patch": {
+        "operationId": "update-sound",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soundID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SoundPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sound"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/welcome": {
+      "get": {
+        "operationId": "get-welcome",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Welcome"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      },
+      "put": {
+        "operationId": "update-welcome",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWelcomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Welcome"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/welcome/accept": {
+      "post": {
+        "operationId": "accept-rules",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "operationId": "list-sessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Session"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/sessions/{id}": {
+      "delete": {
+        "operationId": "delete-session",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/users/@me": {
+      "get": {
+        "operationId": "get-me",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "update-me",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/users/@me/mentions": {
+      "get": {
+        "operationId": "list-mentions",
+        "parameters": [
+          {
+            "description": "next_cursor from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "next_cursor from the previous page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentionsPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/users/@me/mentions/ack": {
+      "post": {
+        "operationId": "ack-mentions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckMentionsResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/voice/members/{userID}": {
+      "delete": {
+        "operationId": "disconnect-voice-member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/members/{userID}/move": {
+      "post": {
+        "operationId": "move-voice-member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/members/{userID}/mute": {
+      "post": {
+        "operationId": "server-mute-voice-member",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerMuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/soundboard": {
+      "post": {
+        "operationId": "play-sound",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaySoundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/state": {
+      "patch": {
+        "operationId": "set-voice-state",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfStateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/{id}/join": {
+      "post": {
+        "operationId": "join-voice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    }
+  },
+  "x-datrope-gateway-schemas": {
+    "Attachment": {
+      "$ref": "#/components/schemas/Attachment"
+    },
+    "Category": {
+      "$ref": "#/components/schemas/Category"
+    },
+    "CategoryDeleted": {
+      "$ref": "#/components/schemas/CategoryDeleted"
+    },
+    "ChannelDeleted": {
+      "$ref": "#/components/schemas/ChannelDeleted"
+    },
+    "EmojiUpdate": {
+      "$ref": "#/components/schemas/EmojiUpdate"
+    },
+    "Hello": {
+      "$ref": "#/components/schemas/Hello"
+    },
+    "MemberRemoved": {
+      "$ref": "#/components/schemas/MemberRemoved"
+    },
+    "Message": {
+      "$ref": "#/components/schemas/Message"
+    },
+    "MessageDeleted": {
+      "$ref": "#/components/schemas/MessageDeleted"
+    },
+    "PresenceUpdate": {
+      "$ref": "#/components/schemas/PresenceUpdate"
+    },
+    "PublicUser": {
+      "$ref": "#/components/schemas/PublicUser"
+    },
+    "ReactionEvent": {
+      "$ref": "#/components/schemas/ReactionEvent"
+    },
+    "Ready": {
+      "$ref": "#/components/schemas/Ready"
+    },
+    "RoleDeleted": {
+      "$ref": "#/components/schemas/RoleDeleted"
+    },
+    "Server": {
+      "$ref": "#/components/schemas/Server"
+    },
+    "SoundUpdate": {
+      "$ref": "#/components/schemas/SoundUpdate"
+    },
+    "SoundboardPlay": {
+      "$ref": "#/components/schemas/SoundboardPlay"
+    },
+    "ThreadUpdate": {
+      "$ref": "#/components/schemas/ThreadUpdate"
+    },
+    "TypingStart": {
+      "$ref": "#/components/schemas/TypingStart"
+    },
+    "VoiceMove": {
+      "$ref": "#/components/schemas/VoiceMove"
+    },
+    "VoiceState": {
+      "$ref": "#/components/schemas/VoiceState"
+    }
+  }
+}

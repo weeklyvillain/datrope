@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — server settings: roles</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/datrope/tokens.css">
+<link rel="stylesheet" href="ds/datrope/components/bundle.css">
+<script src="ds/datrope/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body { margin: 0; background: #131313; }
+a { color: var(--primary); text-decoration: none; } a:hover { text-decoration: underline; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm { width: 14px; height: 14px; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; }
+.chan:hover { background: var(--accent); color: var(--foreground); }
+.label { display: flex; align-items: center; gap: 4px; padding: 16px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.msg { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; padding: 4px 16px; }
+.msg:hover { background: #171717; }
+.cont { padding: 2px 16px 2px 68px; }
+.cont:hover { background: #171717; }
+.who { font-weight: 600; color: var(--foreground); }
+.time { font-size: 12px; color: var(--muted-foreground); }
+.react { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); font-size: 13px; }
+.react-mine { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; border: 0; background: transparent; color: var(--muted-foreground); }
+.iconbtn:hover { background: var(--accent); color: var(--foreground); }
+code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; background: #0d0d0d; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+.snav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; text-decoration: none; }
+.snav:hover { background: var(--accent); color: var(--foreground); text-decoration: none; }
+.sgroup { padding: 16px 10px 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.field { display: grid; gap: 6px; }
+.flabel { font-size: 14px; font-weight: 600; color: var(--foreground); }
+.fhint { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.input { height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--input); background: var(--background); color: var(--foreground); font: inherit; }
+.card { border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+</style>
+</helmet>
+
+<div style="--primary: {{accent}}; --ring: {{accent}}; display: flex; flex-wrap: wrap; height: 100vh; min-height: 900px; background: var(--background); color: var(--foreground); font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif; font-size: 15px; line-height: 1.45; overflow: hidden;">
+  <nav aria-label="Server settings" style="flex: 1 1 260px; max-width: 280px; min-width: 240px; display: flex; flex-direction: column; background: var(--card); border-right: 1px solid var(--border); min-height: 0;">
+    <div style="display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 14px; border-bottom: 1px solid var(--border);">
+      <svg viewBox="0 0 1254 1254" style="width: 26px; height: 26px; flex: none; color: var(--primary);" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M 611.65,241.24 C 631.23,239.87 651.17,241.16 670.68,244.90 C 690.18,248.64 709.26,254.82 727.12,263.21 C 744.97,271.59 761.60,282.19 776.21,294.76 C 790.83,307.34 803.31,321.92 813.92,337.94 C 824.54,353.96 833.32,371.40 840.57,389.67 C 847.83,407.94 853.56,427.03 858.10,446.36 C 862.63,465.68 865.79,485.27 870.56,504.07 C 875.34,522.87 882.10,540.85 892.69,557.11 C 903.28,573.38 916.95,588.04 931.71,600.74 C 946.48,613.44 962.30,624.03 977.95,635.24 C 993.60,646.46 1009.11,658.74 1023.10,672.98 C 1037.09,687.23 1049.48,703.11 1058.96,720.25 C 1068.44,737.40 1075.23,755.77 1079.46,774.73 C 1083.70,793.70 1085.39,813.26 1084.69,832.79 C 1083.98,852.32 1080.88,871.81 1075.53,890.65 C 1070.18,909.48 1062.59,927.66 1052.89,944.55 C 1043.20,961.43 1031.41,977.03 1017.68,990.71 C 1003.94,1004.39 988.25,1016.15 970.78,1025.37 C 953.32,1034.60 934.19,1041.35 914.57,1045.59 C 894.95,1049.83 874.89,1051.59 855.34,1050.65 C 835.79,1049.70 816.71,1046.01 798.90,1039.19 C 781.08,1032.37 764.73,1022.13 748.38,1011.31 C 732.04,1000.50 715.48,989.22 697.94,980.18 C 680.41,971.13 662.11,964.27 643.18,962.01 C 624.25,959.76 604.66,962.14 585.79,967.86 C 566.91,973.58 548.99,982.81 532.52,993.64 C 516.05,1004.47 500.48,1016.51 483.58,1025.96 C 466.69,1035.41 448.27,1042.03 429.16,1045.89 C 410.04,1049.75 390.23,1050.88 370.58,1049.41 C 350.94,1047.94 331.45,1043.86 312.98,1037.32 C 294.50,1030.79 277.11,1021.74 261.30,1010.54 C 245.50,999.35 231.25,986.03 218.96,971.00 C 206.68,955.98 196.35,939.26 188.40,921.26 C 180.45,903.27 174.91,883.96 171.83,864.19 C 168.75,844.42 168.14,824.21 170.04,804.43 C 171.94,784.66 176.35,765.31 183.31,747.29 C 190.27,729.27 199.94,712.78 211.63,697.68 C 223.33,682.57 236.96,668.74 251.55,655.61 C 266.15,642.48 281.71,630.06 297.26,617.78 C 312.81,605.51 328.52,593.54 341.94,579.98 C 355.35,566.43 365.89,550.82 372.98,532.78 C 380.07,514.74 384.40,494.83 388.34,475.06 C 392.29,455.30 395.91,435.79 400.97,417.01 C 406.02,398.22 412.69,380.13 422.13,363.18 C 431.57,346.23 443.41,330.43 456.93,316.21 C 470.45,302.00 485.63,289.39 502.03,278.75 C 518.42,268.10 536.04,259.41 554.46,253.04 C 572.87,246.67 592.08,242.62 611.65,241.24 Z M 389.45,629.59 C 390.44,637.33 409.32,644.99 422.98,652.10 C 436.63,659.21 448.92,666.71 460.42,675.47 C 471.93,684.22 482.73,693.83 493.64,703.67 C 504.54,713.50 515.42,723.64 526.06,734.08 C 536.71,744.51 547.11,755.25 557.05,766.27 C 566.99,777.29 576.40,788.63 585.31,800.19 C 594.23,811.76 602.76,823.52 611.36,835.26 C 619.96,847.01 628.63,858.73 637.86,870.22 C 647.08,881.71 656.47,894.94 668.24,900.70 C 680.01,906.46 695.23,901.15 708.89,893.88 C 722.56,886.61 734.70,877.42 744.64,866.53 C 754.59,855.64 762.25,842.92 767.46,829.16 C 772.68,815.40 775.50,800.65 775.96,785.88 C 776.41,771.11 774.49,756.32 770.21,742.47 C 765.94,728.62 759.22,715.87 750.44,704.61 C 741.66,693.35 730.91,683.43 718.97,674.66 C 707.04,665.88 693.91,658.24 680.37,651.53 C 666.84,644.82 653.00,639.02 639.09,634.02 C 625.17,629.01 611.12,624.80 596.93,621.31 C 582.74,617.81 568.42,615.02 553.98,612.86 C 539.53,610.70 524.97,609.13 510.26,608.18 C 495.54,607.24 480.67,606.94 465.54,607.47 C 450.41,608.01 434.64,609.04 419.86,612.19 C 405.09,615.33 388.45,621.85 389.45,629.59 Z"></path></svg>
+      <span style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 600;">Server settings</span><span style="display: block; font-size: 12px; color: var(--muted-foreground);">The Basement</span></span>
+    </div>
+    <div style="flex: 1; overflow-y: auto; padding: 4px 8px 8px;">
+      <div class="sgroup">Server</div>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Overview</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>Look</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></svg>Welcome page</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>Channels</a>
+      <div class="sgroup">People</div>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Members</a>
+      <a class="snav" href="#" aria-current="page" style="background: var(--accent); color: var(--foreground);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>Roles</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21a8 8 0 0 1 13.292-6"></path><circle cx="10" cy="8" r="5"></circle><path d="M19 16v6"></path><path d="M22 19h-6"></path></svg>Invites</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m4.9 4.9 14.2 14.2"></path></svg>Bans</a>
+      <div class="sgroup">Expressions</div>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" x2="9.01" y1="9" y2="9"></line><line x1="15" x2="15.01" y1="9" y2="9"></line></svg>Emoji</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 10v3"></path><path d="M6 6v11"></path><path d="M10 3v18"></path><path d="M14 8v7"></path><path d="M18 5v13"></path><path d="M22 10v3"></path></svg>Soundboard</a>
+      <div class="sgroup">Instance</div>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Sign-ups</a>
+      <a class="snav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg>Uploads and voice</a>
+    </div>
+    <div style="padding: 10px; border-top: 1px solid var(--border);">
+      <a class="snav" href="Main.dc.html" style="color: var(--foreground);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>Back to chat<span style="margin-left: auto; font-size: 12px; color: var(--muted-foreground);">Esc</span></a>
+    </div>
+  </nav>
+  <main aria-label="Roles" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; min-height: 0;">
+    <header style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--border); background: var(--card);">
+      <div style="flex: 1; min-width: 0;"><h2 style="margin: 0; font-size: 1.05rem; font-weight: 600;">Roles</h2></div>
+      <x-import component-from-global-scope="Datrope.Button" size="sm">Save changes</x-import>
+    </header>
+    <div style="flex: 1; overflow-y: auto; min-height: 0;">
+      <div style="max-width: 860px; padding: 24px 24px 48px; display: grid; gap: 28px;">
+        <p style="margin: 0; color: var(--muted-foreground); max-width: 68ch;">Roles group people and decide what they may do. Everyone has @everyone; give extra roles for more.</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; align-items: start;">
+          <section class="card" style="padding: 8px; display: grid; gap: 2px;" aria-label="Roles">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 8px;">
+              <span style="font-size: 13px; color: var(--muted-foreground);">Higher roles win. Drag to reorder.</span>
+            </div>
+            <button style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; text-align: left; " aria-pressed="false">
+              <span style="color: var(--muted-foreground); display: inline-flex;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span>
+              <span style="width: 12px; height: 12px; border-radius: 999px; background: #e74c3c;"></span>
+              <span style="flex: 1; font-weight: 600;">Admin</span>
+              <span style="font-size: 13px; color: var(--muted-foreground);">1 member</span>
+            </button>
+            <button style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; text-align: left; background: var(--accent);" aria-pressed="true">
+              <span style="color: var(--muted-foreground); display: inline-flex;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span>
+              <span style="width: 12px; height: 12px; border-radius: 999px; background: #4aa3ff;"></span>
+              <span style="flex: 1; font-weight: 600;">Moderator</span>
+              <span style="font-size: 13px; color: var(--muted-foreground);">2 members</span>
+            </button>
+            <button style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; text-align: left; " aria-pressed="false">
+              <span style="color: var(--muted-foreground); display: inline-flex;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span>
+              <span style="width: 12px; height: 12px; border-radius: 999px; background: #f5a524;"></span>
+              <span style="flex: 1; font-weight: 600;">Board games</span>
+              <span style="font-size: 13px; color: var(--muted-foreground);">4 members</span>
+            </button>
+            <button style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; text-align: left; " aria-pressed="false">
+              <span style="color: var(--muted-foreground); display: inline-flex;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span>
+              <span style="width: 12px; height: 12px; border-radius: 999px; background: #969da2;"></span>
+              <span style="flex: 1; font-weight: 600;">@everyone</span>
+              <span style="font-size: 13px; color: var(--muted-foreground);">All members</span>
+            </button>
+            <button style="display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 6px; background: transparent; color: var(--muted-foreground); font: inherit;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Create role</button>
+          </section>
+
+          <section style="display: grid; gap: 18px; grid-column: span 2; min-width: 0;" aria-label="Edit Moderator">
+            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: end;">
+              <label class="field" style="flex: 1 1 220px;"><span class="flabel">Role name</span><input class="input" value="Moderator"></label>
+              <div class="field">
+                <span class="flabel">Colour</span>
+                <div style="display: flex; gap: 6px;">
+                  <button aria-label="Blue" aria-pressed="true" style="width: 32px; height: 32px; border-radius: 999px; background: #4aa3ff; border: 2px solid var(--foreground);"></button>
+                  <button aria-label="Orange" aria-pressed="false" style="width: 32px; height: 32px; border-radius: 999px; background: #f5a524; border: 0;"></button>
+                  <button aria-label="Pink" aria-pressed="false" style="width: 32px; height: 32px; border-radius: 999px; background: #fb7185; border: 0;"></button>
+                  <button aria-label="Purple" aria-pressed="false" style="width: 32px; height: 32px; border-radius: 999px; background: #a78bfa; border: 0;"></button>
+                  <button aria-label="Grey" aria-pressed="false" style="width: 32px; height: 32px; border-radius: 999px; background: #969da2; border: 0;"></button>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+              <label for="sep" style="flex: 1;"><span style="display: block; font-weight: 500;">Show separately in the member list</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Members with this role get their own group, coloured names in chat</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="sep" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="flabel">Permissions</span>
+              <span style="font-size: 13px; color: var(--muted-foreground);">· Moderators have 13 of 15</span>
+            </div>
+          <div style="display: grid; gap: 2px;"><h4 style="margin: 8px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground);">Channels</h4>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p1" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">View channels</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">See text and voice channels</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p1" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p2" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Manage channels</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Create, rename, reorder and delete channels</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p2" default-checked="{{ no }}"></x-import>
+            </div>
+          </div>
+          <div style="display: grid; gap: 2px;"><h4 style="margin: 8px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground);">Messages</h4>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p3" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Send messages</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Post in text channels and threads</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p3" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p4" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Attach files</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Upload images and files</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p4" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p5" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Read message history</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">See messages sent before they joined</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p5" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p6" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Manage messages</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Delete or pin anyone's messages</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p6" default-checked="{{ yes }}"></x-import>
+            </div>
+          </div>
+          <div style="display: grid; gap: 2px;"><h4 style="margin: 8px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground);">Voice</h4>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p7" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Connect</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Join voice channels</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p7" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p8" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Speak</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Talk in voice channels</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p8" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p9" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Video and screen share</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Turn on a camera or share a screen</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p9" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p10" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Mute members</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Server-mute people in voice</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p10" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p11" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Move members</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Move or disconnect people in voice</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p11" default-checked="{{ yes }}"></x-import>
+            </div>
+          </div>
+          <div style="display: grid; gap: 2px;"><h4 style="margin: 8px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground);">Members</h4>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p12" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Create invites</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Make invite links</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p12" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p13" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Kick members</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Remove people from the server</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p13" default-checked="{{ yes }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p14" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Ban members</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Ban people from the server</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p14" default-checked="{{ no }}"></x-import>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border);">
+              <label for="p15" style="flex: 1; min-width: 0;"><span style="display: block; font-weight: 500;">Manage roles</span><span style="display: block; font-size: 13px; color: var(--muted-foreground);">Edit roles below their own</span></label>
+              <x-import component-from-global-scope="Datrope.Checkbox" id="p15" default-checked="{{ no }}"></x-import>
+            </div>
+          </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return { accent: '#2ecc71', yes: true, no: false }; }
+}
+</script>
+</body>
+</html>

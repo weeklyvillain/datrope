@@ -1,0 +1,422 @@
+import { describe, expect, it } from "vitest";
+import {
+  addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, prependHistory,
+  rolesByRank, voiceMembers, channelGroups, sidebarChannelIds, findUser, findDM, type State,
+  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal,
+} from "./store";
+import { Perm } from "./perms";
+import type { Message, Ready, VoiceState } from "./types";
+
+const bob = { id: "2", username: "bob", display_name: "Bob", custom_status: "" };
+
+const server = { id: "1", name: "Datrope", description: "", palette: "emerald", owner_id: "10", created_at: "", rules_gate: false } as const;
+const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | Perm.SendMessages, position: 0, hoist: false };
+const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff" } as const;
+const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };
+const ready = (over: Partial<Ready> = {}): Ready => ({
+  session_id: "s", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
+  voice_states: [], emoji: [], sounds: [],
+  server: {
+    ...server, roles: [everyone, mod],
+    members: [{ user: { id: "20", username: "bob", display_name: "Bob", custom_status: "" }, role_ids: [], joined_at: "", accepted_rules_at: "x" }],
+    categories: [],
+    channels: [
+      { id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [] },
+      { id: "101", type: "text", name: "general", position: 0, topic: "", overrides: [] },
+    ],
+  },
+  ...over,
+});
+
+function msg(id: string, extra: Partial<Message> = {}): Message {
+  return { id, channel_id: "101", author: bob, content: `m${id}`, created_at: "2026-01-01T00:00:00Z", deleted: false, pinned: false, attachments: [], mentions: [], reactions: [], ...extra };
+}
+
+function loaded(): State {
+  const s = applyReady(initialState, ready());
+  return prependHistory(s, "101", [msg("20"), msg("10")], 50);
+}
+
+describe("store", () => {
+  it("compares snowflake strings numerically", () => {
+    expect(compareIds("9", "10")).toBeLessThan(0);
+    expect(compareIds("10", "10")).toBe(0);
+  });
+
+  it("applies READY", () => {
+    const s = applyReady(initialState, ready());
+    expect(s.me?.id).toBe("20");
+    expect(s.server?.server.name).toBe("Datrope");
+    expect(s.server?.channelIds).toEqual(["100", "101"]);
+    expect(rolesByRank(s).map((r) => r.name)).toEqual(["Mod", "@everyone"]);
+    expect(s.presences["2"]).toBe("online");
+    expect(s.readStates["101"].lastMessageId).toBe("25");
+  });
+
+  it("has no server for a non-member", () => {
+    const s = applyReady(initialState, ready({ server: undefined }));
+    expect(s.server).toBeNull();
+  });
+
+  it("updates the server and drops it when I am removed", () => {
+    let s = applyReady(initialState, ready());
+    s = applyEvent(s, "SERVER_UPDATE", { ...server, name: "Basement", palette: "ocean" });
+    expect(s.server?.server.palette).toBe("ocean");
+    s = applyEvent(s, "MEMBER_REMOVE", { user_id: "20" });
+    expect(s.server).toBeNull();
+    expect(s.channels["101"]).toBeUndefined();
+  });
+
+  it("adds a created channel to the server", () => {
+    let s = applyReady(initialState, ready());
+    s = applyEvent(s, "CHANNEL_CREATE", { id: "102", type: "voice", name: "Lounge", position: 1, overrides: [] });
+    expect(s.server?.channelIds).toEqual(["100", "101", "102"]);
+    expect(s.dmIds).toEqual([]);
+  });
+
+  it("gates a member who has not accepted the rules", () => {
+    const gated = ready();
+    gated.server!.rules_gate = true;
+    gated.server!.members![0].accepted_rules_at = undefined;
+    const s = applyReady(initialState, gated);
+    expect(isGated(s)).toBe(true);
+    expect(myChannelPerms(s, "100")).toBe(Perm.ViewChannel);
+    expect(myChannelPerms(s, "101")).toBe(0);
+  });
+
+  it("stores the welcome page and my custom status", () => {
+    let s = applyReady(initialState, ready());
+    s = applyEvent(s, "WELCOME_UPDATE", { channel_id: "100", markdown: "# Hi", rules_gate: false });
+    expect(s.welcome?.markdown).toBe("# Hi");
+    s = applyEvent(s, "USER_UPDATE", { id: "20", username: "bob", display_name: "Bob", custom_status: "away" });
+    expect(s.me?.custom_status).toBe("away");
+    expect(s.server?.members["20"].user.custom_status).toBe("away");
+  });
+
+  it("keeps history oldest-first and marks whether more exists", () => {
+    const s = loaded();
+    expect(s.messages["101"].items.map((m) => m.id)).toEqual(["10", "20"]);
+    expect(s.messages["101"].hasMore).toBe(false);
+  });
+
+  it("replaces a pending message when the server echoes its nonce", () => {
+    let s = addPending(loaded(), "101", "n1", "hello");
+    expect(s.messages["101"].items.at(-1)).toMatchObject({ pending: true, content: "hello" });
+    s = applyEvent(s, "MESSAGE_CREATE", msg("30", { author: { id: "20", username: "bob", display_name: "Bob", custom_status: "" }, content: "hello", nonce: "n1" }));
+    const items = s.messages["101"].items;
+    expect(items.map((m) => m.id)).toEqual(["10", "20", "30"]);
+    expect(items.some((m) => m.pending)).toBe(false);
+    expect(s.readStates["101"]).toEqual({ lastMessageId: "30", lastReadId: "30" });
+    // The HTTP response may arrive after the event; applying it again is harmless.
+    expect(applyEvent(s, "MESSAGE_CREATE", msg("30")).messages["101"].items).toHaveLength(3);
+  });
+
+  it("marks a failed send", () => {
+    const s = markFailed(addPending(loaded(), "101", "n1", "x"), "101", "n1");
+    expect(s.messages["101"].items.at(-1)).toMatchObject({ pending: true, failed: true });
+  });
+
+  it("soft-deletes messages", () => {
+    const s = applyEvent(loaded(), "MESSAGE_DELETE", { id: "10", channel_id: "101" });
+    expect(s.messages["101"].items[0]).toMatchObject({ deleted: true, content: "" });
+  });
+
+  it("deleting a pinned message unpins it", () => {
+    let s = prependHistory(applyReady(initialState, ready()), "101", [msg("10", { pinned: true, pinned_at: "2026-01-02T00:00:00Z" })], 50);
+    s = applyEvent(s, "MESSAGE_DELETE", { id: "10", channel_id: "101" });
+    const m = s.messages["101"].items[0];
+    expect(m).toMatchObject({ deleted: true, pinned: false });
+    expect(m.pinned_at).toBeUndefined();
+  });
+
+  it("removes other members", () => {
+    const s = applyEvent(loaded(), "MEMBER_REMOVE", { user_id: "2" });
+    expect(Object.keys(s.server!.members)).toEqual(["20"]);
+  });
+
+  it("adds, updates, and deletes channels", () => {
+    let s = applyEvent(loaded(), "CHANNEL_CREATE", { id: "301", type: "text", name: "random", position: 1, overrides: [] });
+    expect(s.server?.channelIds).toEqual(["100", "101", "301"]);
+    s = applyEvent(s, "CHANNEL_UPDATE", { id: "301", type: "text", name: "memes", position: 1, overrides: [] });
+    expect(s.channels["301"].name).toBe("memes");
+    s = applyEvent(s, "CHANNEL_DELETE", { id: "301" });
+    expect(s.server?.channelIds).toEqual(["100", "101"]);
+  });
+
+  it("tracks typing and clears it when that user posts", () => {
+    let s = applyEvent(loaded(), "TYPING_START", { channel_id: "101", user_id: "2", at: "2026-01-01T00:00:00Z" }, 1000);
+    expect(s.typing["101"]["2"]).toBe(11_000);
+    s = applyEvent(s, "MESSAGE_CREATE", msg("40"));
+    expect(s.typing["101"]["2"]).toBeUndefined();
+  });
+
+  it("tracks who is in voice", () => {
+    const inLounge: VoiceState = {
+      user_id: "2", channel_id: "301", self_mute: false, self_deaf: false, server_mute: false, camera: false, screen: false,
+    };
+    let s = applyReady(initialState, { ...ready(), voice_states: [inLounge] });
+    expect(voiceMembers(s, "301")).toEqual([inLounge]);
+    expect(voiceMembers(s, "101")).toEqual([]);
+
+    s = applyEvent(s, "VOICE_STATE_UPDATE", { ...inLounge, self_mute: true });
+    expect(voiceMembers(s, "301")[0].self_mute).toBe(true);
+
+    s = applyEvent(s, "VOICE_STATE_UPDATE", { user_id: "2", self_mute: false, self_deaf: false, server_mute: false, camera: false, screen: false });
+    expect(voiceMembers(s, "301")).toEqual([]); // no channel_id: left voice
+    expect(s.voice).toEqual({});
+  });
+
+  it("forgets voice states of a deleted channel", () => {
+    const inGeneral: VoiceState = {
+      user_id: "2", channel_id: "101", self_mute: false, self_deaf: false, server_mute: false, camera: true, screen: false,
+    };
+    let s = applyReady(initialState, { ...ready(), voice_states: [inGeneral] });
+    s = applyEvent(s, "CHANNEL_DELETE", { id: "101" });
+    expect(s.voice).toEqual({});
+  });
+});
+
+describe("reactions and emoji", () => {
+  const msg = { id: "500", channel_id: "101", author: { id: "10", username: "alice", display_name: "Alice", custom_status: "" },
+    content: "hi", attachments: [], created_at: "", deleted: false, mentions: [], reactions: [] };
+
+  it("adds and removes reactions", () => {
+    let s = applyReady(initialState, ready());
+    s = { ...s, messages: { "101": { items: [msg as never], hasMore: false } } };
+    s = applyEvent(s, "MESSAGE_REACTION_ADD", { channel_id: "101", message_id: "500", emoji: "\u{1F44D}", user_id: "20" });
+    s = applyEvent(s, "MESSAGE_REACTION_ADD", { channel_id: "101", message_id: "500", emoji: "\u{1F44D}", user_id: "10" });
+    s = applyEvent(s, "MESSAGE_REACTION_ADD", { channel_id: "101", message_id: "500", emoji: "\u{1F44D}", user_id: "10" }); // repeat
+    expect(s.messages["101"].items[0].reactions).toEqual([{ emoji: "\u{1F44D}", count: 2, user_ids: ["20", "10"] }]);
+    s = applyEvent(s, "MESSAGE_REACTION_REMOVE", { channel_id: "101", message_id: "500", emoji: "\u{1F44D}", user_id: "20" });
+    s = applyEvent(s, "MESSAGE_REACTION_REMOVE", { channel_id: "101", message_id: "500", emoji: "\u{1F44D}", user_id: "10" });
+    expect(s.messages["101"].items[0].reactions).toEqual([]);
+  });
+
+  it("keeps the emoji list from READY and EMOJI_UPDATE", () => {
+    let s = applyReady(initialState, ready({ emoji: [{ id: "7", name: "parrot", url: "/api/emoji/7" }] }));
+    expect(emojiList(s).map((e) => e.name)).toEqual(["parrot"]);
+    s = applyEvent(s, "EMOJI_UPDATE", { emoji: [{ id: "8", name: "zebra", url: "/api/emoji/8" }, { id: "9", name: "apple", url: "/api/emoji/9" }] });
+    expect(emojiList(s).map((e) => e.name)).toEqual(["apple", "zebra"]);
+    expect(customEmojiId("custom:8")).toBe("8");
+    expect(customEmojiId("\u{1F44D}")).toBeNull();
+  });
+
+  it("keeps the quote in replies current when the original is edited or deleted", () => {
+    let s = applyReady(initialState, ready());
+    const reply = { ...msg, id: "501", content: "agreed", reply_to: { id: "500", author: msg.author, content: "hi", deleted: false } };
+    s = { ...s, messages: { "101": { items: [msg as never, reply as never], hasMore: false } } };
+    s = applyEvent(s, "MESSAGE_UPDATE", { ...msg, content: "x".repeat(250) });
+    expect(s.messages["101"].items[1].reply_to).toMatchObject({ content: "x".repeat(200), deleted: false });
+    s = applyEvent(s, "MESSAGE_DELETE", { id: "500", channel_id: "101" });
+    expect(s.messages["101"].items[1].reply_to).toMatchObject({ id: "500", content: "", deleted: true });
+    expect(s.messages["101"].items[1].content).toBe("agreed");
+  });
+
+  it("keeps reactions from reaction events on MESSAGE_UPDATE", () => {
+    let s = applyReady(initialState, ready());
+    s = { ...s, messages: { "101": { items: [msg as never], hasMore: false } } };
+    s = applyEvent(s, "MESSAGE_REACTION_ADD", { channel_id: "101", message_id: "500", emoji: "\u{1F44D}", user_id: "20" });
+    s = applyEvent(s, "MESSAGE_UPDATE", { ...msg, content: "edited", reactions: [] }); // hydrated before the reaction
+    expect(s.messages["101"].items[0]).toMatchObject({ content: "edited", reactions: [{ emoji: "\u{1F44D}", count: 1, user_ids: ["20"] }] });
+  });
+
+  it("does not let a late POST echo overwrite newer gateway state", () => {
+    let s = applyReady(initialState, ready());
+    s = addPending(s, "101", "n1", "see https://example.com");
+    const sent = { ...msg, author: bob, content: "see https://example.com", nonce: "n1" };
+    s = applyEvent(s, "MESSAGE_CREATE", sent);
+    const embed = { url: "https://example.com", site: "", title: "Example", description: "" };
+    s = applyEvent(s, "MESSAGE_UPDATE", { ...sent, embed });
+    s = applyEvent(s, "MESSAGE_CREATE", sent); // the POST response
+    expect(s.messages["101"].items).toHaveLength(1);
+    expect(s.messages["101"].items[0].embed).toEqual(embed);
+  });
+
+  it("shows a pending reply with its reference", () => {
+    let s = applyReady(initialState, ready());
+    s = addPending(s, "101", "n1", "agreed", [], { id: "500", author: msg.author, content: "hi", deleted: false });
+    expect(s.messages["101"].items[0].reply_to?.id).toBe("500");
+  });
+});
+
+describe("organisation", () => {
+  const withCategories = () => {
+    const r = ready();
+    r.server!.categories = [{ id: "902", name: "Voice", position: 1 }, { id: "901", name: "Text", position: 0 }, { id: "903", name: "Empty", position: 2 }];
+    r.server!.channels = [
+      { id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [] },
+      { id: "101", type: "text", name: "general", position: 0, topic: "", overrides: [] },
+      { id: "102", type: "text", name: "b", position: 1, topic: "", category_id: "901", overrides: [] },
+      { id: "103", type: "text", name: "a", position: 0, topic: "", category_id: "901", overrides: [] },
+      { id: "104", type: "voice", name: "lounge", position: 0, topic: "", category_id: "902", overrides: [] },
+    ];
+    return applyReady(initialState, r);
+  };
+
+  it("groups channels by category", () => {
+    const g = channelGroups(withCategories());
+    expect(g.uncategorised).toEqual(["100", "101"]);
+    expect(g.categories.map((c) => [c.category.id, c.channelIds])).toEqual([["901", ["103", "102"]], ["902", ["104"]], ["903", []]]);
+  });
+
+  it("lists channels in sidebar order", () => {
+    expect(sidebarChannelIds(withCategories())).toEqual(["100", "101", "103", "102", "104"]);
+  });
+
+  it("CATEGORY_DELETE clears category_id on its channels", () => {
+    const s = applyEvent(withCategories(), "CATEGORY_DELETE", { id: "901" });
+    expect(s.server!.categories["901"]).toBeUndefined();
+    expect(s.channels["102"].category_id).toBeUndefined();
+    expect(s.channels["104"].category_id).toBe("902");
+  });
+
+  it("CATEGORY_CREATE and CATEGORY_UPDATE keep categories current", () => {
+    let s = applyEvent(withCategories(), "CATEGORY_CREATE", { id: "904", name: "New", position: 3 });
+    s = applyEvent(s, "CATEGORY_UPDATE", { id: "904", name: "Renamed", position: 3 });
+    expect(s.server!.categories["904"].name).toBe("Renamed");
+  });
+
+  it("keeps thread channels out of channelIds", () => {
+    const s0 = applyReady(initialState, ready());
+    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "20", overrides: [] };
+    const s = applyEvent(s0, "CHANNEL_CREATE", t);
+    expect(s.channels["300"]).toBeDefined();
+    expect(s.server!.channelIds).toEqual(s0.server!.channelIds);
+    expect(applyEvent(s, "CHANNEL_UPDATE", { ...t, name: "x" }).server!.channelIds).toEqual(s0.server!.channelIds);
+  });
+
+  it("THREAD_UPDATE sets thread on a loaded parent message and ignores unloaded channels", () => {
+    const thread = { id: "300", name: "t", message_count: 4, participants: [] };
+    const s = applyEvent(loaded(), "THREAD_UPDATE", { channel_id: "101", message_id: "10", thread });
+    expect(s.messages["101"].items.find((m) => m.id === "10")?.thread?.message_count).toBe(4);
+    expect(applyEvent(s, "THREAD_UPDATE", { channel_id: "999", message_id: "10", thread }).messages["999"]).toBeUndefined();
+  });
+
+  it("deleting a channel removes its threads", () => {
+    let s = loaded();
+    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "10", overrides: [] };
+    s = applyEvent(s, "CHANNEL_CREATE", t);
+    s = prependHistory(s, "300", [msg("31", { channel_id: "300" })], 50);
+    s = applyEvent(s, "CHANNEL_DELETE", { id: "101" });
+    expect(s.channels["300"]).toBeUndefined();
+    expect(s.messages["300"]).toBeUndefined();
+  });
+
+  it("thread channel updates and deletes patch the parent message summary", () => {
+    let s = loaded();
+    const thread = { id: "300", name: "t", message_count: 1, participants: [] };
+    s = applyEvent(s, "THREAD_UPDATE", { channel_id: "101", message_id: "10", thread });
+    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "10", overrides: [] };
+    s = applyEvent(s, "CHANNEL_CREATE", t);
+    s = applyEvent(s, "CHANNEL_UPDATE", { ...t, name: "renamed" });
+    expect(s.messages["101"].items.find((m) => m.id === "10")?.thread?.name).toBe("renamed");
+    s = applyEvent(s, "CHANNEL_DELETE", { id: "300" });
+    expect(s.messages["101"].items.find((m) => m.id === "10")?.thread).toBeUndefined();
+  });
+
+  it("deleting a thread that was never loaded drops its summary", () => {
+    let s = loaded();
+    s = applyEvent(s, "THREAD_UPDATE", { channel_id: "101", message_id: "10", thread: { id: "300", name: "t", message_count: 1, participants: [] } });
+    expect(s.channels["300"]).toBeUndefined();
+    s = applyEvent(s, "CHANNEL_DELETE", { id: "300" });
+    expect(s.messages["101"].items.find((m) => m.id === "10")?.thread).toBeUndefined();
+  });
+});
+
+describe("sounds", () => {
+  it("keeps the soundboard from READY and SOUND_UPDATE", () => {
+    const snd = (id: string, name: string) => ({ id, name, emoji: "\u{1F514}", duration_ms: 1000, url: `/api/sounds/${id}` });
+    let s = applyReady(initialState, ready({ sounds: [snd("2", "zap"), snd("1", "airhorn")] }));
+    expect(soundList(s).map((x) => x.name)).toEqual(["airhorn", "zap"]);
+    s = applyEvent(s, "SOUND_UPDATE", { sounds: [snd("3", "bell")] });
+    expect(soundList(s).map((x) => x.name)).toEqual(["bell"]);
+    s = applyEvent(s, "SOUND_UPDATE", { sounds: null });
+    expect(s.sounds).toEqual({});
+  });
+
+  it("finds users anywhere and clears omitted profile fields on USER_UPDATE", () => {
+    let s = loaded();
+    s = applyEvent(s, "USER_UPDATE", { id: "20", username: "bob", display_name: "Bob", custom_status: "", pronouns: "he/him", avatar_url: "/api/avatars/20?v=abc" });
+    expect(findUser(s, "20")).toMatchObject({ pronouns: "he/him", avatar_url: "/api/avatars/20?v=abc" });
+    expect(s.me?.avatar_url).toBe("/api/avatars/20?v=abc");
+    s = applyEvent(s, "USER_UPDATE", { id: "20", username: "bob", display_name: "Bob", custom_status: "" });
+    expect(findUser(s, "20")?.avatar_url).toBeUndefined();
+    expect(findUser(s, "20")?.pronouns).toBeUndefined();
+    expect(s.me?.avatar_url).toBeUndefined();
+    expect(findUser(s, "999")).toBeUndefined();
+  });
+
+  it("finds a DM participant and my 1:1 DM", () => {
+    const meUser = { id: "20", username: "bob", display_name: "Bob", custom_status: "" };
+    const carol = { id: "30", username: "carol", display_name: "Carol", custom_status: "" };
+    const s = applyReady(initialState, ready({
+      dms: [
+        { id: "500", type: "dm", name: "", position: 0, topic: "", overrides: [], participants: [meUser, carol, bob] },
+        { id: "501", type: "dm", name: "", position: 0, topic: "", overrides: [], participants: [meUser, carol] },
+      ],
+    }));
+    expect(findUser(s, "30")?.display_name).toBe("Carol");
+    expect(findDM(s, "30")).toBe("501");
+    expect(findDM(s, "2")).toBeUndefined(); // only a group DM with bob
+  });
+
+  it("opens a window around a message and ignores new messages until it reaches the present", () => {
+    let s = loaded(); // channel 101 has 10 and 20; READY says its last message is 25
+    s = replaceWindow(s, "101", [msg("6"), msg("5"), msg("4")]);
+    expect(s.messages["101"].items.map((m) => m.id)).toEqual(["4", "5", "6"]);
+    expect(s.messages["101"].hasNewer).toBe(true);
+    s = applyEvent(s, "MESSAGE_CREATE", msg("30"));
+    expect(s.messages["101"].items.map((m) => m.id)).toEqual(["4", "5", "6"]);
+    expect(s.readStates["101"].lastMessageId).toBe("30");
+    s = appendNewer(s, "101", [msg("30"), msg("7")]);
+    expect(s.messages["101"].items.map((m) => m.id)).toEqual(["4", "5", "6", "7", "30"]);
+    expect(s.messages["101"].hasNewer).toBe(false);
+    s = latestWindow(s, "101", [msg("30"), msg("29")], 50);
+    expect(s.messages["101"]).toMatchObject({ hasMore: false, hasNewer: false });
+    expect(s.messages["101"].items.map((m) => m.id)).toEqual(["29", "30"]);
+  });
+
+  it("keeps the mentions inbox and its unread count live", () => {
+    const meMention = (id: string, extra: Partial<Message> = {}) => msg(id, { mentions: ["20"], ...extra });
+    let s = setMentions(loaded(), { items: [], unread_count: 2 }, false);
+    expect(s.mentions).toMatchObject({ loaded: true, unread: 2, hasMore: false });
+    s = applyEvent(s, "MESSAGE_CREATE", meMention("40"));
+    expect(s.mentions.items.map((i) => i.message.id)).toEqual(["40"]);
+    expect(s.mentions.items[0]).toMatchObject({ unread: true, channel: { id: "101", type: "text", name: "general" } });
+    expect(s.mentions.unread).toBe(3);
+    s = applyEvent(s, "MESSAGE_CREATE", meMention("41", { author: { id: "20", username: "bob", display_name: "Bob", custom_status: "" } }));
+    expect(s.mentions.items).toHaveLength(1); // my own message
+    s = ackLocal(s, "101", "40");
+    expect(s.mentions.items[0].unread).toBe(false);
+    expect(s.mentions.unread).toBe(2);
+    s = applyEvent(s, "MESSAGE_DELETE", { id: "40", channel_id: "101" });
+    expect(s.mentions.items).toHaveLength(0);
+    expect(s.mentions.unread).toBe(2); // it was already read
+    s = markMentionsRead(s, [{ channel_id: "101", last_read_id: "45" }]);
+    expect(s.mentions.unread).toBe(0);
+    expect(s.readStates["101"].lastReadId).toBe("45");
+  });
+
+  it("applies a mentions ack without moving a read position back", () => {
+    let s = loaded();
+    s = ackLocal(s, "101", "50");
+    s = markMentionsRead(s, [{ channel_id: "101", last_read_id: "45" }]);
+    expect(s.readStates["101"].lastReadId).toBe("50");
+  });
+
+  it("keeps a detached window detached when older history is added", () => {
+    let s = replaceWindow(loaded(), "101", [msg("6"), msg("5")]);
+    s = prependHistory(s, "101", [msg("4"), msg("3")], 50);
+    expect(s.messages["101"].hasNewer).toBe(true);
+    expect(s.messages["101"].items.map((m) => m.id)).toEqual(["3", "4", "5", "6"]);
+  });
+
+  it("still resolves my pending message in a detached window", () => {
+    let s = replaceWindow(loaded(), "101", [msg("6"), msg("5")]);
+    s = addPending(s, "101", "n1", "hello");
+    s = applyEvent(s, "MESSAGE_CREATE", msg("31", { nonce: "n1", author: { id: "20", username: "bob", display_name: "Bob", custom_status: "" } }));
+    expect(s.messages["101"].items.some((m) => m.pending)).toBe(false);
+    s = applyEvent(s, "MESSAGE_CREATE", msg("32"));
+    expect(s.messages["101"].items.map((m) => m.id)).not.toContain("32");
+  });
+});

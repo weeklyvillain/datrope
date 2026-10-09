@@ -1,0 +1,95 @@
+// A remark plugin for chat syntax that Markdown lacks: ||spoilers||, :emoji: and @mentions.
+// It rewrites text nodes only, never inside code or links.
+
+export type ChatOptions = {
+  custom: Map<string, { id: string; url: string }>; // custom emoji by lower-cased name
+  shortcodes: Map<string, string> | null; // Unicode emoji by lower-cased shortcode; null while loading
+  users: Map<string, { id: string; name: string }>; // mentionable users by lower-cased username
+  meId?: string;
+};
+
+type Node = { type: string; value?: string; children?: Node[]; data?: Record<string, unknown> };
+
+const SKIP = new Set(["code", "inlineCode", "link"]);
+// Mentions follow the server's rule: preceded by start or a character that is not
+// a letter, digit, "_", ".", "-" or "@"; names longer than 32 are not usernames.
+const TOKEN = /(\|\|[\s\S]+?\|\||:[A-Za-z0-9_+-]{2,32}:|(?<![A-Za-z0-9_.@-])@[A-Za-z0-9_.-]{2,})/g;
+
+const text = (value: string): Node => ({ type: "text", value });
+
+function tokenNodes(token: string, o: ChatOptions): Node[] {
+  if (token.startsWith("||")) {
+    return [{
+      type: "chatSpoiler",
+      data: { hName: "span", hProperties: { className: ["spoiler"] } },
+      children: [text(token.slice(2, -2))],
+    }];
+  }
+  if (token.startsWith(":")) {
+    const name = token.slice(1, -1).toLowerCase();
+    const custom = o.custom.get(name);
+    if (custom) {
+      return [{
+        type: "chatEmoji",
+        data: { hName: "img", hProperties: { src: custom.url, alt: token, className: ["emoji"], "data-emoji": "custom", draggable: false } },
+      }];
+    }
+    const unicode = o.shortcodes?.get(name);
+    return [text(unicode ?? token)];
+  }
+  // A mention: "@bob." ends a sentence, so trailing "." and "-" are not part of the name.
+  const name = token.slice(1).replace(/[.-]+$/, "");
+  const user = name.length >= 2 && name.length <= 32 ? o.users.get(name.toLowerCase()) : undefined;
+  if (!user) return [text(token)];
+  const nodes: Node[] = [{
+    type: "chatMention",
+    data: {
+      hName: "span",
+      hProperties: { className: ["mention"], "data-user-id": user.id, ...(user.id === o.meId ? { "data-me": "" } : {}) },
+    },
+    children: [text("@" + name)],
+  }];
+  const rest = token.slice(1 + name.length);
+  if (rest) nodes.push(text(rest));
+  return nodes;
+}
+
+function splitText(value: string, o: ChatOptions): Node[] | null {
+  const out: Node[] = [];
+  let last = 0;
+  let changed = false;
+  for (const m of value.matchAll(TOKEN)) {
+    const nodes = tokenNodes(m[0], o);
+    if (nodes.length === 1 && nodes[0].type === "text" && nodes[0].value === m[0]) continue; // unknown: leave as text
+    if (m.index > last) out.push(text(value.slice(last, m.index)));
+    out.push(...nodes);
+    last = m.index + m[0].length;
+    changed = true;
+  }
+  if (!changed) return null;
+  if (last < value.length) out.push(text(value.slice(last)));
+  return out;
+}
+
+function walk(node: Node, o: ChatOptions) {
+  if (!node.children) return;
+  const next: Node[] = [];
+  for (const child of node.children) {
+    if (child.type === "text" && child.value) {
+      const split = splitText(child.value, o);
+      if (split) {
+        next.push(...split);
+        continue;
+      }
+    } else if (!SKIP.has(child.type)) {
+      walk(child, o);
+    }
+    next.push(child);
+  }
+  node.children = next;
+}
+
+/** The unified plugin; pass it to react-markdown as [remarkChat, options]. */
+export function remarkChat(options: ChatOptions) {
+  return (tree: Node) => walk(tree, options);
+}

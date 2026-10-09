@@ -1,0 +1,7 @@
+**/node_modules
+**/dist
+server
+.git
+.claude
+.serena
+.impeccable
