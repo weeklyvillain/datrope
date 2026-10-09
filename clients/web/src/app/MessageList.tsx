@@ -1,11 +1,12 @@
 import { ApiError, compareIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
-import { Pin } from "lucide-react";
+import { Copy, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
 import { client, displayName, errorText, formatBytes, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/chat/Markdown";
@@ -377,8 +378,20 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
     }
   };
 
+  const onReply = canReply ? () => reply.setReplyTo({ id: m.id, author: m.author, content: m.content, deleted: false }) : undefined;
+  const onEdit = mine ? () => { setDraft(m.content); setEditing(true); } : undefined;
+  const onPin = canPin ? () => void (m.pinned ? client.unpin(m.channel_id, m.id) : client.pin(m.channel_id, m.id)).catch((e) => setError(errorText(e))) : undefined;
+  const onDelete = canDelete ? () => setConfirming(true) : undefined;
+  const actionable = !m.pending && !m.deleted && !editing;
+  // Radix skips its menu (and its preventDefault) while the trigger is disabled, so links, media and
+  // selected text keep the native menu: decide on pointerdown, which precedes contextmenu.
+  const [nativeMenu, setNativeMenu] = useState(false);
+
   return (
+    <ContextMenu modal={false}>
+    <ContextMenuTrigger asChild disabled={!actionable || nativeMenu}>
     <article id={`message-${m.id}`}
+      onPointerDownCapture={(e) => setNativeMenu(!!(e.target as HTMLElement).closest("a, img, video, audio") || !!window.getSelection()?.toString())}
       className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4",
         grouped ? "py-0.5" : "mt-2 pb-0.5 pt-1",
         mentioned ? "border-l-2 border-primary bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] pl-3.5" : "hover:bg-card/50")}>
@@ -435,18 +448,18 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
         <ErrorText error={error} />
         <ErrorText error={reactError} />
       </div>
-      {!m.pending && !m.deleted && !editing && (
+      {actionable && (
         <MessageToolbar
           onReact={canReact ? (emoji) => void client.react(m.channel_id, m.id, emoji).catch(showReactError) : undefined}
-          onReply={canReply ? () => reply.setReplyTo({ id: m.id, author: m.author, content: m.content, deleted: false }) : undefined}
+          onReply={onReply}
           onThread={openThread} hasThread={!!thread}
-          onEdit={mine ? () => { setDraft(m.content); setEditing(true); } : undefined}
-          onPin={canPin ? () => void (m.pinned ? client.unpin(m.channel_id, m.id) : client.pin(m.channel_id, m.id)).catch((e) => setError(errorText(e))) : undefined}
+          onEdit={onEdit}
+          onPin={onPin}
           pinned={m.pinned}
-          onDelete={canDelete ? () => setConfirming(true) : undefined} />
+          onDelete={onDelete} />
       )}
       <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-[480px]">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-[480px]" onContextMenu={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Delete message?</DialogTitle>
           </DialogHeader>
@@ -469,6 +482,23 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
         </DialogContent>
       </Dialog>
     </article>
+    </ContextMenuTrigger>
+    <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+      {onReply && <ContextMenuItem onSelect={onReply}><Reply />Reply</ContextMenuItem>}
+      {openThread && (thread
+        ? <ContextMenuItem onSelect={openThread}><MessageSquare />Open thread</ContextMenuItem>
+        : <ContextMenuItem onSelect={openThread}><MessageSquarePlus />Create thread</ContextMenuItem>)}
+      {onEdit && <ContextMenuItem onSelect={onEdit}><Pencil />Edit message</ContextMenuItem>}
+      {onPin && <ContextMenuItem onSelect={onPin}>{m.pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</ContextMenuItem>}
+      {m.content && <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}><Copy />Copy text</ContextMenuItem>}
+      {onDelete && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" onSelect={onDelete}><Trash2 />Delete message</ContextMenuItem>
+        </>
+      )}
+    </ContextMenuContent>
+    </ContextMenu>
   );
 }
 

@@ -7,6 +7,10 @@ import { ServerIcon } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { useSubmit } from "@/hooks/use-submit";
 import { client, errorText, useApp, usePerms } from "@/session";
+import { TopBar } from "../TopBar";
+import { ProfilePanel } from "../people/ProfilePanel";
+import { SearchPanel } from "../search/SearchPanel";
+import { closePanel, usePanel } from "../side-panel/panel";
 import { WelcomeEditor } from "./WelcomeEditor";
 import { WelcomeMarkdown } from "./WelcomeMarkdown";
 
@@ -21,6 +25,8 @@ export function WelcomeView({ channelId }: { channelId: string }) {
   const [editing, setEditing] = useState(openEditor);
   const [loadError, setLoadError] = useState<string>();
   const nav = useNavigate();
+  const profile = usePanel((s) => (s.panel?.kind === "profile" ? s.panel.userId : undefined));
+  const searching = usePanel((s) => s.panel?.kind === "search");
 
   // Load the page, and again if a fresh READY cleared it; WELCOME_UPDATE keeps it current.
   useEffect(() => {
@@ -44,12 +50,12 @@ export function WelcomeView({ channelId }: { channelId: string }) {
   const name = ch?.name ?? "welcome";
   const blank = !welcome?.markdown.trim();
   return (
+    <>
     <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-background" aria-label={name}>
-      <header className="flex h-14 flex-none items-center gap-2 border-b bg-card pr-3 pl-4">
+      <TopBar tools={!gated} actions={canEdit && welcome ? <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Pencil />Edit page</Button> : undefined}>
         <BookOpen className="size-4 text-muted-foreground" aria-hidden />
-        <h2 className="flex-1 truncate">{name}</h2>
-        {canEdit && welcome && <Button variant="outline" size="sm" onClick={() => setEditing(true)}><Pencil />Edit page</Button>}
-      </header>
+        <h2 className="min-w-0 flex-1 truncate">{name}</h2>
+      </TopBar>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Banner />
         <article className="mx-auto grid max-w-[760px] gap-6 px-8 pb-12">
@@ -68,6 +74,8 @@ export function WelcomeView({ channelId }: { channelId: string }) {
       </div>
       {gated && <RulesGate />}
     </main>
+    {!gated && (profile ? <ProfilePanel key={profile} userId={profile} onClose={closePanel} /> : searching ? <SearchPanel /> : null)}
+    </>
   );
 }
 

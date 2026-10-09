@@ -2,10 +2,12 @@ import { expireTyping, isGated } from "@datrope/core";
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { usePalette } from "@/hooks/use-palette";
+import { useTheme } from "@/hooks/use-theme";
 import { client, useApp } from "../session";
 import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
 import { ServerSidebar } from "./ServerSidebar";
+import { UserSettingsDialog } from "./settings/UserSettingsDialog";
 import { SoundboardListener } from "./voice/SoundboardPanel";
 
 export function AppShell() {
@@ -15,6 +17,7 @@ export function AppShell() {
   const welcomeId = useApp((s) => s.server?.channelIds.find((id) => s.channels[id]?.type === "welcome"));
   const { pathname } = useLocation();
   usePalette();
+  useTheme();
   useEffect(() => {
     const t = setInterval(() => client.store.setState((s) => expireTyping(s), true), 2000);
     return () => clearInterval(t);
@@ -35,6 +38,7 @@ export function AppShell() {
       <Outlet />
       <SoundboardListener />
       <NotificationListener />
+      <UserSettingsDialog />
       {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
     </div>
   );

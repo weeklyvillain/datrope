@@ -1,12 +1,15 @@
 import { useEffect } from "react";
 import { PALETTES } from "@/lib/palettes";
 import { useApp } from "@/session";
+import { useThemeId } from "@/theme/prefs";
+import { DEFAULT_THEME } from "@/theme/themes";
 
-/** Applies the server's palette: --primary and --ring follow its accent (--online stays green). */
+/** Applies the server's palette: --primary and --ring follow its accent (--online is left alone). A picked theme wins. */
 export function usePalette() {
   const palette = useApp((s) => s.server?.server.palette);
+  const themed = useThemeId() !== DEFAULT_THEME;
   useEffect(() => {
-    if (!palette) return;
+    if (!palette || themed) return;
     const root = document.documentElement.style;
     const { accent } = PALETTES[palette] ?? PALETTES.emerald;
     root.setProperty("--primary", accent);
@@ -15,5 +18,5 @@ export function usePalette() {
       root.removeProperty("--primary");
       root.removeProperty("--ring");
     };
-  }, [palette]);
+  }, [palette, themed]);
 }

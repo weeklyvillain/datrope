@@ -1,11 +1,15 @@
 import type { Member, Role } from "@datrope/core";
+import { Copy, MessageCircle, UserRound } from "lucide-react";
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { RefButton } from "@/components/ref-button";
 import { UserAvatar } from "@/components/user-avatar";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
-import { displayName, roleColor, useApp } from "../session";
+import { client, displayName, roleColor, useApp } from "../session";
 import { ProfilePopover } from "./people/ProfilePopover";
+import { openPanel } from "./side-panel/panel";
 
 const rank: Record<string, number> = { online: 2, idle: 1 };
 
@@ -22,6 +26,8 @@ interface Group {
 export function MemberList() {
   const sv = useApp((s) => s.server);
   const presences = useApp((s) => s.presences);
+  const meId = useApp((s) => s.me?.id);
+  const nav = useNavigate();
   // Who is in a server voice channel, by user ID: the channel's name (a DM call is left out).
   const inVoice = useApp(useShallow((s) => Object.fromEntries(Object.values(s.voice).flatMap((v) => {
     const ch = v.channel_id ? s.channels[v.channel_id] : undefined;
@@ -56,7 +62,9 @@ export function MemberList() {
               const status = presences[m.user.id] ?? "offline";
               const line = m.user.custom_status || (inVoice[m.user.id] ? `In voice: ${inVoice[m.user.id]}` : undefined);
               return (
-              <li key={m.user.id}>
+              <ContextMenu modal={false} key={m.user.id}>
+              <ContextMenuTrigger asChild>
+              <li>
                 <ProfilePopover userId={m.user.id} side="left">
                   <RefButton variant="ghost" aria-label={displayName(m.user)}
                     className={cn("h-auto w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal", status === "offline" && "opacity-50")}>
@@ -68,6 +76,18 @@ export function MemberList() {
                   </RefButton>
                 </ProfilePopover>
               </li>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <ContextMenuItem onSelect={() => openPanel({ kind: "profile", userId: m.user.id })}><UserRound />View profile</ContextMenuItem>
+                {m.user.id !== meId && (
+                  <ContextMenuItem onSelect={() => void client.openDM(m.user.id).then((ch) => nav(`/messages/${ch.id}`), () => undefined)}>
+                    <MessageCircle />Message
+                  </ContextMenuItem>
+                )}
+                <ContextMenuSeparator />
+                <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(m.user.id).catch(() => undefined)}><Copy />Copy user ID</ContextMenuItem>
+              </ContextMenuContent>
+              </ContextMenu>
               );
             })}
           </ul>

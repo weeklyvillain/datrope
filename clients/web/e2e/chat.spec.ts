@@ -359,12 +359,15 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await pizzaInGeneral.hover();
   await pizzaInGeneral.getByRole("button", { name: "Pin message", exact: true }).click();
   await expect(pizzaInGeneral.getByRole("button", { name: "Unpin message", exact: true })).toBeVisible();
+  await pizzaInGeneral.click({ button: "right" });
+  await expect(alice.getByRole("menuitem", { name: "Copy text" })).toBeVisible();
+  await alice.keyboard.press("Escape");
   await bobGeneral.getByRole("button", { name: "Pinned messages" }).click();
   await expect(bob.getByRole("dialog").getByText("who wants pizza?")).toBeVisible();
   await bob.keyboard.press("Escape");
 
   // Profile: alice fills in her pronouns and "About me", and uploads an avatar.
-  await alice.getByRole("link", { name: "Your settings" }).click();
+  await alice.getByRole("button", { name: "Your settings" }).click();
   await alice.getByLabel("Pronouns", { exact: true }).fill("she/her");
   await alice.getByLabel("About me", { exact: true }).fill("Board games and synths");
   await alice.getByRole("button", { name: "Add link", exact: true }).click();
@@ -376,13 +379,25 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(crop).toBeVisible();
   await crop.getByRole("button", { name: "Apply" }).click();
   // The avatar's <img> has alt="" (decorative), so it has no img role.
-  await expect(alice.getByRole("region", { name: "Profile" }).locator('img[src*="/api/avatars/"]')).toBeVisible();
+  await expect(alice.getByRole("region", { name: "Profile", exact: true }).locator('img[src*="/api/avatars/"]')).toBeVisible();
   // The banner: a 3:1 strip is cropped to 960 x 320 and uploaded.
   await alice.getByLabel("Choose a banner image").setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: solidPng(600, 200) });
   const bannerCrop = alice.getByRole("dialog", { name: "Crop your banner" });
   await expect(bannerCrop).toBeVisible();
   await bannerCrop.getByRole("button", { name: "Apply" }).click();
-  await expect(alice.getByRole("region", { name: "Profile" }).locator('img[src*="/api/banners/"]')).toBeVisible();
+  await expect(alice.getByRole("region", { name: "Profile", exact: true }).locator('img[src*="/api/banners/"]')).toBeVisible();
+  await alice.keyboard.press("Escape"); // closes the settings modal
+  // Appearance: a theme re-skins the app and stays on this device.
+  await alice.getByRole("button", { name: "Your settings" }).click();
+  await alice.getByRole("dialog").getByRole("button", { name: "Appearance" }).click();
+  await alice.getByRole("radio", { name: "Gotham" }).click();
+  await expect.poll(() => alice.evaluate(() => document.documentElement.style.getPropertyValue("--sidebar"))).toBe("#0a0f14");
+  await alice.getByRole("radio", { name: "Datrope" }).click();
+  await alice.keyboard.press("Escape");
+  // Right-click a channel: its menu offers the link.
+  await alice.getByRole("link", { name: "general" }).click({ button: "right" });
+  await expect(alice.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
+  await alice.keyboard.press("Escape");
   await alice.getByRole("link", { name: "general" }).click();
 
   // Popover: bob opens alice's profile from her name, then the full profile in the side panel.

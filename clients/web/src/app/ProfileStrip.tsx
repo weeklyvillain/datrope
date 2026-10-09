@@ -2,10 +2,9 @@ import { Perm, hasPerm, type PresenceStatus } from "@datrope/core";
 import { HeadphoneOff, Headphones, Mic, MicOff, Settings } from "lucide-react";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Link } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
@@ -14,9 +13,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSubmit } from "@/hooks/use-submit";
-import { cn } from "@/lib/utils";
 import { choosePresence, client, displayName, errorText, signOut, useApp, usePerms } from "../session";
 import { useVoice, voice } from "../voice/voice";
+import { openSettings } from "./settings/settings-store";
 import { Control } from "./voice/VoicePanel";
 
 const DOT: Record<PresenceStatus, string> = { online: "online", idle: "idle", invisible: "offline" };
@@ -71,10 +70,12 @@ export function ProfileStrip() {
       </Control>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link to="/settings" aria-label="Your settings"
-            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground hover:text-foreground")}>
-            <Settings />
-          </Link>
+          <span className="flex">
+            <Button variant="ghost" size="icon-sm" aria-label="Your settings" className="text-muted-foreground hover:text-foreground"
+              onClick={() => openSettings()}>
+              <Settings />
+            </Button>
+          </span>
         </TooltipTrigger>
         <TooltipContent>Your settings</TooltipContent>
       </Tooltip>

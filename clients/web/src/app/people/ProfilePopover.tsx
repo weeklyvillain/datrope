@@ -40,7 +40,7 @@ function Content({ userId, fallback, side, onInteractOutside, onClose }: {
   const user = useUser(userId, fallback);
   return (
     <PopoverContent side={side ?? "right"} align="start" className="w-[300px] overflow-hidden p-0"
-      aria-label={user ? displayName(user) : "Profile"} onInteractOutside={onInteractOutside}>
+      aria-label={user ? displayName(user) : "Profile"} onInteractOutside={onInteractOutside} onContextMenu={(e) => e.stopPropagation()}>
       <ProfileCard userId={userId} variant="popover" fallback={fallback} onAction={onClose} />
     </PopoverContent>
   );

@@ -26,6 +26,10 @@
   --ring: #2ecc71;
   --sidebar: #0d0d0d;
   --sidebar-foreground: #bdc3c7;
+  --topbar: var(--card);
+  --topbar-foreground: var(--card-foreground);
+  --mention: var(--destructive);
+  --mention-foreground: var(--destructive-foreground);
   --online: #2ecc71;
   --idle: #d39b14;
   --offline: #6b7075;
@@ -62,6 +66,10 @@
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-topbar: var(--topbar);
+  --color-topbar-foreground: var(--topbar-foreground);
+  --color-mention: var(--mention);
+  --color-mention-foreground: var(--mention-foreground);
   --color-online: var(--online);
   --color-idle: var(--idle);
   --color-offline: var(--offline);

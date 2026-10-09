@@ -12,6 +12,7 @@ import { isHttpsLink } from "@/lib/social";
 import { cn } from "@/lib/utils";
 import { client, displayName, errorText, roleColor, useApp } from "@/session";
 import { openPanel } from "../side-panel/panel";
+import { openSettings } from "../settings/settings-store";
 import { ProfileLinks } from "./ProfileLinks";
 import { useAssignableRoles } from "./use-assignable-roles";
 
@@ -58,7 +59,7 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
     }, (e: unknown) => setError(errorText(e)));
   };
   const actions = preview ? null : isMe
-    ? <Button size="sm" variant={panel ? "default" : "outline"} className={cn(!panel && "flex-1")} onClick={() => { onAction?.(); navigate("/settings"); }}>Edit profile</Button>
+    ? <Button size="sm" variant={panel ? "default" : "outline"} className={cn(!panel && "flex-1")} onClick={() => { onAction?.(); openSettings("profile"); }}>Edit profile</Button>
     : <Button size="sm" className={cn(!panel && "flex-1")} onClick={message}>Message</Button>;
 
   return (

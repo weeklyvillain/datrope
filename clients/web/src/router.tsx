@@ -4,7 +4,7 @@ import { DMView } from "./app/DMView";
 import { ChannelRoute, Home } from "./app/Home";
 import { RequireSession } from "./app/RequireSession";
 import { ServerSettings } from "./app/server-settings/ServerSettings";
-import { UserSettings } from "./app/settings/UserSettings";
+import { SettingsRedirect } from "./app/settings/SettingsRedirect";
 import { InvitePage } from "./pages/Invite";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
@@ -22,7 +22,7 @@ export const router = createBrowserRouter([
         { index: true, element: <Home /> },
         { path: "channels/:channelId", element: <ChannelRoute /> },
         { path: "messages/:channelId?", element: <DMView /> },
-        { path: "settings", element: <UserSettings /> },
+        { path: "settings", element: <SettingsRedirect /> },
         { path: "server-settings/:section?", element: <ServerSettings /> },
         { path: "admin", element: <Navigate to="/server-settings/sign-ups" replace /> },
       ],

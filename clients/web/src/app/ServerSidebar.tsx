@@ -6,8 +6,9 @@ import { ServerIcon } from "@/components/logo";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isUnread, lastVisited, rememberVisit, useApp, usePerms } from "../session";
 import { DMList } from "./DMList";
 import { SidebarFooter } from "./SidebarFooter";
@@ -99,19 +100,35 @@ function ServerHeader() {
   if (!canInvite && !canSettings && !canCreate) return <div className={header}>{content}</div>;
   return (
     <>
-      {/* Not modal: its items open dialogs, which a modal menu would fight for focus. */}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger className={cn(header, "outline-none hover:bg-accent focus-visible:bg-accent")} aria-label={`${sv.name} menu`}>
-          {content}
-          <ChevronDown className="size-4 flex-none text-muted-foreground" aria-hidden />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          {canInvite && <DropdownMenuItem onSelect={() => setDialog("invite")}><UserPlus />Invite people</DropdownMenuItem>}
-          {canSettings && <DropdownMenuItem onSelect={() => nav("/server-settings")}><Settings />Server settings</DropdownMenuItem>}
-          {canCreate && <DropdownMenuItem onSelect={() => setDialog("create")}><Plus />Create channel</DropdownMenuItem>}
-          {canCreate && <DropdownMenuItem onSelect={() => setDialog("category")}><FolderPlus />Create category</DropdownMenuItem>}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex h-14 flex-none items-center border-b">
+        {/* Not modal: its items open dialogs, which a modal menu would fight for focus. */}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger aria-label={`${sv.name} menu`}
+            className="flex h-full min-w-0 flex-1 items-center gap-2.5 px-3.5 text-left text-foreground outline-none hover:bg-accent focus-visible:bg-accent">
+            {content}
+            <ChevronDown className="size-4 flex-none text-muted-foreground" aria-hidden />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {canInvite && <DropdownMenuItem onSelect={() => setDialog("invite")}><UserPlus />Invite people</DropdownMenuItem>}
+            {canSettings && <DropdownMenuItem onSelect={() => nav("/server-settings")}><Settings />Server settings</DropdownMenuItem>}
+            {canCreate && <DropdownMenuItem onSelect={() => setDialog("create")}><Plus />Create channel</DropdownMenuItem>}
+            {canCreate && <DropdownMenuItem onSelect={() => setDialog("category")}><FolderPlus />Create category</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {canSettings && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex px-1.5">
+                <Button variant="ghost" size="icon-sm" aria-label="Server settings" className="text-muted-foreground hover:text-foreground"
+                  onClick={() => nav("/server-settings")}>
+                  <Settings />
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Server settings</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
       {dialog === "invite" && <InviteDialog onClose={() => setDialog(undefined)} />}
       {dialog === "create" && <CreateChannelDialog onClose={() => setDialog(undefined)} />}
       {dialog === "category" && <CategoryDialog onClose={() => setDialog(undefined)} />}

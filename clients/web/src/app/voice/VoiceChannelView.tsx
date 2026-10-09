@@ -14,6 +14,7 @@ import { ProfilePanel } from "../people/ProfilePanel";
 import { SearchPanel } from "../search/SearchPanel";
 import { closePanel, usePanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
+import { TopBar } from "../TopBar";
 import { SoundboardButton } from "./SoundboardPanel";
 import { VoiceStage, useVoiceLayout } from "./VoiceStage";
 
@@ -36,11 +37,8 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background" aria-label={ch.name}>
-        <header className="flex h-14 flex-none items-center gap-2 border-b bg-card px-4">
-          <Volume2 className="size-4 text-muted-foreground" aria-hidden />
-          <h2 className="flex-none">{ch.name}</h2>
-          {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
-          <span className="ml-auto flex items-center gap-1">
+        <TopBar actions={(
+          <>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="flex">
@@ -54,21 +52,25 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
               <TooltipContent>{canStage ? "Grid layout" : "Grid layout (watch a screen share for the stage)"}</TooltipContent>
             </Tooltip>
             <SoundboardButton />
-          {canRead && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="flex">
-                  <Button variant="ghost" size="icon-sm" aria-label="Channel chat" aria-pressed={chat}
-                    className={chat ? "text-foreground" : "text-muted-foreground"} onClick={() => setChat((c) => !c)}>
-                    <MessageSquare />
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Channel chat</TooltipContent>
-            </Tooltip>
-          )}
-          </span>
-        </header>
+            {canRead && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex">
+                    <Button variant="ghost" size="icon-sm" aria-label="Channel chat" aria-pressed={chat}
+                      className={chat ? "text-foreground" : "text-muted-foreground"} onClick={() => setChat((c) => !c)}>
+                      <MessageSquare />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Channel chat</TooltipContent>
+              </Tooltip>
+            )}
+          </>
+        )}>
+          <Volume2 className="size-4 text-muted-foreground" aria-hidden />
+          <h2 className="flex-none">{ch.name}</h2>
+          {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
+        </TopBar>
         <VoiceStage channelId={channelId} layout={layout} inviteTo={ch.name} />
       </main>
       {profile ? (

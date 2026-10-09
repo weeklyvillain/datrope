@@ -73,7 +73,7 @@ export function ImageViewer({ images, index, onIndexChange }:
   const many = images.length > 1;
   return (
     <Dialog open={!!a} onOpenChange={(open) => { if (!open) onIndexChange(null); }}>
-      <DialogContent showCloseButton={false} aria-describedby={undefined} onKeyDown={onKeyDown}
+      <DialogContent showCloseButton={false} aria-describedby={undefined} onKeyDown={onKeyDown} onContextMenu={(e) => e.stopPropagation()}
         className="flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 top-0 left-0 flex-col gap-0 rounded-none border-0 bg-background/95 p-0 shadow-none sm:max-w-none">
         {a && <>
           <div className="flex items-center gap-1 border-b bg-background/80 px-3 py-2">

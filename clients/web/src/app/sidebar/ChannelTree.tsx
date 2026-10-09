@@ -7,15 +7,18 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { BookOpen, Hash, Settings, Volume2 } from "lucide-react";
+import { BookOpen, CheckCheck, Hash, Link2, Phone, Settings, Volume2 } from "lucide-react";
 import {
   createContext, useContext, useEffect, useMemo, useRef, useState,
   type CSSProperties, type HTMLAttributes, type ReactNode, type Ref,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useCollapsed } from "@/lib/collapsed";
 import { cn } from "@/lib/utils";
 import { client, errorText, isUnread, useApp, userName } from "../../session";
@@ -325,28 +328,49 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
   const drop = useDroppable({ id: `vc:${id}`, disabled: dragKind !== "vm" || ch?.type !== "voice" });
   const unread = useApp((s) => s.channels[id]?.type === "text" && isUnread(s.readStates[id]));
   const canConnect = useApp((s) => hasPerm(myChannelPerms(s, id), Perm.ConnectVoice));
+  const nav = useNavigate();
+  const lastMessageId = useApp((s) => s.readStates[id]?.lastMessageId);
   if (!ch) return null;
   const active = id === activeId;
   return (
     <li ref={itemRef} style={style} className={className}>
-      <div ref={drop.setNodeRef}
-        className={cn("group flex items-center rounded-md hover:bg-accent", active && "bg-accent", drop.isOver && "bg-accent ring-1 ring-primary")}>
-        <Link to={`/channels/${id}`} aria-current={active ? "page" : undefined} {...handle}
-          onClick={(e) => {
-            if (justDropped()) return e.preventDefault();
-            if (ch.type === "voice" && canConnect) void voice.join(id); // clicking a voice channel joins it
-          }}
-          className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground no-underline hover:text-foreground",
-            (active || unread || ch.type === "welcome") && "text-foreground", unread && "font-semibold")}>
-          <ChannelIcon ch={ch} />
-          <span className="truncate">{ch.name}</span>
-        </Link>
-        {manageable.includes(id) && (
-          <Button variant="ghost" size="icon-xs" aria-label={`Settings for ${ch.name}`} title="Channel settings"
-            className="mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-            onClick={() => openSettings(id)}><Settings /></Button>
-        )}
-      </div>
+      <ContextMenu modal={false}>
+        <ContextMenuTrigger asChild>
+        <div ref={drop.setNodeRef}
+          className={cn("group flex items-center rounded-md hover:bg-accent", active && "bg-accent", drop.isOver && "bg-accent ring-1 ring-primary")}>
+          <Link to={`/channels/${id}`} aria-current={active ? "page" : undefined} {...handle}
+            onClick={(e) => {
+              if (justDropped()) return e.preventDefault();
+              if (ch.type === "voice" && canConnect) void voice.join(id); // clicking a voice channel joins it
+            }}
+            className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground no-underline hover:text-foreground",
+              (active || unread || ch.type === "welcome") && "text-foreground", unread && "font-semibold")}>
+            <ChannelIcon ch={ch} />
+            <span className="truncate">{ch.name}</span>
+          </Link>
+          {manageable.includes(id) && (
+            <Button variant="ghost" size="icon-xs" aria-label={`Settings for ${ch.name}`} title="Channel settings"
+              className="mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              onClick={() => openSettings(id)}><Settings /></Button>
+          )}
+        </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+          {unread && lastMessageId && (
+            <ContextMenuItem onSelect={() => void client.ack(id, lastMessageId).catch(() => undefined)}><CheckCheck />Mark as read</ContextMenuItem>
+          )}
+          {ch.type === "voice" && canConnect && (
+            <ContextMenuItem onSelect={() => { nav(`/channels/${id}`); void voice.join(id); }}><Phone />Join voice</ContextMenuItem>
+          )}
+          <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(`${location.origin}/channels/${id}`).catch(() => undefined)}><Link2 />Copy link</ContextMenuItem>
+          {manageable.includes(id) && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={() => openSettings(id)}><Settings />Channel settings</ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
       {ch.type === "voice" && <VoiceMembers channelId={id} name={ch.name} />}
     </li>
   );

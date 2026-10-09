@@ -12,17 +12,16 @@ import { Markdown } from "../chat/Markdown";
 import { ChannelSettingsDialog } from "./dialogs/ChannelSettingsDialog";
 import { useVoice, voice } from "../voice/voice";
 import { Composer } from "./Composer";
-import { InboxButton } from "./InboxButton";
 import { MemberList } from "./MemberList";
 import { MessageList, jumpTo } from "./MessageList";
 import { PinsPanel } from "./PinsPanel";
 import { ProfilePanel } from "./people/ProfilePanel";
-import { SearchBox } from "./search/SearchBox";
 import { SearchPanel } from "./search/SearchPanel";
 import { closePanel, openPanel, panelStore, usePanel } from "./side-panel/panel";
 import { ThreadPanel } from "./side-panel/ThreadPanel";
 import { SidePanel } from "./side-panel/SidePanel";
 import { ThreadsList } from "./side-panel/ThreadsList";
+import { TopBar } from "./TopBar";
 import { VoiceStage } from "./voice/VoiceStage";
 
 /** A text channel or DM. `members` shows the member list beside it (hidden while a side panel is open). */
@@ -55,11 +54,8 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={title}>
-        <header className="flex h-14 flex-none items-center justify-between gap-2 border-b bg-card px-4">
-          <h2 className="flex-none">{title}</h2>
-          {ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
-          <div className="ml-auto flex flex-none items-center gap-1">
-            <InboxButton />
+        <TopBar actions={(
+          <>
             {threads && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -75,12 +71,14 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
               </Tooltip>
             )}
             <PinsPanel channelId={channelId} onJump={(id) => void jumpTo(channelId, id).catch(() => undefined)} />
-          </div>
-          {ch.type === "dm" && !here && inCall === 0 && (
-            <Button variant="outline" size="sm" onClick={() => void voice.join(channelId)}><Phone /> Start call</Button>
-          )}
-          <SearchBox />
-        </header>
+            {ch.type === "dm" && !here && inCall === 0 && (
+              <Button variant="outline" size="sm" onClick={() => void voice.join(channelId)}><Phone /> Start call</Button>
+            )}
+          </>
+        )}>
+          <h2 className="flex-none">{title}</h2>
+          {ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
+        </TopBar>
         {ch.type === "dm" && (inCall > 0 || here) && (
           <div className="border-b"><VoiceStage channelId={channelId} joinLabel="Join call" compact /></div>
         )}

@@ -41,7 +41,7 @@ export function EmojiPicker({ onPick, trigger, onOpenChange, onCloseAutoFocus }:
     <Popover open={open} onOpenChange={change}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       {/* Fade only: zooming a panel full of colour emoji makes opening feel heavy. */}
-      <PopoverContent className="w-[352px] p-0 duration-100 [--tw-enter-scale:1]! [--tw-enter-translate-y:0]! [--tw-exit-scale:1]!" align="end" onCloseAutoFocus={onCloseAutoFocus}>
+      <PopoverContent className="w-[352px] p-0 duration-100 [--tw-enter-scale:1]! [--tw-enter-translate-y:0]! [--tw-exit-scale:1]!" align="end" onCloseAutoFocus={onCloseAutoFocus} onContextMenu={(e) => e.stopPropagation()}>
         <PickerPanel onPick={(v) => {
           change(false);
           onPick(v);

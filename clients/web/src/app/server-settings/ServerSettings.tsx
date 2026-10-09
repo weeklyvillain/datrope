@@ -62,7 +62,7 @@ export const sections: SettingsSection[] = [
 ];
 
 const GROUPS: Group[] = ["Server", "People", "Expressions", "Instance"];
-const NAV = "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-muted-foreground";
+export const NAV = "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-muted-foreground";
 
 /** /server-settings/:section? — a full-height page with its own nav, in place of the main layout. */
 export function ServerSettings() {

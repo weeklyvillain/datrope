@@ -42,7 +42,7 @@ export function InboxButton() {
                 <AtSign />
                 {unread > 0 && <span id="inbox-unread" className="sr-only">{unread > 99 ? "99+" : unread} unread</span>}
                 {unread > 0 && (
-                  <span aria-hidden className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-destructive-foreground">
+                  <span aria-hidden className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-mention px-1 text-[10px] font-semibold leading-4 text-mention-foreground">
                     {unread > 99 ? "99+" : unread}
                   </span>
                 )}
