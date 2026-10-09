@@ -229,7 +229,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(alice.getByText("psst")).toBeVisible();
   await expect(alice.getByRole("tab", { name: "Messages", exact: true })).toBeVisible();
 
-  // Voice: alice opens a voice channel, both join, each sees the other, and leaving is noticed.
+  // Voice: alice creates a voice channel and joins, bob joins by clicking it, each sees the other, and leaving is noticed.
   await alice.getByRole("tab", { name: "Channels" }).click();
   await alice.getByRole("button", { name: "Datrope menu" }).click();
   await alice.getByRole("menuitem", { name: "Create channel" }).click();
@@ -243,8 +243,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(lounge.getByText("alice")).toBeVisible(); // reported by LiveKit's webhook
 
   await bob.getByRole("tab", { name: "Channels" }).click();
-  await bob.getByRole("link", { name: "Lounge" }).first().click();
-  await bob.getByRole("button", { name: "Join voice" }).click();
+  await bob.getByRole("link", { name: "Lounge" }).first().click(); // clicking a voice channel joins it
   await expect(bob.getByRole("status").filter({ hasText: "Voice connected" })).toBeVisible();
   await expect(lounge.getByText("bob")).toBeVisible();
 
@@ -263,8 +262,23 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await bob.getByRole("button", { name: "Mute" }).click();
   await expect(lounge.getByRole("img", { name: "Muted" })).toBeVisible();
 
-  await bob.getByRole("button", { name: "Disconnect" }).click();
+  // Moving: alice drags bob from Lounge onto a second voice channel.
+  await alice.getByRole("button", { name: "Datrope menu" }).click();
+  await alice.getByRole("menuitem", { name: "Create channel" }).click();
+  await alice.getByRole("radio", { name: "Voice" }).click();
+  await alice.getByLabel("Name").fill("Den");
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await lounge.getByText("bob").hover();
+  await alice.mouse.down();
+  const den = (await alice.getByRole("link", { name: "Den" }).boundingBox())!;
+  await alice.mouse.move(den.x + den.width / 2, den.y + den.height / 2, { steps: 10 });
+  await alice.mouse.up();
+  const denList = alice.getByRole("list", { name: "In voice: Den" });
+  await expect(denList.getByText("bob")).toBeVisible();
   await expect(lounge.getByText("bob")).toHaveCount(0);
+
+  await bob.getByRole("button", { name: "Disconnect" }).click();
+  await expect(denList.getByText("bob")).toHaveCount(0);
 
   // Categories: alice creates "Hangouts" and moves #general into it from the channel settings.
   await alice.getByRole("button", { name: "Datrope menu" }).click();

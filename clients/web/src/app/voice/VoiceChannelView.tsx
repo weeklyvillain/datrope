@@ -19,9 +19,9 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   const ch = useApp((s) => s.channels[channelId]);
   const perms = usePerms(channelId);
   const canRead = hasPerm(perms, Perm.ReadHistory);
-  const [chat, setChat] = useState(false);
+  const [chat, setChat] = useState(true);
   const profile = usePanel((s) => (s.panel?.kind === "profile" ? s.panel.userId : undefined));
-  useEffect(() => setChat(false), [channelId]);
+  useEffect(() => setChat(true), [channelId]);
   const { layout, setLayout, canStage } = useVoiceLayout(channelId);
 
   if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;

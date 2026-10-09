@@ -2,8 +2,8 @@ import {
   Perm, channelGroups, hasPerm, myBasePerms, myChannelPerms, unwrap, type Category, type Channel,
 } from "@datrope/core";
 import {
-  DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useDroppable, useSensor, useSensors,
-  type Announcements, type DragEndEvent, type DragOverEvent, type DragStartEvent, type UniqueIdentifier,
+  DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useDroppable, useSensor, useSensors,
+  type Announcements, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent, type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -18,20 +18,27 @@ import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
 import { useCollapsed } from "@/lib/collapsed";
 import { cn } from "@/lib/utils";
-import { client, errorText, isUnread, useApp } from "../../session";
+import { client, errorText, isUnread, useApp, userName } from "../../session";
 import { CategoryDialog, DeleteCategoryDialog } from "../dialogs/CategoryDialog";
 import { ChannelSettingsDialog } from "../dialogs/ChannelSettingsDialog";
 import { CreateChannelDialog } from "../dialogs/CreateChannelDialog";
+import { voice } from "../../voice/voice";
 import { VoiceMembers } from "../voice/VoiceMembers";
 import { CategoryHeader, type CategoryAction } from "./CategoryHeader";
 import { NONE, groupOf, moveTo, type Groups } from "./order";
 
 const ICONS = { welcome: BookOpen, text: Hash, voice: Volume2, dm: Hash, thread: Hash } as const;
 
-// Drag IDs: "ch:<channel>", "cat:<category>", and "group:<category or NONE>" for an empty group's drop area.
-type Kind = "ch" | "cat" | "group";
+// Drag IDs: "ch:<channel>", "cat:<category>", and "group:<category or NONE>" for an empty group's drop area;
+// "vm:<user>" for someone in voice, dropped on "vc:<voice channel>" to move them there.
+type Kind = "ch" | "cat" | "group" | "vm" | "vc";
 const kindOf = (id: UniqueIdentifier) => String(id).split(":")[0] as Kind;
 const rawId = (id: UniqueIdentifier) => String(id).slice(String(id).indexOf(":") + 1);
+
+// Someone in voice lands on the voice channel under the pointer; everything else sorts.
+const collision: CollisionDetection = (args) => kindOf(args.active.id) === "vm"
+  ? pointerWithin({ ...args, droppableContainers: args.droppableContainers.filter((c) => kindOf(c.id) === "vc") })
+  : closestCenter(args);
 
 interface Layout {
   welcomeId?: string;
@@ -89,7 +96,8 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
 
   const label = (id: UniqueIdentifier) => {
     const raw = rawId(id);
-    if (kindOf(id) === "ch") return `#${channels[raw]?.name ?? ""}`;
+    if (kindOf(id) === "vm") return userName(client.store.getState(), raw);
+    if (kindOf(id) === "ch" || kindOf(id) === "vc") return `#${channels[raw]?.name ?? ""}`;
     if (raw === NONE) return "channels without a category";
     return `category ${categories?.[raw]?.name ?? ""}`;
   };
@@ -100,10 +108,13 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     onDragCancel: ({ active }) => `Moving ${label(active.id)} was cancelled.`,
   };
 
-  const fail = (e: unknown) => {
+  const showError = (e: unknown) => {
     setError(errorText(e));
     clearTimeout(errorTimer.current);
     errorTimer.current = setTimeout(() => setError(undefined), 5000);
+  };
+  const fail = (e: unknown) => {
+    showError(e);
     void reload();
   };
 
@@ -129,6 +140,11 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     setDrag(undefined);
     droppedAt.current = Date.now();
     if (!d || !over) return;
+    if (kindOf(active.id) === "vm") {
+      const to = rawId(over.id);
+      if (kindOf(over.id) === "vc" && to !== active.data.current?.from) void client.moveVoice(rawId(active.id), to).catch(showError);
+      return;
+    }
     if (kindOf(active.id) === "cat") {
       const from = d.cats.indexOf(rawId(active.id));
       const to = d.cats.indexOf(rawId(over.id));
@@ -161,10 +177,11 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
   };
   const dragged = drag && kindOf(drag.id) === "ch" ? channels[rawId(drag.id)] : undefined;
   const draggedCat = drag && kindOf(drag.id) === "cat" ? categories?.[rawId(drag.id)] : undefined;
+  const draggedUser = drag && kindOf(drag.id) === "vm" ? userName(client.store.getState(), rawId(drag.id)) : undefined;
 
   return (
     <TreeContext.Provider value={tree}>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} accessibility={{ announcements }}
+      <DndContext sensors={sensors} collisionDetection={collision} accessibility={{ announcements }}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setDrag(undefined)}>
         <div className="p-2">
           <Group group={NONE} ids={view.groups[NONE] ?? []}>
@@ -191,6 +208,7 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
           {draggedCat && (
             <div className="rounded-md bg-accent px-2 py-1 text-xs font-semibold tracking-wide text-foreground uppercase shadow-md">{draggedCat.name}</div>
           )}
+          {draggedUser && <div className="rounded-md bg-accent px-2 py-1 text-sm text-foreground shadow-md">{draggedUser}</div>}
         </DragOverlay>
       </DndContext>
       {settingsFor && <ChannelSettingsDialog channelId={settingsFor} onClose={() => setSettingsFor(undefined)} />}
@@ -302,16 +320,22 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
   className?: string;
   handle?: HTMLAttributes<HTMLAnchorElement> & { ref?: Ref<HTMLAnchorElement> };
 }) {
-  const { activeId, manageable, openSettings, justDropped } = useTree();
+  const { activeId, manageable, openSettings, justDropped, dragKind } = useTree();
   const ch = useApp((s) => s.channels[id]);
+  const drop = useDroppable({ id: `vc:${id}`, disabled: dragKind !== "vm" || ch?.type !== "voice" });
   const unread = useApp((s) => s.channels[id]?.type === "text" && isUnread(s.readStates[id]));
+  const canConnect = useApp((s) => hasPerm(myChannelPerms(s, id), Perm.ConnectVoice));
   if (!ch) return null;
   const active = id === activeId;
   return (
     <li ref={itemRef} style={style} className={className}>
-      <div className={cn("group flex items-center rounded-md hover:bg-accent", active && "bg-accent")}>
+      <div ref={drop.setNodeRef}
+        className={cn("group flex items-center rounded-md hover:bg-accent", active && "bg-accent", drop.isOver && "bg-accent ring-1 ring-primary")}>
         <Link to={`/channels/${id}`} aria-current={active ? "page" : undefined} {...handle}
-          onClick={(e) => justDropped() && e.preventDefault()}
+          onClick={(e) => {
+            if (justDropped()) return e.preventDefault();
+            if (ch.type === "voice" && canConnect) void voice.join(id); // clicking a voice channel joins it
+          }}
           className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground no-underline hover:text-foreground",
             (active || unread || ch.type === "welcome") && "text-foreground", unread && "font-semibold")}>
           <ChannelIcon ch={ch} />

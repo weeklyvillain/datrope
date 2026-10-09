@@ -1,6 +1,7 @@
 import { Perm, hasPerm, sidebarChannelIds, voiceMembers } from "@datrope/core";
+import { useDraggable } from "@dnd-kit/core";
 import { HeadphoneOff, MicOff, Video } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type PointerEventHandler, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
@@ -49,45 +50,65 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
           </span>
         );
         // Everyone but me: right-click or "More" opens my local settings for them.
+        // Those I may move can also be dragged onto another voice channel in the sidebar.
         const item = (content: ReactNode) => (
-          <li key={v.user_id} className="flex items-center gap-1">
+          <MemberItem key={v.user_id} userId={v.user_id} channelId={channelId} movable={v.user_id !== meId && above[i] && canMove}>
             <AvatarTrigger userId={v.user_id} name={names[i]} side="right">
               <VoiceAvatar userId={v.user_id} name={names[i]} speaking={speaking.includes(v.user_id)} />
             </AvatarTrigger>
             {v.user_id === meId ? content : (
               <PersonMenu userId={v.user_id} name={names[i]} hasCamera={!!v.camera} className="flex min-w-0 flex-1 items-center gap-0.5">{content}</PersonMenu>
             )}
-          </li>
+          </MemberItem>
         );
         if (v.user_id === meId || !above[i] || !(canMute || canMove)) return item(row);
         return item(
-            <DropdownMenu>
-              <DropdownMenuTrigger className="w-full min-w-0 flex-1 rounded-md" aria-label={`Voice options for ${names[i]}`}>{row}</DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {canMute && (
-                  <DropdownMenuItem onSelect={() => act(client.serverMute(v.user_id, !v.server_mute))}>
-                    {v.server_mute ? "Remove server mute" : "Server mute"}
-                  </DropdownMenuItem>
-                )}
-                {canMove && otherIds.length > 0 && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Move to</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {otherIds.map((id) => (
-                        <DropdownMenuItem key={id} onSelect={() => act(client.moveVoice(v.user_id, id))}>{channels[id]?.name}</DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                )}
-                {canMove && (
-                  <DropdownMenuItem variant="destructive" onSelect={() => act(client.disconnectVoice(v.user_id))}>Disconnect</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>,
+            <ModMenu row={row} label={`Voice options for ${names[i]}`}>
+              {canMute && (
+                <DropdownMenuItem onSelect={() => act(client.serverMute(v.user_id, !v.server_mute))}>
+                  {v.server_mute ? "Remove server mute" : "Server mute"}
+                </DropdownMenuItem>
+              )}
+              {canMove && otherIds.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Move to</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {otherIds.map((id) => (
+                      <DropdownMenuItem key={id} onSelect={() => act(client.moveVoice(v.user_id, id))}>{channels[id]?.name}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {canMove && (
+                <DropdownMenuItem variant="destructive" onSelect={() => act(client.disconnectVoice(v.user_id))}>Disconnect</DropdownMenuItem>
+              )}
+            </ModMenu>,
         );
       })}
       {error && <li className="px-2 text-xs text-destructive" role="alert">{error}</li>}
     </ul>
+  );
+}
+
+/** A member's row; dragging it (pointer only) onto another voice channel moves them. Keyboard users have "Move to". */
+function MemberItem({ userId, channelId, movable, children }: { userId: string; channelId: string; movable: boolean; children: ReactNode }) {
+  const { setNodeRef, listeners, isDragging } = useDraggable({ id: `vm:${userId}`, data: { from: channelId }, disabled: !movable });
+  return (
+    <li ref={setNodeRef} onPointerDown={listeners?.onPointerDown as PointerEventHandler | undefined} className={cn("flex items-center gap-1", isDragging && "opacity-40")}>
+      {children}
+    </li>
+  );
+}
+
+/** Moderation for a member. It opens on click rather than pointer down, so pressing the row can start a drag. */
+function ModMenu({ row, label, children }: { row: ReactNode; label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger className="w-full min-w-0 flex-1 rounded-md" aria-label={label}
+        onPointerDown={(e) => e.preventDefault()} onClick={() => setOpen(true)}>{row}</DropdownMenuTrigger>
+      <DropdownMenuContent align="start">{children}</DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
