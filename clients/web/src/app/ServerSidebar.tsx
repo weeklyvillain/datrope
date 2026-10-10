@@ -18,7 +18,7 @@ import { CreateChannelDialog } from "./dialogs/CreateChannelDialog";
 import { InviteDialog } from "./dialogs/InviteDialog";
 import { ChannelTree } from "./sidebar/ChannelTree";
 
-const SETTINGS_PERMS = [Perm.ManageServer, Perm.ManageRoles, Perm.Kick, Perm.Ban, Perm.ManageChannels];
+export const SETTINGS_PERMS = [Perm.ManageServer, Perm.ManageRoles, Perm.Kick, Perm.Ban, Perm.ManageChannels];
 const TAB = "h-8 data-[state=active]:bg-accent data-[state=active]:font-semibold data-[state=active]:shadow-none";
 
 /** The left column: server header, Channels / Messages tabs, voice panel and profile strip. */

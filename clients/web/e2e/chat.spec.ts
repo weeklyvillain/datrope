@@ -147,6 +147,17 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByLabel("Message", { exact: true }).press("Enter");
   await expect(bob.getByText("hi bob")).toBeVisible();
 
+  // Command palette: Ctrl+K opens a DM with bob, then jumps back to #general.
+  const palette = alice.getByRole("combobox", { name: "Command palette" });
+  await alice.keyboard.press("Control+k");
+  await palette.fill("bob");
+  await palette.press("Enter");
+  await expect(alice).toHaveURL(/\/messages\/\d+/);
+  await alice.keyboard.press("Control+k");
+  await palette.fill("general");
+  await palette.press("Enter");
+  await expect(alice.getByRole("heading", { name: "# general" })).toBeVisible();
+
   // Files: alice attaches an image; bob sees it in the channel.
   await alice.locator('input[type="file"]').setInputFiles({
     name: "pixel.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64"),

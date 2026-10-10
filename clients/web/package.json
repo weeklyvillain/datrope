@@ -17,6 +17,7 @@
     "@dnd-kit/utilities": "3.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "1.1.1",
     "emojibase-data": "16.0.3",
     "livekit-client": "2.22.3",
     "lucide-react": "^1.54.0",

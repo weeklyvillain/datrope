@@ -8,6 +8,7 @@ import { GuestEnded } from "../pages/GuestEnded";
 import { GuestBanner } from "./GuestBanner";
 import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
+import { CommandPalette } from "./palette/CommandPalette";
 import { ServerSidebar } from "./ServerSidebar";
 import { ProfileDrawer } from "./people/ProfileDrawer";
 import { UserSettingsDialog } from "./settings/UserSettingsDialog";
@@ -52,6 +53,7 @@ export function AppShell() {
         <NotificationListener />
         <UserSettingsDialog />
         {!gated && <ProfileDrawer />}
+        {!gated && <CommandPalette />}
         {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
       </div>
     </div>
