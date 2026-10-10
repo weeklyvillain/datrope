@@ -4,6 +4,8 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { usePalette } from "@/hooks/use-palette";
 import { useTheme } from "@/hooks/use-theme";
 import { client, useApp } from "../session";
+import { GuestEnded } from "../pages/GuestEnded";
+import { GuestBanner } from "./GuestBanner";
 import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
 import { ServerSidebar } from "./ServerSidebar";
@@ -17,6 +19,7 @@ export function AppShell() {
   const gated = useApp(isGated);
   const welcomeId = useApp((s) => s.server?.channelIds.find((id) => s.channels[id]?.type === "welcome"));
   const serverName = useApp((s) => s.server?.server.name);
+  const isGuest = useApp((s) => !!s.me?.guest_expires_at);
   const { pathname } = useLocation();
   usePalette();
   useEffect(() => {
@@ -33,19 +36,24 @@ export function AppShell() {
     if (connection === "ready") client.loadMentions().catch(() => undefined);
   }, [connection]);
 
+  // A removed guest cannot rejoin with an invite, so NotAMember would mislead.
+  if (notMember && isGuest) return <GuestEnded />;
   if (notMember) return <NotAMember />;
   // While the rules gate is on, the welcome channel is the only page.
   if (gated && welcomeId && pathname !== `/channels/${welcomeId}`) return <Navigate to={`/channels/${welcomeId}`} replace />;
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Server settings bring their own nav in place of the sidebar. */}
-      {!pathname.startsWith("/server-settings") && <ServerSidebar />}
-      <Outlet />
-      <SoundboardListener />
-      <NotificationListener />
-      <UserSettingsDialog />
-      {!gated && <ProfileDrawer />}
-      {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
+    <div className="flex h-screen flex-col overflow-hidden">
+      <GuestBanner />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Server settings bring their own nav in place of the sidebar. */}
+        {!pathname.startsWith("/server-settings") && <ServerSidebar />}
+        <Outlet />
+        <SoundboardListener />
+        <NotificationListener />
+        <UserSettingsDialog />
+        {!gated && <ProfileDrawer />}
+        {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
+      </div>
     </div>
   );
 }

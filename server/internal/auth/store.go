@@ -39,6 +39,8 @@ type User struct {
 	AvatarURL    string    `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
 	BannerURL    string    `json:"banner_url,omitempty" doc:"A 960 × 320 image; absent when the user has none"`
 	Links        []string  `json:"links,omitempty" doc:"Up to 5 https:// links"`
+	// GuestExpiresAt is set for guests.
+	GuestExpiresAt *time.Time `json:"guest_expires_at,omitempty" doc:"Set for guests: when their access ends"`
 }
 
 // PublicUser is what other users may see.
@@ -52,11 +54,14 @@ type PublicUser struct {
 	AvatarURL    string   `json:"avatar_url,omitempty" doc:"A 256 × 256 image; absent when the user has none, and clients draw initials"`
 	BannerURL    string   `json:"banner_url,omitempty" doc:"A 960 × 320 image; absent when the user has none"`
 	Links        []string `json:"links,omitempty" doc:"Up to 5 https:// links"`
+	// GuestExpiresAt is set for guests.
+	GuestExpiresAt *time.Time `json:"guest_expires_at,omitempty" doc:"Set for guests: when their access ends"`
 }
 
 func (u *User) Public() PublicUser {
 	return PublicUser{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, CustomStatus: u.CustomStatus,
-		Pronouns: u.Pronouns, AboutMe: u.AboutMe, AvatarURL: u.AvatarURL, BannerURL: u.BannerURL, Links: u.Links}
+		Pronouns: u.Pronouns, AboutMe: u.AboutMe, AvatarURL: u.AvatarURL, BannerURL: u.BannerURL, Links: u.Links,
+		GuestExpiresAt: u.GuestExpiresAt}
 }
 
 type Session struct {
@@ -78,13 +83,13 @@ type Store struct{ db *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{db: pool} }
 
-const userCols = `u.id, u.username, u.email, u.display_name, u.custom_status, u.is_admin, u.disabled, u.created_at, u.password_hash, u.pronouns, u.about_me, u.avatar_sha256, u.banner_sha256, u.links`
+const userCols = `u.id, u.username, u.email, u.display_name, u.custom_status, u.is_admin, u.disabled, u.created_at, u.password_hash, u.pronouns, u.about_me, u.avatar_sha256, u.banner_sha256, u.links, u.guest_expires_at`
 
 func scanUser(row pgx.Row, extra ...any) (*User, error) {
 	var u User
 	var avatar, banner *string
 	dest := append(extra, &u.ID, &u.Username, &u.Email, &u.DisplayName, &u.CustomStatus, &u.IsAdmin, &u.Disabled, &u.CreatedAt, &u.PasswordHash,
-		&u.Pronouns, &u.AboutMe, &avatar, &banner, &u.Links)
+		&u.Pronouns, &u.AboutMe, &avatar, &banner, &u.Links, &u.GuestExpiresAt)
 	err := row.Scan(dest...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -115,9 +120,9 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 	}
 	u.IsAdmin = n == 0
 	err = tx.QueryRow(ctx, `
-		INSERT INTO users (id, username, email, display_name, password_hash, is_admin)
-		VALUES ($1, $2, $3, $4, $5, $6) RETURNING created_at`,
-		u.ID, u.Username, u.Email, u.DisplayName, u.PasswordHash, u.IsAdmin).Scan(&u.CreatedAt)
+		INSERT INTO users (id, username, email, display_name, password_hash, is_admin, guest_expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`,
+		u.ID, u.Username, u.Email, u.DisplayName, u.PasswordHash, u.IsAdmin, u.GuestExpiresAt).Scan(&u.CreatedAt)
 	if db.IsUniqueViolation(err) {
 		return ErrTaken
 	}
@@ -161,7 +166,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicUser, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256, banner_sha256, links FROM users WHERE id = ANY($1)`, id.Int64s(ids))
+	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256, banner_sha256, links, guest_expires_at FROM users WHERE id = ANY($1)`, id.Int64s(ids))
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +175,7 @@ func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicU
 	for rows.Next() {
 		var p PublicUser
 		var avatar, banner *string
-		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar, &banner, &p.Links); err != nil {
+		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar, &banner, &p.Links, &p.GuestExpiresAt); err != nil {
 			return nil, err
 		}
 		p.AvatarURL = avatarKind.imageURL(p.ID, avatar)
@@ -199,6 +204,12 @@ func (s *Store) UpdateProfile(ctx context.Context, userID id.ID, p ProfilePatch)
 		UPDATE users u SET display_name = COALESCE($2, display_name), custom_status = COALESCE($3, custom_status),
 		                   pronouns = COALESCE($4, pronouns), about_me = COALESCE($5, about_me), links = COALESCE($6, links)
 		WHERE u.id = $1 RETURNING `+userCols, userID, p.DisplayName, p.CustomStatus, p.Pronouns, p.AboutMe, links))
+}
+
+// DeleteUser removes an account that has nothing attached yet (a guest
+// whose join failed). Accounts with messages cannot be deleted.
+func (s *Store) DeleteUser(ctx context.Context, userID id.ID) error {
+	return s.execOne(ctx, `DELETE FROM users WHERE id = $1`, userID)
 }
 
 func (s *Store) SetPassword(ctx context.Context, userID id.ID, hash string) error {

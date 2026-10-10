@@ -1,9 +1,11 @@
 import { unwrap, type InvitePreview } from "@datrope/core";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { client } from "../session";
+import { client, deviceName } from "../session";
 import { Button } from "@/components/ui/button";
 import { ErrorText } from "@/components/error-text";
+import { FormField } from "@/components/form-field";
+import { guestTtlText } from "@/lib/guest";
 import { useSubmit } from "@/hooks/use-submit";
 import { AuthLayout } from "./AuthLayout";
 
@@ -13,6 +15,7 @@ export function InvitePage() {
   const [preview, setPreview] = useState<InvitePreview | null>();
   const [signedIn, setSignedIn] = useState(false);
   const [member, setMember] = useState(false);
+  const [nick, setNick] = useState("");
   const { busy, error, run } = useSubmit();
 
   useEffect(() => {
@@ -49,6 +52,20 @@ export function InvitePage() {
             nav("/");
           })}>Join</Button>
         </>
+      ) : preview.guest_ttl_seconds ? (
+        <form className="grid gap-3" aria-label="Join as guest" onSubmit={(e) => {
+          e.preventDefault();
+          void run(async () => {
+            await client.joinAsGuest(code, nick, deviceName());
+            nav("/");
+          });
+        }}>
+          <p>Join as a guest. Your access lasts {guestTtlText(preview.guest_ttl_seconds)}.</p>
+          <FormField label="Nickname" value={nick} maxLength={32} required autoFocus onChange={(e) => setNick(e.target.value)} />
+          <ErrorText error={error} />
+          <Button type="submit" className="justify-self-start" disabled={busy}>Join as guest</Button>
+          <Link to={`/login?next=${encodeURIComponent(`/invite/${code}`)}`}>Have an account? Sign in</Link>
+        </form>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild>

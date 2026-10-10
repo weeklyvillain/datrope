@@ -231,6 +231,15 @@ export class DatropeClient {
     this.connect(this.store.getState().presence);
   }
 
+  /** Joins with a guest link as a new guest account (web: sets the session cookie). */
+  async joinAsGuest(code: string, nick: string, deviceName: string): Promise<User> {
+    const res = await unwrap(this.api.POST("/api/invites/{code}/guest", {
+      params: { path: { code } },
+      body: { nick, device_name: deviceName, client: this.o.token ? "native" : "web" },
+    }));
+    return res.user;
+  }
+
   /** Uploads the server icon or banner (PUT) or a welcome-page image (POST). */
   async uploadServerImage(kind: "icon" | "banner" | "page", file: Blob): Promise<{ url: string; id?: string }> {
     const path = kind === "page" ? "/api/server/images" : `/api/server/${kind}`;

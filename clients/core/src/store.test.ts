@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, prependHistory,
   rolesByRank, voiceMembers, channelGroups, sidebarChannelIds, findUser, findDM, type State,
-  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal,
+  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, publicUser,
 } from "./store";
 import { Perm } from "./perms";
 import type { Message, Ready, VoiceState } from "./types";
@@ -38,6 +38,11 @@ function loaded(): State {
 }
 
 describe("store", () => {
+  it("keeps the guest flag when a profile update comes from my own account", () => {
+    const u = publicUser({ ...me, guest_expires_at: "2026-10-11T00:00:00Z" });
+    expect(u.guest_expires_at).toBe("2026-10-11T00:00:00Z");
+  });
+
   it("compares snowflake strings numerically", () => {
     expect(compareIds("9", "10")).toBeLessThan(0);
     expect(compareIds("10", "10")).toBe(0);

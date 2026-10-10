@@ -37,6 +37,9 @@ const All Perms = ManageExpressions<<1 - 1
 const Default = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | CreateInvite |
 	AddReactions | CreateThreads | UseSoundboard
 
+// GuestDefault is what the Guest role gets when it is created.
+const GuestDefault = ViewChannel | ReadHistory | SendMessages | ConnectVoice | Speak
+
 // DM is the fixed set every DM participant holds (reactions included).
 const DM = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | AddReactions | UseSoundboard
 

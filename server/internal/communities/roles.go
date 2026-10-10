@@ -241,6 +241,9 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if r.ID == a.CommunityID {
 				return nil, httpx.BadRequest("CANNOT_DELETE_EVERYONE", "the @everyone role cannot be deleted")
 			}
+			if r.IsGuest {
+				return nil, httpx.E(http.StatusConflict, "CANNOT_DELETE_GUEST_ROLE", "the Guest role cannot be deleted")
+			}
 			rank, err := s.rank(ctx, tx, a.CommunityID, a.Member.UserID)
 			if err != nil {
 				return nil, err
@@ -376,7 +379,11 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if err := s.ban(ctx, a.CommunityID, target, in.Body.Reason); err != nil {
 				return nil, err
 			}
-			if err := s.users.RevokeSessions(ctx, target); err != nil {
+			signOut := s.users.RevokeSessions
+			if users[target].GuestExpiresAt != nil {
+				signOut = s.users.RetireUser // a banned guest is retired for good
+			}
+			if err := signOut(ctx, target); err != nil {
 				slog.ErrorContext(ctx, "signing out a banned user", "user", target, "err", err)
 			}
 			return nil, nil

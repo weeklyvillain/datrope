@@ -404,6 +404,13 @@
             "minimum": 60,
             "type": "integer"
           },
+          "guest_ttl_seconds": {
+            "description": "Makes a guest link: visitors join with a nickname and are removed this many seconds after joining",
+            "format": "int64",
+            "maximum": 2592000,
+            "minimum": 3600,
+            "type": "integer"
+          },
           "max_uses": {
             "format": "int64",
             "maximum": 1000,
@@ -570,6 +577,34 @@
         ],
         "type": "object"
       },
+      "GuestJoinRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "enum": [
+              "web",
+              "native"
+            ],
+            "type": "string"
+          },
+          "device_name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "nick": {
+            "description": "Shown as the guest's name; 1-32 characters after trimming",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "nick",
+          "device_name",
+          "client"
+        ],
+        "type": "object"
+      },
       "Hello": {
         "additionalProperties": false,
         "properties": {
@@ -631,6 +666,11 @@
             "format": "date-time",
             "type": "string"
           },
+          "guest_ttl_seconds": {
+            "description": "Set on guest links: how long each guest stays",
+            "format": "int64",
+            "type": "integer"
+          },
           "max_uses": {
             "format": "int64",
             "type": "integer"
@@ -653,6 +693,11 @@
         "properties": {
           "code": {
             "type": "string"
+          },
+          "guest_ttl_seconds": {
+            "description": "Set on guest links: how long each guest stays",
+            "format": "int64",
+            "type": "integer"
           },
           "member_count": {
             "format": "int64",
@@ -1098,6 +1143,11 @@
           "display_name": {
             "type": "string"
           },
+          "guest_expires_at": {
+            "description": "Set for guests: when their access ends",
+            "format": "date-time",
+            "type": "string"
+          },
           "id": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -1504,6 +1554,10 @@
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
             "type": "string"
+          },
+          "is_guest": {
+            "description": "The system role every guest holds; it cannot be deleted",
+            "type": "boolean"
           },
           "name": {
             "type": "string"
@@ -2267,6 +2321,11 @@
             "type": "string"
           },
           "email": {
+            "type": "string"
+          },
+          "guest_expires_at": {
+            "description": "Set for guests: when their access ends",
+            "format": "date-time",
             "type": "string"
           },
           "id": {
@@ -3983,6 +4042,77 @@
             "session": []
           }
         ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/invites/{code}/guest": {
+      "post": {
+        "operationId": "join-as-guest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestJoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "server"
         ]

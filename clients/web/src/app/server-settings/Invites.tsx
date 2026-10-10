@@ -1,12 +1,15 @@
 import { Perm, hasPerm, unwrap, type Invite } from "@datrope/core";
 import { useEffect, useId, useRef, useState } from "react";
 import { ErrorText } from "@/components/error-text";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSubmit } from "@/hooks/use-submit";
+import { GUEST_TTLS, guestTtlShort } from "@/lib/guest";
 import { client, errorText, useApp, usePerms, userName } from "@/session";
 
 const HOUR = 3600;
@@ -93,7 +96,10 @@ function InviteRow({ invite: i, onDeleted, onError }: { invite: Invite; onDelete
   const { copied, error, copy } = useCopy();
   return (
     <TableRow>
-      <TableCell><code>{i.code}</code></TableCell>
+      <TableCell>
+        <code>{i.code}</code>
+        {i.guest_ttl_seconds ? <Badge variant="secondary" className="ml-2">Guest · {guestTtlShort(i.guest_ttl_seconds)}</Badge> : null}
+      </TableCell>
       <TableCell>{creator}</TableCell>
       <TableCell>{i.uses}{i.max_uses ? ` / ${i.max_uses}` : ""}</TableCell>
       <TableCell>{i.expires_at ? new Date(i.expires_at).toLocaleString() : "Never"}</TableCell>
@@ -117,13 +123,19 @@ function CreateInvite({ onCreated }: { onCreated: (code: string) => void }) {
   const id = useId();
   const [expiry, setExpiry] = useState(EXPIRY[3].seconds);
   const [uses, setUses] = useState(0);
+  const [guest, setGuest] = useState(false);
+  const [ttl, setTtl] = useState(GUEST_TTLS[2].seconds);
   const { busy, error, run } = useSubmit();
   return (
     <form aria-label="Create invite" className="grid gap-3" onSubmit={(e) => {
       e.preventDefault();
       void run(async () => {
         const inv = await unwrap(client.api.POST("/api/server/invites", {
-          body: { ...(expiry ? { expires_in_seconds: expiry } : {}), ...(uses ? { max_uses: uses } : {}) },
+          body: {
+            ...(expiry ? { expires_in_seconds: expiry } : {}),
+            ...(uses ? { max_uses: uses } : {}),
+            ...(guest ? { guest_ttl_seconds: ttl } : {}),
+          },
         }));
         onCreated(inv.code);
       });
@@ -141,6 +153,18 @@ function CreateInvite({ onCreated }: { onCreated: (code: string) => void }) {
             {USES.map((n) => <NativeSelectOption key={n} value={n}>{n ? n : "Unlimited"}</NativeSelectOption>)}
           </NativeSelect>
         </Field>
+        <Field orientation="horizontal" className="w-auto">
+          <Switch id={`${id}-guest`} checked={guest} onCheckedChange={setGuest} />
+          <FieldLabel htmlFor={`${id}-guest`}>Guest link</FieldLabel>
+        </Field>
+        {guest && (
+          <Field className="w-40">
+            <FieldLabel htmlFor={`${id}-ttl`}>Guest access lasts</FieldLabel>
+            <NativeSelect id={`${id}-ttl`} value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>
+              {GUEST_TTLS.map((x) => <NativeSelectOption key={x.seconds} value={x.seconds}>{x.label}</NativeSelectOption>)}
+            </NativeSelect>
+          </Field>
+        )}
         <Button type="submit" disabled={busy}>Create invite</Button>
       </div>
       <ErrorText error={error} />

@@ -110,7 +110,12 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
               <ColorPicker value={color} disabled={!editable} onChange={(c) => edit({ color: c })} />
               <SwitchRow label="Show members separately" description="Members with this role get their own group in the member list."
                 checked={hoist} disabled={!editable} onChange={(v) => edit({ hoist: v })} />
-              {editable && (
+              {role.is_guest && (
+                <p className="text-muted-foreground">
+                  System role for guests — can't be deleted. Guests also have @everyone's permissions, so to keep them out of a channel, deny this role in that channel's permissions.
+                </p>
+              )}
+              {editable && !role.is_guest && (
                 <div>
                   <Button variant="destructive" size="sm" disabled={busy} onClick={() => setDeleting(true)}>Delete role</Button>
                 </div>

@@ -168,6 +168,29 @@ func (c *Client) Invite() string {
 	return inv.Code
 }
 
+// GuestInvite creates an unlimited guest invite whose guests stay ttl seconds.
+func (c *Client) GuestInvite(ttl int) string {
+	c.env.T.Helper()
+	var inv communities.Invite
+	c.Do(http.MethodPost, "/api/server/invites", map[string]any{"guest_ttl_seconds": ttl}, http.StatusCreated, &inv)
+	return inv.Code
+}
+
+// GuestBody is the request body for POST /api/invites/{code}/guest.
+func GuestBody(nick string) map[string]any {
+	return map[string]any{"nick": nick, "device_name": "test", "client": "native"}
+}
+
+// JoinAsGuest joins with a guest invite and returns a client signed in as the guest.
+func (e *Env) JoinAsGuest(code, nick string) *Client {
+	e.T.Helper()
+	c := e.Anon()
+	var res auth.AuthResult
+	c.Do(http.MethodPost, "/api/invites/"+code+"/guest", GuestBody(nick), http.StatusOK, &res)
+	c.Token, c.User = res.Token, res.User
+	return c
+}
+
 func (c *Client) Join(code string) {
 	c.env.T.Helper()
 	c.Do(http.MethodPost, "/api/invites/"+code+"/accept", nil, http.StatusNoContent, nil)

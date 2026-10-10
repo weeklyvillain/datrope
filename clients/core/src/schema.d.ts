@@ -356,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invites/{code}/guest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["join-as-guest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -954,6 +970,11 @@ export interface components {
         CreateInviteRequest: {
             /** Format: int64 */
             expires_in_seconds?: number;
+            /**
+             * Format: int64
+             * @description Makes a guest link: visitors join with a nickname and are removed this many seconds after joining
+             */
+            guest_ttl_seconds?: number;
             /** Format: int64 */
             max_uses?: number;
         };
@@ -999,6 +1020,13 @@ export interface components {
             };
             message: string;
         };
+        GuestJoinRequest: {
+            /** @enum {string} */
+            client: "web" | "native";
+            device_name: string;
+            /** @description Shown as the guest's name; 1-32 characters after trimming */
+            nick: string;
+        };
         Hello: {
             /**
              * Format: int64
@@ -1025,6 +1053,11 @@ export interface components {
             creator_id: string;
             /** Format: date-time */
             expires_at?: string;
+            /**
+             * Format: int64
+             * @description Set on guest links: how long each guest stays
+             */
+            guest_ttl_seconds?: number;
             /** Format: int64 */
             max_uses?: number;
             /** Format: int64 */
@@ -1032,6 +1065,11 @@ export interface components {
         };
         InvitePreview: {
             code: string;
+            /**
+             * Format: int64
+             * @description Set on guest links: how long each guest stays
+             */
+            guest_ttl_seconds?: number;
             /** Format: int64 */
             member_count: number;
             server_name: string;
@@ -1161,6 +1199,11 @@ export interface components {
             banner_url?: string;
             custom_status: string;
             display_name: string;
+            /**
+             * Format: date-time
+             * @description Set for guests: when their access ends
+             */
+            guest_expires_at?: string;
             /** @description Snowflake ID as a decimal string */
             id: string;
             /** @description Up to 5 https:// links */
@@ -1260,6 +1303,8 @@ export interface components {
             hoist: boolean;
             /** @description Snowflake ID as a decimal string */
             id: string;
+            /** @description The system role every guest holds; it cannot be deleted */
+            is_guest?: boolean;
             name: string;
             /** Format: int64 */
             permissions: number;
@@ -1500,6 +1545,11 @@ export interface components {
             disabled: boolean;
             display_name: string;
             email?: string;
+            /**
+             * Format: date-time
+             * @description Set for guests: when their access ends
+             */
+            guest_expires_at?: string;
             /** @description Snowflake ID as a decimal string */
             id: string;
             is_admin: boolean;
@@ -2583,6 +2633,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "join-as-guest": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+                Cookie?: string;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResult"];
+                };
             };
             /** @description Error */
             default: {

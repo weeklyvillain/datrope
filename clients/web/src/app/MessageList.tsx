@@ -19,6 +19,7 @@ import { ReplyQuote } from "./ReplyQuote";
 import { ThreadSummary } from "./ThreadSummary";
 import { clearPendingJump, usePendingJump } from "./jump";
 import { firstUnreadIndex, idTime } from "./unread";
+import { GuestBadge } from "@/components/guest-badge";
 import { AudioPlayer } from "./attachments/AudioPlayer";
 import { ImageViewer } from "./attachments/ImageViewer";
 import { VideoPlayer } from "./attachments/VideoPlayer";
@@ -408,6 +409,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
               onInteractOutside={(e) => avatarRef.current?.contains(e.target as Node) && e.preventDefault()}>
               <NameButton className="font-semibold hover:underline" style={{ color }}>{name}</NameButton>
             </ProfilePopover>
+            <GuestBadge user={author} />
             <time className="text-xs text-muted-foreground" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
             {m.pinned && <Pin className="size-3 self-center text-muted-foreground" aria-label="Pinned" role="img" />}
             {m.edited_at && <span className="text-xs text-muted-foreground">(edited)</span>}
@@ -465,7 +467,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           </DialogHeader>
           <div className="max-h-[40vh] overflow-y-auto rounded-lg border bg-background px-3 py-2 wrap-anywhere">
             <div className="flex items-baseline gap-2">
-              <strong className="font-semibold" style={{ color }}>{name}</strong>
+              <strong className="font-semibold" style={{ color }}>{name}<GuestBadge user={author} /></strong>
               <span className="text-xs text-muted-foreground">{stamp(new Date(m.created_at))}</span>
             </div>
             <Markdown text={m.content} mentions={m.mentions ?? undefined} />

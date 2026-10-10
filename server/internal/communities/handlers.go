@@ -23,6 +23,7 @@ type UpdateServerRequest struct {
 type CreateInviteRequest struct {
 	MaxUses          *int `json:"max_uses,omitempty" minimum:"1" maximum:"1000"`
 	ExpiresInSeconds *int `json:"expires_in_seconds,omitempty" minimum:"60" maximum:"2592000"`
+	GuestTTLSeconds  *int `json:"guest_ttl_seconds,omitempty" minimum:"3600" maximum:"2592000" doc:"Makes a guest link: visitors join with a nickname and are removed this many seconds after joining"`
 }
 
 type memberPath struct {
@@ -154,6 +155,13 @@ func Register(api huma.API, s *Service) {
 			if err := s.canModerate(ctx, a, target); err != nil {
 				return nil, err
 			}
+			users, err := s.users.PublicUsers(ctx, []id.ID{target})
+			if err != nil {
+				return nil, err
+			}
+			if u, ok := users[target]; ok && u.GuestExpiresAt != nil {
+				return nil, s.retire(ctx, a.CommunityID, target)
+			}
 			ok, err := s.removeMember(ctx, a.CommunityID, target)
 			if err != nil {
 				return nil, err
@@ -166,11 +174,14 @@ func Register(api huma.API, s *Service) {
 
 	huma.Register(api, op("create-invite", http.MethodPost, "/api/server/invites", http.StatusCreated),
 		func(ctx context.Context, in *struct{ Body CreateInviteRequest }) (*struct{ Body *Invite }, error) {
+			if auth.IsGuest(ctx) {
+				return nil, auth.GuestForbidden()
+			}
 			a, err := s.requireActor(ctx, perms.CreateInvite)
 			if err != nil {
 				return nil, err
 			}
-			inv, err := s.createInvite(ctx, a.CommunityID, a.Member.UserID, in.Body.MaxUses, in.Body.ExpiresInSeconds)
+			inv, err := s.createInvite(ctx, a.CommunityID, a.Member.UserID, in.Body.MaxUses, in.Body.ExpiresInSeconds, in.Body.GuestTTLSeconds)
 			return &struct{ Body *Invite }{inv}, err
 		})
 

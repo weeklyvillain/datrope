@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +29,8 @@ var (
 type Users interface {
 	PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]auth.PublicUser, error)
 	RevokeSessions(ctx context.Context, userID id.ID) error
+	RetireUser(ctx context.Context, userID id.ID) error
+	ExpiredGuests(ctx context.Context, now time.Time, limit int) ([]id.ID, error)
 }
 
 // ChannelSeeder creates the server's default channels inside the server's
@@ -65,10 +68,11 @@ type Role struct {
 	Position    int         `json:"position" doc:"Higher is more senior; @everyone is 0"`
 	Color       *string     `json:"color,omitempty" enum:"#e74c3c,#f5a524,#2ecc71,#2dd4bf,#4aa3ff,#a78bfa,#fb7185,#969da2"`
 	Hoist       bool        `json:"hoist" doc:"Members with this role are shown separately in the member list"`
+	IsGuest     bool        `json:"is_guest,omitempty" doc:"The system role every guest holds; it cannot be deleted"`
 }
 
 // roleCols are the columns scanRole reads.
-const roleCols = `id, community_id, name, permissions, position, color, hoist`
+const roleCols = `id, community_id, name, permissions, position, color, hoist, is_guest`
 
 type Member struct {
 	User     auth.PublicUser `json:"user"`
@@ -96,11 +100,13 @@ type Service struct {
 	users    Users
 	seeder   ChannelSeeder
 	images   Images
-	serverID atomic.Int64 // cached once the server exists
+	serverID atomic.Int64  // cached once the server exists
+	done     chan struct{} // closed by Close to stop the guest sweep
+	stop     sync.Once
 }
 
 func NewService(pool *pgxpool.Pool, bus *events.Bus, users Users) *Service {
-	return &Service{db: pool, bus: bus, users: users}
+	return &Service{db: pool, bus: bus, users: users, done: make(chan struct{})}
 }
 
 func (s *Service) SetChannelSeeder(c ChannelSeeder) { s.seeder = c }
@@ -312,7 +318,7 @@ func (s *Service) Roles(ctx context.Context, communityID id.ID) ([]Role, error) 
 func scanRole(row pgx.Row) (*Role, error) {
 	var r Role
 	var p int64
-	if err := row.Scan(&r.ID, &r.CommunityID, &r.Name, &p, &r.Position, &r.Color, &r.Hoist); err != nil {
+	if err := row.Scan(&r.ID, &r.CommunityID, &r.Name, &p, &r.Position, &r.Color, &r.Hoist, &r.IsGuest); err != nil {
 		return nil, err
 	}
 	r.Permissions = perms.Perms(p)

@@ -31,7 +31,9 @@ type App struct {
 	Files    *files.Service // nil when built without a database
 	Voice    *voice.Service // nil when built without a database
 	Messages *messages.Service
-	closers  []func()
+	// Communities runs the guest sweep; tests call SweepGuests directly.
+	Communities *communities.Service
+	closers     []func()
 }
 
 // Close stops background work (the gateway).
@@ -55,6 +57,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	commSvc := communities.NewService(pool, a.Bus, authSvc)
 	authSvc.SetJoiner(commSvc)
 	communities.Register(api, commSvc)
+	a.Communities = commSvc
 
 	chanSvc := channels.NewService(pool, a.Bus, commSvc, authSvc)
 	commSvc.SetChannelSeeder(chanSvc)
@@ -63,6 +66,8 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		if err := commSvc.EnsureServer(context.Background()); err != nil {
 			panic(fmt.Errorf("server: %w", err))
 		}
+		commSvc.StartGuestSweep()
+		a.closers = append(a.closers, commSvc.Close)
 	}
 	channels.Register(api, chanSvc)
 

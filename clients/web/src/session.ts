@@ -7,10 +7,17 @@ import { myRank, outranks } from "@/lib/hierarchy";
 
 const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 
+// The store is reset before onSignedOut runs, so remember whether I was a guest.
+let wasGuest = false;
+
 export const client = new DatropeClient({
   baseUrl: "",
   wsUrl,
-  onSignedOut: () => window.location.assign("/login"),
+  onSignedOut: () => window.location.assign(wasGuest ? "/guest-ended" : "/login"),
+});
+
+client.store.subscribe((s) => {
+  if (s.me) wasGuest = !!s.me.guest_expires_at;
 });
 
 /** Subscribes a component to part of the app state. Select existing objects or primitives. */

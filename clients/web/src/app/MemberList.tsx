@@ -8,6 +8,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { client, displayName, roleColor, useApp } from "../session";
+import { GuestBadge } from "@/components/guest-badge";
 import { ProfilePopover } from "./people/ProfilePopover";
 import { openProfile } from "./side-panel/panel";
 
@@ -70,7 +71,7 @@ export function MemberList() {
                     className={cn("h-auto w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal", status === "offline" && "opacity-50")}>
                     <UserAvatar user={m.user} size="md" status={status} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate" style={{ color: colors[m.user.id] }}>{displayName(m.user)}</span>
+                      <span className="block truncate" style={{ color: colors[m.user.id] }}>{displayName(m.user)}<GuestBadge user={m.user} /></span>
                       {line && <span className="block truncate text-xs text-muted-foreground">{line}</span>}
                     </span>
                   </RefButton>

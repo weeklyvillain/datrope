@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -29,6 +30,11 @@ type Joiner interface {
 	Check(ctx context.Context, code string) error
 	// Join makes a new account a member; code may be empty.
 	Join(ctx context.Context, code string, userID id.ID) error
+	// GuestTTL returns how long a guest link's guests stay, or an
+	// *httpx.Error if the code is not a usable guest link.
+	GuestTTL(ctx context.Context, code string) (time.Duration, error)
+	// JoinGuest makes a new guest account a member holding the Guest role.
+	JoinGuest(ctx context.Context, code string, userID id.ID) error
 }
 
 // Principal is the signed-in user of a request.
@@ -55,6 +61,7 @@ type Service struct {
 	loginByIP    *ratelimit.Limiter
 	loginByName  *ratelimit.Limiter
 	registerByIP *ratelimit.Limiter
+	guestByIP    *ratelimit.Limiter
 }
 
 func NewService(pool *pgxpool.Pool, bus *events.Bus) *Service {
@@ -64,6 +71,7 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus) *Service {
 		loginByIP:    ratelimit.New(10, 10),
 		loginByName:  ratelimit.New(5, 5),
 		registerByIP: ratelimit.New(5, 5),
+		guestByIP:    ratelimit.New(5, 5),
 	}
 }
 

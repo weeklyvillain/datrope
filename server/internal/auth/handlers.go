@@ -137,6 +137,9 @@ func Register(api huma.API, s *Service) {
 	huma.Register(api, huma.Operation{OperationID: "list-sessions", Method: http.MethodGet, Path: "/api/sessions",
 		Tags: tags, Security: httpx.Authed},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body []Session }, error) {
+			if IsGuest(ctx) {
+				return nil, GuestForbidden()
+			}
 			p := Current(ctx)
 			list, err := s.store.ListSessions(ctx, p.User.ID)
 			if err != nil {
@@ -152,6 +155,9 @@ func Register(api huma.API, s *Service) {
 		func(ctx context.Context, in *struct {
 			ID string `path:"id"`
 		}) (*struct{}, error) {
+			if IsGuest(ctx) {
+				return nil, GuestForbidden()
+			}
 			sid, err := httpx.ParseID(in.ID, "session")
 			if err != nil {
 				return nil, err
@@ -168,6 +174,7 @@ func Register(api huma.API, s *Service) {
 			return nil, nil
 		})
 	registerAdmin(api, s)
+	registerGuest(api, s)
 }
 
 func (s *Service) register(ctx context.Context, b RegisterRequest) (*authOutput, error) {

@@ -494,3 +494,32 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(inbox.getByRole("img", { name: "Unread" })).toHaveCount(0);
   await bob.keyboard.press("Escape");
 });
+
+test("a visitor joins with a guest link and shows up as a guest", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await alice.goto("/login");
+  await alice.getByLabel("Username or email").fill("alice");
+  await alice.getByLabel("Password", { exact: true }).fill("password123");
+  await alice.getByRole("button", { name: "Sign in" }).click();
+  await expect(alice.getByRole("button", { name: "Datrope menu" })).toBeVisible();
+
+  await openServerSettings(alice);
+  await alice.getByRole("link", { name: "Invites" }).click();
+  await alice.getByRole("switch", { name: "Guest link" }).click();
+  await alice.getByLabel("Guest access lasts").selectOption({ label: "24 hours" });
+  await alice.getByRole("button", { name: "Create invite" }).click();
+  const link = await alice.getByLabel("New invite link").inputValue();
+
+  const guest = await (await browser.newContext()).newPage();
+  await guest.goto(link);
+  await guest.getByLabel("Nickname").fill("Robin");
+  await guest.getByRole("button", { name: "Join as guest" }).click();
+  await expect(guest.getByRole("status").filter({ hasText: "You're a guest" })).toBeVisible();
+  // The first test turned the rules gate on.
+  await guest.getByRole("button", { name: "I accept the rules" }).click();
+  await send(guest, "hi, just visiting");
+
+  await alice.goto("/");
+  await expect(alice.getByText("hi, just visiting")).toBeVisible();
+  await expect(alice.getByRole("main").getByText("Guest", { exact: true }).first()).toBeVisible();
+});
