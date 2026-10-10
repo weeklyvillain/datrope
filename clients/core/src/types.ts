@@ -27,6 +27,7 @@ export type Ready = Schemas["Ready"];
 export type ReadState = Schemas["ReadState"];
 export type Invite = Schemas["Invite"];
 export type InvitePreview = Schemas["InvitePreview"];
+export type ServerPreview = Schemas["ServerPreview"];
 export type Session = Schemas["Session"];
 export type Settings = Schemas["Settings"];
 export type InstanceInfo = Schemas["InstanceInfo"];

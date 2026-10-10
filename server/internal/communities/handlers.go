@@ -90,6 +90,12 @@ func Register(api huma.API, s *Service) {
 			return &struct{ Body *ServerWithRoles }{sv}, err
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-server-preview", Method: http.MethodGet, Path: "/api/server/preview", Tags: tags},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body *ServerPreview }, error) {
+			p, err := s.serverPreview(ctx)
+			return &struct{ Body *ServerPreview }{p}, err
+		})
+
 	huma.Register(api, op("update-server", http.MethodPatch, "/api/server", 0),
 		func(ctx context.Context, in *struct{ Body UpdateServerRequest }) (*struct{ Body *Server }, error) {
 			a, err := s.requireActor(ctx, perms.ManageServer)

@@ -35,6 +35,43 @@ type InvitePreview struct {
 	GuestTTLSeconds *int `json:"guest_ttl_seconds,omitempty" doc:"Set on guest links: how long each guest stays"`
 }
 
+// ServerPreview is what anyone may see before signing in: the sign-in,
+// registration and invite pages show it.
+type ServerPreview struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Palette     string    `json:"palette" enum:"emerald,ocean,violet,amber,rose,mint"`
+	IconURL     *string   `json:"icon_url,omitempty"`
+	BannerURL   *string   `json:"banner_url,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	MemberCount int       `json:"member_count"`
+	OnlineCount int       `json:"online_count" doc:"Members who are online or idle"`
+}
+
+func (s *Service) serverPreview(ctx context.Context) (*ServerPreview, error) {
+	sv, err := s.Server(ctx)
+	if errors.Is(err, ErrNotFound) {
+		return nil, httpx.NotFound("server")
+	}
+	if err != nil {
+		return nil, err
+	}
+	ids, err := s.MemberIDs(ctx, sv.ID)
+	if err != nil {
+		return nil, err
+	}
+	p := ServerPreview{Name: sv.Name, Description: sv.Description, Palette: sv.Palette, IconURL: sv.IconURL,
+		BannerURL: sv.BannerURL, CreatedAt: sv.CreatedAt, MemberCount: len(ids)}
+	if s.presence != nil {
+		for _, uid := range ids {
+			if st := s.presence.StatusOf(uid); st == "online" || st == "idle" {
+				p.OnlineCount++
+			}
+		}
+	}
+	return &p, nil
+}
+
 const inviteUsable = `(max_uses IS NULL OR uses < max_uses) AND (expires_at IS NULL OR expires_at > now())`
 
 const inviteCols = `code, creator_id, max_uses, uses, expires_at, created_at, guest_ttl_seconds`

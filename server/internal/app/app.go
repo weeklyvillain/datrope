@@ -149,6 +149,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			PublicOrigin: cfg.PublicURL,
 		}, cfg.Gateway)
 		mux.Handle("GET /ws", gw)
+		commSvc.SetPresence(gw)
 		a.closers = append(a.closers, gw.Close)
 	}
 

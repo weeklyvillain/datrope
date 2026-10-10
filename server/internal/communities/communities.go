@@ -100,6 +100,7 @@ type Service struct {
 	users    Users
 	seeder   ChannelSeeder
 	images   Images
+	presence Presence
 	serverID atomic.Int64  // cached once the server exists
 	done     chan struct{} // closed by Close to stop the guest sweep
 	stop     sync.Once
@@ -117,6 +118,13 @@ type Images interface {
 }
 
 func (s *Service) SetImages(i Images) { s.images = i }
+
+// Presence reports who is online. The gateway implements it.
+type Presence interface {
+	StatusOf(userID id.ID) string
+}
+
+func (s *Service) SetPresence(p Presence) { s.presence = p }
 
 // ServerID returns the server's ID: ErrNotFound until someone registers.
 func (s *Service) ServerID(ctx context.Context) (id.ID, error) {

@@ -169,3 +169,22 @@ func TestOpenRegistrationIgnoresBadInvite(t *testing.T) {
 	env.RegisterWithInvite("bob", expired).Do(http.MethodGet, "/api/server", nil, http.StatusOK, nil)
 	env.RegisterWithInvite("carol", revoked).Do(http.MethodGet, "/api/server", nil, http.StatusOK, nil)
 }
+
+func TestServerPreview(t *testing.T) {
+	env := apptest.New(t)
+	env.Anon().Fail(http.MethodGet, "/api/server/preview", nil, http.StatusNotFound, "NOT_FOUND")
+
+	alice := env.Register("alice")
+	env.Register("bob")
+	var p communities.ServerPreview
+	env.Anon().Do(http.MethodGet, "/api/server/preview", nil, http.StatusOK, &p)
+	require.Equal(t, "Datrope", p.Name)
+	require.Equal(t, "emerald", p.Palette)
+	require.Equal(t, 2, p.MemberCount)
+	require.Equal(t, 0, p.OnlineCount)
+
+	ws, _ := alice.Connect()
+	defer ws.Close()
+	env.Anon().Do(http.MethodGet, "/api/server/preview", nil, http.StatusOK, &p)
+	require.Equal(t, 1, p.OnlineCount)
+}

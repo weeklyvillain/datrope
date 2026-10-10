@@ -1797,6 +1797,56 @@
         ],
         "type": "object"
       },
+      "ServerPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "banner_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon_url": {
+            "type": "string"
+          },
+          "member_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "online_count": {
+            "description": "Members who are online or idle",
+            "format": "int64",
+            "type": "integer"
+          },
+          "palette": {
+            "enum": [
+              "emerald",
+              "ocean",
+              "violet",
+              "amber",
+              "rose",
+              "mint"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "palette",
+          "created_at",
+          "member_count",
+          "online_count"
+        ],
+        "type": "object"
+      },
       "ServerWithRoles": {
         "additionalProperties": false,
         "properties": {
@@ -5031,6 +5081,36 @@
             "session": []
           }
         ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/preview": {
+      "get": {
+        "operationId": "get-server-preview",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerPreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
         "tags": [
           "server"
         ]
