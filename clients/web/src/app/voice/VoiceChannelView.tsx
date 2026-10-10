@@ -14,7 +14,6 @@ import { SearchPanel } from "../search/SearchPanel";
 import { usePanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
 import { TopBar } from "../TopBar";
-import { SoundboardButton } from "./SoundboardPanel";
 import { VoiceStage, useVoiceLayout } from "./VoiceStage";
 
 export function VoiceChannelView({ channelId }: { channelId: string }) {
@@ -49,7 +48,6 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
               </TooltipTrigger>
               <TooltipContent>{canStage ? "Grid layout" : "Grid layout (watch a screen share for the stage)"}</TooltipContent>
             </Tooltip>
-            <SoundboardButton />
             {canRead && (
               <Tooltip>
                 <TooltipTrigger asChild>

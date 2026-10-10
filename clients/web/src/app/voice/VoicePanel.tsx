@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { PhoneOff, ScreenShare, ScreenShareOff, Video, VideoOff } from "lucide-react";
+import { HeadphoneOff, Headphones, Mic, MicOff, PhoneOff, ScreenShare, ScreenShareOff, Video, VideoOff } from "lucide-react";
 import { useRef, useState, type ComponentProps } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -19,20 +19,11 @@ const STATUS = { connecting: "Connecting…", connected: "Voice connected", reco
 
 /** Voice status and controls at the bottom of the sidebar, while in a call (or after it failed). */
 export function VoicePanel() {
-  const v = useVoice(useShallow((x) => ({
-    channelId: x.channelId, status: x.status, error: x.error, camera: x.camera, screen: x.screen,
-  })));
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, error: x.error })));
   const ch = useApp((s) => (v.channelId ? s.channels[v.channelId] : undefined));
   const me = useApp((s) => s.me);
-  const perms = usePerms(v.channelId);
-  const [goLive, setGoLive] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const anchor = useRef<HTMLDivElement>(null);
-  if (menu && !v.screen) setMenu(false); // stopped elsewhere (browser bar, tile menu): don't reopen on the next Go Live
-  if (goLive && v.status === "idle") setGoLive(false); // the call ended under the dialog: don't pop it up on the next join
   if (v.status === "idle" && !v.error) return null;
 
-  const canStream = hasPerm(perms, Perm.Stream);
   const where = !ch ? "" : ch.type === "dm" ? dmName(ch, me?.id) : ch.name;
   const href = !ch ? "/" : ch.type === "dm" ? `/messages/${ch.id}` : `/channels/${ch.id}`;
   return (
@@ -62,36 +53,87 @@ export function VoicePanel() {
           </div>
           {v.error && <p className="text-xs text-destructive" role="alert">{v.error}</p>}
           <div className="grid grid-cols-2 gap-1.5">
-            <Control label="Camera" tip={v.camera ? "Turn camera off" : "Turn camera on"} pressed={v.camera} disabled={!canStream}
-              onPressedChange={() => void voice.toggleCamera()}>
-              {v.camera ? <Video /> : <VideoOff />}
-            </Control>
-            <Popover open={menu && v.screen} onOpenChange={setMenu}>
-              <PopoverAnchor asChild>
-                <div ref={anchor} className="flex">
-                  <Control label="Share screen" tip={v.screen ? "Stream settings" : "Share your screen"} pressed={v.screen}
-                    aria-haspopup="dialog" aria-expanded={v.screen ? menu : goLive}
-                    disabled={!canStream} onPressedChange={() => (v.screen ? setMenu((m) => !m) : setGoLive(true))}>
-                    {v.screen ? <ScreenShareOff /> : <ScreenShare />}
-                  </Control>
-                </div>
-              </PopoverAnchor>
-              <PopoverContent side="top" className="w-72"
-                // The anchor is the button that toggles the menu: a click on it is not an outside click.
-                onInteractOutside={(e) => anchor.current?.contains(e.target as Node) && e.preventDefault()}
-                onCloseAutoFocus={(e) => {
-                  e.preventDefault(); // no trigger to return to: focus the button instead of the page
-                  anchor.current?.querySelector("button")?.focus();
-                }}>
-                <StreamMenuContent onDone={() => setMenu(false)} />
-              </PopoverContent>
-            </Popover>
+            <CameraControl />
+            <ShareScreenControl />
           </div>
-          {goLive && <GoLiveDialog onClose={() => setGoLive(false)} />}
           <SoundboardButton labelled side="top" />
         </>
       )}
     </section>
+  );
+}
+
+type ControlStyle = Pick<ComponentProps<typeof Toggle>, "className" | "variant" | "size">;
+
+/** My microphone. In a call, muting follows the channel's SPEAK permission and server mute; outside one it is a saved choice. */
+export function MuteControl(style: ControlStyle) {
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, muted: x.muted })));
+  const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
+  const inVoice = v.status !== "idle" && !!v.channelId;
+  const perms = usePerms(inVoice ? v.channelId : undefined);
+  const canSpeak = !inVoice || (hasPerm(perms, Perm.Speak) && !serverMuted);
+  return (
+    <Control label="Mute" tip={serverMuted && inVoice ? "Muted by a moderator" : v.muted ? "Unmute" : "Mute"} {...style}
+      pressed={v.muted || !canSpeak} disabled={!canSpeak} onPressedChange={(on) => void voice.setMuted(on)}>
+      {v.muted || !canSpeak ? <MicOff className="text-destructive" /> : <Mic />}
+    </Control>
+  );
+}
+
+export function DeafenControl(style: ControlStyle) {
+  const deafened = useVoice((x) => x.deafened);
+  return (
+    <Control label="Deafen" tip={deafened ? "Undeafen" : "Deafen"} {...style} pressed={deafened}
+      onPressedChange={(on) => void voice.setDeafened(on)}>
+      {deafened ? <HeadphoneOff className="text-destructive" /> : <Headphones />}
+    </Control>
+  );
+}
+
+export function CameraControl({ variant = "outline", size = "sm", ...style }: ControlStyle) {
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, camera: x.camera })));
+  const canStream = hasPerm(usePerms(v.channelId), Perm.Stream);
+  return (
+    <Control label="Camera" tip={v.camera ? "Turn camera off" : "Turn camera on"} variant={variant} size={size} {...style}
+      pressed={v.camera} disabled={!canStream} onPressedChange={() => void voice.toggleCamera()}>
+      {v.camera ? <Video /> : <VideoOff />}
+    </Control>
+  );
+}
+
+/** Go Live when not sharing; the stream settings menu while sharing. */
+export function ShareScreenControl({ variant = "outline", size = "sm", ...style }: ControlStyle) {
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, screen: x.screen })));
+  const canStream = hasPerm(usePerms(v.channelId), Perm.Stream);
+  const [goLive, setGoLive] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const anchor = useRef<HTMLDivElement>(null);
+  if (menu && !v.screen) setMenu(false); // stopped elsewhere (browser bar, tile menu): don't reopen on the next Go Live
+  if (goLive && v.status === "idle") setGoLive(false); // the call ended under the dialog: don't pop it up on the next join
+  return (
+    <>
+      <Popover open={menu && v.screen} onOpenChange={setMenu}>
+        <PopoverAnchor asChild>
+          <div ref={anchor} className="flex">
+            <Control label="Share screen" tip={v.screen ? "Stream settings" : "Share your screen"} variant={variant} size={size} {...style}
+              pressed={v.screen} aria-haspopup="dialog" aria-expanded={v.screen ? menu : goLive}
+              disabled={!canStream} onPressedChange={() => (v.screen ? setMenu((m) => !m) : setGoLive(true))}>
+              {v.screen ? <ScreenShareOff /> : <ScreenShare />}
+            </Control>
+          </div>
+        </PopoverAnchor>
+        <PopoverContent side="top" className="w-72"
+          // The anchor is the button that toggles the menu: a click on it is not an outside click.
+          onInteractOutside={(e) => anchor.current?.contains(e.target as Node) && e.preventDefault()}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault(); // no trigger to return to: focus the button instead of the page
+            anchor.current?.querySelector("button")?.focus();
+          }}>
+          <StreamMenuContent onDone={() => setMenu(false)} />
+        </PopoverContent>
+      </Popover>
+      {goLive && <GoLiveDialog onClose={() => setGoLive(false)} />}
+    </>
   );
 }
 

@@ -63,7 +63,11 @@ function SoundChip({ userId }: { userId: string }) {
  * The "Soundboard" button and its panel. It always works on the call I am in; disabled (with a tooltip saying why)
  * when I am not in one, cannot play sounds there, or am server-muted.
  */
-export function SoundboardButton({ labelled = false, side = "bottom" }: { labelled?: boolean; side?: "top" | "bottom" }) {
+export function SoundboardButton({ labelled = false, side = "bottom", className }: {
+  labelled?: boolean;
+  side?: "top" | "bottom";
+  className?: string; // the icon button's
+}) {
   const callId = useVoice((v) => (v.status === "idle" ? undefined : v.channelId ?? undefined));
   const perms = usePerms(callId);
   const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
@@ -88,7 +92,7 @@ export function SoundboardButton({ labelled = false, side = "bottom" }: { labell
                 </RefButton>
               ) : (
                 <RefButton variant="ghost" size="icon-sm" aria-label="Soundboard" aria-disabled={reason ? true : undefined} onClick={guard}
-                  className={cn(open ? "text-foreground" : "text-muted-foreground", reason && "opacity-50")}>
+                  className={cn(open ? "text-foreground" : "text-muted-foreground", reason && "opacity-50", className)}>
                   <Volume2 />
                 </RefButton>
               )}

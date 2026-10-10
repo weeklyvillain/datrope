@@ -1,7 +1,6 @@
-import { Perm, hasPerm, type PresenceStatus } from "@datrope/core";
-import { HeadphoneOff, Headphones, Mic, MicOff, Settings } from "lucide-react";
+import type { PresenceStatus } from "@datrope/core";
+import { Settings } from "lucide-react";
 import { useState } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -13,10 +12,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSubmit } from "@/hooks/use-submit";
-import { choosePresence, client, displayName, errorText, signOut, useApp, usePerms } from "../session";
-import { useVoice, voice } from "../voice/voice";
+import { choosePresence, client, displayName, errorText, signOut, useApp } from "../session";
 import { openSettings } from "./settings/settings-store";
-import { Control } from "./voice/VoicePanel";
+import { DeafenControl, MuteControl } from "./voice/VoicePanel";
 
 const DOT: Record<PresenceStatus, string> = { online: "online", idle: "idle", invisible: "offline" };
 
@@ -24,14 +22,8 @@ const DOT: Record<PresenceStatus, string> = { online: "online", idle: "idle", in
 export function ProfileStrip() {
   const me = useApp((s) => s.me);
   const presence = useApp((s) => s.presence);
-  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, muted: x.muted, deafened: x.deafened })));
-  const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
-  const inVoice = v.status !== "idle" && !!v.channelId;
-  const voicePerms = usePerms(inVoice ? v.channelId : undefined);
   const [editing, setEditing] = useState(false);
   if (!me) return null;
-  // In a call, muting follows the channel's SPEAK permission and server mute; outside one it is a saved choice.
-  const canSpeak = !inVoice || (hasPerm(voicePerms, Perm.Speak) && !serverMuted);
   const name = displayName(me);
 
   return (
@@ -60,14 +52,8 @@ export function ProfileStrip() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Control label="Mute" tip={serverMuted && inVoice ? "Muted by a moderator" : v.muted ? "Unmute" : "Mute"} variant="default" className="text-muted-foreground"
-        pressed={v.muted || !canSpeak} disabled={!canSpeak} onPressedChange={(on) => void voice.setMuted(on)}>
-        {v.muted || !canSpeak ? <MicOff className="text-destructive" /> : <Mic />}
-      </Control>
-      <Control label="Deafen" tip={v.deafened ? "Undeafen" : "Deafen"} variant="default" className="text-muted-foreground" pressed={v.deafened}
-        onPressedChange={(on) => void voice.setDeafened(on)}>
-        {v.deafened ? <HeadphoneOff className="text-destructive" /> : <Headphones />}
-      </Control>
+      <MuteControl variant="default" className="text-muted-foreground" />
+      <DeafenControl variant="default" className="text-muted-foreground" />
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="flex">

@@ -380,8 +380,10 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(lounge.getByText("bob")).toBeVisible();
   await expect(alice.getByRole("button", { name: /^Connection quality: / })).toBeVisible();
 
-  // Going live: alice picks Detail in the Go Live dialog; bob watches; changing the source keeps bob watching.
-  await alice.getByRole("button", { name: "Share screen" }).click();
+  // Going live (from the call controls under the tiles): alice picks Detail in the Go Live dialog; bob watches;
+  // changing the source keeps bob watching.
+  const aliceControls = alice.getByRole("toolbar", { name: "Call controls" });
+  await aliceControls.getByRole("button", { name: "Share screen" }).click();
   const goLive = alice.getByRole("dialog", { name: "Go Live" });
   await goLive.getByRole("radio", { name: /Detail/ }).click();
   await goLive.getByRole("switch", { name: "Share audio" }).click(); // the fake screen has no audio
@@ -396,7 +398,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   const captureId = () => alice.evaluate(() => [...document.querySelectorAll<HTMLVideoElement>("main video")]
     .map((v) => (v.srcObject as MediaStream | null)?.getVideoTracks()[0]?.id).join());
   const before = await captureId();
-  await alice.getByRole("button", { name: "Share screen" }).click();
+  await aliceControls.getByRole("button", { name: "Share screen" }).click();
   const menu = alice.getByRole("group", { name: "Stream settings" });
   await menu.getByRole("button", { name: "Change source" }).click();
   await expect.poll(captureId).not.toBe(before);
@@ -404,7 +406,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(bobLounge.getByText("Loading alice's screen...")).toHaveCount(0);
   await expect(alice.getByRole("alert")).toHaveCount(0);
   // The pressed Share screen button toggles the menu.
-  const shareButton = alice.getByRole("button", { name: "Share screen" });
+  const shareButton = aliceControls.getByRole("button", { name: "Share screen" });
   await expect(shareButton).toHaveAttribute("aria-expanded", "true");
   await shareButton.click();
   await expect(menu).toHaveCount(0);
@@ -415,7 +417,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(bobLounge.getByText("alice's screen", { exact: true })).toHaveCount(0);
 
   // Soundboard: alice plays Boop; bob sees the chip on alice's tile.
-  await alice.getByRole("main", { name: "Lounge" }).getByRole("button", { name: "Soundboard" }).click();
+  await aliceControls.getByRole("button", { name: "Soundboard" }).click();
   await alice.getByRole("dialog", { name: "Soundboard" }).getByRole("button", { name: "Play Boop, 0.5 s" }).click();
   const bobMain = bob.getByRole("main", { name: "Lounge" });
   await expect(bobMain.getByRole("status").filter({ hasText: "Boop" })).toContainText("\u{1F514}");
@@ -426,7 +428,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(bobMain.getByRole("img", { name: "Volume changed" }).first()).toBeVisible();
   await bob.keyboard.press("Escape");
 
-  await bob.getByRole("button", { name: "Mute" }).click();
+  await bob.getByRole("region", { name: "You" }).getByRole("button", { name: "Mute" }).click();
   await expect(lounge.getByRole("img", { name: "Muted" })).toBeVisible();
 
   // Moving: alice creates a second voice channel by right-clicking the channel list, then drags bob onto it.
@@ -446,7 +448,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(denList.getByText("bob")).toBeVisible();
   await expect(lounge.getByText("bob")).toHaveCount(0);
 
-  await bob.getByRole("button", { name: "Disconnect" }).click();
+  await bob.getByRole("region", { name: "Voice" }).getByRole("button", { name: "Disconnect" }).click();
   await expect(denList.getByText("bob")).toHaveCount(0);
 
   // Categories: alice creates "Hangouts" and moves #general into it from the channel settings.
