@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -101,10 +102,16 @@ func (s *Service) preview(ctx context.Context, code string) (*InvitePreview, err
 	return &p, err
 }
 
-// Check implements auth.Joiner.
+// Check implements auth.Joiner. A guest link cannot register a full account.
 func (s *Service) Check(ctx context.Context, code string) error {
-	_, err := s.invite(ctx, code)
-	return err
+	inv, err := s.invite(ctx, code)
+	if err != nil {
+		return err
+	}
+	if inv.GuestTTLSeconds != nil {
+		return httpx.BadRequest("GUEST_INVITE", "this is a guest link; join as a guest instead")
+	}
+	return nil
 }
 
 // join adds userID to the server with an invite. Joining when you are
@@ -209,13 +216,18 @@ func (s *Service) JoinGuest(ctx context.Context, code string, userID id.ID) erro
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
+	// The guest has joined. Errors from here on are only logged: returning one
+	// would make the caller delete an account that is already a member.
 	if created {
 		s.bus.Publish(events.Event{Type: "ROLE_CREATE", Data: role, Scope: events.Scope{CommunityID: serverID}})
 		if err := s.publishMoved(ctx, serverID, 2, ownerRank, role.ID); err != nil {
-			return err
+			slog.ErrorContext(ctx, "announcing roles moved by the Guest role", "err", err)
 		}
 	}
-	return s.publishMemberAdd(ctx, serverID, userID)
+	if err := s.publishMemberAdd(ctx, serverID, userID); err != nil {
+		slog.ErrorContext(ctx, "announcing a new guest", "user_id", userID, "err", err)
+	}
+	return nil
 }
 
 // ensureGuestRole returns the Guest role, creating it at position 1 (the

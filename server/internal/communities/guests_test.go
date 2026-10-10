@@ -190,3 +190,18 @@ func TestKickOrBanRetiresGuests(t *testing.T) {
 	require.NoError(t, env.Pool.QueryRow(context.Background(), `SELECT disabled FROM users WHERE id = $1`, banned.User.ID).Scan(&disabled))
 	require.True(t, disabled)
 }
+
+// A guest link is for guests: it cannot be used to register a full account.
+func TestGuestLinkCannotRegisterAnAccount(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	code := alice.GuestInvite(3600)
+	carol := env.Outsider("carol")
+	env.SetRegistrationMode(auth.ModeInviteOnly)
+	env.Anon().Fail(http.MethodPost, "/api/auth/register", map[string]any{
+		"username": "eve", "password": "password123", "device_name": "test", "client": "native", "invite_code": code,
+	}, http.StatusBadRequest, "GUEST_INVITE")
+
+	// A signed-in non-member may still accept it as a normal join.
+	carol.Join(code)
+}

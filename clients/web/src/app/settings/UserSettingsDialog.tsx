@@ -27,8 +27,11 @@ export function UserSettingsDialog() {
   const open = useSettings((s) => s.open);
   const section = useSettings((s) => s.section);
   const isAdmin = useApp((s) => !!s.me?.is_admin);
+  const isGuest = useApp((s) => !!s.me?.guest_expires_at);
   const nav = useNavigate();
-  const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
+  // Guests have one session that ends with their access; there is nothing to manage.
+  const sections = isGuest ? SECTIONS.filter((s) => s.id !== "sessions") : SECTIONS;
+  const current = sections.find((s) => s.id === section) ?? sections[0];
   return (
     <Dialog open={open} onOpenChange={(o) => !o && closeSettings()}>
       <DialogContent aria-describedby={undefined}
@@ -38,7 +41,7 @@ export function UserSettingsDialog() {
           {GROUPS.map((g) => (
             <div key={g}>
               <div className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g}</div>
-              {SECTIONS.filter((s) => s.group === g).map((s) => {
+              {sections.filter((s) => s.group === g).map((s) => {
                 const Icon = s.icon;
                 const active = s.id === current.id;
                 return (

@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import type { ConnectionStatus } from "./gateway";
-import { basePerms, channelPerms } from "./perms";
+import { Perm, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
   Attachment, Category, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
   ThreadUpdate, VoiceState, Welcome,
@@ -556,6 +556,11 @@ export function isGated(s: State): boolean {
 export function myBasePerms(s: State): number {
   if (!s.server || !s.me || isGated(s)) return 0;
   return basePerms(s.server.server, Object.values(s.server.roles), s.me.id, myRoleIds(s));
+}
+
+/** Whether I may create invites: guests never may, whatever their roles allow. */
+export function canCreateInvites(s: State): boolean {
+  return !s.me?.guest_expires_at && hasPerm(myBasePerms(s), Perm.CreateInvite);
 }
 
 export function myChannelPerms(s: State, channelId: string): number {

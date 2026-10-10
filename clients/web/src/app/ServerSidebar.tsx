@@ -1,4 +1,4 @@
-import { Perm, hasPerm, isGated } from "@datrope/core";
+import { Perm, canCreateInvites, hasPerm, isGated } from "@datrope/core";
 import { ChevronDown, FolderPlus, Plus, Settings, UserPlus } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMatch, useNavigate } from "react-router-dom";
@@ -106,9 +106,9 @@ function ServerHeader() {
   const count = useApp((s) => Object.keys(s.server?.members ?? {}).length);
   const perms = usePerms();
   const isAdmin = useApp((s) => !!s.me?.is_admin);
+  const canInvite = useApp(canCreateInvites);
   const [dialog, setDialog] = useState<"invite" | "create" | "category">();
   if (!sv) return null;
-  const canInvite = hasPerm(perms, Perm.CreateInvite);
   const canSettings = isAdmin || SETTINGS_PERMS.some((p) => hasPerm(perms, p)); // instance admins reach Sign-ups and Uploads
   const canCreate = hasPerm(perms, Perm.ManageChannels);
   const header = "flex h-14 w-full flex-none items-center gap-2.5 border-b px-3.5 text-left text-foreground";

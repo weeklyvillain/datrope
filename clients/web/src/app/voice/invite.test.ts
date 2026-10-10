@@ -12,6 +12,9 @@ describe("reusableInvite", () => {
     const list = [inv({ code: "a", expires_at: "2030-01-01T00:00:00Z" }), inv({ code: "b", max_uses: 5 }), inv({ code: "c", creator_id: "2" })];
     expect(reusableInvite(list, "1")).toBeUndefined();
   });
+  it("never reuses a guest link", () => {
+    expect(reusableInvite([inv({ code: "g", guest_ttl_seconds: 3600 })], "1")).toBeUndefined();
+  });
   it("handles no list", () => {
     expect(reusableInvite(undefined, "1")).toBeUndefined();
   });

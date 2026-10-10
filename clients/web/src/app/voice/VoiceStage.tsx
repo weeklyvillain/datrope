@@ -1,4 +1,4 @@
-import { Perm, hasPerm, voiceMembers } from "@datrope/core";
+import { Perm, canCreateInvites, hasPerm, voiceMembers } from "@datrope/core";
 import { Phone } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -58,7 +58,7 @@ function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = so
   const audioBlocked = useVoice((v) => v.channelId === channelId && v.audioBlocked);
   const perms = usePerms(channelId);
   const canConnect = hasPerm(perms, Perm.ConnectVoice);
-  const canInvite = hasPerm(usePerms(), Perm.CreateInvite);
+  const canInvite = useApp(canCreateInvites);
 
   // Each member: their camera tile or an avatar, then their screen share. Tiles of people not (yet) listed come last.
   const entries = useMemo<Entry[]>(() => {

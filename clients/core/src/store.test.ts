@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, prependHistory,
   rolesByRank, voiceMembers, channelGroups, sidebarChannelIds, findUser, findDM, type State,
-  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, publicUser,
+  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, publicUser, canCreateInvites,
 } from "./store";
 import { Perm } from "./perms";
 import type { Message, Ready, VoiceState } from "./types";
@@ -38,6 +38,12 @@ function loaded(): State {
 }
 
 describe("store", () => {
+  it("guests cannot create invites even when their roles allow it", () => {
+    const s = applyReady(initialState, ready({ server: { ...ready().server!, roles: [{ ...everyone, permissions: everyone.permissions | Perm.CreateInvite }, mod] } }));
+    expect(canCreateInvites(s)).toBe(true);
+    expect(canCreateInvites({ ...s, me: { ...s.me!, guest_expires_at: "2026-10-11T00:00:00Z" } })).toBe(false);
+  });
+
   it("keeps the guest flag when a profile update comes from my own account", () => {
     const u = publicUser({ ...me, guest_expires_at: "2026-10-11T00:00:00Z" });
     expect(u.guest_expires_at).toBe("2026-10-11T00:00:00Z");

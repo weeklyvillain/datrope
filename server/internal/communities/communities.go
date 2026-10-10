@@ -256,6 +256,9 @@ func (s *Service) Join(ctx context.Context, code string, userID id.ID) error {
 		return err
 	}
 	if code != "" {
+		if err := s.Check(ctx, code); err != nil { // guest links do not make full members
+			return err
+		}
 		return s.join(ctx, code, userID)
 	}
 	return s.addMember(ctx, userID)
