@@ -1,15 +1,18 @@
 import { Perm, hasPerm } from "@datrope/core";
 import { PhoneOff, ScreenShare, ScreenShareOff, Video, VideoOff } from "lucide-react";
-import type { ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { dmName, useApp, usePerms } from "../../session";
 import { ConnectionQuality } from "./ConnectionQuality";
+import { GoLiveDialog } from "./GoLiveDialog";
 import { SoundboardButton } from "./SoundboardPanel";
+import { StreamMenuContent } from "./StreamMenu";
 import { useVoice, voice } from "../../voice/voice";
 
 const STATUS = { connecting: "Connecting…", connected: "Voice connected", reconnecting: "Reconnecting…" } as const;
@@ -22,6 +25,11 @@ export function VoicePanel() {
   const ch = useApp((s) => (v.channelId ? s.channels[v.channelId] : undefined));
   const me = useApp((s) => s.me);
   const perms = usePerms(v.channelId);
+  const [goLive, setGoLive] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const anchor = useRef<HTMLDivElement>(null);
+  if (menu && !v.screen) setMenu(false); // stopped elsewhere (browser bar, tile menu): don't reopen on the next Go Live
+  if (goLive && v.status === "idle") setGoLive(false); // the call ended under the dialog: don't pop it up on the next join
   if (v.status === "idle" && !v.error) return null;
 
   const canStream = hasPerm(perms, Perm.Stream);
@@ -58,11 +66,28 @@ export function VoicePanel() {
               onPressedChange={() => void voice.toggleCamera()}>
               {v.camera ? <Video /> : <VideoOff />}
             </Control>
-            <Control label="Share screen" tip={v.screen ? "Stop sharing" : "Share your screen"} pressed={v.screen} disabled={!canStream}
-              onPressedChange={() => void voice.toggleScreen()}>
-              {v.screen ? <ScreenShareOff /> : <ScreenShare />}
-            </Control>
+            <Popover open={menu && v.screen} onOpenChange={setMenu}>
+              <PopoverAnchor asChild>
+                <div ref={anchor} className="flex">
+                  <Control label="Share screen" tip={v.screen ? "Stream settings" : "Share your screen"} pressed={v.screen}
+                    aria-haspopup="dialog" aria-expanded={v.screen ? menu : goLive}
+                    disabled={!canStream} onPressedChange={() => (v.screen ? setMenu((m) => !m) : setGoLive(true))}>
+                    {v.screen ? <ScreenShareOff /> : <ScreenShare />}
+                  </Control>
+                </div>
+              </PopoverAnchor>
+              <PopoverContent side="top" className="w-72"
+                // The anchor is the button that toggles the menu: a click on it is not an outside click.
+                onInteractOutside={(e) => anchor.current?.contains(e.target as Node) && e.preventDefault()}
+                onCloseAutoFocus={(e) => {
+                  e.preventDefault(); // no trigger to return to: focus the button instead of the page
+                  anchor.current?.querySelector("button")?.focus();
+                }}>
+                <StreamMenuContent onDone={() => setMenu(false)} />
+              </PopoverContent>
+            </Popover>
           </div>
+          {goLive && <GoLiveDialog onClose={() => setGoLive(false)} />}
           <SoundboardButton labelled side="top" />
         </>
       )}

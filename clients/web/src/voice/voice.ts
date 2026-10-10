@@ -1,7 +1,7 @@
 import { ApiError, Perm, hasPerm } from "@datrope/core";
 import {
   DisconnectReason, Room, RoomEvent, Track,
-  type LocalVideoTrack, type Participant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication,
+  type LocalAudioTrack, type LocalVideoTrack, type Participant, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication,
   type RemoteVideoTrack,
 } from "livekit-client";
 import { useStore } from "zustand";
@@ -13,6 +13,7 @@ import { CallAudio } from "./call-audio";
 import { applyPrefs, watchPrefs } from "./mixer";
 import { canPickOutput } from "./output";
 import { UNKNOWN, watchQuality, type Quality } from "./stats";
+import { encoding, type StreamSettings } from "./stream-prefs";
 
 export type VideoSource = "camera" | "screen";
 
@@ -33,6 +34,7 @@ export interface VoiceView {
   deafened: boolean; // my choice, kept between calls
   camera: boolean;
   screen: boolean;
+  stream?: StreamSettings; // what my screen share sends now; undefined when not live
   speaking: string[]; // user IDs
   tiles: VideoTile[];
   watching: string[]; // user IDs whose screen share I receive
@@ -41,7 +43,7 @@ export interface VoiceView {
 }
 
 const idle: Omit<VoiceView, "muted" | "deafened"> = {
-  channelId: undefined, status: "idle", error: undefined, camera: false, screen: false,
+  channelId: undefined, status: "idle", error: undefined, camera: false, screen: false, stream: undefined,
   speaking: [], tiles: [], watching: [], audioBlocked: false, quality: UNKNOWN,
 };
 
@@ -56,6 +58,10 @@ const goodbye: Partial<Record<DisconnectReason, string>> = {
   [DisconnectReason.ROOM_DELETED]: "The voice channel was closed.",
 };
 
+const stopAll = (tracks: MediaStreamTrack[]) => {
+  for (const t of tracks) t.stop();
+};
+
 /** Connects this browser to one channel's LiveKit room at a time. */
 class Voice {
   readonly store = createStore<VoiceView>(() => ({ ...idle, muted: false, deafened: false }));
@@ -66,6 +72,7 @@ class Voice {
   private unwatchPrefs?: () => void; // re-applies volume, mute for me and hide video while in a call
   private callAudio?: CallAudio; // this device's audio settings applied to the call
   private unwatchQuality?: () => void;
+  private streamOps: Promise<unknown> = Promise.resolve(); // screen share operations, one at a time
 
   constructor() {
     client.onEvent((type, data) => {
@@ -249,7 +256,9 @@ class Voice {
         tiles.push({ id: `${p.identity}:${source}`, userId: p.identity, source, local, track: pub.videoTrack });
       }
     }
-    this.set({ tiles, camera: !!lp.getTrackPublication(Track.Source.Camera)?.track, screen: lp.isScreenShareEnabled });
+    const screen = lp.isScreenShareEnabled;
+    // Cleared here too, so the browser's own "Stop sharing" bar (LiveKit unpublishes on `ended`) resets the menu.
+    this.set({ tiles, camera: !!lp.getTrackPublication(Track.Source.Camera)?.track, screen, ...(!screen && { stream: undefined }) });
   }
 
   async setMuted(muted: boolean) {
@@ -315,18 +324,178 @@ class Voice {
     if (this.room === room) this.refresh();
   }
 
-  async toggleScreen() {
-    const lp = this.room?.localParticipant;
-    if (!lp) return;
-    const room = this.room;
+  /**
+   * Opens the browser's screen picker; undefined when the picker was closed. Plain MediaStreamTracks rather than
+   * LiveKit tracks: a swapped-in source then leaves no unpublished LiveKit wrapper listening to it.
+   */
+  private async capture(s: StreamSettings) {
+    const e = encoding(s);
     try {
-      await lp.setScreenShareEnabled(!lp.isScreenShareEnabled, { audio: true });
-    } catch (e) {
-      if (this.room !== room) return;
-      // Closing the browser's screen picker is not an error.
-      if (!(e instanceof DOMException && e.name === "NotAllowedError")) this.set({ error: "Could not share your screen." });
+      const media = await navigator.mediaDevices.getDisplayMedia({
+        audio: s.audio,
+        video: { width: { max: e.width }, height: { max: e.height }, frameRate: { ideal: e.fps, max: e.fps } },
+      });
+      const video = media.getVideoTracks()[0]!;
+      video.contentHint = e.contentHint;
+      return { video, audio: media.getAudioTracks()[0] };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "NotAllowedError") return undefined; // picker closed
+      throw err;
+    }
+  }
+
+  /** Applies settings to the live screen share: capture size and fps, content hint, bitrate and degradation. */
+  private async tune(s: StreamSettings) {
+    const pub = this.room?.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+    const track = pub?.videoTrack as LocalVideoTrack | undefined;
+    if (!pub || !track) return;
+    const e = encoding(s);
+    const videoEncoding = { maxBitrate: e.maxBitrate, maxFramerate: e.fps };
+    // LiveKit recomputes encodings from these after a source swap and republishes with them after a full reconnect.
+    // (Firefox with dynacast still restores the bitrate LiveKit computed at publish when it resumes the layer.)
+    pub.options = { ...pub.options, videoEncoding, degradationPreference: e.degradationPreference };
+    track.publishOptions = { ...track.publishOptions, videoEncoding, degradationPreference: e.degradationPreference };
+    const mst = track.mediaStreamTrack;
+    await mst.applyConstraints({ width: { max: e.width }, height: { max: e.height }, frameRate: { ideal: e.fps, max: e.fps } });
+    mst.contentHint = e.contentHint;
+    const sender = track.sender;
+    if (sender) {
+      const params = sender.getParameters();
+      for (const enc of params.encodings) {
+        enc.maxBitrate = e.maxBitrate;
+        enc.maxFramerate = e.fps;
+        enc.scaleResolutionDownBy = 1; // the capture is already the chosen size
+      }
+      await sender.setParameters(params);
+    }
+    await track.setDegradationPreference(e.degradationPreference);
+  }
+
+  /** Runs screen share operations one at a time, so each starts from what the last one left. */
+  private serial<T>(op: () => Promise<T>): Promise<T> {
+    const run = this.streamOps.then(op);
+    this.streamOps = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Goes live: the browser's picker chooses the source, `s` the quality. */
+  startScreen(s: StreamSettings) {
+    return this.serial(async () => {
+      const room = this.room;
+      const lp = room?.localParticipant;
+      if (!room || !lp || lp.isScreenShareEnabled) return;
+      let loose: MediaStreamTrack[] = []; // captured but not handed to LiveKit yet: stopped if anything fails
+      try {
+        const got = await this.capture(s);
+        if (!got) return;
+        loose = [got.video, ...(got.audio ? [got.audio] : [])];
+        if (this.room !== room) return stopAll(loose);
+        const e = encoding(s);
+        // One full-quality layer: simulcast could leave viewers stuck on a low one. H.264 is hardware-encoded where possible.
+        await lp.publishTrack(got.video, {
+          source: Track.Source.ScreenShare, videoCodec: "h264", simulcast: false,
+          videoEncoding: { maxBitrate: e.maxBitrate, maxFramerate: e.fps }, degradationPreference: e.degradationPreference,
+        });
+        loose = loose.filter((t) => t !== got.video);
+        if (got.audio) await lp.publishTrack(got.audio, { source: Track.Source.ScreenShareAudio });
+        loose = [];
+        await this.tune(s);
+        if (this.room === room) this.set({ stream: { ...s, audio: !!got.audio } });
+      } catch {
+        stopAll(loose);
+        // Half live (video out, audio or tuning failed) would leave a share with no settings menu: take it down.
+        if (lp.isScreenShareEnabled) await lp.setScreenShareEnabled(false).catch(() => undefined);
+        if (this.room === room) this.set({ error: "Could not share your screen." });
+      }
+      if (this.room === room) this.refresh();
+    });
+  }
+
+  /** Shares something else without stopping: the publications stay, so viewers keep watching. */
+  changeSource() {
+    return this.serial(() => this.swapSource(this.store.getState().stream));
+  }
+
+  private async swapSource(s: StreamSettings | undefined) {
+    const room = this.room;
+    const lp = room?.localParticipant;
+    const video = lp?.getTrackPublication(Track.Source.ScreenShare)?.videoTrack as LocalVideoTrack | undefined;
+    if (!room || !lp || !s || !video) return;
+    const oldVideo = video.mediaStreamTrack;
+    let swapped = false;
+    let loose: MediaStreamTrack[] = [];
+    try {
+      const got = await this.capture(s);
+      if (!got) return; // picker closed: keep sharing what I was
+      loose = [got.video, ...(got.audio ? [got.audio] : [])];
+      if (this.room !== room || lp.getTrackPublication(Track.Source.ScreenShare)?.track !== video) return stopAll(loose);
+      await video.replaceTrack(got.video);
+      swapped = true;
+      const oldAudio = lp.getTrackPublication(Track.Source.ScreenShareAudio)?.audioTrack as LocalAudioTrack | undefined;
+      if (got.audio && oldAudio) {
+        const m = oldAudio.mediaStreamTrack;
+        await oldAudio.replaceTrack(got.audio);
+        m.stop();
+      } else if (got.audio) {
+        await lp.publishTrack(got.audio, { source: Track.Source.ScreenShareAudio });
+      } else if (oldAudio) {
+        await lp.unpublishTrack(oldAudio);
+      }
+      oldVideo.stop(); // only now: until here a failure can still swap the old source back
+      loose = [];
+      await this.tune(s); // replaceTrack recomputed encodings from the publish options; put mine back
+      if (this.room === room && lp.isScreenShareEnabled) this.set({ stream: { ...s, audio: !!got.audio } });
+    } catch {
+      // Keep sharing what I was: put the old video back and let the new capture go.
+      if (swapped && oldVideo.readyState === "live") await video.replaceTrack(oldVideo).then(() => this.tune(s)).catch(() => undefined);
+      stopAll(loose.filter((t) => t !== video.mediaStreamTrack));
+      if (this.room === room) {
+        if (lp.isScreenShareEnabled) this.set({ stream: { ...s, audio: !!lp.getTrackPublication(Track.Source.ScreenShareAudio) } });
+        this.set({ error: "Could not change what you share." });
+      }
     }
     if (this.room === room) this.refresh();
+  }
+
+  /** Changes quality while live, on top of the current settings. Turning audio on needs a new capture, so it asks for the source again. */
+  applyStream(patch: Partial<StreamSettings>) {
+    return this.serial(async () => {
+      const room = this.room;
+      const lp = room?.localParticipant;
+      const prev = this.store.getState().stream;
+      if (!room || !lp || !prev) return;
+      const next = { ...prev, ...patch };
+      if (next.audio && !prev.audio) return this.swapSource(next);
+      try {
+        if (!next.audio && prev.audio) {
+          const audio = lp.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
+          if (audio) await lp.unpublishTrack(audio);
+        }
+        await this.tune(next);
+        if (this.room === room && lp.isScreenShareEnabled) this.set({ stream: next });
+      } catch {
+        if (this.room !== room) return;
+        await this.tune(prev).catch(() => undefined);
+        const audio = !!lp.getTrackPublication(Track.Source.ScreenShareAudio);
+        if (lp.isScreenShareEnabled) this.set({ stream: { ...prev, audio } });
+        this.set({ error: "Could not apply stream settings." });
+      }
+    });
+  }
+
+  /** Stops sharing (screen and its audio). */
+  stopScreen() {
+    return this.serial(async () => {
+      const room = this.room;
+      const lp = room?.localParticipant;
+      if (!lp) return;
+      try {
+        await lp.setScreenShareEnabled(false);
+      } catch {
+        if (this.room === room) this.set({ error: "Could not stop sharing." });
+      }
+      if (this.room === room) this.refresh();
+    });
   }
 
   /** Starts or stops receiving someone's screen share. */

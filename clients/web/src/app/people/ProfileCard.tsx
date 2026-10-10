@@ -11,7 +11,7 @@ import { avatarColor } from "@/lib/avatar-color";
 import { isHttpsLink } from "@/lib/social";
 import { cn } from "@/lib/utils";
 import { client, displayName, errorText, roleColor, useApp } from "@/session";
-import { openPanel } from "../side-panel/panel";
+import { openProfile } from "../side-panel/panel";
 import { openSettings } from "../settings/settings-store";
 import { ProfileLinks } from "./ProfileLinks";
 import { useAssignableRoles } from "./use-assignable-roles";
@@ -117,7 +117,7 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
         {!panel && actions && (
           <div className="flex gap-2">
             {actions}
-            <Button size="sm" variant="outline" onClick={() => { onAction?.(); openPanel({ kind: "profile", userId }); }}>View full profile</Button>
+            <Button size="sm" variant="outline" onClick={() => { onAction?.(); openProfile(userId); }}>View full profile</Button>
           </div>
         )}
       </div>

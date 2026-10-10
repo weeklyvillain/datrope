@@ -10,9 +10,8 @@ import { Topic } from "../ChannelView";
 import { Composer } from "../Composer";
 import { usePendingJump } from "../jump";
 import { MessageList } from "../MessageList";
-import { ProfilePanel } from "../people/ProfilePanel";
 import { SearchPanel } from "../search/SearchPanel";
-import { closePanel, usePanel } from "../side-panel/panel";
+import { usePanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
 import { TopBar } from "../TopBar";
 import { SoundboardButton } from "./SoundboardPanel";
@@ -23,7 +22,6 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   const perms = usePerms(channelId);
   const canRead = hasPerm(perms, Perm.ReadHistory);
   const [chat, setChat] = useState(true);
-  const profile = usePanel((s) => (s.panel?.kind === "profile" ? s.panel.userId : undefined));
   const searching = usePanel((s) => s.panel?.kind === "search");
   useEffect(() => setChat(true), [channelId]);
   // A jump to a message here (a search result) opens the chat, whose message list runs it.
@@ -73,9 +71,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
         </TopBar>
         <VoiceStage channelId={channelId} layout={layout} inviteTo={ch.name} />
       </main>
-      {profile ? (
-        <ProfilePanel key={profile} userId={profile} onClose={closePanel} />
-      ) : searching ? (
+      {searching ? (
         <SearchPanel />
       ) : chat && canRead && (
         <SidePanel title="Chat" subtitle={`#${ch.name}`} onClose={() => setChat(false)}>

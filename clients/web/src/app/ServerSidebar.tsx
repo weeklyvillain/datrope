@@ -1,8 +1,9 @@
 import { Perm, hasPerm, isGated } from "@datrope/core";
 import { ChevronDown, FolderPlus, Plus, Settings, UserPlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMatch, useNavigate } from "react-router-dom";
 import { ServerIcon } from "@/components/logo";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -64,7 +65,9 @@ export function ServerSidebar() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="channels" className="min-h-0 overflow-y-auto">
-          <ChannelTree activeId={channelId} />
+          <CreateMenu>
+            <ChannelTree activeId={channelId} />
+          </CreateMenu>
         </TabsContent>
         <TabsContent value="messages" className="flex min-h-0 flex-col">
           <DMList activeId={dmId} />
@@ -72,6 +75,28 @@ export function ServerSidebar() {
       </Tabs>
       <SidebarFooter />
     </nav>
+  );
+}
+
+/** Right-click on the channel list: create a channel or category. Channel and category rows keep their own menus. */
+function CreateMenu({ children }: { children: ReactNode }) {
+  const canCreate = hasPerm(usePerms(), Perm.ManageChannels);
+  const [dialog, setDialog] = useState<"create" | "category">();
+  if (!canCreate) return <>{children}</>;
+  return (
+    <>
+      <ContextMenu modal={false}>
+        <ContextMenuTrigger asChild>
+          <div className="min-h-full">{children}</div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <ContextMenuItem onSelect={() => setDialog("create")}><Plus />Create channel</ContextMenuItem>
+          <ContextMenuItem onSelect={() => setDialog("category")}><FolderPlus />Create category</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      {dialog === "create" && <CreateChannelDialog onClose={() => setDialog(undefined)} />}
+      {dialog === "category" && <CategoryDialog onClose={() => setDialog(undefined)} />}
+    </>
   );
 }
 

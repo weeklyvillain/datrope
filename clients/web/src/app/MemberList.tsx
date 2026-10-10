@@ -9,7 +9,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { cn } from "@/lib/utils";
 import { client, displayName, roleColor, useApp } from "../session";
 import { ProfilePopover } from "./people/ProfilePopover";
-import { openPanel } from "./side-panel/panel";
+import { openProfile } from "./side-panel/panel";
 
 const rank: Record<string, number> = { online: 2, idle: 1 };
 
@@ -78,7 +78,7 @@ export function MemberList() {
               </li>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
-                <ContextMenuItem onSelect={() => openPanel({ kind: "profile", userId: m.user.id })}><UserRound />View profile</ContextMenuItem>
+                <ContextMenuItem onSelect={() => openProfile(m.user.id)}><UserRound />View profile</ContextMenuItem>
                 {m.user.id !== meId && (
                   <ContextMenuItem onSelect={() => void client.openDM(m.user.id).then((ch) => nav(`/messages/${ch.id}`), () => undefined)}>
                     <MessageCircle />Message

@@ -15,7 +15,6 @@ import { Composer } from "./Composer";
 import { MemberList } from "./MemberList";
 import { MessageList, jumpTo } from "./MessageList";
 import { PinsPanel } from "./PinsPanel";
-import { ProfilePanel } from "./people/ProfilePanel";
 import { SearchPanel } from "./search/SearchPanel";
 import { closePanel, openPanel, panelStore, usePanel } from "./side-panel/panel";
 import { ThreadPanel } from "./side-panel/ThreadPanel";
@@ -95,8 +94,6 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
         </SidePanel>
       ) : panel?.kind === "thread" ? (
         <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={channelId} onClose={closePanel} />
-      ) : panel?.kind === "profile" ? (
-        <ProfilePanel key={panel.userId} userId={panel.userId} onClose={closePanel} />
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : members && <MemberList />}

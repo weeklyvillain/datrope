@@ -13,7 +13,7 @@ export default defineConfig({
     name: "chromium",
     use: {
       ...devices["Desktop Chrome"],
-      launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] },
+      launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--auto-select-desktop-capture-source=Entire screen"] },
     },
   }],
 });

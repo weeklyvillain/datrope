@@ -22,7 +22,7 @@ export function ProfilePopover({ userId, fallback, side, open, onOpenChange, onI
   const isOpen = controlled ? open : own;
   const change = (o: boolean) => (controlled ? onOpenChange?.(o) : setOwn(o));
   // Opening this person's full profile closes the popover.
-  const inPanel = usePanel((s) => s.panel?.kind === "profile" && s.panel.userId === userId);
+  const inPanel = usePanel((s) => s.profile === userId);
   useEffect(() => {
     if (inPanel) change(false);
   }, [inPanel]); // eslint-disable-line react-hooks/exhaustive-deps

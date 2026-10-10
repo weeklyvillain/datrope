@@ -1,14 +1,17 @@
-import { Eye, EyeOff, HeadphoneOff, MicOff } from "lucide-react";
-import type { ReactNode, Ref } from "react";
+import { Eye, EyeOff, HeadphoneOff, MicOff, Settings2 } from "lucide-react";
+import { useState, type ReactNode, type Ref } from "react";
 import { UserAvatar, type AvatarSize } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
+import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useApp, userName } from "../../session";
 import { useVoicePrefs } from "../../voice/prefs";
 import { voice, type VideoTile } from "../../voice/voice";
 import { AvatarTrigger } from "../people/AvatarTrigger";
 import { AdjustedBadge, PersonMenu } from "./PersonMenu";
+import { StreamMenuContent } from "./StreamMenu";
 import { TrackVideo } from "./TrackVideo";
 
 export type TileSize = "large" | "strip" | "grid";
@@ -87,6 +90,7 @@ export function Tile({ userId, tile, size, speaking = false, watching = false, c
           <EyeOff /> Stop watching
         </Button>
       )}
+      {screen && tile.local && <MyStreamButton />}
       {chip && <div className="absolute left-2 top-2 empty:hidden">{chip}</div>}
       {children}
     </div>
@@ -96,5 +100,20 @@ export function Tile({ userId, tile, size, speaking = false, watching = false, c
     <PersonMenu userId={userId} name={name} hasCamera={!!state?.camera || hideSet} className={box[size]} moreClassName="absolute right-2 top-2 bg-background/80">
       {card}
     </PersonMenu>
+  );
+}
+
+/** Stream settings on my own screen tile. */
+function MyStreamButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <RefButton className="absolute right-2 top-2" variant="secondary" size="icon-sm" aria-label="Stream settings">
+          <Settings2 />
+        </RefButton>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72"><StreamMenuContent onDone={() => setOpen(false)} /></PopoverContent>
+    </Popover>
   );
 }

@@ -279,6 +279,40 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(lounge.getByText("bob")).toBeVisible();
   await expect(alice.getByRole("button", { name: /^Connection quality: / })).toBeVisible();
 
+  // Going live: alice picks Detail in the Go Live dialog; bob watches; changing the source keeps bob watching.
+  await alice.getByRole("button", { name: "Share screen" }).click();
+  const goLive = alice.getByRole("dialog", { name: "Go Live" });
+  await goLive.getByRole("radio", { name: /Detail/ }).click();
+  await goLive.getByRole("switch", { name: "Share audio" }).click(); // the fake screen has no audio
+  await goLive.getByRole("button", { name: "Go Live" }).click();
+  const aliceMain = alice.getByRole("main", { name: "Lounge" });
+  await expect(aliceMain.getByText("alice's screen", { exact: true })).toBeVisible();
+  const bobLounge = bob.getByRole("main", { name: "Lounge" });
+  await bobLounge.getByRole("button", { name: "Watch" }).click();
+  await expect(bobLounge.getByText("alice's screen", { exact: true })).toBeVisible();
+  await expect(bobLounge.getByText("Loading alice's screen...")).toHaveCount(0); // the video arrived
+  // The local capture's MediaStreamTrack id changes on a swap; the LiveKit publication (and bob's subscription) stays.
+  const captureId = () => alice.evaluate(() => [...document.querySelectorAll<HTMLVideoElement>("main video")]
+    .map((v) => (v.srcObject as MediaStream | null)?.getVideoTracks()[0]?.id).join());
+  const before = await captureId();
+  await alice.getByRole("button", { name: "Share screen" }).click();
+  const menu = alice.getByRole("group", { name: "Stream settings" });
+  await menu.getByRole("button", { name: "Change source" }).click();
+  await expect.poll(captureId).not.toBe(before);
+  await expect(bobLounge.getByText("alice's screen", { exact: true })).toBeVisible();
+  await expect(bobLounge.getByText("Loading alice's screen...")).toHaveCount(0);
+  await expect(alice.getByRole("alert")).toHaveCount(0);
+  // The pressed Share screen button toggles the menu.
+  const shareButton = alice.getByRole("button", { name: "Share screen" });
+  await expect(shareButton).toHaveAttribute("aria-expanded", "true");
+  await shareButton.click();
+  await expect(menu).toHaveCount(0);
+  await expect(shareButton).toHaveAttribute("aria-expanded", "false");
+  await shareButton.click();
+  await menu.getByRole("button", { name: "Stop streaming" }).click();
+  await expect(aliceMain.getByText("alice's screen", { exact: true })).toHaveCount(0);
+  await expect(bobLounge.getByText("alice's screen", { exact: true })).toHaveCount(0);
+
   // Soundboard: alice plays Boop; bob sees the chip on alice's tile.
   await alice.getByRole("main", { name: "Lounge" }).getByRole("button", { name: "Soundboard" }).click();
   await alice.getByRole("dialog", { name: "Soundboard" }).getByRole("button", { name: "Play Boop, 0.5 s" }).click();
@@ -294,8 +328,10 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await bob.getByRole("button", { name: "Mute" }).click();
   await expect(lounge.getByRole("img", { name: "Muted" })).toBeVisible();
 
-  // Moving: alice drags bob from Lounge onto a second voice channel.
-  await alice.getByRole("button", { name: "Datrope menu" }).click();
+  // Moving: alice creates a second voice channel by right-clicking the channel list, then drags bob onto it.
+  const channelList = alice.getByRole("tabpanel", { name: "Channels" });
+  const listBox = (await channelList.boundingBox())!;
+  await channelList.click({ button: "right", position: { x: listBox.width / 2, y: listBox.height - 10 } });
   await alice.getByRole("menuitem", { name: "Create channel" }).click();
   await alice.getByRole("radio", { name: "Voice" }).click();
   await alice.getByLabel("Name").fill("Den");
@@ -412,7 +448,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.keyboard.press("Escape");
   await alice.getByRole("link", { name: "general" }).click();
 
-  // Popover: bob opens alice's profile from her name, then the full profile in the side panel.
+  // Popover: bob opens alice's profile from her name, then the full profile in the drawer.
   const aliceName = bobGeneral.getByRole("article").getByRole("button", { name: "alice", exact: true }).first();
   await aliceName.click();
   const popover = bob.getByRole("dialog", { name: "alice" });
@@ -423,9 +459,11 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(githubLink).toHaveAttribute("href", "https://github.com/alice");
   await expect(githubLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(popover.locator('img[src*="/api/banners/"]')).toBeVisible();
+  const sideColumns = await bob.locator("aside").count();
   await popover.getByRole("button", { name: "View full profile" }).click();
-  const profile = bob.getByRole("complementary", { name: "Profile" });
+  const profile = bob.getByRole("dialog", { name: "Profile" });
   await expect(profile.getByText("Board games and synths")).toBeVisible();
+  await expect(bob.locator("aside")).toHaveCount(sideColumns); // the drawer covers the right column instead of replacing it
   await profile.getByRole("button", { name: "Close profile" }).click();
   await expect(profile).toHaveCount(0);
 

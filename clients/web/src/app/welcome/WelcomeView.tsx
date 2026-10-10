@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useSubmit } from "@/hooks/use-submit";
 import { client, errorText, useApp, usePerms } from "@/session";
 import { TopBar } from "../TopBar";
-import { ProfilePanel } from "../people/ProfilePanel";
 import { SearchPanel } from "../search/SearchPanel";
-import { closePanel, usePanel } from "../side-panel/panel";
+import { usePanel } from "../side-panel/panel";
 import { WelcomeEditor } from "./WelcomeEditor";
 import { WelcomeMarkdown } from "./WelcomeMarkdown";
 
@@ -25,7 +24,6 @@ export function WelcomeView({ channelId }: { channelId: string }) {
   const [editing, setEditing] = useState(openEditor);
   const [loadError, setLoadError] = useState<string>();
   const nav = useNavigate();
-  const profile = usePanel((s) => (s.panel?.kind === "profile" ? s.panel.userId : undefined));
   const searching = usePanel((s) => s.panel?.kind === "search");
 
   // Load the page, and again if a fresh READY cleared it; WELCOME_UPDATE keeps it current.
@@ -74,7 +72,7 @@ export function WelcomeView({ channelId }: { channelId: string }) {
       </div>
       {gated && <RulesGate />}
     </main>
-    {!gated && (profile ? <ProfilePanel key={profile} userId={profile} onClose={closePanel} /> : searching ? <SearchPanel /> : null)}
+    {!gated && searching && <SearchPanel />}
     </>
   );
 }

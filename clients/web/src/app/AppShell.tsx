@@ -7,6 +7,7 @@ import { client, useApp } from "../session";
 import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
 import { ServerSidebar } from "./ServerSidebar";
+import { ProfileDrawer } from "./people/ProfileDrawer";
 import { UserSettingsDialog } from "./settings/UserSettingsDialog";
 import { SoundboardListener } from "./voice/SoundboardPanel";
 
@@ -43,6 +44,7 @@ export function AppShell() {
       <SoundboardListener />
       <NotificationListener />
       <UserSettingsDialog />
+      {!gated && <ProfileDrawer />}
       {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
     </div>
   );
