@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+import { watchPtt } from "./ptt";
+
+const key = (type: string, code: string, repeat = false) => Object.assign(new Event(type), { code, repeat });
+
+function setup(target: EventTarget = new EventTarget()) {
+  const changes: boolean[] = [];
+  const stop = watchPtt(target, () => "Backquote", (d) => changes.push(d));
+  return { target, changes, stop };
+}
+
+/** Stands in for a focused element: events dispatched on it have it as their target. */
+class FakeElement extends EventTarget {
+  constructor(public tagName: string, public type = "", public isContentEditable = false) {
+    super();
+  }
+}
+
+describe("push to talk", () => {
+  it("goes down and up with the key, once", () => {
+    const { target, changes } = setup();
+    target.dispatchEvent(key("keydown", "Backquote"));
+    target.dispatchEvent(key("keydown", "Backquote", true));
+    target.dispatchEvent(key("keydown", "KeyA"));
+    target.dispatchEvent(key("keyup", "Backquote"));
+    expect(changes).toEqual([true, false]);
+  });
+
+  it("ignores keys typed into text fields", () => {
+    for (const el of [new FakeElement("INPUT", "text"), new FakeElement("TEXTAREA"), new FakeElement("DIV", "", true)]) {
+      const { target, changes } = setup(el);
+      target.dispatchEvent(key("keydown", "Backquote"));
+      target.dispatchEvent(key("keyup", "Backquote"));
+      expect(changes).toEqual([]);
+    }
+  });
+
+  it("does not treat checkboxes as typing", () => {
+    const { target, changes } = setup(new FakeElement("INPUT", "checkbox"));
+    target.dispatchEvent(key("keydown", "Backquote"));
+    expect(changes).toEqual([true]);
+  });
+
+  it("blur releases", () => {
+    const { target, changes } = setup();
+    target.dispatchEvent(key("keydown", "Backquote"));
+    target.dispatchEvent(new Event("blur"));
+    target.dispatchEvent(key("keyup", "Backquote"));
+    expect(changes).toEqual([true, false]);
+  });
+
+  it("stops listening", () => {
+    const { target, changes, stop } = setup();
+    stop();
+    target.dispatchEvent(key("keydown", "Backquote"));
+    expect(changes).toEqual([]);
+  });
+});

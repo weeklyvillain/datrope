@@ -63,6 +63,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@18.3.1)
+      '@sapphi-red/web-noise-suppressor':
+        specifier: 0.4.1
+        version: 0.4.1
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1370,6 +1373,9 @@ packages:
     resolution: {integrity: sha512-qTv4bG+eKJKifzxNJevMUh8L6CjJrz9/Kn1IbP2F5bo0tBzNIR7HMg4vni6XmDzcKUl00lHHY+J5ZgjbGiujOQ==}
     cpu: [x64]
     os: [win32]
+
+  '@sapphi-red/web-noise-suppressor@0.4.1':
+    resolution: {integrity: sha512-hy2GnF079+zi4n9BZUf+GGIQ1IofApAk6rgGMyMQ3soHfz/GKu1pcCsmePyIHVvUuv1LrFudw9BmmBqoOKay5w==}
 
   '@tailwindcss/node@4.3.3':
     resolution: {integrity: sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg==}
@@ -4198,6 +4204,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.64.3':
     optional: true
+
+  '@sapphi-red/web-noise-suppressor@0.4.1': {}
 
   '@tailwindcss/node@4.3.3':
     dependencies:

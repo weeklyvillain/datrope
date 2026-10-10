@@ -1,5 +1,6 @@
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
+import { routeToOutput } from "./output";
 
 /** Soundboard clips never play longer than this, whatever the file says. */
 export const MAX_CLIP_MS = 5000;
@@ -53,6 +54,7 @@ export function playClip(url: string, volumePct: number, durationMs = MAX_CLIP_M
   el.preload = "auto";
   el.volume = Math.min(100, Math.max(0, volumePct)) / 100;
   live.add(el);
+  routeToOutput(el);
   const timer = setTimeout(() => release(el), clipSeconds(durationMs) * 1000);
   const done = () => { clearTimeout(timer); release(el); };
   el.addEventListener("ended", done);

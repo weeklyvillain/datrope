@@ -1,7 +1,7 @@
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
-export type SettingsSection = "profile" | "sessions" | "notifications" | "appearance";
+export type SettingsSection = "profile" | "sessions" | "notifications" | "voice" | "appearance";
 type SettingsState = { open: boolean; section: SettingsSection };
 
 /** Whether the "Your settings" modal is open, and on which section. */

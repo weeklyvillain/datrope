@@ -277,6 +277,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await bob.getByRole("link", { name: "Lounge" }).first().click(); // clicking a voice channel joins it
   await expect(bob.getByRole("status").filter({ hasText: "Voice connected" })).toBeVisible();
   await expect(lounge.getByText("bob")).toBeVisible();
+  await expect(alice.getByRole("button", { name: /^Connection quality: / })).toBeVisible();
 
   // Soundboard: alice plays Boop; bob sees the chip on alice's tile.
   await alice.getByRole("main", { name: "Lounge" }).getByRole("button", { name: "Soundboard" }).click();
@@ -393,6 +394,17 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByRole("radio", { name: "Gotham" }).click();
   await expect.poll(() => alice.evaluate(() => document.documentElement.style.getPropertyValue("--sidebar"))).toBe("#0a0f14");
   await alice.getByRole("radio", { name: "Datrope" }).click();
+  await alice.keyboard.press("Escape");
+  // Voice & audio: push to talk shows the key instead of the sensitivity, and stays on this device.
+  await alice.getByRole("button", { name: "Your settings" }).click();
+  await alice.getByRole("dialog").getByRole("button", { name: "Voice & audio" }).click();
+  await expect(alice.getByLabel("Input device")).toBeVisible();
+  await expect(alice.getByRole("slider", { name: "Input sensitivity" })).toBeVisible();
+  await alice.getByRole("radio", { name: "Push to talk" }).click();
+  await expect(alice.getByRole("button", { name: /^Push-to-talk key/ })).toBeVisible();
+  await expect(alice.getByRole("slider", { name: "Input sensitivity" })).toHaveCount(0);
+  await expect.poll(() => alice.evaluate(() => JSON.parse(localStorage.getItem("datrope.audioPrefs") ?? "{}").mode)).toBe("ptt");
+  await alice.getByRole("radio", { name: "Voice activity" }).click();
   await alice.keyboard.press("Escape");
   // Right-click a channel: its menu offers the link.
   await alice.getByRole("link", { name: "general" }).click({ button: "right" });

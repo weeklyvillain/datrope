@@ -8,7 +8,11 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { client, permsIn } from "../session";
 import { play } from "../sounds";
+import { audioPrefs, captureOptions } from "./audio-prefs";
+import { CallAudio } from "./call-audio";
 import { applyPrefs, watchPrefs } from "./mixer";
+import { canPickOutput } from "./output";
+import { UNKNOWN, watchQuality, type Quality } from "./stats";
 
 export type VideoSource = "camera" | "screen";
 
@@ -33,11 +37,12 @@ export interface VoiceView {
   tiles: VideoTile[];
   watching: string[]; // user IDs whose screen share I receive
   audioBlocked: boolean; // the browser wants a click before it plays sound
+  quality: Quality; // my connection to the voice server
 }
 
 const idle: Omit<VoiceView, "muted" | "deafened"> = {
   channelId: undefined, status: "idle", error: undefined, camera: false, screen: false,
-  speaking: [], tiles: [], watching: [], audioBlocked: false,
+  speaking: [], tiles: [], watching: [], audioBlocked: false, quality: UNKNOWN,
 };
 
 // TrackSource.MICROPHONE from @livekit/protocol (livekit-client does not re-export it).
@@ -59,6 +64,8 @@ class Voice {
   private mutedBeforeDeafen = false;
   private unwatchPerms?: () => void; // follows SPEAK in the app store while connected
   private unwatchPrefs?: () => void; // re-applies volume, mute for me and hide video while in a call
+  private callAudio?: CallAudio; // this device's audio settings applied to the call
+  private unwatchQuality?: () => void;
 
   constructor() {
     client.onEvent((type, data) => {
@@ -78,8 +85,16 @@ class Voice {
     if (prev.channelId === channelId && prev.status !== "idle") return;
     this.disconnect();
     // webAudioMix: per-person volume above 100 % needs a gain node (an element's volume stops at 1).
-    const room = new Room({ adaptiveStream: true, dynacast: true, webAudioMix: true, publishDefaults: { simulcast: true } });
+    const prefs = audioPrefs.getState();
+    const room = new Room({
+      adaptiveStream: true, dynacast: true, webAudioMix: true, publishDefaults: { simulcast: true },
+      audioCaptureDefaults: captureOptions(prefs),
+      audioOutput: canPickOutput() ? { deviceId: prefs.outputDeviceId } : undefined,
+    });
     this.room = room;
+    this.callAudio = new CallAudio(room, (error) => {
+      if (this.room === room) this.set({ error });
+    });
     this.unwatchPrefs = watchPrefs(() => this.room, () => this.store.getState().deafened);
     this.set({ ...idle, channelId, status: "connecting" });
     try {
@@ -92,6 +107,9 @@ class Voice {
         for (const pub of p.trackPublications.values()) this.autoSubscribe(pub, p);
       }
       this.set({ status: "connected", audioBlocked: !room.canPlaybackAudio });
+      this.unwatchQuality = watchQuality(room, (quality) => {
+        if (this.room === room) this.set({ quality });
+      });
       play("join");
       // SPEAK can come back in the app store after LiveKit's grant does: re-check the mic then too.
       const canSpeak = (s: ReturnType<typeof client.store.getState>) => hasPerm(permsIn(s, channelId), Perm.Speak);
@@ -128,6 +146,10 @@ class Voice {
     this.unwatchPerms = undefined;
     this.unwatchPrefs?.();
     this.unwatchPrefs = undefined;
+    this.unwatchQuality?.();
+    this.unwatchQuality = undefined;
+    this.callAudio?.stop();
+    this.callAudio = undefined;
     for (const el of this.audio) el.remove();
     this.audio.clear();
     this.set({ ...idle });
@@ -262,7 +284,7 @@ class Voice {
     const granted = !!grant?.canPublish && (sources.length === 0 || sources.includes(MICROPHONE_SOURCE));
     const allowed = granted && hasPerm(permsIn(client.store.getState(), channelId), Perm.Speak);
     try {
-      await room.localParticipant.setMicrophoneEnabled(allowed && !muted);
+      await this.callAudio?.setMic(allowed && !muted);
     } catch {
       if (this.room !== room) return;
       this.set({ muted: true, error: "Could not use your microphone." });
@@ -314,6 +336,13 @@ class Voice {
     const others = this.store.getState().watching.filter((x) => x !== userId);
     this.set({ watching: on ? [...others, userId] : others });
     this.refresh();
+  }
+
+  /** My mic's level and gate state while in a call, for the settings meter. */
+  micMeter() {
+    const p = this.callAudio?.processor;
+    const m = p?.meter();
+    return m && p ? { ...m, enhancedFailed: p.enhancedFailed } : undefined;
   }
 
   /** Plays call audio after the browser blocked autoplay; call it from a click. */

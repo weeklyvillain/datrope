@@ -1,4 +1,4 @@
-import { Bell, MonitorSmartphone, Palette, Settings, User, type LucideIcon } from "lucide-react";
+import { Bell, Headphones, MonitorSmartphone, Palette, Settings, User, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -9,6 +9,7 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { NotificationSettings } from "./NotificationSettings";
 import { ProfileSettings } from "./ProfileSettings";
 import { SessionsSettings } from "./SessionsSettings";
+import { VoiceSettings } from "./VoiceSettings";
 import { closeSettings, showSection, useSettings, type SettingsSection } from "./settings-store";
 
 type Group = "Account" | "App";
@@ -17,6 +18,7 @@ const SECTIONS: { id: SettingsSection; label: string; group: Group; icon: Lucide
   { id: "profile", label: "My profile", group: "Account", icon: User, body: () => <ProfileSettings /> },
   { id: "sessions", label: "Sessions", group: "Account", icon: MonitorSmartphone, body: () => <SessionsSettings /> },
   { id: "notifications", label: "Notifications", group: "App", icon: Bell, body: () => <NotificationSettings /> },
+  { id: "voice", label: "Voice & audio", group: "App", icon: Headphones, body: () => <VoiceSettings /> },
   { id: "appearance", label: "Appearance", group: "App", icon: Palette, body: () => <AppearanceSettings /> },
 ];
 

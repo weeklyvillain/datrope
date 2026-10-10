@@ -3,6 +3,7 @@ import dm from "./assets/sounds/dm.mp3";
 import join from "./assets/sounds/join.mp3";
 import leave from "./assets/sounds/leave.mp3";
 import { client } from "./session";
+import { routeToOutput } from "./voice/output";
 
 const urls = { join, leave, dm };
 export type Sound = keyof typeof urls;
@@ -16,6 +17,7 @@ export function play(sound: Sound) {
   lastPlayed[sound] = now;
   const audio = new Audio(urls[sound]);
   audio.volume = 0.5;
+  routeToOutput(audio);
   audio.play().catch(() => {}); // blocked until the user has interacted with the page
 }
 

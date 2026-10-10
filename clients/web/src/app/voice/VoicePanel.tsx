@@ -8,6 +8,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { dmName, useApp, usePerms } from "../../session";
+import { ConnectionQuality } from "./ConnectionQuality";
 import { SoundboardButton } from "./SoundboardPanel";
 import { useVoice, voice } from "../../voice/voice";
 
@@ -42,6 +43,7 @@ export function VoicePanel() {
               </p>
               <Link to={href} aria-label={`Go to ${where}`} className="block truncate text-xs text-muted-foreground">{where}</Link>
             </div>
+            {v.status === "connected" && <ConnectionQuality />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label="Disconnect" className="text-destructive hover:text-destructive"
