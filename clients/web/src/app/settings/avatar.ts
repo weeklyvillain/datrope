@@ -48,7 +48,15 @@ export function cropRect(w: number, h: number, c: Crop, spec: CropSpec = AVATAR)
   return { sx: within(w / 2 - x / s - sw / 2, w - sw), sy: within(h / 2 - y / s - sh / 2, h - sh), sw, sh };
 }
 
-/** Draws the crop at the spec's output size (a GIF's first frame) as WebP, or PNG (JPEG for banners) where WebP encoding is missing. */
+/** The crop in whole source px, for a GIF the server crops (a canvas would keep only its first frame). */
+export function gifCrop(w: number, h: number, c: Crop, spec: CropSpec = AVATAR): { x: number; y: number; w: number; h: number } {
+  const { sx, sy, sw, sh } = cropRect(w, h, c, spec);
+  const cw = Math.max(1, Math.min(w, Math.round(sw)));
+  const ch = Math.max(1, Math.min(h, Math.round(sh)));
+  return { x: Math.min(w - cw, Math.round(sx)), y: Math.min(h - ch, Math.round(sy)), w: cw, h: ch };
+}
+
+/** Draws the crop at the spec's output size as WebP, or PNG (JPEG for banners) where WebP encoding is missing. */
 export async function cropToBlob(img: HTMLImageElement, c: Crop, spec: CropSpec = AVATAR): Promise<Blob> {
   const { sx, sy, sw, sh } = cropRect(img.naturalWidth, img.naturalHeight, c, spec);
   const canvas = document.createElement("canvas");

@@ -3,8 +3,9 @@ package auth
 import "net/http"
 
 const (
-	// MaxBannerBytes caps the upload; the web app sends a 960 × 320 crop well below it.
-	MaxBannerBytes = 1 << 20
+	// MaxBannerBytes caps the upload: the web app sends a 960 × 320 crop, or
+	// an uncropped GIF for the server to crop.
+	MaxBannerBytes = 5 << 20
 	maxBannerSide  = 2048
 )
 

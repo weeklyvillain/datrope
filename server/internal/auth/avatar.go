@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image"
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 
@@ -17,6 +20,7 @@ import (
 type Blobs interface {
 	StoreImageBlob(ctx context.Context, tx pgx.Tx, data []byte) (sum, contentType string, err error)
 	ImageSize(data []byte) (width, height int, err error)
+	CropGIF(data []byte, crop image.Rectangle, w, h int) ([]byte, error)
 	RemoveBlobs(ctx context.Context, sums []string) error
 	ServeBlob(w http.ResponseWriter, r *http.Request, sum, contentType string, immutable bool)
 }
@@ -24,8 +28,9 @@ type Blobs interface {
 func (s *Service) SetBlobs(b Blobs) { s.blobs = b }
 
 const (
-	// MaxAvatarBytes caps the upload; the web app sends a 256 × 256 crop well below it.
-	MaxAvatarBytes = 512 << 10
+	// MaxAvatarBytes caps the upload: the web app sends a small 256 × 256 crop,
+	// or an uncropped GIF for the server to crop.
+	MaxAvatarBytes = 2 << 20
 	maxAvatarSide  = 1024
 )
 
@@ -37,15 +42,17 @@ type imageKind struct {
 	path     string // public URL prefix, "/api/avatars/"
 	maxBytes int
 	maxSide  int
+	outW     int // a cropped GIF is scaled to outW × outH
+	outH     int
 	limitMsg string
 	sizeMsg  string
 }
 
 var (
-	avatarKind = imageKind{col: "avatar", path: "/api/avatars/", maxBytes: MaxAvatarBytes, maxSide: maxAvatarSide,
-		limitMsg: "avatars can be at most 512 KB", sizeMsg: "avatars can be at most 1024 × 1024 pixels"}
-	bannerKind = imageKind{col: "banner", path: "/api/banners/", maxBytes: MaxBannerBytes, maxSide: maxBannerSide,
-		limitMsg: "banners can be at most 1 MB", sizeMsg: "banners can be at most 2048 × 2048 pixels"}
+	avatarKind = imageKind{col: "avatar", path: "/api/avatars/", maxBytes: MaxAvatarBytes, maxSide: maxAvatarSide, outW: 256, outH: 256,
+		limitMsg: "avatars can be at most 2 MB", sizeMsg: "avatars can be at most 1024 × 1024 pixels"}
+	bannerKind = imageKind{col: "banner", path: "/api/banners/", maxBytes: MaxBannerBytes, maxSide: maxBannerSide, outW: 960, outH: 320,
+		limitMsg: "banners can be at most 5 MB", sizeMsg: "banners can be at most 2048 × 2048 pixels"}
 )
 
 func (k imageKind) sumCol() string  { return k.col + "_sha256" }
@@ -68,7 +75,9 @@ func writeUser(w http.ResponseWriter, r *http.Request, u *User, err error) {
 }
 
 // readImageUpload reads and validates the multipart "file" field: size cap,
-// image type and dimensions.
+// image type and dimensions. Browsers can only crop a GIF's first frame, so
+// the web app sends a GIF uncropped with crop_x, crop_y, crop_w and crop_h
+// (source pixels); the server crops every frame so it stays animated.
 func (s *Service) readImageUpload(w http.ResponseWriter, r *http.Request, k imageKind) ([]byte, error) {
 	tooLarge := httpx.E(http.StatusRequestEntityTooLarge, "TOO_LARGE", k.limitMsg)
 	limit := int64(k.maxBytes) + 64<<10
@@ -103,7 +112,47 @@ func (s *Service) readImageUpload(w http.ResponseWriter, r *http.Request, k imag
 	if width > k.maxSide || height > k.maxSide {
 		return nil, httpx.BadRequest("IMAGE_TOO_BIG", k.sizeMsg)
 	}
+	crop, ok, err := cropFields(r)
+	if err != nil || !ok {
+		return data, err
+	}
+	if !bytes.HasPrefix(data, []byte("GIF8")) {
+		return nil, httpx.BadRequest("VALIDATION_FAILED", "only a GIF can be cropped by the server")
+	}
+	if !crop.In(image.Rect(0, 0, width, height)) {
+		return nil, httpx.BadRequest("VALIDATION_FAILED", "the crop must lie inside the image")
+	}
+	data, err = s.blobs.CropGIF(data, crop, k.outW, k.outH)
+	if err != nil {
+		return nil, httpx.BadRequest("NOT_AN_IMAGE", "the GIF could not be cropped; it may have too many frames")
+	}
 	return data, nil
+}
+
+// cropFields reads the optional crop_x, crop_y, crop_w and crop_h form
+// fields: all or none.
+func cropFields(r *http.Request) (image.Rectangle, bool, error) {
+	var v [4]int
+	n := 0
+	for i, name := range [4]string{"crop_x", "crop_y", "crop_w", "crop_h"} {
+		vals := r.MultipartForm.Value[name]
+		if len(vals) == 0 {
+			continue
+		}
+		x, err := strconv.Atoi(vals[0])
+		if err != nil || x < 0 {
+			return image.Rectangle{}, false, httpx.BadRequest("VALIDATION_FAILED", name+" must be a whole number of pixels")
+		}
+		v[i] = x
+		n++
+	}
+	switch {
+	case n == 0:
+		return image.Rectangle{}, false, nil
+	case n < 4 || v[2] == 0 || v[3] == 0:
+		return image.Rectangle{}, false, httpx.BadRequest("VALIDATION_FAILED", "a crop needs crop_x, crop_y, crop_w and crop_h, with a positive size")
+	}
+	return image.Rect(v[0], v[1], v[0]+v[2], v[1]+v[3]), true, nil
 }
 
 func (s *Service) imageUploadHandler(k imageKind) http.Handler {

@@ -49,7 +49,7 @@ func TestBanner(t *testing.T) {
 
 	fail("wide.png", pngOf(t, 3000, 100), http.StatusBadRequest, "IMAGE_TOO_BIG")
 	fail("a.txt", []byte("not an image"), http.StatusBadRequest, "NOT_AN_IMAGE")
-	fail("huge.png", bytes.Repeat([]byte{0}, 1100<<10), http.StatusRequestEntityTooLarge, "TOO_LARGE")
+	fail("huge.png", bytes.Repeat([]byte{0}, 5300<<10), http.StatusRequestEntityTooLarge, "TOO_LARGE")
 
 	// Another user's delete only touches their own banner.
 	var other auth.User
@@ -119,10 +119,10 @@ func TestBannerLimits(t *testing.T) {
 		return c.UploadTo(http.MethodPut, "/api/users/@me/banner", "b.png", data, status)
 	}
 
-	// Bigger than an avatar may be (> 512 KB, > 1024 px), within the banner limits.
-	big := noisePNG(t, 1500, 100)
+	// Bigger than an avatar may be (> 2 MB, > 1024 px), within the banner limits.
+	big := noisePNG(t, 2000, 300)
 	require.Greater(t, len(big), auth.MaxAvatarBytes)
-	require.Less(t, len(big), 1<<20)
+	require.Less(t, len(big), auth.MaxBannerBytes)
 	put(alice, big, http.StatusOK)
 
 	var e httpx.Error

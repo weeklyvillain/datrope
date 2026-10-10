@@ -5,7 +5,7 @@ import { ErrorText } from "@/components/error-text";
 import { useSubmit } from "@/hooks/use-submit";
 import { cn } from "@/lib/utils";
 import { client } from "../../session";
-import { AVATAR, BANNER, clampCrop, cropScale, cropToBlob, type Crop } from "./avatar";
+import { AVATAR, BANNER, clampCrop, cropScale, cropToBlob, gifCrop, type Crop } from "./avatar";
 
 const STEP = 4;
 
@@ -31,8 +31,10 @@ export function AvatarCropDialog({ file, kind = "avatar", onClose, onDone }: { f
   const apply = () => run(async () => {
     const img = imgRef.current;
     if (!img || !size) throw new Error("The image has not loaded.");
-    const blob = await cropToBlob(img, crop, spec);
-    await (kind === "banner" ? client.uploadBanner(blob) : client.uploadAvatar(blob));
+    const upload = (kind === "banner" ? client.uploadBanner : client.uploadAvatar).bind(client);
+    // A GIF goes up whole with its crop, so the server can crop every frame and keep it animated.
+    if (file.type === "image/gif") await upload(file, gifCrop(size.w, size.h, crop, spec));
+    else await upload(await cropToBlob(img, crop, spec));
     onDone();
   });
 

@@ -15,6 +15,21 @@ export interface ClientOptions {
 }
 
 /** API + gateway + store: everything a Datrope UI needs. */
+/** A crop in source pixels, sent with an uncropped GIF avatar or banner. */
+export type ImageCrop = { x: number; y: number; w: number; h: number };
+
+function imageForm(image: Blob, name: string, crop?: ImageCrop): FormData {
+  const form = new FormData();
+  form.append("file", image, `${name}.${image.type === "image/gif" ? "gif" : "png"}`);
+  if (crop) {
+    form.append("crop_x", String(crop.x));
+    form.append("crop_y", String(crop.y));
+    form.append("crop_w", String(crop.w));
+    form.append("crop_h", String(crop.h));
+  }
+  return form;
+}
+
 export class DatropeClient {
   readonly api: Api;
   readonly store = createAppStore();
@@ -234,8 +249,9 @@ export class DatropeClient {
     return u;
   }
 
-  async uploadAvatar(image: Blob): Promise<User> {
-    const u = (await this.multipart("PUT", "/api/users/@me/avatar", image, "avatar.png")) as User;
+  /** Uploads an avatar; pass crop (source px) with an uncropped GIF and the server crops every frame. */
+  async uploadAvatar(image: Blob, crop?: ImageCrop): Promise<User> {
+    const u = (await this.multipartForm("PUT", "/api/users/@me/avatar", imageForm(image, "avatar", crop))) as User;
     this.apply("USER_UPDATE", publicUser(u));
     return u;
   }
@@ -248,8 +264,9 @@ export class DatropeClient {
     return u;
   }
 
-  async uploadBanner(image: Blob): Promise<User> {
-    const u = (await this.multipart("PUT", "/api/users/@me/banner", image, "banner.png")) as User;
+  /** Uploads a banner; crop works as for uploadAvatar. */
+  async uploadBanner(image: Blob, crop?: ImageCrop): Promise<User> {
+    const u = (await this.multipartForm("PUT", "/api/users/@me/banner", imageForm(image, "banner", crop))) as User;
     this.apply("USER_UPDATE", publicUser(u));
     return u;
   }

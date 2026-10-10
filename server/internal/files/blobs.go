@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"image"
 	"net/http"
 	"os"
 	"time"
@@ -93,3 +94,8 @@ func (s *Service) ServeBlob(w http.ResponseWriter, r *http.Request, sum, content
 
 // ImageSize reads an image's dimensions without decoding its pixels.
 func (s *Service) ImageSize(data []byte) (width, height int, err error) { return Info(data) }
+
+// CropGIF crops and scales every frame of an animated GIF; see the package function.
+func (s *Service) CropGIF(data []byte, crop image.Rectangle, w, h int) ([]byte, error) {
+	return CropGIF(data, crop, w, h)
+}

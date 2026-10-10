@@ -31,7 +31,7 @@ need an invite by default (Server settings → Invites); change this under Serve
 - A text chat beside every voice channel.
 - A "New messages" line at the first unread message, with a bar to jump to it or mark the channel read.
 - Voice, camera and screen sharing (see below).
-- Avatars (PNG, JPEG, WebP or GIF up to 2 MB, cropped to 256 × 256 in the browser), a profile banner (up to 5 MB, cropped 3:1 to 960 × 320), up to five https links with site names, pronouns and "About me".
+- Avatars (PNG, JPEG, WebP or GIF up to 2 MB, cropped to 256 × 256; GIFs are cropped by the server and stay animated), a profile banner (up to 5 MB, cropped 3:1 to 960 × 320, likewise), up to five https links with site names, pronouns and "About me".
 - A profile popover on every name and avatar, and a full profile in the side panel (people with Manage roles can change roles there).
 - A member list with avatars, presence and status.
 - Message search in the header (operators `from:`, `in:`, `has:link`/`has:file`, `before:` and `after:`); it covers only the channels you can read and your DMs.

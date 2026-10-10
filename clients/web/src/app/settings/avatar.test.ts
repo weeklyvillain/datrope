@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AVATAR, BANNER, checkAvatarFile, checkBannerFile, clampCrop, cropRect } from "./avatar";
+import { AVATAR, BANNER, checkAvatarFile, checkBannerFile, clampCrop, cropRect, gifCrop } from "./avatar";
 
 describe("avatar file check", () => {
   it("accepts images up to 2 MB", () => {
@@ -26,6 +26,14 @@ describe("crop", () => {
     expect(r.sy).toBeGreaterThanOrEqual(0);
     expect(r.sx + r.sw).toBeLessThanOrEqual(333);
     expect(r.sy + r.sh).toBeLessThanOrEqual(777);
+  });
+
+  it("gives a GIF crop in whole pixels inside the image", () => {
+    expect(gifCrop(400, 200, { zoom: 1, x: 0, y: 0 })).toEqual({ x: 100, y: 0, w: 200, h: 200 });
+    const r = gifCrop(333, 777, { zoom: 1.37, x: 1e6, y: -1e6 });
+    expect(Number.isInteger(r.x) && Number.isInteger(r.w)).toBe(true);
+    expect(r.x + r.w).toBeLessThanOrEqual(333);
+    expect(r.y + r.h).toBeLessThanOrEqual(777);
   });
 
   it("zooms between 1 and 3", () => {

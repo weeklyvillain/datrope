@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/png"
 	"net/http"
 	"strings"
@@ -16,6 +17,20 @@ import (
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/httpx"
 )
+
+// animatedGIF is a 100 × 50 GIF with two frames.
+func animatedGIF(t *testing.T) []byte {
+	t.Helper()
+	pal := color.Palette{color.RGBA{255, 0, 0, 255}, color.RGBA{0, 0, 255, 255}}
+	f1 := image.NewPaletted(image.Rect(0, 0, 100, 50), pal)
+	f2 := image.NewPaletted(image.Rect(0, 0, 100, 50), pal)
+	for i := range f2.Pix {
+		f2.Pix[i] = 1
+	}
+	var b bytes.Buffer
+	require.NoError(t, gif.EncodeAll(&b, &gif.GIF{Image: []*image.Paletted{f1, f2}, Delay: []int{10, 10}}))
+	return b.Bytes()
+}
 
 func pngOf(t *testing.T, w, h int) []byte {
 	t.Helper()
@@ -104,7 +119,29 @@ func TestAvatar(t *testing.T) {
 
 	fail("wide.png", pngOf(t, 1025, 4), http.StatusBadRequest, "IMAGE_TOO_BIG")
 	fail("a.txt", []byte("not an image"), http.StatusBadRequest, "NOT_AN_IMAGE")
-	fail("huge.png", bytes.Repeat([]byte{0}, 600<<10), http.StatusRequestEntityTooLarge, "TOO_LARGE")
+	fail("huge.png", bytes.Repeat([]byte{0}, 2200<<10), http.StatusRequestEntityTooLarge, "TOO_LARGE")
+
+	// A GIF comes uncropped with the crop as fields; every frame is cropped, so it stays animated.
+	crop := map[string]string{"crop_x": "25", "crop_y": "0", "crop_w": "50", "crop_h": "50"}
+	require.NoError(t, json.Unmarshal(alice.UploadForm(http.MethodPut, "/api/users/@me/avatar", "a.gif", animatedGIF(t), crop, http.StatusOK), &me))
+	resp, body = env.Anon().Raw(http.MethodGet, me.AvatarURL, nil, "", http.StatusOK)
+	require.Equal(t, "image/gif", resp.Header.Get("Content-Type"))
+	g, err := gif.DecodeAll(bytes.NewReader(body))
+	require.NoError(t, err)
+	require.Len(t, g.Image, 2)
+	require.Equal(t, image.Rect(0, 0, 256, 256), g.Image[0].Bounds())
+	ws.ExpectDispatch("USER_UPDATE", &ev)
+	ws.ExpectDispatch("USER_UPDATE", &ev)
+
+	failForm := func(name string, data []byte, fields map[string]string) {
+		t.Helper()
+		var e httpx.Error
+		require.NoError(t, json.Unmarshal(alice.UploadForm(http.MethodPut, "/api/users/@me/avatar", name, data, fields, http.StatusBadRequest), &e))
+		require.Equal(t, "VALIDATION_FAILED", e.Code)
+	}
+	failForm("a.png", pngOf(t, 100, 50), crop) // only GIFs are cropped by the server
+	failForm("a.gif", animatedGIF(t), map[string]string{"crop_x": "60", "crop_y": "0", "crop_w": "50", "crop_h": "50"})
+	failForm("a.gif", animatedGIF(t), map[string]string{"crop_x": "0"})
 
 	// Remove goes back to initials.
 	me = auth.User{} // omitempty: a removed avatar is absent

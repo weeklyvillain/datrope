@@ -393,6 +393,17 @@ it("uploads an avatar and applies the USER_UPDATE", async () => {
   expect(client.store.getState().me?.avatar_url).toBe("/api/avatars/1?v=0123456789ab");
 });
 
+it("sends a GIF avatar uncropped with its crop", async () => {
+  let form: FormData | undefined;
+  server.use(http.put(`${BASE}/api/users/@me/avatar`, async ({ request }) => {
+    form = await request.formData();
+    return HttpResponse.json({ ...ready.user, avatar_url: "/api/avatars/1?v=0123456789ab" });
+  }));
+  await readyClient().uploadAvatar(new Blob(["GIF89a"], { type: "image/gif" }), { x: 1, y: 2, w: 30, h: 40 });
+  expect((form?.get("file") as File).name).toBe("avatar.gif");
+  expect([form?.get("crop_x"), form?.get("crop_y"), form?.get("crop_w"), form?.get("crop_h")]).toEqual(["1", "2", "30", "40"]);
+});
+
 it("removes an avatar", async () => {
   server.use(http.delete(`${BASE}/api/users/@me/avatar`, () => HttpResponse.json({ ...ready.user })));
   const client = readyClient();

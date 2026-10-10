@@ -403,6 +403,24 @@ func (c *Client) UploadTo(method, path, filename string, content []byte, want in
 	return raw
 }
 
+// UploadForm sends content as the multipart "file" field plus extra form fields to any path.
+func (c *Client) UploadForm(method, path, filename string, content []byte, fields map[string]string, want int) []byte {
+	t := c.env.T
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		require.NoError(t, mw.WriteField(k, v))
+	}
+	fw, err := mw.CreateFormFile("file", filename)
+	require.NoError(t, err)
+	_, err = fw.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, mw.Close())
+	_, raw := c.Raw(method, path, &buf, mw.FormDataContentType(), want)
+	return raw
+}
+
 // UploadFail sends a file that must be rejected with the given status and code.
 func (c *Client) UploadFail(channelID id.ID, filename string, content []byte, wantStatus int, wantCode string) {
 	c.env.T.Helper()
