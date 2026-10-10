@@ -32,7 +32,7 @@ export function PersonMenu({ userId, name, hasCamera, className, moreClassName, 
           {children}
           <PopoverTrigger asChild>
             <RefButton variant="ghost" size="icon-xs" aria-label={`More options for ${name}`}
-              className={cn("opacity-0 focus-visible:opacity-100 group-hover/person:opacity-100 data-[state=open]:opacity-100", moreClassName)}>
+              className={cn("opacity-0 focus-visible:opacity-100 group-hover/person:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100", moreClassName)}>
               <MoreHorizontal />
             </RefButton>
           </PopoverTrigger>

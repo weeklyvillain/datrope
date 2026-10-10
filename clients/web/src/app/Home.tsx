@@ -7,6 +7,7 @@ import { ChannelView } from "./ChannelView";
 import { ForumView } from "./forum/ForumView";
 import { GalleryView } from "./gallery/GalleryView";
 import { VoiceChannelView } from "./voice/VoiceChannelView";
+import { EmptyView } from "./EmptyView";
 import { WelcomeView } from "./welcome/WelcomeView";
 
 /** Where "/" goes: the welcome channel while gated, else the last channel visited, else the first text channel. */
@@ -22,12 +23,12 @@ export function Home() {
   const target = useApp(homeChannel);
   if (target) return <Navigate to={`/channels/${target}`} replace />;
   return (
-    <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">
+    <EmptyView>
       <div className="grid justify-items-center gap-3">
         <ServerIcon size={64} />
         <p>No channels yet.</p>
       </div>
-    </main>
+    </EmptyView>
   );
 }
 
@@ -52,6 +53,6 @@ export function ChannelRoute() {
     case "dm":
       return <Navigate to={`/messages/${channelId}`} replace />;
     default:
-      return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
+      return <EmptyView>This channel is not available.</EmptyView>;
   }
 }

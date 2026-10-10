@@ -350,7 +350,7 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
           </Link>
           {manageable.includes(id) && (
             <Button variant="ghost" size="icon-xs" aria-label={`Settings for ${ch.name}`} title="Channel settings"
-              className="mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              className="mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
               onClick={() => openSettings(id)}><Settings /></Button>
           )}
         </div>

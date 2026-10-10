@@ -27,7 +27,7 @@ interface Group {
  * The server's members: those with a hoisted role under their highest hoisted role (in role order),
  * then everyone else as Online / Offline. Names take the colour of their highest coloured role.
  */
-export function MemberList() {
+export function MemberList({ sheet = false }: { sheet?: boolean } = {}) {
   const sv = useApp((s) => s.server);
   const presences = useApp((s) => s.presences);
   const activities = useApp((s) => s.activities);
@@ -57,7 +57,7 @@ export function MemberList() {
   }, [sv, presences]);
 
   return (
-    <aside className="w-[240px] flex-none overflow-y-auto border-l bg-card p-3 max-[760px]:hidden" aria-label="Members">
+    <aside className={cn("w-[240px] flex-none overflow-y-auto border-l bg-card p-3", sheet ? "h-full w-full border-l-0" : "max-[760px]:hidden")} aria-label="Members">
       <h3 className="sr-only">Members — {total}</h3>
       {groups.map((g) => (
         <section key={g.key} aria-label={g.name} className="mb-3">
@@ -71,8 +71,9 @@ export function MemberList() {
               <ContextMenu modal={false} key={m.user.id}>
               <ContextMenuTrigger asChild>
               <li>
-                <ProfilePopover userId={m.user.id} side="left">
+                <ProfilePopover userId={m.user.id} side="left" disabled={sheet}>
                   <RefButton variant="ghost" aria-label={displayName(m.user)}
+                    onClick={sheet ? () => openProfile(m.user.id) : undefined}
                     className={cn("h-auto w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal", status === "offline" && "opacity-50")}>
                     <UserAvatar user={m.user} size="md" status={status} />
                     <span className="min-w-0 flex-1">

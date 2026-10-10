@@ -36,7 +36,7 @@ export function ProfileStrip() {
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-foreground">{name}</span>
             <span className="block truncate text-xs text-muted-foreground">
-              {me.custom_status ? <EmojiText text={me.custom_status} /> : <span className="opacity-0 group-hover:opacity-100">Set a status</span>}
+              {me.custom_status ? <EmojiText text={me.custom_status} /> : <span className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100">Set a status</span>}
             </span>
           </span>
         </DropdownMenuTrigger>

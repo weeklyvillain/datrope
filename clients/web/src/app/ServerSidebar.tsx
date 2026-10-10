@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { isUnread, lastVisited, rememberVisit, useApp, usePerms } from "../session";
 import { DMList } from "./DMList";
 import { SidebarFooter } from "./SidebarFooter";
@@ -22,7 +23,7 @@ export const SETTINGS_PERMS = [Perm.ManageServer, Perm.ManageRoles, Perm.Kick, P
 const TAB = "h-8 data-[state=active]:bg-accent data-[state=active]:font-semibold data-[state=active]:shadow-none";
 
 /** The left column: server header, Channels / Messages tabs, voice panel and profile strip. */
-export function ServerSidebar() {
+export function ServerSidebar({ className }: { className?: string } = {}) {
   const nav = useNavigate();
   const channelId = useMatch("/channels/:channelId")?.params.channelId;
   const dmId = useMatch("/messages/:channelId")?.params.channelId;
@@ -49,7 +50,7 @@ export function ServerSidebar() {
   };
 
   return (
-    <nav className="flex w-60 flex-none flex-col border-r bg-sidebar" aria-label={tab === "messages" ? "Direct messages" : "Channels"}>
+    <nav className={cn("flex w-60 flex-none flex-col border-r bg-sidebar", className)} aria-label={tab === "messages" ? "Direct messages" : "Channels"}>
       <ServerHeader />
       <Tabs value={tab} onValueChange={switchTab} className="min-h-0 flex-1 gap-0">
         <TabsList className="grid h-auto w-auto grid-cols-2 gap-1 bg-transparent px-2 pt-2 pb-0">

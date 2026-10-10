@@ -19,6 +19,7 @@ import { ThreadPanel } from "../side-panel/ThreadPanel";
 import { GalleryItemPanel } from "./GalleryItemPanel";
 import { galleryItems, itemTitle, sections, type GalleryFilter, type GalleryItem } from "./items";
 import { EmojiText } from "@/chat/EmojiText";
+import { EmptyView } from "../EmptyView";
 import { UploadDialog } from "./UploadDialog";
 
 const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
@@ -65,7 +66,7 @@ export function GalleryView({ channelId }: { channelId: string }) {
     if (newest && !detached && focused) client.ack(channelId, newest).catch(() => undefined);
   }, [channelId, newest, detached, focused]);
 
-  if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
+  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
   const canUpload = canPost(ch, perms) && hasPerm(perms, Perm.AttachFiles);
   const selected = panel?.kind === "media" ? panel : undefined;
   const loadMore = () => {

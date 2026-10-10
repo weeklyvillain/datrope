@@ -16,16 +16,20 @@ import { SidePanel } from "../side-panel/SidePanel";
 import { TopBar } from "../TopBar";
 import { EmojiText } from "@/chat/EmojiText";
 import { VoiceStage, useVoiceLayout } from "./VoiceStage";
+import { EmptyView } from "../EmptyView";
 import { MusicPanel } from "./MusicPanel";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function VoiceChannelView({ channelId }: { channelId: string }) {
   const ch = useApp((s) => s.channels[channelId]);
   const perms = usePerms(channelId);
   const canRead = hasPerm(perms, Perm.ReadHistory);
-  const [side, setSide] = useState<"chat" | "music" | null>("chat");
+  const mobile = useIsMobile();
+  // The chat opens beside the call, except on phones, where it would cover it.
+  const [side, setSide] = useState<"chat" | "music" | null>(mobile ? null : "chat");
   const chat = side === "chat";
   const searching = usePanel((s) => s.panel?.kind === "search");
-  useEffect(() => setSide("chat"), [channelId]);
+  useEffect(() => setSide(mobile ? null : "chat"), [channelId, mobile]);
   // A jump to a message here (a search result) opens the chat, whose message list runs it.
   const pendingJump = usePendingJump(channelId);
   useEffect(() => {
@@ -33,7 +37,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   }, [pendingJump]);
   const { layout, setLayout, canStage } = useVoiceLayout(channelId);
 
-  if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
+  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background" aria-label={ch.name}>

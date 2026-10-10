@@ -1,10 +1,11 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { Lock, LogOut, Megaphone, MessageSquare, Phone } from "lucide-react";
+import { Lock, LogOut, Megaphone, MessageSquare, Phone, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +24,7 @@ import { SidePanel } from "./side-panel/SidePanel";
 import { ThreadsList } from "./side-panel/ThreadsList";
 import { TopBar } from "./TopBar";
 import { EmojiText } from "@/chat/EmojiText";
+import { EmptyView } from "./EmptyView";
 import { VoiceStage } from "./voice/VoiceStage";
 
 /** A text channel or DM. `members` shows the member list beside it (hidden while a side panel is open).
@@ -38,6 +40,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
   const panel = usePanel((s) => s.panel);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [showMembers, setShowMembers] = useState(false); // phones: the member list as a sheet
   const reply = useMemo(() => ({ replyTo, setReplyTo }), [replyTo]);
 
   // A reply and the side panel belong to their channel.
@@ -49,7 +52,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
     if (p?.kind === "threads" || p?.kind === "post" || p?.kind === "media" || (p?.kind === "thread" && p.parentId !== channelId)) closePanel();
   }, [channelId]);
 
-  if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
+  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
   const title = ch.type === "dm" ? dmName(ch, me?.id) : `# ${ch.name}`;
   // Threads live in text, webhook, announcement and gallery channels (never in DMs, threads or voice side chats).
   const threads = ch.type === "text" || ch.type === "webhook" || ch.type === "announcement" || ch.type === "gallery";
@@ -76,8 +79,13 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
               </Tooltip>
             )}
             <PinsPanel channelId={channelId} onJump={(id) => void jumpTo(channelId, id).catch(() => undefined)} />
+            {members && (
+              <Button variant="ghost" size="icon-sm" aria-label="Members" className="text-muted-foreground md:hidden" onClick={() => setShowMembers(true)}>
+                <Users />
+              </Button>
+            )}
             {ch.type === "dm" && !here && inCall === 0 && (
-              <Button variant="outline" size="sm" onClick={() => void voice.join(channelId)}><Phone /> Start call</Button>
+              <Button variant="outline" size="sm" className="max-md:px-2" onClick={() => void voice.join(channelId)}><Phone /><span className="max-md:sr-only">Start call</span></Button>
             )}
             {ch.group && (
               <Tooltip>
@@ -129,6 +137,15 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : members && <MemberList />}
+      {members && (
+        <Sheet open={showMembers} onOpenChange={setShowMembers}>
+          <SheetContent side="right" className="w-[85vw] max-w-80 gap-0 p-0 sm:max-w-80">
+            <SheetTitle className="sr-only">Members</SheetTitle>
+            <SheetDescription className="sr-only">Who is in this server</SheetDescription>
+            <MemberList sheet />
+          </SheetContent>
+        </Sheet>
+      )}
     </>
   );
 }
@@ -138,8 +155,8 @@ export function Topic({ channelId, name, topic, canEdit }: { channelId: string; 
   const [open, setOpen] = useState<"topic" | "settings">();
   return (
     <>
-      <span className="h-5 w-px flex-none bg-border" aria-hidden />
-      <button type="button" className="min-w-0 flex-1 truncate text-left text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
+      <span className="h-5 w-px flex-none bg-border max-md:hidden" aria-hidden />
+      <button type="button" className="min-w-0 flex-1 truncate text-left max-md:hidden text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
         title="Show topic" onClick={() => setOpen("topic")}>
         <Markdown text={topic} inline />
       </button>

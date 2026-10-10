@@ -133,7 +133,7 @@ export function MusicPanel({ channelId }: { channelId: string }) {
                 <span className="truncate text-xs text-muted-foreground"><Who userId={t.requested_by} />{t.duration ? ` · ${clock(t.duration)}` : ""}</span>
               </span>
               {here && (
-                <Button variant="ghost" size="icon-xs" aria-label={`Remove ${t.title} from the queue`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                <Button variant="ghost" size="icon-xs" aria-label={`Remove ${t.title} from the queue`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
                   onClick={() => void run(() => client.unqueueMusic(channelId, t.id))}><X /></Button>
               )}
             </li>

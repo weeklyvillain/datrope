@@ -19,6 +19,7 @@ import { Overview } from "./Overview";
 import { Roles } from "./Roles";
 import { SignUps } from "./SignUps";
 import { Soundboard } from "./Soundboard";
+import { Button } from "@/components/ui/button";
 import { Uploads } from "./Uploads";
 
 type Group = "Server" | "People" | "Expressions" | "Instance";
@@ -100,29 +101,30 @@ export function ServerSettings() {
   if (!current && pages.length > 0) return <Navigate to={`/server-settings/${pages[0].id}`} replace />;
 
   return (
-    <>
-      <nav aria-label="Server settings" className="flex w-[260px] min-w-[240px] flex-none flex-col border-r bg-sidebar">
-        <div className="flex h-14 flex-none items-center gap-2.5 border-b px-3.5">
+    <div className="flex min-h-0 min-w-0 flex-1 max-md:flex-col">
+      <nav aria-label="Server settings" className="flex w-[260px] min-w-[240px] flex-none flex-col border-r bg-sidebar max-md:w-full max-md:min-w-0 max-md:border-r-0 max-md:border-b">
+        <div className="flex h-14 flex-none items-center gap-2.5 border-b px-3.5 max-md:h-12 max-md:px-2">
+          <Button variant="ghost" size="icon-sm" aria-label="Back to chat" className="md:hidden" onClick={close}><ArrowLeft /></Button>
           <ServerIcon size={26} />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">Server settings</span>
             <span className="block truncate text-xs text-muted-foreground">{name}</span>
           </span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-2">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-2 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden max-md:py-2">
           {GROUPS.map((g) => {
             const items = shown.filter((s) => s.group === g);
             if (items.length === 0) return null;
             return (
-              <div key={g}>
-                <div className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g}</div>
+              <div key={g} className="max-md:contents">
+                <div className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase max-md:hidden">{g}</div>
                 {items.map((s) => {
                   const link = links[sections.indexOf(s)];
                   const Icon = s.icon;
                   const body = <><Icon className="size-4 flex-none" aria-hidden />{s.label}</>;
                   if (s.soon) {
                     return (
-                      <span key={s.id} aria-disabled="true" title={s.soon} className={cn(NAV, "cursor-not-allowed opacity-50")}>
+                      <span key={s.id} aria-disabled="true" title={s.soon} className={cn(NAV, "cursor-not-allowed opacity-50 max-md:hidden")}>
                         {body}<span className="ml-auto text-xs">Soon</span>
                       </span>
                     );
@@ -132,7 +134,7 @@ export function ServerSettings() {
                   const active = s.id === current?.id;
                   return (
                     <Link key={s.id} to={to} state={s.to ? { edit: true } : undefined} aria-current={active ? "page" : undefined}
-                      className={cn(NAV, "hover:bg-accent hover:text-foreground", active && "bg-accent text-foreground")}>
+                      className={cn(NAV, "hover:bg-accent hover:text-foreground max-md:flex-none max-md:whitespace-nowrap", active && "bg-accent text-foreground")}>
                       {body}
                     </Link>
                   );
@@ -141,7 +143,7 @@ export function ServerSettings() {
             );
           })}
         </div>
-        <div className="flex-none border-t p-2.5">
+        <div className="flex-none border-t p-2.5 max-md:hidden">
           <button type="button" onClick={close} className={cn(NAV, "w-full text-foreground hover:bg-accent")}>
             <ArrowLeft className="size-4 flex-none" aria-hidden />Back to chat
             <span className="ml-auto text-xs text-muted-foreground">Esc</span>
@@ -149,15 +151,15 @@ export function ServerSettings() {
         </div>
       </nav>
       <main aria-label={current?.label ?? "Server settings"} className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-        <header className="flex h-14 flex-none items-center gap-3 border-b bg-card pr-4 pl-6">
+        <header className="flex h-14 flex-none items-center gap-3 border-b bg-card pr-4 pl-6 max-md:hidden">
           <h2 className="min-w-0 flex-1 truncate font-semibold">{current?.label ?? "Server settings"}</h2>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="grid max-w-[860px] gap-7 px-6 pt-6 pb-12">
+          <div className="grid max-w-[860px] gap-7 px-6 pt-6 pb-12 max-md:px-3 max-md:pt-4">
             {current?.element ?? <p className="text-muted-foreground">There is nothing here you can change.</p>}
           </div>
         </div>
       </main>
-    </>
+    </div>
   );
 }

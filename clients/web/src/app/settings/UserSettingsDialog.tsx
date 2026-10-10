@@ -37,18 +37,21 @@ export function UserSettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && closeSettings()}>
       <DialogContent aria-describedby={undefined}
-        className="grid h-[85vh] max-h-[760px] grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[1000px]">
+        className={cn("grid h-[85vh] max-h-[760px] grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[1000px]",
+          // Phones: full screen, the sections as a scrolling row of tabs above the page.
+          "max-md:h-dvh max-md:max-h-none max-md:max-w-full max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)] max-md:rounded-none max-md:border-0")}>
         <DialogTitle className="sr-only">Your settings</DialogTitle>
-        <nav aria-label="Settings sections" className="flex min-h-0 flex-col overflow-y-auto border-r bg-sidebar px-2 pt-1 pb-2">
+        <nav aria-label="Settings sections" className={cn("flex min-h-0 flex-col overflow-y-auto border-r bg-sidebar px-2 pt-1 pb-2",
+          "max-md:flex-row max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden max-md:border-r-0 max-md:border-b max-md:py-2 max-md:pr-12")}>
           {GROUPS.map((g) => (
-            <div key={g}>
-              <div className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g}</div>
+            <div key={g} className="max-md:contents">
+              <div className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase max-md:hidden">{g}</div>
               {sections.filter((s) => s.group === g).map((s) => {
                 const Icon = s.icon;
                 const active = s.id === current.id;
                 return (
                   <button key={s.id} type="button" aria-current={active ? "page" : undefined} onClick={() => showSection(s.id)}
-                    className={cn(NAV, "w-full hover:bg-accent hover:text-foreground", active && "bg-accent text-foreground")}>
+                    className={cn(NAV, "w-full hover:bg-accent hover:text-foreground max-md:w-auto max-md:flex-none max-md:whitespace-nowrap", active && "bg-accent text-foreground")}>
                     <Icon className="size-4 flex-none" aria-hidden />{s.label}
                   </button>
                 );
@@ -57,12 +60,12 @@ export function UserSettingsDialog() {
           ))}
           {isAdmin && (
             <button type="button" onClick={() => { closeSettings(); nav("/server-settings"); }}
-              className={cn(NAV, "mt-auto w-full hover:bg-accent hover:text-foreground")}>
+              className={cn(NAV, "mt-auto w-full hover:bg-accent hover:text-foreground max-md:mt-0 max-md:w-auto max-md:flex-none max-md:whitespace-nowrap")}>
               <Settings className="size-4 flex-none" aria-hidden />Server settings
             </button>
           )}
         </nav>
-        <div className="grid min-h-0 content-start gap-4 overflow-y-auto p-6">
+        <div className="grid min-h-0 content-start gap-4 overflow-y-auto p-6 max-md:p-3">
           <h2>{current.label}</h2>
           {current.body()}
         </div>

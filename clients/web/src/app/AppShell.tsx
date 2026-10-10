@@ -10,6 +10,8 @@ import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
 import { CommandPalette } from "./palette/CommandPalette";
 import { ServerSidebar } from "./ServerSidebar";
+import { MobileNavDrawer } from "./mobile-nav";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ProfileDrawer } from "./people/ProfileDrawer";
 import { UserSettingsDialog } from "./settings/UserSettingsDialog";
 import { openSettings } from "./settings/settings-store";
@@ -24,6 +26,7 @@ export function AppShell() {
   const isGuest = useApp((s) => !!s.me?.guest_expires_at);
   const { pathname } = useLocation();
   usePalette();
+  const mobile = useIsMobile();
   useEffect(() => {
     document.title = serverName ? `Datrope - ${serverName}` : "Datrope";
   }, [serverName]);
@@ -57,11 +60,11 @@ export function AppShell() {
   // While the rules gate is on, the welcome channel is the only page.
   if (gated && welcomeId && pathname !== `/channels/${welcomeId}`) return <Navigate to={`/channels/${welcomeId}`} replace />;
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <GuestBanner />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Server settings bring their own nav in place of the sidebar. */}
-        {!pathname.startsWith("/server-settings") && <ServerSidebar />}
+        {/* Server settings bring their own nav in place of the sidebar; on phones the sidebar is a drawer. */}
+        {!pathname.startsWith("/server-settings") && (mobile ? <MobileNavDrawer><ServerSidebar className="h-full w-full border-r-0" /></MobileNavDrawer> : <ServerSidebar />)}
         <Outlet />
         <SoundboardListener />
         <NotificationListener />

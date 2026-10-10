@@ -8,8 +8,10 @@ import { usePanel } from "../side-panel/panel";
 
 /** A profile card in a popover. `children` is a single `asChild` trigger that forwards its ref;
  *  pass `open`/`onOpenChange` to also open it from elsewhere (an avatar next to the name). */
-export function ProfilePopover({ userId, fallback, side, open, onOpenChange, onInteractOutside, children }: {
+export function ProfilePopover({ userId, fallback, side, open, onOpenChange, onInteractOutside, disabled = false, children }: {
   userId: string;
+  /** Just the trigger, with no popover (the member list sheet on phones opens the full profile instead). */
+  disabled?: boolean;
   fallback?: PublicUser;
   side?: "top" | "right" | "bottom" | "left";
   open?: boolean;
@@ -26,6 +28,7 @@ export function ProfilePopover({ userId, fallback, side, open, onOpenChange, onI
   useEffect(() => {
     if (inPanel) change(false);
   }, [inPanel]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (disabled) return <>{children}</>;
   return (
     <Popover open={isOpen} onOpenChange={change}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>

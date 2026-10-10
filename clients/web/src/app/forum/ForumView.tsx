@@ -16,6 +16,7 @@ import { filterPosts, type PostSort } from "./filter";
 import { PostDialog } from "./PostDialog";
 import { PostPanel } from "./PostPanel";
 import { EmojiText } from "@/chat/EmojiText";
+import { EmptyView } from "../EmptyView";
 import { PostRow } from "./PostRow";
 
 const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
@@ -58,7 +59,7 @@ export function ForumView({ channelId }: { channelId: string }) {
 
   const shown = useMemo(() => filterPosts(posts ?? [], { query, tag, sort }), [posts, query, tag, sort]);
 
-  if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
+  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
   const canStart = hasPerm(perms, Perm.SendMessages) && hasPerm(perms, Perm.CreateThreads);
   const openPost = panel?.kind === "post" ? panel.postId : undefined;
   return (

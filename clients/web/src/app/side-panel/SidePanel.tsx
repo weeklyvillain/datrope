@@ -20,7 +20,7 @@ export function SidePanel({ title, label = title, closeLabel = `Close ${title.to
 }) {
   return (
     <aside aria-label={label}
-      className="flex min-h-0 w-[360px] max-w-full flex-none flex-col border-l bg-card max-[900px]:fixed max-[900px]:inset-y-0 max-[900px]:right-0 max-[900px]:z-30 max-[900px]:shadow-xl">
+      className="flex min-h-0 w-[360px] max-w-full flex-none flex-col border-l bg-card max-[900px]:fixed max-[900px]:inset-y-0 max-[900px]:right-0 max-[900px]:z-30 max-[900px]:shadow-xl max-md:w-full max-md:border-l-0">
       <header className="flex h-14 flex-none items-center gap-2 border-b pl-4 pr-2">
         <span className="flex-none text-muted-foreground [&_svg]:size-4" aria-hidden>{icon ?? <MessageSquare />}</span>
         <div className="min-w-0 flex-1">
