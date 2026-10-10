@@ -72,7 +72,7 @@ function FromChip({ query, from, onChange }: { query: string; from?: PublicUser;
 function InChip({ query, filters, onChange }: { query: string; filters?: SearchFilters; onChange: (q: string) => void }) {
   const value = operatorValue(query, "in");
   const channels = useApp(useShallow((s) => sidebarChannelIds(s).map((id) => s.channels[id])
-    .filter((c) => c && (c.type === "text" || c.type === "voice" || c.type === "webhook")).map((c) => c!.name)));
+    .filter((c) => c && ["text", "voice", "webhook", "announcement", "forum", "gallery"].includes(c.type)).map((c) => c!.name)));
   const partners = useApp(useShallow((s) => {
     const seen = new Set<string>();
     const out: string[] = [];

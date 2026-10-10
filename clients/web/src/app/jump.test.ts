@@ -35,6 +35,16 @@ describe("openMessage", () => {
     expect(panelStore.getState().panel).toEqual({ kind: "thread", threadId: "t2", parentId: "p1" });
   });
 
+  it("opens a forum post as a post under its forum", async () => {
+    state.channels.f1 = { id: "f1", type: "forum", name: "help" };
+    // Search and inbox results carry the parent; the post itself is usually not in the store.
+    expect(state.channels.t4).toBeUndefined();
+    const navigate = vi.fn();
+    await openMessage(navigate, { id: "t4", type: "thread", name: "Crash", parent_id: "f1", parent_name: "help" }, "m4");
+    expect(navigate).toHaveBeenCalledWith("/channels/f1");
+    expect(panelStore.getState().panel).toEqual({ kind: "post", postId: "t4", forumId: "f1" });
+  });
+
   it("goes nowhere when the thread cannot be fetched", async () => {
     getChannel.mockRejectedValue(new Error("nope"));
     const navigate = vi.fn();

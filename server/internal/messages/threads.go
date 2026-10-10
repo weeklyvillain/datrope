@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
@@ -19,6 +20,9 @@ import (
 type Threads interface {
 	CreateThread(ctx context.Context, parent *channels.Channel, messageID, creatorID id.ID, name string) (*channels.Channel, bool, error)
 	ThreadsOf(ctx context.Context, parentID id.ID) ([]channels.Channel, error)
+	CreatePost(ctx context.Context, tx pgx.Tx, forum *channels.Channel, creatorID id.ID, title string, tags []string) (*channels.Channel, error)
+	UpdatePost(ctx context.Context, post *channels.Channel, title *string, tags *[]string) (*channels.Channel, error)
+	DeletePost(ctx context.Context, post *channels.Channel) error
 	// ThreadPerms is what a user may do in parent's threads (no webhook-channel mask).
 	ThreadPerms(ctx context.Context, userID id.ID, parent *channels.Channel) (perms.Perms, error)
 }
@@ -30,6 +34,7 @@ type ThreadSummary struct {
 	Name          string            `json:"name"`
 	MessageCount  int               `json:"message_count"`
 	LastMessageAt *time.Time        `json:"last_message_at,omitempty"`
+	LastMessageID *id.ID            `json:"last_message_id,omitempty"`
 	Participants  []auth.PublicUser `json:"participants" doc:"Up to three of the first people who posted"`
 }
 
@@ -43,6 +48,21 @@ type ThreadListItem struct {
 	Channel         channels.Channel `json:"channel"`
 	ParentMessageID *id.ID           `json:"parent_message_id,omitempty"`
 	Summary         ThreadSummary    `json:"summary"`
+	Author          *auth.PublicUser `json:"author,omitempty"`
+	Excerpt         string           `json:"excerpt,omitempty" doc:"Forum posts: the start of the first message"`
+	FirstMessageID  *id.ID           `json:"first_message_id,omitempty"`
+}
+
+// PostUpdate tells a forum that one of its posts was created or changed.
+type PostUpdate struct {
+	ChannelID id.ID          `json:"channel_id" doc:"The forum"`
+	Post      ThreadListItem `json:"post"`
+}
+
+// PostDeleted tells a forum that one of its posts was deleted.
+type PostDeleted struct {
+	ChannelID id.ID `json:"channel_id" doc:"The forum"`
+	ID        id.ID `json:"id" doc:"The post"`
 }
 
 type CreateThreadRequest struct {
@@ -81,8 +101,9 @@ func (s *Service) summaries(ctx context.Context, threads map[id.ID]string) (map[
 		sm := out[tid]
 		sm.MessageCount = count
 		if last != nil {
-			t := id.ID(*last).Time()
-			sm.LastMessageAt = &t
+			lid := id.ID(*last)
+			t := lid.Time()
+			sm.LastMessageAt, sm.LastMessageID = &t, &lid
 		}
 		seen := map[id.ID]bool{}
 		for _, a := range all {
@@ -154,10 +175,116 @@ func (s *Service) withThreads(ctx context.Context, ms []Message) error {
 	return nil
 }
 
+const excerptRunes = 200
+
+// threadItems builds thread list items. Threads with no parent message are
+// forum posts and also get their author and the start of their first message.
+func (s *Service) threadItems(ctx context.Context, list []channels.Channel) ([]ThreadListItem, error) {
+	names := map[id.ID]string{}
+	var posts, creators []id.ID
+	for _, t := range list {
+		names[t.ID] = t.Name
+		if t.ParentMessageID == nil {
+			posts = append(posts, t.ID)
+			if t.CreatedBy != nil {
+				creators = append(creators, *t.CreatedBy)
+			}
+		}
+	}
+	sums, err := s.summaries(ctx, names)
+	if err != nil {
+		return nil, err
+	}
+	type first struct {
+		id      id.ID
+		content string
+	}
+	firsts := map[id.ID]first{}
+	if len(posts) > 0 {
+		rows, err := s.db.Query(ctx, `
+			SELECT DISTINCT ON (channel_id) channel_id, id, content FROM messages
+			WHERE channel_id = ANY($1) AND NOT deleted ORDER BY channel_id, id`, id.Int64s(posts))
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var cid id.ID
+			var f first
+			if err := rows.Scan(&cid, &f.id, &f.content); err != nil {
+				return nil, err
+			}
+			firsts[cid] = f
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+	users := map[id.ID]auth.PublicUser{}
+	if len(creators) > 0 {
+		if users, err = s.users.PublicUsers(ctx, creators); err != nil {
+			return nil, err
+		}
+	}
+	out := make([]ThreadListItem, 0, len(list))
+	for _, t := range list {
+		item := ThreadListItem{Channel: t, ParentMessageID: t.ParentMessageID, Summary: *sums[t.ID]}
+		if t.ParentMessageID == nil {
+			if t.CreatedBy != nil {
+				if u, ok := users[*t.CreatedBy]; ok {
+					item.Author = &u
+				}
+			}
+			if f, ok := firsts[t.ID]; ok {
+				item.FirstMessageID = &f.id
+				item.Excerpt = f.content
+				if r := []rune(f.content); len(r) > excerptRunes {
+					item.Excerpt = string(r[:excerptRunes])
+				}
+			}
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+// postItem builds the list item for one forum post.
+func (s *Service) postItem(ctx context.Context, post *channels.Channel) (*ThreadListItem, error) {
+	items, err := s.threadItems(ctx, []channels.Channel{*post})
+	if err != nil {
+		return nil, err
+	}
+	return &items[0], nil
+}
+
+// isForumPost reports whether a channel is a post in a forum.
+func (s *Service) isForumPost(ctx context.Context, ch *channels.Channel) (bool, error) {
+	if ch.Type != channels.TypeThread || ch.ParentMessageID != nil {
+		return false, nil
+	}
+	var typ string
+	if err := s.db.QueryRow(ctx, `SELECT type FROM channels WHERE id = $1`, *ch.ParentChannelID).Scan(&typ); err != nil {
+		return false, err
+	}
+	return typ == channels.TypeForum, nil
+}
+
 // publishThread sends THREAD_UPDATE for a thread channel to its parent
-// channel. It runs after the change is committed, so failures are dropped.
+// channel, or POST_UPDATE for a forum post to its forum. It runs after the
+// change is committed, so failures are dropped.
 func (s *Service) publishThread(ctx context.Context, thread *channels.Channel) {
-	if thread.Type != channels.TypeThread || thread.ParentMessageID == nil {
+	if thread.Type != channels.TypeThread {
+		return
+	}
+	if thread.ParentMessageID == nil {
+		if ok, err := s.isForumPost(ctx, thread); err != nil || !ok {
+			return
+		}
+		item, err := s.postItem(ctx, thread)
+		if err != nil {
+			return
+		}
+		s.publish("POST_UPDATE", *thread.ParentChannelID, PostUpdate{ChannelID: *thread.ParentChannelID, Post: *item})
 		return
 	}
 	sums, err := s.summaries(ctx, map[id.ID]string{thread.ID: thread.Name})
@@ -192,8 +319,10 @@ func registerThreads(api huma.API, s *Service, op func(string, string, string, i
 			if err != nil {
 				return nil, err
 			}
-			if ch.Type != channels.TypeText && ch.Type != channels.TypeVoice && ch.Type != channels.TypeWebhook {
-				return nil, httpx.BadRequest("NO_THREADS_HERE", "threads can only be started in text, voice and webhook channels")
+			switch ch.Type {
+			case channels.TypeText, channels.TypeVoice, channels.TypeWebhook, channels.TypeAnnouncement, channels.TypeGallery:
+			default:
+				return nil, httpx.BadRequest("NO_THREADS_HERE", "threads can only be started in text, voice, webhook, announcement and gallery channels")
 			}
 			// Posting in the thread is what counts: a webhook channel's mask does not apply there.
 			inThread, err := s.threads.ThreadPerms(ctx, me, ch)
@@ -233,17 +362,9 @@ func registerThreads(api huma.API, s *Service, op func(string, string, string, i
 			if err != nil {
 				return nil, err
 			}
-			names := map[id.ID]string{}
-			for _, t := range list {
-				names[t.ID] = t.Name
-			}
-			sums, err := s.summaries(ctx, names)
+			out, err := s.threadItems(ctx, list)
 			if err != nil {
 				return nil, err
-			}
-			out := make([]ThreadListItem, 0, len(list))
-			for _, t := range list {
-				out = append(out, ThreadListItem{Channel: t, ParentMessageID: t.ParentMessageID, Summary: *sums[t.ID]})
 			}
 			// Latest activity first; empty threads last, newest first.
 			sort.Slice(out, func(i, j int) bool {

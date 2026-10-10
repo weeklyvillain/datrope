@@ -1,5 +1,4 @@
 import { Perm, hasPerm, myChannelPerms, type State } from "@datrope/core";
-import { BookOpen, Hash, Volume2, Webhook } from "lucide-react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import { Link } from "react-router-dom";
 import remarkGfm from "remark-gfm";
@@ -8,6 +7,7 @@ import { remarkChat, type ChatOptions } from "@/chat/remarkChat";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/session";
+import { channelIcon } from "../channel-types";
 import { parseChannelCards, type WelcomeBlock } from "./channelCards";
 
 /** True for relative URLs and absolute ones on this origin (uploaded page images live under /api/server/images/). */
@@ -77,8 +77,6 @@ export function WelcomeMarkdown({ markdown, preview = false }: { markdown: strin
   );
 }
 
-const ICONS = { welcome: BookOpen, text: Hash, voice: Volume2, dm: Hash, thread: Hash, webhook: Webhook } as const;
-
 /** The visible server channel with this name, if any. */
 function findChannel(s: State, name: string): string | undefined {
   return s.server?.channelIds.find((id) => s.channels[id]?.name === name && hasPerm(myChannelPerms(s, id), Perm.ViewChannel));
@@ -87,7 +85,7 @@ function findChannel(s: State, name: string): string | undefined {
 function ChannelCard({ name, description, preview }: { name: string; description: string; preview: boolean }) {
   const id = useApp((s) => findChannel(s, name));
   const type = useApp((s) => (id ? s.channels[id]?.type : undefined));
-  const Icon = type ? ICONS[type] : Hash;
+  const Icon = channelIcon(type ?? "");
   const body = (
     <Card className={cn("grid h-full grid-cols-[16px_minmax(0,1fr)] items-center gap-x-2.5 gap-y-0.5 rounded-lg p-3 shadow-none",
       !id && "opacity-60", id && !preview && "transition-colors hover:bg-accent")}>

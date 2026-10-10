@@ -20,8 +20,11 @@ import (
 
 type CreateChannelRequest struct {
 	Name       string `json:"name" minLength:"1" maxLength:"100"`
-	Type       string `json:"type" enum:"text,voice,webhook"`
+	Type       string `json:"type" enum:"text,voice,webhook,announcement,forum,gallery"`
 	CategoryID *id.ID `json:"category_id,omitempty"`
+
+	Tags       []string `json:"tags,omitempty" maxItems:"20" doc:"Forums only"`
+	RequireTag bool     `json:"require_tag,omitempty" doc:"Forums only: a post needs at least one tag"`
 }
 
 type UpdateChannelRequest struct {
@@ -30,6 +33,9 @@ type UpdateChannelRequest struct {
 	CategoryID    *id.ID  `json:"category_id,omitempty" doc:"Move into this category"`
 	ClearCategory bool    `json:"clear_category,omitempty" doc:"Move out of any category"`
 	Position      *int    `json:"position,omitempty" minimum:"0" doc:"Index inside the channel's (new) group"`
+
+	Tags       *[]string `json:"tags,omitempty" maxItems:"20" doc:"Forums only; replaces the tag list and strips removed tags from existing posts"`
+	RequireTag *bool     `json:"require_tag,omitempty" doc:"Forums only"`
 }
 
 type OverrideRequest struct {
@@ -88,6 +94,16 @@ func Register(api huma.API, s *Service) {
 			if m.Gated || !perms.Base(m.Perms).Has(perms.ManageChannels) {
 				return nil, httpx.MissingPermission()
 			}
+			var tags []string
+			if in.Body.Type != TypeForum && (len(in.Body.Tags) > 0 || in.Body.RequireTag) {
+				return nil, httpx.BadRequest("VALIDATION_FAILED", "only forums have tags")
+			}
+			if tags, err = normalizeTags(in.Body.Tags, maxTags); err != nil {
+				return nil, err
+			}
+			if in.Body.RequireTag && len(tags) == 0 {
+				return nil, errRequireTagWithoutTags()
+			}
 			newID := id.New()
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
@@ -107,8 +123,9 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			if _, err := tx.Exec(ctx, `
-				INSERT INTO channels (id, community_id, type, name, position, category_id) VALUES ($1, $2, $3, $4, $5, $6)`,
-				newID, cid, in.Body.Type, strings.TrimSpace(in.Body.Name), len(group), in.Body.CategoryID); err != nil {
+				INSERT INTO channels (id, community_id, type, name, position, category_id, tags, require_tag)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+				newID, cid, in.Body.Type, strings.TrimSpace(in.Body.Name), len(group), in.Body.CategoryID, tags, in.Body.RequireTag); err != nil {
 				return nil, err
 			}
 			if err := tx.Commit(ctx); err != nil {
@@ -148,6 +165,29 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
+			var tags []string
+			if in.Body.Tags != nil || in.Body.RequireTag != nil {
+				if c.Type != TypeForum {
+					return nil, httpx.BadRequest("VALIDATION_FAILED", "only forums have tags")
+				}
+			}
+			if in.Body.Tags != nil {
+				if tags, err = normalizeTags(*in.Body.Tags, maxTags); err != nil {
+					return nil, err
+				}
+			}
+			if c.Type == TypeForum {
+				requireTag, finalTags := c.RequireTag, c.Tags
+				if in.Body.RequireTag != nil {
+					requireTag = *in.Body.RequireTag
+				}
+				if tags != nil {
+					finalTags = tags
+				}
+				if requireTag && len(finalTags) == 0 {
+					return nil, errRequireTagWithoutTags()
+				}
+			}
 			if in.Body.CategoryID != nil || in.Body.ClearCategory || in.Body.Position != nil {
 				if err := s.moveChannel(ctx, c, in.Body); err != nil {
 					return nil, err
@@ -165,6 +205,11 @@ func Register(api huma.API, s *Service) {
 			if name != nil || topic != nil {
 				if _, err := s.db.Exec(ctx, `UPDATE channels SET name = COALESCE($2, name), topic = COALESCE($3, topic) WHERE id = $1`,
 					chID, name, topic); err != nil {
+					return nil, err
+				}
+			}
+			if in.Body.Tags != nil || in.Body.RequireTag != nil {
+				if err := s.updateForumTags(ctx, chID, tags, in.Body.RequireTag); err != nil {
 					return nil, err
 				}
 			}
@@ -455,4 +500,39 @@ func (s *Service) serverID(ctx context.Context) (id.ID, error) {
 		return 0, errNotMember()
 	}
 	return sid, err
+}
+
+func errRequireTagWithoutTags() error {
+	return httpx.BadRequest("VALIDATION_FAILED", "a forum that requires a tag needs at least one tag; add a tag or turn off require tag")
+}
+
+// updateForumTags replaces a forum's tags (when tags is non-nil) and sets
+// require_tag (when requireTag is non-nil). Tags removed from the forum are
+// stripped from its posts in the same transaction.
+func (s *Service) updateForumTags(ctx context.Context, forumID id.ID, tags []string, requireTag *bool) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if requireTag != nil {
+		if _, err := tx.Exec(ctx, `UPDATE channels SET require_tag = $2 WHERE id = $1`, forumID, *requireTag); err != nil {
+			return err
+		}
+	}
+	if tags != nil {
+		if _, err := tx.Exec(ctx, `UPDATE channels SET tags = $2 WHERE id = $1`, forumID, tags); err != nil {
+			return err
+		}
+		// Post tags match the forum's ignoring case and take its new spelling.
+		if _, err := tx.Exec(ctx, `
+			UPDATE channels SET tags = ARRAY(
+				SELECT n FROM unnest(tags) WITH ORDINALITY AS p(t, i)
+				JOIN unnest($2::text[]) AS n ON lower(n) = lower(p.t)
+				ORDER BY p.i)
+			WHERE parent_channel_id = $1 AND type = 'thread'`, forumID, tags); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }

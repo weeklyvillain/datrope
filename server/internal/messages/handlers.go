@@ -19,6 +19,7 @@ import (
 )
 
 type SendRequest struct {
+	Title         string       `json:"title,omitempty" maxLength:"100" doc:"Announcements only"`
 	Content       string       `json:"content,omitempty" maxLength:"4000"`
 	Nonce         string       `json:"nonce,omitempty" maxLength:"64" doc:"Client-chosen; echoed in MESSAGE_CREATE so the sender can match its pending message"`
 	AttachmentIDs []id.ID      `json:"attachment_ids,omitempty" maxItems:"10" doc:"Uploads (POST /api/attachments) to send with the message"`
@@ -27,7 +28,8 @@ type SendRequest struct {
 }
 
 type EditRequest struct {
-	Content string `json:"content" maxLength:"4000"`
+	Title   *string `json:"title,omitempty" maxLength:"100" doc:"Announcements only; omit to keep the title"`
+	Content string  `json:"content" maxLength:"4000"`
 }
 
 type AckRequest struct {
@@ -65,6 +67,7 @@ func Register(api huma.API, s *Service) {
 	registerPolls(api, s, op, access)
 	registerPins(api, s, op, access)
 	registerThreads(api, s, op, access)
+	registerPosts(api, s, op, access)
 	registerSearch(api, s, op)
 	registerInbox(api, s, op)
 
@@ -115,9 +118,19 @@ func Register(api huma.API, s *Service) {
 			if len(in.Body.AttachmentIDs) > 0 {
 				need |= perms.AttachFiles
 			}
-			ch, _, err := access(ctx, in.ID, need)
+			ch, have, err := access(ctx, in.ID, need)
 			if err != nil {
 				return nil, err
+			}
+			if ch.Type == channels.TypeForum {
+				return nil, httpx.BadRequest("NOT_ALLOWED_HERE", "a forum takes posts, not messages")
+			}
+			title := strings.TrimSpace(in.Body.Title)
+			if err := checkTitle(ch, in.Body.Title); err != nil {
+				return nil, err
+			}
+			if ch.Type == channels.TypeAnnouncement && !have.Has(perms.ManageMessages) {
+				return nil, httpx.MissingPermission()
 			}
 			content := strings.TrimSpace(in.Body.Content)
 			if content == "" && len(in.Body.AttachmentIDs) == 0 && in.Body.Poll == nil {
@@ -127,6 +140,9 @@ func Register(api huma.API, s *Service) {
 				if err := s.checkPoll(ctx, in.Body.Poll); err != nil {
 					return nil, err
 				}
+			}
+			if ch.Type == channels.TypeGallery && len(in.Body.AttachmentIDs) == 0 {
+				return nil, errMediaOnly()
 			}
 			if in.Body.ReplyToID != nil {
 				if err := s.checkReply(ctx, ch.ID, *in.Body.ReplyToID); err != nil {
@@ -139,15 +155,15 @@ func Register(api huma.API, s *Service) {
 			}
 			u := auth.Current(ctx).User
 			author := u.Public()
-			m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Content: content, Nonce: in.Body.Nonce, Mentions: mentions, replyToID: in.Body.ReplyToID}
+			m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Title: title, Content: content, Nonce: in.Body.Nonce, Mentions: mentions, replyToID: in.Body.ReplyToID}
 			m.CreatedAt = m.ID.Time()
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
 				return nil, err
 			}
 			defer tx.Rollback(ctx)
-			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, reply_to_id, mentions) VALUES ($1, $2, $3, $4, $5, $6)`,
-				m.ID, m.ChannelID, u.ID, m.Content, in.Body.ReplyToID, id.Int64s(mentions)); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, reply_to_id, mentions, title) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				m.ID, m.ChannelID, u.ID, m.Content, in.Body.ReplyToID, id.Int64s(mentions), m.Title); err != nil {
 				return nil, err
 			}
 			if m.Attachments, err = s.attachments.Claim(ctx, tx, m.ID, ch.ID, u.ID, in.Body.AttachmentIDs); err != nil {
@@ -156,6 +172,24 @@ func Register(api huma.API, s *Service) {
 			if in.Body.Poll != nil {
 				if err := insertPoll(ctx, tx, m.ID, m.CreatedAt, in.Body.Poll); err != nil {
 					return nil, err
+				}
+			}
+			// A reply in a forum post is also read in the forum, whose newest
+			// message is the newest across its posts.
+			read := []id.ID{ch.ID}
+			if post, err := s.isForumPost(ctx, ch); err != nil {
+				return nil, err
+			} else if post {
+				read = append(read, *ch.ParentChannelID)
+			}
+			if err := markRead(ctx, tx, u.ID, m.ID, read...); err != nil {
+				return nil, err
+			}
+			if ch.Type == channels.TypeGallery {
+				for _, a := range m.Attachments {
+					if !strings.HasPrefix(a.ContentType, "image/") && !strings.HasPrefix(a.ContentType, "video/") {
+						return nil, errMediaOnly() // the deferred rollback releases the claim
+					}
 				}
 			}
 			if err := tx.Commit(ctx); err != nil {
@@ -196,6 +230,14 @@ func Register(api huma.API, s *Service) {
 			if isPoll {
 				return nil, errPollNotEditable()
 			}
+			var title *string
+			if in.Body.Title != nil {
+				if err := checkTitle(ch, *in.Body.Title); err != nil {
+					return nil, err
+				}
+				t := strings.TrimSpace(*in.Body.Title)
+				title = &t
+			}
 			current, err := s.attachments.ForMessages(ctx, []id.ID{m.ID})
 			if err != nil {
 				return nil, err
@@ -211,9 +253,10 @@ func Register(api huma.API, s *Service) {
 			// A changed first link drops the old embed now; attachPreview fetches the new one.
 			linkChanged := firstLink(content) != firstLink(m.Content)
 			updated, err := scanMessage(s.db.QueryRow(ctx, `
-				UPDATE messages SET content = $2, mentions = $3, edited_at = now(), embed = CASE WHEN $4 THEN NULL ELSE embed END
+				UPDATE messages SET content = $2, mentions = $3, edited_at = now(), embed = CASE WHEN $4 THEN NULL ELSE embed END,
+					title = COALESCE($5, title)
 				WHERE id = $1 AND NOT deleted RETURNING `+messageCols,
-				m.ID, content, id.Int64s(mentions), linkChanged))
+				m.ID, content, id.Int64s(mentions), linkChanged, title))
 			if errors.Is(err, pgx.ErrNoRows) { // deleted since s.get
 				return nil, httpx.NotFound("message")
 			}
@@ -226,6 +269,9 @@ func Register(api huma.API, s *Service) {
 			}
 			updated = &one[0]
 			s.publish("MESSAGE_UPDATE", ch.ID, updated)
+			if ch.Type == channels.TypeThread && ch.ParentMessageID == nil {
+				s.publishThread(ctx, ch) // a forum post: refresh its excerpt
+			}
 			if linkChanged {
 				s.attachPreview(*updated)
 			}
@@ -319,4 +365,16 @@ func Register(api huma.API, s *Service) {
 				auth.Current(ctx).User.ID, ch.ID, in.Body.MessageID)
 			return nil, err
 		})
+}
+
+func errMediaOnly() error {
+	return httpx.BadRequest("MEDIA_ONLY", "a gallery takes images and videos")
+}
+
+// checkTitle allows a title only on announcements.
+func checkTitle(ch *channels.Channel, title string) error {
+	if title != "" && ch.Type != channels.TypeAnnouncement {
+		return httpx.BadRequest("NOT_ALLOWED_HERE", "only announcements have titles")
+	}
+	return nil
 }

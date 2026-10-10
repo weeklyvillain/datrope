@@ -122,3 +122,98 @@ func TestDMs(t *testing.T) {
 	require.Empty(t, list)
 	alice.Fail(http.MethodPatch, "/api/channels/"+dm.ID.String(), map[string]any{"name": "x"}, http.StatusForbidden, "MISSING_PERMISSION")
 }
+
+func TestNewChannelTypes(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	base := "/api/server/channels"
+
+	for _, typ := range []string{channels.TypeAnnouncement, channels.TypeForum, channels.TypeGallery} {
+		var c channels.Channel
+		alice.Do(http.MethodPost, base, map[string]any{"name": typ, "type": typ}, http.StatusCreated, &c)
+		require.Equal(t, typ, c.Type)
+		require.NotNil(t, c.Tags)
+		require.Empty(t, c.Tags)
+		require.False(t, c.RequireTag)
+	}
+	for _, c := range alice.Channels() {
+		require.NotNil(t, c.Tags, c.Name)
+	}
+
+	var forum channels.Channel
+	alice.Do(http.MethodPost, base, map[string]any{"name": "ideas", "type": "forum",
+		"tags": []string{"Feature", "Bug"}, "require_tag": true}, http.StatusCreated, &forum)
+	require.Equal(t, []string{"Feature", "Bug"}, forum.Tags)
+	require.True(t, forum.RequireTag)
+
+	alice.Fail(http.MethodPost, base, map[string]any{"name": "dup", "type": "forum",
+		"tags": []string{"Feature", " Bug ", "feature"}}, http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Fail(http.MethodPost, base, map[string]any{"name": "t", "type": "text",
+		"tags": []string{"a"}}, http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Fail(http.MethodPost, base, map[string]any{"name": "t", "type": "gallery",
+		"require_tag": true}, http.StatusBadRequest, "VALIDATION_FAILED")
+
+	var text channels.Channel
+	alice.Do(http.MethodPost, base, map[string]any{"name": "plain", "type": "text"}, http.StatusCreated, &text)
+	alice.Fail(http.MethodPatch, "/api/channels/"+text.ID.String(), map[string]any{"tags": []string{"a"}},
+		http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Fail(http.MethodPatch, "/api/channels/"+text.ID.String(), map[string]any{"require_tag": true},
+		http.StatusBadRequest, "VALIDATION_FAILED")
+}
+
+func TestForumTagRemovalCascadesToPosts(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	var forum channels.Channel
+	alice.Do(http.MethodPost, "/api/server/channels", map[string]any{"name": "ideas", "type": "forum",
+		"tags": []string{"Feature", "Bug"}}, http.StatusCreated, &forum)
+
+	post := id.New()
+	_, err := env.Pool.Exec(t.Context(), `
+		INSERT INTO channels (id, community_id, type, name, parent_channel_id, tags)
+		SELECT $1, community_id, 'thread', 'post', id, '{Feature,Bug}' FROM channels WHERE id = $2`, post, forum.ID)
+	require.NoError(t, err)
+
+	var updated channels.Channel
+	alice.Do(http.MethodPatch, "/api/channels/"+forum.ID.String(), map[string]any{"tags": []string{"Bug"}}, http.StatusOK, &updated)
+	require.Equal(t, []string{"Bug"}, updated.Tags)
+
+	var tags []string
+	require.NoError(t, env.Pool.QueryRow(t.Context(), `SELECT tags FROM channels WHERE id = $1`, post).Scan(&tags))
+	require.Equal(t, []string{"Bug"}, tags)
+}
+
+func TestForumTagRenameKeepsPostTags(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	var forum channels.Channel
+	alice.Do(http.MethodPost, "/api/server/channels", map[string]any{"name": "ideas", "type": "forum",
+		"tags": []string{"feature", "bug"}}, http.StatusCreated, &forum)
+
+	post := id.New()
+	_, err := env.Pool.Exec(t.Context(), `
+		INSERT INTO channels (id, community_id, type, name, parent_channel_id, tags)
+		SELECT $1, community_id, 'thread', 'post', id, '{feature,bug}' FROM channels WHERE id = $2`, post, forum.ID)
+	require.NoError(t, err)
+
+	alice.Do(http.MethodPatch, "/api/channels/"+forum.ID.String(), map[string]any{"tags": []string{"Bug", "Feature"}}, http.StatusOK, nil)
+	var tags []string
+	require.NoError(t, env.Pool.QueryRow(t.Context(), `SELECT tags FROM channels WHERE id = $1`, post).Scan(&tags))
+	require.Equal(t, []string{"Feature", "Bug"}, tags, "tags take the forum's new spelling and keep their order")
+}
+
+func TestRequireTagNeedsTags(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	base := "/api/server/channels"
+	alice.Fail(http.MethodPost, base, map[string]any{"name": "f", "type": "forum", "require_tag": true},
+		http.StatusBadRequest, "VALIDATION_FAILED")
+
+	var forum channels.Channel
+	alice.Do(http.MethodPost, base, map[string]any{"name": "f", "type": "forum"}, http.StatusCreated, &forum)
+	url := "/api/channels/" + forum.ID.String()
+	alice.Fail(http.MethodPatch, url, map[string]any{"require_tag": true}, http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Do(http.MethodPatch, url, map[string]any{"tags": []string{"Bug"}, "require_tag": true}, http.StatusOK, nil)
+	alice.Fail(http.MethodPatch, url, map[string]any{"tags": []string{}}, http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Do(http.MethodPatch, url, map[string]any{"tags": []string{}, "require_tag": false}, http.StatusOK, nil)
+}

@@ -40,10 +40,15 @@ export function NotificationListener() {
     let s = client.store.getState();
     const open = path.current.match(/^\/(?:channels|messages)\/([^/]+)/)?.[1];
     const panel = panelStore.getState().panel;
-    // A thread panel left open from another view is not on screen: it only counts under its parent channel.
+    // A thread or post panel left open from another view is not on screen: it only counts under its parent channel.
     const threadVisible = panel?.kind === "thread"
       && open === (panel.parentId ?? s.channels[panel.threadId]?.parent_channel_id);
-    const openChannelIds = [open, threadVisible && panel?.kind === "thread" ? panel.threadId : undefined].filter((x): x is string => !!x);
+    const postVisible = panel?.kind === "post" && open === panel.forumId;
+    const openChannelIds = [
+      open,
+      threadVisible && panel?.kind === "thread" ? panel.threadId : undefined,
+      postVisible && panel?.kind === "post" ? panel.postId : undefined,
+    ].filter((x): x is string => !!x);
     const ok = shouldNotify({
       message: m,
       meId: s.me?.id,

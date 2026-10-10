@@ -205,6 +205,38 @@ export class DatropeClient {
     return (await unwrap(this.api.GET("/api/channels/{id}/threads", { params: { path: { id: channelId } } }))) ?? [];
   }
 
+  /** Loads a forum's posts into the store. */
+  async loadPosts(forumId: string) {
+    const posts = await this.listThreads(forumId);
+    this.set((s) => ({ ...s, posts: { ...s.posts, [forumId]: posts } }));
+  }
+
+  /** Starts a post in a forum; the POST_UPDATE event (or this response) puts it in the store. */
+  async createPost(forumId: string, post: { title: string; content: string; tags?: string[]; attachments?: Attachment[] }): Promise<ThreadListItem> {
+    const item = await unwrap(this.api.POST("/api/channels/{id}/posts", {
+      params: { path: { id: forumId } },
+      body: {
+        title: post.title, content: post.content,
+        ...(post.tags && post.tags.length > 0 ? { tags: post.tags } : {}),
+        ...(post.attachments && post.attachments.length > 0 ? { attachment_ids: post.attachments.map((a) => a.id) } : {}),
+      },
+    }));
+    this.apply("POST_UPDATE", { channel_id: forumId, post: item });
+    return item;
+  }
+
+  async updatePost(postId: string, patch: { title?: string; tags?: string[] }): Promise<ThreadListItem> {
+    const item = await unwrap(this.api.PATCH("/api/channels/{id}/post", { params: { path: { id: postId } }, body: patch }));
+    if (item.channel.parent_channel_id) this.apply("POST_UPDATE", { channel_id: item.channel.parent_channel_id, post: item });
+    return item;
+  }
+
+  /** Deletes a post in the forum forumId (posts are usually not in channels, so the caller names the forum). */
+  async deletePost(postId: string, forumId: string) {
+    await unwrap(this.api.DELETE("/api/channels/{id}/post", { params: { path: { id: postId } } }));
+    this.apply("POST_DELETE", { channel_id: forumId, id: postId });
+  }
+
   /** Fetches one channel (e.g. a thread I have not seen yet) and stores it. */
   async getChannel(id: string): Promise<Channel> {
     const ch = await unwrap(this.api.GET("/api/channels/{id}", { params: { path: { id } } }));
@@ -369,7 +401,7 @@ export class DatropeClient {
     this.set((s) => markMentionsRead(s, r.read_states ?? []));
   }
 
-  async send(channelId: string, content: string, attachments: Attachment[] = [], replyTo?: ReplyRef) {
+  async send(channelId: string, content: string, attachments: Attachment[] = [], replyTo?: ReplyRef, title?: string) {
     const nonce = crypto.randomUUID();
     this.set((s) => addPending(s, channelId, nonce, content, attachments, replyTo));
     try {
@@ -379,6 +411,7 @@ export class DatropeClient {
           content, nonce,
           ...(attachments.length > 0 ? { attachment_ids: attachments.map((a) => a.id) } : {}),
           ...(replyTo ? { reply_to_id: replyTo.id } : {}),
+          ...(title ? { title } : {}),
         },
       }));
       // The gateway usually delivers this first; applying it twice is harmless.

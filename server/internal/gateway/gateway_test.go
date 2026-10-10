@@ -28,7 +28,7 @@ func TestReady(t *testing.T) {
 	env := apptest.New(t)
 	alice, _, c := pair(t, env)
 	general := alice.General()
-	alice.Send(general, "hello")
+	hello := alice.Send(general, "hello")
 
 	_, ready := alice.Connect()
 	require.Equal(t, alice.User.ID, ready.User.ID)
@@ -46,7 +46,7 @@ func TestReady(t *testing.T) {
 		if st.ChannelID == general {
 			found = true
 			require.NotNil(t, st.LastMessageID)
-			require.Nil(t, st.LastReadID)
+			require.Equal(t, hello.ID, *st.LastReadID, "my own message is read")
 		}
 	}
 	require.True(t, found)

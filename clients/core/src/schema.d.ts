@@ -308,6 +308,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{id}/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-post"];
+        options?: never;
+        head?: never;
+        patch: operations["update-post"];
+        trace?: never;
+    };
+    "/api/channels/{id}/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create-post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{id}/threads": {
         parameters: {
             query?: never;
@@ -1084,6 +1116,8 @@ export interface components {
         Channel: {
             /** @description Snowflake ID as a decimal string */
             category_id?: string;
+            /** @description Threads and forum posts: who started it */
+            created_by?: string;
             /** @description Snowflake ID as a decimal string */
             id: string;
             name: string;
@@ -1099,9 +1133,13 @@ export interface components {
              * @description Dense index inside the channel's group (its category, or none)
              */
             position: number;
+            /** @description Forums only: a post needs at least one tag */
+            require_tag: boolean;
+            /** @description Forums: the tags posts can carry. Forum posts: the tags on this post */
+            tags: string[] | null;
             topic: string;
             /** @enum {string} */
-            type: "text" | "voice" | "welcome" | "dm" | "thread" | "webhook";
+            type: "text" | "voice" | "welcome" | "dm" | "thread" | "webhook" | "announcement" | "forum" | "gallery";
         };
         ChannelDeleted: {
             /** @description Snowflake ID as a decimal string */
@@ -1124,8 +1162,12 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             category_id?: string;
             name: string;
+            /** @description Forums only: a post needs at least one tag */
+            require_tag?: boolean;
+            /** @description Forums only */
+            tags?: string[] | null;
             /** @enum {string} */
-            type: "text" | "voice" | "webhook";
+            type: "text" | "voice" | "webhook" | "announcement" | "forum" | "gallery";
         };
         CreateDMRequest: {
             recipient_ids: string[] | null;
@@ -1140,6 +1182,14 @@ export interface components {
             guest_ttl_seconds?: number;
             /** Format: int64 */
             max_uses?: number;
+        };
+        CreatePostRequest: {
+            /** @description Uploads to the forum (POST /api/attachments?channel_id=<forum>) */
+            attachment_ids?: string[] | null;
+            content: string;
+            /** @description From the forum tags */
+            tags?: string[] | null;
+            title: string;
         };
         CreateRoleRequest: {
             /** @enum {string} */
@@ -1162,6 +1212,8 @@ export interface components {
         };
         EditRequest: {
             content: string;
+            /** @description Announcements only; omit to keep the title */
+            title?: string;
         };
         EmbedAuthor: {
             icon_url?: string;
@@ -1352,6 +1404,8 @@ export interface components {
             reply_to?: components["schemas"]["ReplyRef"];
             /** @description The thread started from this message */
             thread?: components["schemas"]["ThreadSummary"];
+            /** @description Announcements only */
+            title?: string;
             /** @description Who a webhook message shows as; absent for people's messages */
             webhook?: components["schemas"]["WebhookAuthor"];
         };
@@ -1620,6 +1674,8 @@ export interface components {
             poll?: components["schemas"]["PollRequest"];
             /** @description Reply to this message (same channel) */
             reply_to_id?: string;
+            /** @description Announcements only */
+            title?: string;
         };
         Server: {
             banner_url?: string;
@@ -1730,7 +1786,12 @@ export interface components {
             user_id: string;
         };
         ThreadListItem: {
+            author?: components["schemas"]["PublicUser"];
             channel: components["schemas"]["Channel"];
+            /** @description Forum posts: the start of the first message */
+            excerpt?: string;
+            /** @description Snowflake ID as a decimal string */
+            first_message_id?: string;
             /** @description Snowflake ID as a decimal string */
             parent_message_id?: string;
             summary: components["schemas"]["ThreadSummary"];
@@ -1740,6 +1801,8 @@ export interface components {
             id: string;
             /** Format: date-time */
             last_message_at?: string;
+            /** @description Snowflake ID as a decimal string */
+            last_message_id?: string;
             /** Format: int64 */
             message_count: number;
             name: string;
@@ -1772,6 +1835,10 @@ export interface components {
              * @description Index inside the channel's (new) group
              */
             position?: number;
+            /** @description Forums only */
+            require_tag?: boolean;
+            /** @description Forums only; replaces the tag list and strips removed tags from existing posts */
+            tags?: string[];
             topic?: string;
         };
         UpdateMeRequest: {
@@ -1784,6 +1851,11 @@ export interface components {
             links?: string[];
             /** @description Empty clears them */
             pronouns?: string;
+        };
+        UpdatePostRequest: {
+            /** @description Replaces the tags */
+            tags?: string[];
+            title?: string;
         };
         UpdateRoleRequest: {
             /** @description Remove the role's colour (ignored when color is set) */
@@ -2842,6 +2914,105 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePostRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadListItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePostRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadListItem"];
+                };
             };
             /** @description Error */
             default: {

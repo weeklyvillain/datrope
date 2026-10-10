@@ -50,6 +50,7 @@ type Message struct {
 	ChannelID   id.ID                `json:"channel_id"`
 	Author      *auth.PublicUser     `json:"author,omitempty" doc:"Absent for webhook messages"`
 	Webhook     *WebhookAuthor       `json:"webhook,omitempty" doc:"Who a webhook message shows as; absent for people's messages"`
+	Title       string               `json:"title,omitempty" doc:"Announcements only"`
 	Content     string               `json:"content"`
 	Attachments []files.Attachment   `json:"attachments"`
 	CreatedAt   time.Time            `json:"created_at"`
@@ -109,7 +110,7 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus, c Channels, u Users, a Atta
 }
 
 const messageCols = `id, channel_id, author_id, content, edited_at, deleted, reply_to_id, mentions, embed, pinned_at,
-	webhook_id, author_name, author_avatar_sha256, embeds`
+	webhook_id, author_name, author_avatar_sha256, embeds, title`
 
 func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var m Message
@@ -119,7 +120,7 @@ func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var authorName string
 	var avatar *string
 	dest := append([]any{&m.ID, &m.ChannelID, &authorID, &m.Content, &m.EditedAt, &m.Deleted, &replyTo, &mentions, &embed, &m.PinnedAt,
-		&webhookID, &authorName, &avatar, &embeds}, extra...)
+		&webhookID, &authorName, &avatar, &embeds, &m.Title}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return nil, err
 	}
@@ -263,13 +264,24 @@ func (s *Service) get(ctx context.Context, channelID id.ID, rawMessageID string)
 }
 
 // ReadStates returns, for each channel, the user's read marker and the
-// newest live message.
+// newest live message. A forum has no messages of its own; its newest
+// message is the newest one across its posts.
 func (s *Service) ReadStates(ctx context.Context, userID id.ID, channelIDs []id.ID) ([]ReadState, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT c.id, rs.last_message_id, lm.max_id
 		FROM unnest($2::bigint[]) AS c(id)
+		LEFT JOIN channels ch ON ch.id = c.id
 		LEFT JOIN read_states rs ON rs.channel_id = c.id AND rs.user_id = $1
-		LEFT JOIN LATERAL (SELECT max(m.id) AS max_id FROM messages m WHERE m.channel_id = c.id AND NOT m.deleted) lm ON TRUE`,
+		LEFT JOIN LATERAL (
+			SELECT max(x.id) AS max_id FROM (
+				SELECT max(m.id) AS id FROM messages m
+				WHERE ch.type IS DISTINCT FROM 'forum' AND m.channel_id = c.id AND NOT m.deleted
+				UNION ALL
+				SELECT max(t.id) FROM channels p
+				CROSS JOIN LATERAL (SELECT m.id FROM messages m WHERE m.channel_id = p.id AND NOT m.deleted ORDER BY m.id DESC LIMIT 1) t
+				WHERE ch.type = 'forum' AND p.parent_channel_id = c.id AND p.type = 'thread'
+			) x
+		) lm ON TRUE`,
 		userID, id.Int64s(channelIDs))
 	if err != nil {
 		return nil, err
@@ -286,6 +298,18 @@ func (s *Service) ReadStates(ctx context.Context, userID id.ID, channelIDs []id.
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// markRead moves userID's read marker in each channel up to messageID, so a
+// message someone sends is read for them, even after they reload.
+func markRead(ctx context.Context, tx pgx.Tx, userID, messageID id.ID, channelIDs ...id.ID) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO read_states (user_id, channel_id, last_message_id)
+		SELECT $1, c, $2 FROM unnest($3::bigint[]) AS c
+		ON CONFLICT (user_id, channel_id)
+		DO UPDATE SET last_message_id = GREATEST(read_states.last_message_id, EXCLUDED.last_message_id)`,
+		userID, messageID, id.Int64s(channelIDs))
+	return err
 }
 
 func (s *Service) publish(typ string, channelID id.ID, data any) {

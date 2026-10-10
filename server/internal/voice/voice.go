@@ -225,7 +225,7 @@ func (s *Service) Join(ctx context.Context, user *auth.User, sessionID, channelI
 	if err != nil {
 		return nil, err
 	}
-	if c.Type == channels.TypeText || c.Type == channels.TypeWelcome || c.Type == channels.TypeThread || c.Type == channels.TypeWebhook {
+	if c.Type != channels.TypeVoice && c.Type != channels.TypeDM {
 		return nil, httpx.BadRequest("NOT_VOICE_CHANNEL", "this is not a voice channel")
 	}
 	if err := s.rooms.Ensure(ctx, channelID); err != nil {

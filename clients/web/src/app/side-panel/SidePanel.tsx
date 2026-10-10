@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 /** The right-hand panel next to a channel (a thread, the threads list, a voice channel's chat).
  *  Under 900 px wide it overlays the message list. */
-export function SidePanel({ title, label = title, closeLabel = `Close ${title.toLowerCase()}`, icon, subtitle, onClose, children }: {
+export function SidePanel({ title, label = title, closeLabel = `Close ${title.toLowerCase()}`, icon, subtitle, actions, onClose, children }: {
   title: string;
   /** The panel's accessible name (default: the title). */
   label?: string;
@@ -13,6 +13,8 @@ export function SidePanel({ title, label = title, closeLabel = `Close ${title.to
   /** The header icon (default: a speech bubble). */
   icon?: ReactNode;
   subtitle?: string;
+  /** Buttons in the header, before the close button. */
+  actions?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -25,6 +27,7 @@ export function SidePanel({ title, label = title, closeLabel = `Close ${title.to
           <h2 className="truncate text-[15px] font-semibold">{title}</h2>
           {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
+        {actions}
         <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label={closeLabel} title="Close" onClick={onClose}>
           <X />
         </Button>

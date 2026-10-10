@@ -1,9 +1,13 @@
 package messages_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -237,4 +241,87 @@ func TestDeletingOthersMessagesFollowsHierarchy(t *testing.T) {
 	byMember := dave.Send(ch, "from a member")
 	bob.Fail(http.MethodDelete, "/api/channels/"+ch.String()+"/messages/"+byMod.ID.String(), nil, http.StatusForbidden, "MISSING_PERMISSION")
 	bob.Do(http.MethodDelete, "/api/channels/"+ch.String()+"/messages/"+byMember.ID.String(), nil, http.StatusNoContent, nil)
+}
+
+// createChannel creates a server channel of any type and returns it.
+func createChannel(t *testing.T, c *apptest.Client, body map[string]any) channels.Channel {
+	t.Helper()
+	var ch channels.Channel
+	c.Do(http.MethodPost, "/api/server/channels", body, http.StatusCreated, &ch)
+	return ch
+}
+
+func tinyPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	for x := 0; x < 4; x++ {
+		for y := 0; y < 4; y++ {
+			img.Set(x, y, color.RGBA{uint8(x * 40), uint8(y * 40), 99, 255})
+		}
+	}
+	var b bytes.Buffer
+	require.NoError(t, png.Encode(&b, img))
+	return b.Bytes()
+}
+
+func TestAnnouncementChannel(t *testing.T) {
+	_, alice, bob, _, general := setup(t)
+	news := createChannel(t, alice, map[string]any{"name": "news", "type": "announcement"})
+	path := "/api/channels/" + news.ID.String() + "/messages"
+
+	bob.Fail(http.MethodPost, path, map[string]any{"content": "me too"}, http.StatusForbidden, "MISSING_PERMISSION")
+
+	var m messages.Message
+	alice.Do(http.MethodPost, path, map[string]any{"content": "We launched", "title": "  Launch day  "}, http.StatusCreated, &m)
+	require.Equal(t, "Launch day", m.Title)
+	var page []messages.Message
+	bob.Do(http.MethodGet, path, nil, http.StatusOK, &page)
+	require.Equal(t, "Launch day", page[0].Title)
+
+	alice.Fail(http.MethodPost, "/api/channels/"+general.String()+"/messages",
+		map[string]any{"content": "x", "title": "nope"}, http.StatusBadRequest, "NOT_ALLOWED_HERE")
+
+	// Members discuss announcements in threads.
+	var thread channels.Channel
+	bob.Do(http.MethodPost, path+"/"+m.ID.String()+"/thread", map[string]any{}, http.StatusCreated, &thread)
+	bob.Do(http.MethodPost, "/api/channels/"+thread.ID.String()+"/messages", map[string]any{"content": "congrats"}, http.StatusCreated, nil)
+
+	var edited messages.Message
+	alice.Do(http.MethodPatch, path+"/"+m.ID.String(), map[string]any{"content": "We launched!", "title": "Launch"}, http.StatusOK, &edited)
+	require.Equal(t, "Launch", edited.Title)
+	require.Equal(t, "We launched!", edited.Content)
+	alice.Do(http.MethodPatch, path+"/"+m.ID.String(), map[string]any{"content": "We launched!!"}, http.StatusOK, &edited)
+	require.Equal(t, "Launch", edited.Title, "an edit without a title keeps it")
+
+	plain := alice.Send(general, "plain")
+	alice.Fail(http.MethodPatch, "/api/channels/"+general.String()+"/messages/"+plain.ID.String(),
+		map[string]any{"content": "plain", "title": "t"}, http.StatusBadRequest, "NOT_ALLOWED_HERE")
+}
+
+func TestGalleryChannel(t *testing.T) {
+	env, alice, bob, _, general := setup(t)
+	art := createChannel(t, alice, map[string]any{"name": "art", "type": "gallery"})
+	path := "/api/channels/" + art.ID.String() + "/messages"
+
+	bob.Fail(http.MethodPost, path, map[string]any{"content": "just words"}, http.StatusBadRequest, "MEDIA_ONLY")
+
+	img := bob.Upload(art.ID, "cat.png", tinyPNG(t), http.StatusCreated)
+	var m messages.Message
+	bob.Do(http.MethodPost, path, map[string]any{"content": "my cat", "attachment_ids": []string{img.ID.String()}}, http.StatusCreated, &m)
+	require.Len(t, m.Attachments, 1)
+
+	txt := bob.Upload(art.ID, "notes.txt", []byte("not media"), http.StatusCreated)
+	bob.Fail(http.MethodPost, path, map[string]any{"content": "", "attachment_ids": []string{txt.ID.String()}}, http.StatusBadRequest, "MEDIA_ONLY")
+	var count int
+	require.NoError(t, env.Pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM attachments WHERE id = $1 AND message_id IS NULL`, txt.ID).Scan(&count))
+	require.Equal(t, 1, count, "a rejected upload stays unclaimed")
+
+	// Uploads are bound to their channel, so a text channel takes its own copy.
+	other := bob.Upload(general, "notes.txt", []byte("not media"), http.StatusCreated)
+	bob.SendWith(general, "", other.ID)
+
+	var thread channels.Channel
+	alice.Do(http.MethodPost, path+"/"+m.ID.String()+"/thread", map[string]any{}, http.StatusCreated, &thread)
+	alice.Send(thread.ID, "lovely")
 }

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — photos gallery</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/datrope/tokens.css">
+<link rel="stylesheet" href="ds/datrope/components/bundle.css">
+<script src="ds/datrope/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body { margin: 0; background: #131313; }
+a { color: var(--primary); text-decoration: none; } a:hover { text-decoration: underline; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm { width: 14px; height: 14px; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; }
+.chan:hover { background: var(--accent); color: var(--foreground); text-decoration: none; }
+.label { display: flex; align-items: center; gap: 4px; padding: 16px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; border: 0; background: transparent; color: var(--muted-foreground); }
+.iconbtn:hover { background: var(--accent); color: var(--foreground); }
+.chip { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; }
+.chip:hover { background: var(--accent); color: var(--foreground); }
+.chip-on { border-color: var(--foreground); background: var(--accent); color: var(--foreground); font-weight: 600; }
+.section { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.tile { position: relative; aspect-ratio: 1 / 1; border-radius: 6px; border: 0; padding: 0; overflow: hidden; display: grid; place-items: center; color: var(--muted-foreground); font: inherit; font-size: 12px; cursor: pointer; }
+.tile:hover { filter: brightness(1.15); }
+.badge-tl { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 4px; background: rgba(13, 13, 13, 0.85); color: var(--foreground); font-size: 11px; font-weight: 600; }
+.by { position: absolute; left: 6px; bottom: 6px; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; background: var(--sidebar); color: var(--foreground); font-size: 9px; font-weight: 600; }
+.avatar { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 12px; font-weight: 600; }
+.msg { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; padding: 6px 16px; }
+.msg p { margin: 0; }
+.who { font-weight: 600; color: var(--foreground); }
+.time { font-size: 12px; color: var(--muted-foreground); }
+</style>
+</helmet>
+
+<div style="display: flex; flex-wrap: wrap; height: 100vh; min-height: 900px; background: var(--background); color: var(--foreground); font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif; font-size: 15px; line-height: 1.45; overflow: hidden;">
+
+  <!-- ============ LEFT: channels ============ -->
+  <nav aria-label="Channels" style="flex: 1 1 260px; max-width: 280px; min-width: 240px; display: flex; flex-direction: column; background: var(--card); border-right: 1px solid var(--border); min-height: 0;">
+    <button style="display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--foreground); text-align: left; font: inherit;">
+      <span style="flex: 1; min-width: 0;">
+        <span style="display: block; font-weight: 600; font-size: 15px;">The Basement</span>
+        <span style="display: block; font-size: 12px; color: var(--muted-foreground);">5 members · 3 online</span>
+      </span>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+    <div style="flex: 1; overflow-y: auto; padding: 8px;">
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Info</span></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
+        <span style="flex: 1;">announcements</span>
+      </a>
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Hangout</span></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+        <span>general</span>
+      </a>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"></path><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"></path></svg>
+        <span>ideas</span>
+      </a>
+      <a class="chan" href="#" aria-current="page" style="background: var(--accent); color: var(--foreground);">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 22H4a2 2 0 0 1-2-2V6"></path><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"></path><circle cx="12" cy="8" r="2"></circle><rect width="16" height="16" x="6" y="2" rx="2"></rect></svg>
+        <span>photos</span>
+      </a>
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Voice</span></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path></svg>
+        <span>Lounge</span>
+      </a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--border);">
+      <span style="display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--primary); color: #131313; font-size: 12px; font-weight: 700;">FE</span>
+      <span style="flex: 1; min-width: 0;">
+        <span style="display: block; font-size: 14px; font-weight: 600;">Filip</span>
+        <span style="display: block; font-size: 12px; color: var(--muted-foreground);">Online</span>
+      </span>
+      <button class="iconbtn" aria-label="Your settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg></button>
+    </div>
+  </nav>
+
+  <!-- ============ MAIN: the grid ============ -->
+  <main aria-label="photos" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; min-height: 0;">
+    <header style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); background: var(--card);">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--muted-foreground);"><path d="M18 22H4a2 2 0 0 1-2-2V6"></path><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"></path><circle cx="12" cy="8" r="2"></circle><rect width="16" height="16" x="6" y="2" rx="2"></rect></svg>
+      <h2 style="margin: 0; font-size: 1.05rem; font-weight: 600;">photos</h2>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <p style="flex: 1; min-width: 0; margin: 0; font-size: 14px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Pictures and clips from game nights and trips</p>
+      <button class="iconbtn" aria-label="Mute channel"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg></button>
+      <x-import component-from-global-scope="Datrope.Button" size="sm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg>Upload</x-import>
+    </header>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border);">
+      <div role="group" aria-label="Show" style="display: flex; gap: 6px;">
+        <button class="chip chip-on" aria-pressed="true">All</button>
+        <button class="chip" aria-pressed="false">Photos</button>
+        <button class="chip" aria-pressed="false">Videos</button>
+      </div>
+      <span style="flex: 1;"></span>
+      <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground);">Uploaded by
+        <select style="height: 32px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); font: inherit; font-size: 13px;">
+          <option>Anyone</option>
+          <option>Alice</option>
+          <option>Bob</option>
+          <option>Carol</option>
+          <option>Dan</option>
+          <option>Filip</option>
+        </select>
+      </label>
+      <span style="font-size: 13px; color: var(--muted-foreground);">42 items</span>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; min-height: 0; padding: 16px; display: grid; gap: 24px; align-content: start;">
+      <section aria-label="This week">
+        <h3 class="section">This week</h3>
+        <div style="display: grid; grid-template-columns: repeat({{columns}}, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{recent}}" as="it" hint-placeholder-count="6">
+            <button class="tile" aria-label="{{it.aria}}" style="{{it.style}}">
+              <span style="padding: 0 12px; text-align: center;">[ {{it.label}} ]</span>
+              <span class="by" aria-hidden="true">{{it.by}}</span>
+              <sc-if value="{{it.video}}" hint-placeholder-val="{{false}}">
+                <span class="badge-tl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width: 10px; height: 10px; fill: currentColor;"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>{{it.duration}}</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+      <section aria-label="September">
+        <h3 class="section">September</h3>
+        <div style="display: grid; grid-template-columns: repeat({{columns}}, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{older}}" as="it" hint-placeholder-count="8">
+            <button class="tile" aria-label="{{it.aria}}" style="{{it.style}}">
+              <span style="padding: 0 12px; text-align: center;">[ {{it.label}} ]</span>
+              <span class="by" aria-hidden="true">{{it.by}}</span>
+              <sc-if value="{{it.video}}" hint-placeholder-val="{{false}}">
+                <span class="badge-tl"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="width: 10px; height: 10px; fill: currentColor;"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>{{it.duration}}</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ RIGHT: the selected item ============ -->
+  <sc-if value="{{showDetails}}" hint-placeholder-val="{{true}}">
+  <aside aria-label="Photo details" style="flex: 1 1 360px; max-width: 420px; min-width: 320px; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--card); min-height: 0;">
+    <header style="display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--border);">
+      <h2 style="flex: 1; margin: 0; font-size: 15px; font-weight: 600;">Cascadia final scores</h2>
+      <button class="iconbtn" aria-label="Open full size"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6"></path><path d="m21 3-7 7"></path><path d="m3 21 7-7"></path><path d="M9 21H3v-6"></path></svg></button>
+      <button class="iconbtn" aria-label="Download"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg></button>
+      <button class="iconbtn" aria-label="Close details"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+    </header>
+    <div style="flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column;">
+      <div style="margin: 16px 16px 0; aspect-ratio: 4 / 3; border-radius: 6px; background: var(--muted); display: grid; place-items: center; color: var(--muted-foreground); font-size: 13px; box-shadow: 0 0 0 2px var(--primary);">[ photo: score sheet on the table ]</div>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin: 8px 16px 0;">
+        <button class="iconbtn" aria-label="Previous item"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+        <span style="font-size: 12px; color: var(--muted-foreground);">2 of 42</span>
+        <button class="iconbtn" aria-label="Next item"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 8px 16px 12px; border-bottom: 1px solid var(--border);">
+        <span class="avatar">AL</span>
+        <div style="flex: 1; min-width: 0;">
+          <div><span class="who">Alice</span> <span class="time">Today at 22:41</span></div>
+          <p style="margin: 0; font-size: 14px;">Carol won by two points. Rematch next week.</p>
+        </div>
+      </div>
+      <dl style="margin: 0; padding: 12px 16px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; font-size: 13px; border-bottom: 1px solid var(--border);">
+        <dt style="color: var(--muted-foreground);">File</dt><dd style="margin: 0;">IMG_2041.jpg · 3.2 MB</dd>
+        <dt style="color: var(--muted-foreground);">Size</dt><dd style="margin: 0;">4032 × 3024</dd>
+      </dl>
+      <p style="margin: 12px 16px 4px; font-size: 12px; color: var(--muted-foreground);">2 comments</p>
+      <article class="msg">
+        <span class="avatar">CA</span>
+        <div style="min-width: 0;"><div style="display: flex; align-items: baseline; gap: 8px;"><span class="who">Carol</span><span class="time">22:45</span></div><p>Framing this one.</p></div>
+      </article>
+      <article class="msg">
+        <span class="avatar">BO</span>
+        <div style="min-width: 0;"><div style="display: flex; align-items: baseline; gap: 8px;"><span class="who">Bob</span><span class="time">22:50</span></div><p>I demand a recount.</p></div>
+      </article>
+    </div>
+    <div style="padding: 8px 12px 16px;">
+      <div style="display: flex; align-items: flex-end; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--background);">
+        <textarea aria-label="Comment" rows="1" placeholder="Comment" style="flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent; color: var(--foreground); font: inherit; padding: 6px 4px;"></textarea>
+        <button class="iconbtn" aria-label="Send"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"columns":{"editor":"int","min":3,"max":6,"default":4},"showDetails":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const shades = ['var(--muted)', '#242424', '#303030', '#262626', '#2d2d2d'];
+    const make = (list) => list.map((it, i) => ({
+      ...it,
+      video: !!it.duration,
+      aria: (it.duration ? 'Video: ' : 'Photo: ') + it.label + ', by ' + it.name,
+      style: 'background: ' + shades[i % shades.length] + ';' + (it.selected ? ' box-shadow: 0 0 0 2px var(--primary);' : ''),
+    }));
+    return {
+      columns: this.props.columns ?? 4,
+      showDetails: this.props.showDetails ?? true,
+      recent: make([
+        { label: 'everyone around the board', by: 'FE', name: 'Filip' },
+        { label: 'score sheet on the table', by: 'AL', name: 'Alice', selected: true },
+        { label: 'Dan on the laptop screen', by: 'BO', name: 'Bob', duration: '0:42' },
+        { label: 'pizza boxes', by: 'CA', name: 'Carol' },
+        { label: 'Wingspan bird cards', by: 'AL', name: 'Alice' },
+        { label: 'final round', by: 'DA', name: 'Dan', duration: '2:15' },
+      ]),
+      older: make([
+        { label: 'lake at sunset', by: 'CA', name: 'Carol' },
+        { label: 'the cabin', by: 'CA', name: 'Carol' },
+        { label: 'canoe tipping over', by: 'BO', name: 'Bob', duration: '0:18' },
+        { label: 'campfire', by: 'FE', name: 'Filip' },
+        { label: 'group photo on the dock', by: 'AL', name: 'Alice' },
+        { label: 'map of the trail', by: 'DA', name: 'Dan' },
+        { label: 'breakfast', by: 'FE', name: 'Filip' },
+        { label: 'drive home', by: 'DA', name: 'Dan', duration: '1:03' },
+      ]),
+    };
+  }
+}
+</script>
+</body>
+</html>

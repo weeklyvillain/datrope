@@ -24,6 +24,10 @@ const (
 	TypeDM      = "dm"
 	TypeThread  = "thread"  // started from a message; uses its parent channel's permissions
 	TypeWebhook = "webhook" // only webhooks post at its top level; its threads are ordinary
+
+	TypeAnnouncement = "announcement"
+	TypeForum        = "forum"
+	TypeGallery      = "gallery"
 )
 
 var ErrNotFound = errors.New("channel not found")
@@ -51,7 +55,7 @@ type Override struct {
 type Channel struct {
 	ID           id.ID             `json:"id"`
 	CommunityID  *id.ID            `json:"-"` // nil for DMs
-	Type         string            `json:"type" enum:"text,voice,welcome,dm,thread,webhook"`
+	Type         string            `json:"type" enum:"text,voice,welcome,dm,thread,webhook,announcement,forum,gallery"`
 	Name         string            `json:"name"`
 	Position     int               `json:"position" doc:"Dense index inside the channel's group (its category, or none)"`
 	CategoryID   *id.ID            `json:"category_id,omitempty"`
@@ -61,6 +65,10 @@ type Channel struct {
 
 	ParentChannelID *id.ID `json:"parent_channel_id,omitempty" doc:"Threads only"`
 	ParentMessageID *id.ID `json:"parent_message_id,omitempty" doc:"Threads only; the message the thread was started from"`
+
+	Tags       []string `json:"tags" doc:"Forums: the tags posts can carry. Forum posts: the tags on this post"`
+	RequireTag bool     `json:"require_tag" doc:"Forums only: a post needs at least one tag"`
+	CreatedBy  *id.ID   `json:"created_by,omitempty" doc:"Threads and forum posts: who started it"`
 }
 
 type ChannelDeleted struct {
@@ -87,18 +95,22 @@ func (s *Service) SeedCommunity(ctx context.Context, tx pgx.Tx, communityID id.I
 	return err
 }
 
-const channelCols = `id, community_id, type, name, position, category_id, topic, parent_channel_id, parent_message_id`
+const channelCols = `id, community_id, type, name, position, category_id, topic, parent_channel_id, parent_message_id, tags, require_tag, created_by`
 
 func scanChannel(row pgx.Row) (*Channel, error) {
 	var c Channel
-	var cid, catID, parentCh, parentMsg *int64
-	if err := row.Scan(&c.ID, &cid, &c.Type, &c.Name, &c.Position, &catID, &c.Topic, &parentCh, &parentMsg); err != nil {
+	var cid, catID, parentCh, parentMsg, createdBy *int64
+	if err := row.Scan(&c.ID, &cid, &c.Type, &c.Name, &c.Position, &catID, &c.Topic, &parentCh, &parentMsg, &c.Tags, &c.RequireTag, &createdBy); err != nil {
 		return nil, err
 	}
 	c.CommunityID = id.FromNullable(cid)
 	c.CategoryID = id.FromNullable(catID)
 	c.ParentChannelID = id.FromNullable(parentCh)
 	c.ParentMessageID = id.FromNullable(parentMsg)
+	c.CreatedBy = id.FromNullable(createdBy)
+	if c.Tags == nil {
+		c.Tags = []string{}
+	}
 	c.Overrides = []Override{}
 	return &c, nil
 }
@@ -364,7 +376,7 @@ func (s *Service) ListVisible(ctx context.Context, userID, communityID id.ID) ([
 
 func (s *Service) ListDMs(ctx context.Context, userID id.ID) ([]Channel, error) {
 	chs, err := s.query(ctx, `
-		SELECT c.id, c.community_id, c.type, c.name, c.position, c.category_id, c.topic, c.parent_channel_id, c.parent_message_id
+		SELECT c.id, c.community_id, c.type, c.name, c.position, c.category_id, c.topic, c.parent_channel_id, c.parent_message_id, c.tags, c.require_tag, c.created_by
 		FROM channels c JOIN dm_participants p ON p.channel_id = c.id
 		WHERE p.user_id = $1 ORDER BY c.id DESC`, userID)
 	if err != nil {

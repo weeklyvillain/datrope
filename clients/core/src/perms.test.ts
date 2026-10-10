@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_PERMS, DM_PERMS, Perm, basePerms, channelPerms, hasPerm } from "./perms";
+import { ALL_PERMS, DM_PERMS, Perm, basePerms, canPost, channelPerms, hasPerm } from "./perms";
 import type { Channel, Role } from "./types";
 
 const community = { id: "100", owner_id: "1" };
@@ -9,7 +9,7 @@ const mods: Role = { id: "200", name: "Mods", position: 1, hoist: false, permiss
 const roles = [everyone, mods];
 
 function channel(overrides: Channel["overrides"]): Channel {
-  return { id: "300", type: "text", name: "general", position: 0, topic: "", overrides };
+  return { id: "300", type: "text", name: "general", position: 0, topic: "", overrides, tags: [], require_tag: false };
 }
 
 describe("perms", () => {
@@ -58,9 +58,27 @@ describe("perms", () => {
   });
 
   it("a gated member sees only the welcome channel", () => {
-    const welcome: Channel = { id: "301", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [] };
+    const welcome: Channel = { id: "301", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [], tags: [], require_tag: false };
     expect(channelPerms(community, roles, "2", [], welcome, true)).toBe(Perm.ViewChannel);
     expect(channelPerms(community, roles, "2", [], channel([]), true)).toBe(0);
     expect(channelPerms(community, roles, "2", [], channel([]))).not.toBe(0);
+  });
+});
+
+describe("canPost", () => {
+  const of = (type: Channel["type"]): Channel => ({ ...channel([]), type });
+  const send = Perm.SendMessages;
+  const both = Perm.SendMessages | Perm.ManageMessages;
+  it("is never true for a forum", () => expect(canPost(of("forum"), ALL_PERMS)).toBe(false));
+  it("needs send and manage-messages for an announcement", () => {
+    expect(canPost(of("announcement"), send)).toBe(false);
+    expect(canPost(of("announcement"), Perm.ManageMessages)).toBe(false);
+    expect(canPost(of("announcement"), both)).toBe(true);
+  });
+  it("needs send for the other types", () => {
+    for (const t of ["text", "gallery", "dm"] as const) {
+      expect(canPost(of(t), send)).toBe(true);
+      expect(canPost(of(t), 0)).toBe(false);
+    }
   });
 });

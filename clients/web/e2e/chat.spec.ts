@@ -670,3 +670,144 @@ test("a visitor joins with a guest link and shows up as a guest", async ({ brows
   await expect(alice.getByText("hi, just visiting")).toBeVisible();
   await expect(alice.getByRole("main").getByText("Guest", { exact: true }).first()).toBeVisible();
 });
+
+async function signIn(page: Page, username: string) {
+  await page.goto("/login");
+  await page.getByLabel("Username or email", { exact: true }).fill(username);
+  await page.getByLabel("Password", { exact: true }).fill("password123");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
+}
+
+async function createChannel(page: Page, type: string, name: string) {
+  await page.getByRole("button", { name: "Datrope menu" }).click();
+  await page.getByRole("menuitem", { name: "Create channel" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create a channel" });
+  await dialog.getByRole("radio", { name: type }).click();
+  await dialog.getByLabel("Name").fill(name);
+}
+
+// Runs after the first test: alice owns the server and bob is a member who accepted the rules.
+test("announcement, forum and gallery channels", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+
+  // Announcement: alice posts a titled card; bob may not post, but replies in its thread.
+  await createChannel(alice, "Announcement", "news");
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  const aliceNews = alice.getByRole("main", { name: "# news" });
+  await expect(aliceNews).toBeVisible();
+  await aliceNews.getByLabel("Title", { exact: true }).fill("Game night");
+  await aliceNews.getByLabel("Message", { exact: true }).fill("Friday at 8, bring snacks.");
+  await aliceNews.getByRole("button", { name: "Post", exact: true }).click();
+  const card = aliceNews.getByRole("article").filter({ hasText: "Friday at 8, bring snacks." });
+  await expect(card.getByRole("heading", { name: "Game night" })).toBeVisible();
+  // alice renames the announcement.
+  await card.hover();
+  await card.getByRole("button", { name: "Edit message" }).click();
+  await card.getByLabel("Edit title").fill("Game night on Friday");
+  await card.getByLabel("Edit message").press("Enter");
+  await expect(card.getByRole("heading", { name: "Game night on Friday" })).toBeVisible();
+
+  await bob.getByRole("link", { name: "news" }).click();
+  const bobNews = bob.getByRole("main", { name: "# news" });
+  await expect(bobNews.getByRole("note")).toContainText("Only members with Manage messages can post here.");
+  await expect(bobNews.getByLabel("Message", { exact: true })).toHaveCount(0);
+  const bobCard = bobNews.getByRole("article").filter({ hasText: "Friday at 8, bring snacks." });
+  await expect(bobCard.getByRole("heading", { name: "Game night on Friday" })).toBeVisible();
+  await bobCard.hover();
+  await bobCard.getByRole("button", { name: "Create thread", exact: true }).click();
+  const bobThread = bob.getByRole("complementary", { name: "Thread" });
+  await bobThread.getByLabel("Reply in thread").fill("count me in");
+  await bobThread.getByLabel("Reply in thread").press("Enter");
+  await expect(bobThread.getByText("count me in")).toBeVisible();
+  await expect(card.getByRole("button", { name: /^1 reply/ })).toBeVisible();
+
+  // Forum: alice offers the tags Feature and Bug, requires one, and posts "Soundboard" tagged Feature.
+  await createChannel(alice, "Forum", "ideas");
+  const create = alice.getByRole("dialog", { name: "Create a channel" });
+  await create.getByRole("button", { name: "Remove Question" }).click();
+  await create.getByRole("checkbox", { name: "Require a tag on new posts" }).click();
+  await create.getByRole("button", { name: "Create", exact: true }).click();
+  const aliceIdeas = alice.getByRole("main", { name: "ideas" });
+  await expect(aliceIdeas.getByText("No posts yet. Start one with New post.")).toBeVisible();
+  await aliceIdeas.getByRole("button", { name: "New post" }).click();
+  const newPost = alice.getByRole("dialog", { name: "New post" });
+  await newPost.getByLabel("Title", { exact: true }).fill("Soundboard");
+  await newPost.getByLabel("Message", { exact: true }).fill("Let us play sounds in voice.");
+  // A tag is required: posting without one is blocked.
+  await newPost.getByRole("button", { name: "Post", exact: true }).click();
+  // The hint is always shown; the error repeats it.
+  await expect(newPost.getByText("Pick at least one tag.", { exact: true })).toHaveCount(2);
+  await expect(newPost).toBeVisible();
+  await newPost.getByRole("button", { name: "Feature", exact: true }).click();
+  await newPost.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(newPost).toHaveCount(0);
+  const alicePost = alice.getByRole("complementary", { name: "Post" });
+  await expect(alicePost.getByRole("heading", { name: "Soundboard" })).toBeVisible();
+  await expect(alicePost.getByText("Feature", { exact: true })).toBeVisible();
+  // alice leaves the forum; her own post leaves it read.
+  await alice.getByRole("link", { name: "news" }).click();
+  await expect(aliceNews).toBeVisible();
+  const ideasLink = alice.getByRole("link", { name: "ideas" });
+  await expect(ideasLink).not.toHaveClass(/font-semibold/);
+
+  // bob filters by tag, opens the post and replies.
+  await bob.getByRole("link", { name: "ideas" }).click();
+  const bobIdeas = bob.getByRole("main", { name: "ideas" });
+  const tags = bobIdeas.getByRole("group", { name: "Filter by tag" });
+  await tags.getByRole("button", { name: "Bug", exact: true }).click();
+  await expect(bobIdeas.getByText("No posts match.")).toBeVisible();
+  await tags.getByRole("button", { name: "Feature", exact: true }).click();
+  const row = bobIdeas.getByRole("list", { name: "Posts" }).getByRole("button", { name: /Soundboard/ });
+  await expect(row).toBeVisible();
+  await expect(row.getByText("Feature", { exact: true })).toBeVisible();
+  await row.click();
+  const bobPost = bob.getByRole("complementary", { name: "Post" });
+  await expect(bobPost.getByText("Let us play sounds in voice.")).toBeVisible();
+  await bobPost.getByLabel("Reply to post").fill("yes please");
+  await bobPost.getByLabel("Reply to post").press("Enter");
+  await expect(bobPost.getByText("yes please")).toBeVisible();
+  // The reply makes the forum unread for alice until she opens it.
+  await expect(ideasLink).toHaveClass(/font-semibold/);
+  await ideasLink.click();
+  await expect(ideasLink).not.toHaveClass(/font-semibold/);
+  await aliceIdeas.getByRole("list", { name: "Posts" }).getByRole("button", { name: /Soundboard/ }).click();
+  await expect(alicePost.getByText("yes please")).toBeVisible();
+
+  // Gallery: alice uploads parrot.png with a caption; bob opens the tile and comments.
+  await createChannel(alice, "Gallery", "photos");
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  const alicePhotos = alice.getByRole("main", { name: "photos" });
+  await expect(alicePhotos.getByText("No photos or videos yet.")).toBeVisible();
+  await alicePhotos.getByRole("button", { name: "Upload" }).click();
+  const upload = alice.getByRole("dialog", { name: "Upload photos and videos" });
+  const chooser = alice.waitForEvent("filechooser");
+  await upload.getByRole("button", { name: "Choose files" }).click();
+  await (await chooser).setFiles(PARROT_PNG);
+  await expect(upload.getByRole("list", { name: "Files" })).toContainText("parrot.png");
+  await upload.getByLabel("Caption").fill("Board night");
+  await upload.getByRole("button", { name: "Upload", exact: true }).click();
+  await expect(upload).toHaveCount(0);
+  await expect(alicePhotos.getByRole("button", { name: "Photo: Board night, by alice" })).toBeVisible();
+
+  await bob.getByRole("link", { name: "photos" }).click();
+  const tile = bob.getByRole("main", { name: "photos" }).getByRole("button", { name: "Photo: Board night, by alice" });
+  await expect(tile).toBeVisible();
+  await tile.click();
+  const details = bob.getByRole("complementary", { name: "Photo details" });
+  await expect(details.getByRole("img", { name: "parrot.png" })).toBeVisible();
+  const comments = details.getByRole("region", { name: "Comments" });
+  await comments.getByLabel("Comment").fill("Nice");
+  await comments.getByLabel("Comment").press("Enter");
+  await expect(comments.getByText("Nice", { exact: true })).toBeVisible();
+  await expect(comments.getByRole("heading", { name: "1 comment" })).toBeVisible();
+  // Once the thread exists, comments go through the app's composer.
+  await expect(comments.getByRole("button", { name: "Emoji" })).toBeVisible();
+  await comments.getByLabel("Comment", { exact: true }).fill("And the dice");
+  await comments.getByLabel("Comment", { exact: true }).press("Enter");
+  await expect(comments.getByText("And the dice", { exact: true })).toBeVisible();
+  await expect(comments.getByRole("heading", { name: "2 comments" })).toBeVisible();
+});

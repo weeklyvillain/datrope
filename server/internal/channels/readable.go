@@ -10,8 +10,9 @@ import (
 )
 
 // Readable returns the channels whose messages userID may read: server text,
-// voice and webhook channels where they have VIEW_CHANNEL and READ_HISTORY,
-// and their DMs. Threads are not listed: a thread is readable when its parent is.
+// voice, webhook, announcement, forum and gallery channels where they have
+// VIEW_CHANNEL and READ_HISTORY, and their DMs. Threads (and forum posts) are
+// not listed: a thread is readable when its parent is.
 func (s *Service) Readable(ctx context.Context, userID id.ID) ([]id.ID, error) {
 	out := []id.ID{}
 	sid, err := s.communities.ServerID(ctx)
@@ -25,7 +26,7 @@ func (s *Service) Readable(ctx context.Context, userID id.ID) ([]id.ID, error) {
 		case err != nil:
 			return nil, err
 		default:
-			chs, err := s.query(ctx, `SELECT `+channelCols+` FROM channels WHERE community_id = $1 AND type IN ('text', 'voice', 'webhook')`, sid)
+			chs, err := s.query(ctx, `SELECT `+channelCols+` FROM channels WHERE community_id = $1 AND type IN ('text', 'voice', 'webhook', 'announcement', 'forum', 'gallery')`, sid)
 			if err != nil {
 				return nil, err
 			}

@@ -34,13 +34,14 @@ func TestMentionsInbox(t *testing.T) {
 	secret := alice.CreateTextChannel("secret")
 	hide(secret)
 
+	// Sending marks a channel read for the sender, so bob talks before he is mentioned.
+	bob.Send(general, "talking to myself @bob")
 	inGeneral := alice.Send(general, "@bob you in?")
 	alice.Send(secret, "@bob can't see this")
 	thread := startThread(t, alice, general, alice.Send(general, "Saturday plan"))
 	inThread := carol.Send(thread.ID, "@bob vote on the start time please")
 	inDM := alice.Send(dm(t, alice, bob).ID, "are we still on for Saturday, @bob?")
 	alice.Send(dm(t, alice, carol).ID, "@bob is not here")
-	bob.Send(general, "talking to myself @bob")
 	alice.Send(general, "no mention of anyone")
 
 	get := func(query string) messages.MentionsPage {

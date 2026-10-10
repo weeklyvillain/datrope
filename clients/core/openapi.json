@@ -225,6 +225,11 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "created_by": {
+            "description": "Threads and forum posts: who started it",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
           "id": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -267,6 +272,20 @@
             "format": "int64",
             "type": "integer"
           },
+          "require_tag": {
+            "description": "Forums only: a post needs at least one tag",
+            "type": "boolean"
+          },
+          "tags": {
+            "description": "Forums: the tags posts can carry. Forum posts: the tags on this post",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "topic": {
             "type": "string"
           },
@@ -277,7 +296,10 @@
               "welcome",
               "dm",
               "thread",
-              "webhook"
+              "webhook",
+              "announcement",
+              "forum",
+              "gallery"
             ],
             "type": "string"
           }
@@ -288,7 +310,9 @@
           "name",
           "position",
           "topic",
-          "overrides"
+          "overrides",
+          "tags",
+          "require_tag"
         ],
         "type": "object"
       },
@@ -364,11 +388,29 @@
             "minLength": 1,
             "type": "string"
           },
+          "require_tag": {
+            "description": "Forums only: a post needs at least one tag",
+            "type": "boolean"
+          },
+          "tags": {
+            "description": "Forums only",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "type": {
             "enum": [
               "text",
               "voice",
-              "webhook"
+              "webhook",
+              "announcement",
+              "forum",
+              "gallery"
             ],
             "type": "string"
           }
@@ -424,6 +466,49 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "CreatePostRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_ids": {
+            "description": "Uploads to the forum (POST /api/attachments?channel_id=\u003cforum\u003e)",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "content": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "tags": {
+            "description": "From the forum tags",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ],
         "type": "object"
       },
       "CreateRoleRequest": {
@@ -508,6 +593,11 @@
         "properties": {
           "content": {
             "maxLength": 4000,
+            "type": "string"
+          },
+          "title": {
+            "description": "Announcements only; omit to keep the title",
+            "maxLength": 100,
             "type": "string"
           }
         },
@@ -1103,6 +1193,10 @@
           "thread": {
             "$ref": "#/components/schemas/ThreadSummary",
             "description": "The thread started from this message"
+          },
+          "title": {
+            "description": "Announcements only",
+            "type": "string"
           },
           "webhook": {
             "$ref": "#/components/schemas/WebhookAuthor",
@@ -2070,6 +2164,11 @@
             "description": "Reply to this message (same channel)",
             "pattern": "^[0-9]+$",
             "type": "string"
+          },
+          "title": {
+            "description": "Announcements only",
+            "maxLength": 100,
+            "type": "string"
           }
         },
         "type": "object"
@@ -2419,8 +2518,20 @@
       "ThreadListItem": {
         "additionalProperties": false,
         "properties": {
+          "author": {
+            "$ref": "#/components/schemas/PublicUser"
+          },
           "channel": {
             "$ref": "#/components/schemas/Channel"
+          },
+          "excerpt": {
+            "description": "Forum posts: the start of the first message",
+            "type": "string"
+          },
+          "first_message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
           },
           "parent_message_id": {
             "description": "Snowflake ID as a decimal string",
@@ -2447,6 +2558,11 @@
           },
           "last_message_at": {
             "format": "date-time",
+            "type": "string"
+          },
+          "last_message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
             "type": "string"
           },
           "message_count": {
@@ -2547,6 +2663,18 @@
             "minimum": 0,
             "type": "integer"
           },
+          "require_tag": {
+            "description": "Forums only",
+            "type": "boolean"
+          },
+          "tags": {
+            "description": "Forums only; replaces the tag list and strips removed tags from existing posts",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "type": "array"
+          },
           "topic": {
             "maxLength": 1024,
             "type": "string"
@@ -2583,6 +2711,25 @@
           "pronouns": {
             "description": "Empty clears them",
             "maxLength": 40,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UpdatePostRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "tags": {
+            "description": "Replaces the tags",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -4483,6 +4630,152 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/post": {
+      "delete": {
+        "operationId": "delete-post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      },
+      "patch": {
+        "operationId": "update-post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadListItem"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/posts": {
+      "post": {
+        "operationId": "create-post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadListItem"
+                }
+              }
+            },
+            "description": "Created"
           },
           "default": {
             "content": {

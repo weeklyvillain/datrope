@@ -180,7 +180,7 @@ const serverReady = (over: { rules_gate?: boolean; accepted?: boolean } = {}): R
     roles: [{ id: "1", name: "@everyone", permissions: Perm.ViewChannel, position: 0, hoist: false }],
     members: [member(over.accepted ?? true)],
     categories: [],
-    channels: [{ id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [] }],
+    channels: [{ id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [], tags: [], require_tag: false }],
   },
 });
 
@@ -201,8 +201,8 @@ function socketClient(r: Ready) {
 
 it("loads channels from the one server", async () => {
   server.use(http.get(`${BASE}/api/server/channels`, () => HttpResponse.json([
-    { id: "100", type: "welcome", name: "welcome", position: -1, overrides: [] },
-    { id: "101", type: "text", name: "general", position: 0, overrides: [] },
+    { id: "100", type: "welcome", name: "welcome", position: -1, overrides: [], tags: [], require_tag: false },
+    { id: "101", type: "text", name: "general", position: 0, overrides: [], tags: [], require_tag: false },
   ])));
   const { client } = socketClient(serverReady());
   await client.loadChannels();
@@ -213,7 +213,7 @@ it("reloads channels once for a burst of role and member events", async () => {
   let gets = 0;
   server.use(http.get(`${BASE}/api/server/channels`, () => {
     gets++;
-    return HttpResponse.json([{ id: "100", type: "welcome", name: "welcome", position: -1, overrides: [] }]);
+    return HttpResponse.json([{ id: "100", type: "welcome", name: "welcome", position: -1, overrides: [], tags: [], require_tag: false }]);
   }));
   const { client } = socketClient(serverReady());
   const role = { id: "2", name: "Mods", permissions: 0, position: 1, hoist: false };
@@ -312,7 +312,7 @@ it("moveChannel clears the category with clear_category", async () => {
   let body: unknown;
   server.use(http.patch(`${BASE}/api/channels/:id`, async ({ request }) => {
     body = await request.json();
-    return HttpResponse.json({ id: "5", type: "text", name: "x", position: 2, topic: "", overrides: [] });
+    return HttpResponse.json({ id: "5", type: "text", name: "x", position: 2, topic: "", overrides: [], tags: [], require_tag: false });
   }));
   await readyClient().moveChannel("5", { categoryId: null, position: 2 });
   expect(body).toEqual({ clear_category: true, position: 2 });
@@ -330,7 +330,7 @@ it("pins with PUT", async () => {
 
 it("createThread stores the thread channel", async () => {
   server.use(http.post(`${BASE}/api/channels/:id/messages/:mid/thread`, () =>
-    HttpResponse.json({ id: "800", type: "thread", name: "t", position: 0, topic: "", parent_channel_id: "300", parent_message_id: "77", overrides: [] }, { status: 201 })));
+    HttpResponse.json({ id: "800", type: "thread", name: "t", position: 0, topic: "", parent_channel_id: "300", parent_message_id: "77", overrides: [], tags: [], require_tag: false }, { status: 201 })));
   const client = readyClient();
   const ch = await client.createThread("300", "77", "t");
   expect(ch.id).toBe("800");
@@ -462,14 +462,14 @@ it("openDM reuses a 1:1 DM and creates one otherwise", async () => {
   const alice = { id: "1", username: "alice", display_name: "Alice", custom_status: "" };
   const client = new DatropeClient({ baseUrl: BASE, wsUrl: "ws://unused" });
   client.store.setState(applyReady(client.store.getState(), {
-    ...ready, dms: [{ id: "700", type: "dm", name: "", position: 0, topic: "", overrides: [], participants: [alice, bob] }],
+    ...ready, dms: [{ id: "700", type: "dm", name: "", position: 0, topic: "", overrides: [], tags: [], require_tag: false, participants: [alice, bob] }],
   }), true);
   expect((await client.openDM("2")).id).toBe("700"); // no request: msw fails on unhandled ones
 
   let body: unknown;
   server.use(http.post(`${BASE}/api/dms`, async ({ request }) => {
     body = await request.json();
-    return HttpResponse.json({ id: "701", type: "dm", name: "", position: 0, topic: "", overrides: [], participants: [alice, { ...bob, id: "3" }] });
+    return HttpResponse.json({ id: "701", type: "dm", name: "", position: 0, topic: "", overrides: [], tags: [], require_tag: false, participants: [alice, { ...bob, id: "3" }] });
   }));
   const ch = await client.openDM("3");
   expect(body).toEqual({ recipient_ids: ["3"] });
@@ -517,6 +517,63 @@ it("drops a window response that was overtaken by a newer one", async () => {
   gates.A();
   await a;
   expect(client.store.getState().messages["300"].items.map((m) => m.content)).toEqual(["wB"]);
+});
+
+it("createPost sends the forum post body and returns the post", async () => {
+  let seen: { id?: string; body?: unknown } = {};
+  const item = { channel: { id: "600", type: "thread", name: "Hello", position: 0, topic: "", overrides: [], tags: ["bug"], require_tag: false }, summary: { id: "600", name: "Hello", message_count: 1, participants: [] } };
+  server.use(http.post(`${BASE}/api/channels/:id/posts`, async ({ request, params }) => {
+    seen = { id: String(params.id), body: await request.json() };
+    return HttpResponse.json(item, { status: 201 });
+  }));
+  const post = await readyClient().createPost("400", { title: "Hello", content: "body", tags: ["bug"], attachments: [attachment] });
+  expect(seen).toEqual({ id: "400", body: { title: "Hello", content: "body", tags: ["bug"], attachment_ids: ["900"] } });
+  expect(post.channel.id).toBe("600");
+});
+
+it("updatePost and deletePost call the post routes", async () => {
+  const calls: string[] = [];
+  server.use(
+    http.patch(`${BASE}/api/channels/:id/post`, async ({ request }) => {
+      calls.push(`PATCH ${JSON.stringify(await request.json())}`);
+      return HttpResponse.json({ channel: { id: "600", type: "thread", name: "New", position: 0, topic: "", overrides: [], tags: [], require_tag: false }, summary: { id: "600", name: "New", message_count: 1, participants: [] } });
+    }),
+    http.delete(`${BASE}/api/channels/:id/post`, () => { calls.push("DELETE"); return new HttpResponse(null, { status: 204 }); }),
+  );
+  const client = readyClient();
+  expect((await client.updatePost("600", { title: "New" })).summary.name).toBe("New");
+  await client.deletePost("600", "400");
+  expect(calls).toEqual(['PATCH {"title":"New"}', "DELETE"]);
+});
+
+it("deletePost removes the post from its forum right away", async () => {
+  server.use(http.delete(`${BASE}/api/channels/:id/post`, () => new HttpResponse(null, { status: 204 })));
+  const client = readyClient();
+  // As after loadPosts: the post is in its forum's list but not in channels.
+  const post = { id: "600", type: "thread" as const, name: "t", position: 0, topic: "", overrides: [], tags: [], require_tag: false, parent_channel_id: "400" };
+  client.store.setState((s) => ({
+    ...s, posts: { ...s.posts, "400": [{ channel: post, summary: { id: "600", name: "t", message_count: 1, participants: [] } }] },
+  }));
+  expect(client.store.getState().channels["600"]).toBeUndefined();
+  await client.deletePost("600", "400");
+  expect(client.store.getState().posts["400"]).toEqual([]);
+});
+
+it("loadPosts fills posts for the forum and send passes a title", async () => {
+  let sent: unknown;
+  server.use(
+    http.get(`${BASE}/api/channels/:id/threads`, () => HttpResponse.json([{ channel: { id: "600", type: "thread", name: "t", position: 0, topic: "", overrides: [], tags: [], require_tag: false }, summary: { id: "600", name: "t", message_count: 1, participants: [] } }])),
+    http.post(`${BASE}/api/channels/:id/messages`, async ({ request }) => {
+      const body = (await request.json()) as { content: string; nonce: string };
+      sent = body;
+      return HttpResponse.json(message(body), { status: 201 });
+    }),
+  );
+  const client = readyClient();
+  await client.loadPosts("400");
+  expect(client.store.getState().posts["400"]).toHaveLength(1);
+  await client.send("300", "news", [], undefined, "Big news");
+  expect(sent).toMatchObject({ content: "news", title: "Big news" });
 });
 
 const poll: Poll = {

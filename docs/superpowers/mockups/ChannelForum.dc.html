@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — ideas forum</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/datrope/tokens.css">
+<link rel="stylesheet" href="ds/datrope/components/bundle.css">
+<script src="ds/datrope/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body { margin: 0; background: #131313; }
+a { color: var(--primary); text-decoration: none; } a:hover { text-decoration: underline; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm { width: 14px; height: 14px; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; }
+.chan:hover { background: var(--accent); color: var(--foreground); text-decoration: none; }
+.label { display: flex; align-items: center; gap: 4px; padding: 16px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground); }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; border: 0; background: transparent; color: var(--muted-foreground); }
+.iconbtn:hover { background: var(--accent); color: var(--foreground); }
+.chip { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; }
+.chip:hover { background: var(--accent); color: var(--foreground); }
+.chip-on { border-color: var(--foreground); background: var(--accent); color: var(--foreground); font-weight: 600; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 72px 64px 96px; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--foreground); }
+.row:hover { background: #171717; text-decoration: none; }
+.title { font-weight: 600; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 13px; color: var(--muted-foreground); }
+.excerpt { display: block; margin-top: 2px; font-size: 14px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 9px; font-weight: 600; box-shadow: 0 0 0 2px var(--background); }
+.mini + .mini { margin-left: -6px; }
+.num { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 14px; color: var(--muted-foreground); }
+.when { text-align: right; font-size: 13px; color: var(--muted-foreground); }
+.avatar { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 12px; font-weight: 600; }
+.msg { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; padding: 6px 16px; }
+.msg p { margin: 0; }
+.who { font-weight: 600; color: var(--foreground); }
+.time { font-size: 12px; color: var(--muted-foreground); }
+</style>
+</helmet>
+
+<div style="display: flex; flex-wrap: wrap; height: 100vh; min-height: 900px; background: var(--background); color: var(--foreground); font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif; font-size: 15px; line-height: 1.45; overflow: hidden;">
+
+  <!-- ============ LEFT: channels ============ -->
+  <nav aria-label="Channels" style="flex: 1 1 260px; max-width: 280px; min-width: 240px; display: flex; flex-direction: column; background: var(--card); border-right: 1px solid var(--border); min-height: 0;">
+    <button style="display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--foreground); text-align: left; font: inherit;">
+      <span style="flex: 1; min-width: 0;">
+        <span style="display: block; font-weight: 600; font-size: 15px;">The Basement</span>
+        <span style="display: block; font-size: 12px; color: var(--muted-foreground);">5 members · 3 online</span>
+      </span>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+    <div style="flex: 1; overflow-y: auto; padding: 8px;">
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Info</span></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
+        <span style="flex: 1;">announcements</span>
+      </a>
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Hangout</span></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg>
+        <span>general</span>
+      </a>
+      <a class="chan" href="#" aria-current="page" style="background: var(--accent); color: var(--foreground);">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"></path><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"></path></svg>
+        <span>ideas</span>
+      </a>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 22H4a2 2 0 0 1-2-2V6"></path><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"></path><circle cx="12" cy="8" r="2"></circle><rect width="16" height="16" x="6" y="2" rx="2"></rect></svg>
+        <span>photos</span>
+      </a>
+      <div class="label"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg><span style="flex: 1;">Voice</span></div>
+      <a class="chan" href="#">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path></svg>
+        <span>Lounge</span>
+      </a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--border);">
+      <span style="display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--primary); color: #131313; font-size: 12px; font-weight: 700;">FE</span>
+      <span style="flex: 1; min-width: 0;">
+        <span style="display: block; font-size: 14px; font-weight: 600;">Filip</span>
+        <span style="display: block; font-size: 12px; color: var(--muted-foreground);">Online</span>
+      </span>
+      <button class="iconbtn" aria-label="Your settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg></button>
+    </div>
+  </nav>
+
+  <!-- ============ MAIN: the post list ============ -->
+  <main aria-label="ideas" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; min-height: 0;">
+    <header style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); background: var(--card);">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--muted-foreground);"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"></path><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"></path></svg>
+      <h2 style="margin: 0; font-size: 1.05rem; font-weight: 600;">ideas</h2>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <p style="flex: 1; min-width: 0; margin: 0; font-size: 14px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Feature ideas, bugs and questions about the server</p>
+      <button class="iconbtn" aria-label="Mute channel"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg></button>
+      <x-import component-from-global-scope="Datrope.Button" size="sm"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>New post</x-import>
+    </header>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border);">
+      <label style="display: flex; align-items: center; gap: 6px; flex: 1 1 220px; max-width: 320px; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--muted-foreground); font-size: 14px;">
+        <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input aria-label="Search posts" placeholder="Search posts" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--foreground); font: inherit;">
+      </label>
+      <div role="group" aria-label="Filter by tag" style="display: flex; flex-wrap: wrap; gap: 6px;">
+        <button class="chip chip-on" aria-pressed="true">All</button>
+        <button class="chip" aria-pressed="false">Feature</button>
+        <button class="chip" aria-pressed="false">Bug</button>
+        <button class="chip" aria-pressed="false">Question</button>
+        <button class="chip" aria-pressed="false">Done</button>
+      </div>
+      <span style="flex: 1;"></span>
+      <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground);">Sort
+        <select style="height: 32px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); font: inherit; font-size: 13px;">
+          <option>Latest activity</option>
+          <option>Newest</option>
+          <option>Most replies</option>
+        </select>
+      </label>
+    </div>
+
+    <div role="list" aria-label="Posts" style="flex: 1; overflow-y: auto; min-height: 0;">
+      <div class="row" style="padding-top: 8px; padding-bottom: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-foreground);" aria-hidden="true">
+        <span>5 posts</span><span style="text-align: right;">People</span><span style="text-align: right;">Replies</span><span style="text-align: right;">Activity</span>
+      </div>
+
+      <a class="row" role="listitem" href="#" aria-current="true" style="background: var(--accent);">
+        <span style="min-width: 0;">
+          <span class="title">Soundboard for voice</span>
+          <span class="excerpt">Short clips anyone in voice can play: airhorn, sad trombone, the bruh sound…</span>
+          <span class="meta"><x-import component-from-global-scope="Datrope.Badge" variant="outline">Feature</x-import>by Dan</span>
+        </span>
+        <span style="text-align: right;"><span class="mini" style="box-shadow: 0 0 0 2px var(--accent);">DA</span><span class="mini" style="box-shadow: 0 0 0 2px var(--accent);">BO</span><span class="mini" style="background: var(--primary); color: #131313; box-shadow: 0 0 0 2px var(--accent);">FE</span></span>
+        <span class="num"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>12</span>
+        <span class="when">10 min ago</span>
+      </a>
+
+      <a class="row" role="listitem" href="#">
+        <span style="min-width: 0;">
+          <span class="title">Screen share is black on Linux</span>
+          <span style="display: inline-block; width: 8px; height: 8px; margin-left: 6px; border-radius: 999px; background: var(--foreground); vertical-align: 2px;" aria-label="New replies"></span>
+          <span class="excerpt">Sharing a window on Wayland shows a black frame for everyone else. Whole screen works.</span>
+          <span class="meta"><x-import component-from-global-scope="Datrope.Badge" variant="outline">Bug</x-import>by Bob</span>
+        </span>
+        <span style="text-align: right;"><span class="mini">BO</span><span class="mini">DA</span></span>
+        <span class="num"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>7</span>
+        <span class="when">1 h ago</span>
+      </a>
+
+      <a class="row" role="listitem" href="#">
+        <span style="min-width: 0;">
+          <span class="title" style="color: var(--muted-foreground);">Remember collapsed categories</span>
+          <span class="excerpt">The sidebar forgets which categories I closed every time I reload.</span>
+          <span class="meta"><x-import component-from-global-scope="Datrope.Badge" variant="outline">Feature</x-import><x-import component-from-global-scope="Datrope.Badge">Done</x-import>by Carol</span>
+        </span>
+        <span style="text-align: right;"><span class="mini">CA</span><span class="mini" style="background: var(--primary); color: #131313;">FE</span></span>
+        <span class="num"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>4</span>
+        <span class="when">Yesterday</span>
+      </a>
+
+      <a class="row" role="listitem" href="#">
+        <span style="min-width: 0;">
+          <span class="title">How do I get the desktop app on macOS?</span>
+          <span class="excerpt">The download page only lists Windows and Linux builds.</span>
+          <span class="meta"><x-import component-from-global-scope="Datrope.Badge" variant="outline">Question</x-import><span style="display: inline-flex; align-items: center; gap: 4px; color: var(--online);"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Answered</span>· by Alice</span>
+        </span>
+        <span style="text-align: right;"><span class="mini">AL</span><span class="mini">DA</span></span>
+        <span class="num"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>3</span>
+        <span class="when">Monday</span>
+      </a>
+
+      <a class="row" role="listitem" href="#">
+        <span style="min-width: 0;">
+          <span class="title">Shared calendar for game nights</span>
+          <span class="excerpt">A place to see who is free which weekend, so we stop planning in #general.</span>
+          <span class="meta"><x-import component-from-global-scope="Datrope.Badge" variant="outline">Feature</x-import>by Alice</span>
+        </span>
+        <span style="text-align: right;"><span class="mini">AL</span></span>
+        <span class="num" style="font-size: 13px;">No replies</span>
+        <span class="when">Sep 28</span>
+      </a>
+    </div>
+  </main>
+
+  <!-- ============ RIGHT: the open post ============ -->
+  <sc-if value="{{showPost}}" hint-placeholder-val="{{true}}">
+  <aside aria-label="Post: Soundboard for voice" style="flex: 1 1 360px; max-width: 420px; min-width: 320px; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--card); min-height: 0;">
+    <header style="display: grid; gap: 6px; padding: 12px 8px 12px 16px; border-bottom: 1px solid var(--border);">
+      <div style="display: flex; align-items: flex-start; gap: 4px;">
+        <h2 style="flex: 1; margin: 4px 0 0; font-size: 1.05rem; font-weight: 600;">Soundboard for voice</h2>
+        <button class="iconbtn" aria-label="Follow post" aria-pressed="true" style="color: var(--foreground);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg></button>
+        <button class="iconbtn" aria-label="Close post"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted-foreground);">
+        <x-import component-from-global-scope="Datrope.Badge" variant="outline">Feature</x-import>
+        <span>in ideas · 12 replies</span>
+      </div>
+    </header>
+    <div style="flex: 1; overflow-y: auto; min-height: 0; padding: 12px 0; display: flex; flex-direction: column; gap: 4px;">
+      <article class="msg" style="padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+        <span class="avatar">DA</span>
+        <div style="min-width: 0; display: grid; gap: 6px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;"><span class="who">Dan</span><span class="time">Today at 09:12</span></div>
+          <p>Short clips anyone in voice can play: airhorn, sad trombone, the bruh sound. Uploads limited to 5 seconds so nobody plays a whole song.</p>
+          <div style="display: flex; gap: 6px;">
+            <button class="chip" aria-label="Thumbs up, 4 people including you" aria-pressed="true" style="border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--foreground);">👍 4</button>
+          </div>
+        </div>
+      </article>
+      <article class="msg">
+        <span class="avatar">BO</span>
+        <div style="min-width: 0;"><div style="display: flex; align-items: baseline; gap: 8px;"><span class="who">Bob</span><span class="time">09:20</span></div><p>Can admins remove clips? Someone will upload something cursed.</p></div>
+      </article>
+      <article class="msg">
+        <span class="avatar" style="background: var(--primary); color: #131313; font-weight: 700;">FE</span>
+        <div style="min-width: 0;"><div style="display: flex; align-items: baseline; gap: 8px;"><span class="who">Filip</span><span class="time">09:31</span></div><p>Yes, there'll be a "Manage soundboard" permission. Mockup is in the design folder.</p></div>
+      </article>
+      <article class="msg">
+        <span class="avatar">DA</span>
+        <div style="min-width: 0;"><div style="display: flex; align-items: baseline; gap: 8px;"><span class="who">Dan</span><span class="time">09:58</span></div><p>Perfect. Volume per clip would be nice too.</p></div>
+      </article>
+    </div>
+    <div style="padding: 0 12px 16px;">
+      <div style="display: flex; align-items: flex-end; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--background);">
+        <textarea aria-label="Reply to post" rows="1" placeholder="Reply to post" style="flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent; color: var(--foreground); font: inherit; padding: 6px 4px;"></textarea>
+        <button class="iconbtn" aria-label="Send"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"></path><path d="m21.854 2.147-10.94 10.939"></path></svg></button>
+      </div>
+    </div>
+  </aside>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showPost":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { showPost: this.props.showPost ?? true };
+  }
+}
+</script>
+</body>
+</html>

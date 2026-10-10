@@ -36,6 +36,13 @@ const OVERRIDABLE = ALL_PERMS & ~Perm.Admin;
 
 export const hasPerm = (p: number, q: number) => (p & q) === q;
 
+/** Whether the composer may post straight into the channel. Forums take posts, not messages; announcements need MANAGE_MESSAGES. */
+export function canPost(ch: Channel, perms: number): boolean {
+  if (ch.type === "forum") return false;
+  if (ch.type === "announcement") return hasPerm(perms, Perm.SendMessages) && hasPerm(perms, Perm.ManageMessages);
+  return hasPerm(perms, Perm.SendMessages);
+}
+
 interface ServerRef {
   id: string;
   owner_id: string;

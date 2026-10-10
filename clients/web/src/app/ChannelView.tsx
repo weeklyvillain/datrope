@@ -1,5 +1,5 @@
-import { Perm, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { MessageSquare, Phone } from "lucide-react";
+import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
+import { Lock, Megaphone, MessageSquare, Phone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
@@ -23,8 +23,9 @@ import { ThreadsList } from "./side-panel/ThreadsList";
 import { TopBar } from "./TopBar";
 import { VoiceStage } from "./voice/VoiceStage";
 
-/** A text channel or DM. `members` shows the member list beside it (hidden while a side panel is open). */
-export function ChannelView({ channelId, members = false }: { channelId: string; members?: boolean }) {
+/** A text channel or DM. `members` shows the member list beside it (hidden while a side panel is open).
+ *  `kind="announcement"` shows posts as titled cards, with a composer only for those who may post. */
+export function ChannelView({ channelId, members = false, kind = "chat" }: { channelId: string; members?: boolean; kind?: "chat" | "announcement" }) {
   const ch = useApp((s) => s.channels[channelId]);
   const me = useApp((s) => s.me);
   const perms = usePerms(channelId);
@@ -39,16 +40,16 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
   // A reply and the side panel belong to their channel.
   useEffect(() => {
     setReplyTo(null);
-    // A thread or the threads list belongs to its channel; a profile (and search) stays open.
+    // A thread, a forum post, a gallery item or the threads list belongs to its channel; a profile (and search) stays open.
     // A thread opened from a search result is opened along with its parent channel, so it stays.
     const p = panelStore.getState().panel;
-    if (p?.kind === "threads" || (p?.kind === "thread" && p.parentId !== channelId)) closePanel();
+    if (p?.kind === "threads" || p?.kind === "post" || p?.kind === "media" || (p?.kind === "thread" && p.parentId !== channelId)) closePanel();
   }, [channelId]);
 
   if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
   const title = ch.type === "dm" ? dmName(ch, me?.id) : `# ${ch.name}`;
-  // Threads live in text and webhook channels only (never in DMs, threads or voice side chats).
-  const threads = ch.type === "text" || ch.type === "webhook";
+  // Threads live in text, webhook, announcement and gallery channels (never in DMs, threads or voice side chats).
+  const threads = ch.type === "text" || ch.type === "webhook" || ch.type === "announcement" || ch.type === "gallery";
   // Starting one needs SEND_MESSAGES in the thread, which a webhook channel's mask does not take away.
   const canCreateThread = threads && hasPerm(perms, Perm.CreateThreads) && hasPerm(threadPerms, Perm.SendMessages);
   const openThread = (threadId: string) => openPanel({ kind: "thread", threadId });
@@ -77,6 +78,7 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
             )}
           </>
         )}>
+          {kind === "announcement" && <Megaphone className="size-5 flex-none text-muted-foreground" aria-hidden />}
           <h2 className="flex-none">{title}</h2>
           {ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
@@ -85,11 +87,22 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
         )}
         {loadError ? <ErrorText error={loadError} /> : <MessageList channelId={channelId} canManage={hasPerm(perms, Perm.ManageMessages)}
           canReply={hasPerm(perms, Perm.SendMessages)} canReact={hasPerm(perms, Perm.AddReactions)} reply={reply}
-          canCreateThread={canCreateThread} onOpenThread={threads ? openThread : undefined} />}
+          canCreateThread={canCreateThread} onOpenThread={threads ? openThread : undefined}
+          variant={kind === "announcement" ? "cards" : "chat"} />}
         <TypingLine channelId={channelId} />
-        <Composer channelId={channelId} canSend={hasPerm(perms, Perm.SendMessages)} canAttach={hasPerm(perms, Perm.AttachFiles)}
-          placeholder={ch.type === "dm" ? `Message ${dmName(ch, me?.id)}` : `Message #${ch.name}`} reply={reply}
-          readOnlyText={ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
+        {kind === "announcement" && !canPost(ch, perms) ? (
+          <p role="note" className="mx-auto mb-4 flex w-[calc(100%-2rem)] max-w-3xl items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground">
+            <Lock className="size-4 flex-none" aria-hidden />
+            Only members with Manage messages can post here. React to a post or reply in its thread.
+          </p>
+        ) : (
+          <div className={kind === "announcement" ? "mx-auto w-full max-w-3xl" : undefined}>
+            <Composer channelId={channelId} canSend={canPost(ch, perms)} canAttach={hasPerm(perms, Perm.AttachFiles)}
+              placeholder={kind === "announcement" ? "Write an announcement" : ch.type === "dm" ? `Message ${dmName(ch, me?.id)}` : `Message #${ch.name}`}
+              reply={reply} withTitle={kind === "announcement"}
+              readOnlyText={ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
+          </div>
+        )}
       </main>
       {panel?.kind === "threads" ? (
         <SidePanel title="Threads" subtitle={`in #${ch.name}`} onClose={closePanel}>

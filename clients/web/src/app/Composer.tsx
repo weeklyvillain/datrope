@@ -1,11 +1,13 @@
 import type { Attachment } from "@datrope/core";
 import { CirclePlus, Reply, Smile, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { client, displayName, errorText, formatBytes, instanceInfo, useInstanceInfo } from "../session";
+import { client, displayName, errorText, formatBytes, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useUploads } from "@/hooks/use-uploads";
 import { cn } from "@/lib/utils";
 import { Autocomplete, useSuggestions, type Suggestion } from "@/chat/AutocompleteList";
 import { findTrigger } from "@/chat/autocomplete";
@@ -15,22 +17,15 @@ import type { ReplyState } from "./MessageList";
 import { PollDialog } from "@/chat/PollDialog";
 import { GifDialog } from "./GifDialog";
 
-const MAX_FILES = 10; // the server's limit per message
 const MAX_LENGTH = 4000;
 
-interface PendingFile {
-  key: string;
-  name: string;
-  size: number;
-  attachment?: Attachment; // set once uploaded
-  error?: string;
-}
-
-export function Composer({ channelId, canSend, canAttach, placeholder, reply, label = "Message", readOnlyText = "You can't send messages here." }:
-  { channelId: string; canSend: boolean; canAttach: boolean; placeholder: string; reply: ReplyState; label?: string; readOnlyText?: string }) {
+export function Composer({ channelId, canSend, canAttach, placeholder, reply, label = "Message", withTitle = false, readOnlyText = "You can't send messages here." }:
+  { channelId: string; canSend: boolean; canAttach: boolean; placeholder: string; reply: ReplyState; label?: string; withTitle?: boolean; readOnlyText?: string }) {
   const [text, setText] = useState("");
-  const [files, setFiles] = useState<PendingFile[]>([]);
+  const [title, setTitle] = useState("");
   const [error, setError] = useState<string>();
+  const uploads = useUploads(channelId, { onError: setError });
+  const { files, uploading, ready } = uploads;
   const picker = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const running = useRef(false); // a command (/status) is in flight
@@ -75,31 +70,8 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
 
   if (!canSend) return <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-muted-foreground">{readOnlyText}</div>;
 
-  const uploading = files.some((f) => !f.attachment && !f.error);
-  const ready = files.flatMap((f) => (f.attachment ? [f.attachment] : []));
-  const update = (key: string, patch: Partial<PendingFile>) =>
-    setFiles((fs) => fs.map((f) => (f.key === key ? { ...f, ...patch } : f)));
-
   const add = (list: File[]) => {
-    if (!canAttach) return;
-    const room = MAX_FILES - files.length;
-    if (list.length > room) setError(`You can attach up to ${MAX_FILES} files`);
-    for (const file of list.slice(0, Math.max(0, room))) {
-      const key = crypto.randomUUID();
-      setFiles((fs) => [...fs, { key, name: file.name, size: file.size }]);
-      void (async () => {
-        try {
-          const { max_upload_bytes: max } = await instanceInfo();
-          if (file.size > max) {
-            update(key, { error: `Over the ${formatBytes(max)} limit` });
-            return;
-          }
-          update(key, { attachment: await client.upload(channelId, file, file.name) });
-        } catch (e) {
-          update(key, { error: errorText(e) });
-        }
-      })();
-    }
+    if (canAttach) uploads.add(list);
   };
 
   const insert = (from: number, to: number, value: string) => {
@@ -114,22 +86,24 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   };
 
   // Sends in the background, as a reply if one is pending; a failure shows under the box.
-  const deliver = (content: string, attachments: Attachment[]) => {
+  const deliver = (content: string, attachments: Attachment[], heading?: string) => {
     const reply = replyTo ?? undefined;
     setReplyTo(null);
     void (async () => {
       // From a detached window (an old message jumped to), go back to the present first.
       // If that fails, the message is sent anyway (the store still shows my own message).
       if (client.store.getState().messages[channelId]?.hasNewer) await client.loadLatest(channelId).catch(() => undefined);
-      await client.send(channelId, content, attachments, reply);
+      await client.send(channelId, content, attachments, reply, heading || undefined);
     })().catch((e) => setError(errorText(e)));
   };
 
   const post = (content: string) => {
+    const heading = withTitle ? title.trim() : "";
     setText("");
-    setFiles([]);
+    setTitle("");
+    uploads.clear();
     setError(undefined);
-    deliver(content, ready);
+    deliver(content, ready, heading);
   };
 
   const submit = () => {
@@ -180,10 +154,14 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
                 <span>{f.name}</span>
                 <span className="text-muted-foreground">{f.error ?? (f.attachment ? formatBytes(f.size) : "Uploading…")}</span>
                 <Button variant="ghost" size="icon-xs" aria-label={`Remove ${f.name}`}
-                  onClick={() => setFiles((fs) => fs.filter((x) => x.key !== f.key))}>×</Button>
+                  onClick={() => uploads.remove(f.key)}>×</Button>
               </li>
             ))}
           </ul>
+        )}
+        {withTitle && (
+          <Input className="rounded-none border-0 border-b bg-transparent px-3 font-semibold shadow-none focus-visible:ring-0"
+            value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Title" maxLength={100} />
         )}
         <div className="flex items-end gap-1.5 p-2">
           {canAttach && (
@@ -255,7 +233,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
             trigger={
               <RefButton variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Emoji" title="Emoji"><Smile /></RefButton>
             } />
-          <Button type="submit" size="sm" disabled={uploading || (!text.trim() && ready.length === 0)}>Send</Button>
+          <Button type="submit" size="sm" disabled={uploading || (!text.trim() && ready.length === 0)}>{withTitle ? "Post" : "Send"}</Button>
         </div>
       </div>
       </div>

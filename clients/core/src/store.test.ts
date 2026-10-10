@@ -21,8 +21,8 @@ const ready = (over: Partial<Ready> = {}): Ready => ({
     members: [{ user: { id: "20", username: "bob", display_name: "Bob", custom_status: "" }, role_ids: [], joined_at: "", accepted_rules_at: "x" }],
     categories: [],
     channels: [
-      { id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [] },
-      { id: "101", type: "text", name: "general", position: 0, topic: "", overrides: [] },
+      { id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [], tags: [], require_tag: false },
+      { id: "101", type: "text", name: "general", position: 0, topic: "", overrides: [], tags: [], require_tag: false },
     ],
   },
   ...over,
@@ -80,7 +80,7 @@ describe("store", () => {
 
   it("adds a created channel to the server", () => {
     let s = applyReady(initialState, ready());
-    s = applyEvent(s, "CHANNEL_CREATE", { id: "102", type: "voice", name: "Lounge", position: 1, overrides: [] });
+    s = applyEvent(s, "CHANNEL_CREATE", { id: "102", type: "voice", name: "Lounge", position: 1, overrides: [], tags: [], require_tag: false });
     expect(s.server?.channelIds).toEqual(["100", "101", "102"]);
     expect(s.dmIds).toEqual([]);
   });
@@ -146,9 +146,9 @@ describe("store", () => {
   });
 
   it("adds, updates, and deletes channels", () => {
-    let s = applyEvent(loaded(), "CHANNEL_CREATE", { id: "301", type: "text", name: "random", position: 1, overrides: [] });
+    let s = applyEvent(loaded(), "CHANNEL_CREATE", { id: "301", type: "text", name: "random", position: 1, overrides: [], tags: [], require_tag: false });
     expect(s.server?.channelIds).toEqual(["100", "101", "301"]);
-    s = applyEvent(s, "CHANNEL_UPDATE", { id: "301", type: "text", name: "memes", position: 1, overrides: [] });
+    s = applyEvent(s, "CHANNEL_UPDATE", { id: "301", type: "text", name: "memes", position: 1, overrides: [], tags: [], require_tag: false });
     expect(s.channels["301"].name).toBe("memes");
     s = applyEvent(s, "CHANNEL_DELETE", { id: "301" });
     expect(s.server?.channelIds).toEqual(["100", "101"]);
@@ -309,11 +309,11 @@ describe("organisation", () => {
     const r = ready();
     r.server!.categories = [{ id: "902", name: "Voice", position: 1 }, { id: "901", name: "Text", position: 0 }, { id: "903", name: "Empty", position: 2 }];
     r.server!.channels = [
-      { id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [] },
-      { id: "101", type: "text", name: "general", position: 0, topic: "", overrides: [] },
-      { id: "102", type: "text", name: "b", position: 1, topic: "", category_id: "901", overrides: [] },
-      { id: "103", type: "text", name: "a", position: 0, topic: "", category_id: "901", overrides: [] },
-      { id: "104", type: "voice", name: "lounge", position: 0, topic: "", category_id: "902", overrides: [] },
+      { id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [], tags: [], require_tag: false },
+      { id: "101", type: "text", name: "general", position: 0, topic: "", overrides: [], tags: [], require_tag: false },
+      { id: "102", type: "text", name: "b", position: 1, topic: "", category_id: "901", overrides: [], tags: [], require_tag: false },
+      { id: "103", type: "text", name: "a", position: 0, topic: "", category_id: "901", overrides: [], tags: [], require_tag: false },
+      { id: "104", type: "voice", name: "lounge", position: 0, topic: "", category_id: "902", overrides: [], tags: [], require_tag: false },
     ];
     return applyReady(initialState, r);
   };
@@ -343,7 +343,7 @@ describe("organisation", () => {
 
   it("keeps thread channels out of channelIds", () => {
     const s0 = applyReady(initialState, ready());
-    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "20", overrides: [] };
+    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "20", overrides: [], tags: [], require_tag: false };
     const s = applyEvent(s0, "CHANNEL_CREATE", t);
     expect(s.channels["300"]).toBeDefined();
     expect(s.server!.channelIds).toEqual(s0.server!.channelIds);
@@ -359,7 +359,7 @@ describe("organisation", () => {
 
   it("deleting a channel removes its threads", () => {
     let s = loaded();
-    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "10", overrides: [] };
+    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "10", overrides: [], tags: [], require_tag: false };
     s = applyEvent(s, "CHANNEL_CREATE", t);
     s = prependHistory(s, "300", [msg("31", { channel_id: "300" })], 50);
     s = applyEvent(s, "CHANNEL_DELETE", { id: "101" });
@@ -371,7 +371,7 @@ describe("organisation", () => {
     let s = loaded();
     const thread = { id: "300", name: "t", message_count: 1, participants: [] };
     s = applyEvent(s, "THREAD_UPDATE", { channel_id: "101", message_id: "10", thread });
-    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "10", overrides: [] };
+    const t = { id: "300", type: "thread" as const, name: "t", position: 0, topic: "", parent_channel_id: "101", parent_message_id: "10", overrides: [], tags: [], require_tag: false };
     s = applyEvent(s, "CHANNEL_CREATE", t);
     s = applyEvent(s, "CHANNEL_UPDATE", { ...t, name: "renamed" });
     expect(s.messages["101"].items.find((m) => m.id === "10")?.thread?.name).toBe("renamed");
@@ -430,8 +430,8 @@ describe("sounds", () => {
     const carol = { id: "30", username: "carol", display_name: "Carol", custom_status: "" };
     const s = applyReady(initialState, ready({
       dms: [
-        { id: "500", type: "dm", name: "", position: 0, topic: "", overrides: [], participants: [meUser, carol, bob] },
-        { id: "501", type: "dm", name: "", position: 0, topic: "", overrides: [], participants: [meUser, carol] },
+        { id: "500", type: "dm", name: "", position: 0, topic: "", overrides: [], tags: [], require_tag: false, participants: [meUser, carol, bob] },
+        { id: "501", type: "dm", name: "", position: 0, topic: "", overrides: [], tags: [], require_tag: false, participants: [meUser, carol] },
       ],
     }));
     expect(findUser(s, "30")?.display_name).toBe("Carol");
@@ -497,5 +497,87 @@ describe("sounds", () => {
     expect(s.messages["101"].items.some((m) => m.pending)).toBe(false);
     s = applyEvent(s, "MESSAGE_CREATE", msg("32"));
     expect(s.messages["101"].items.map((m) => m.id)).not.toContain("32");
+  });
+});
+
+describe("forum posts", () => {
+  const forum = { id: "400", type: "forum" as const, name: "ideas", position: 2, topic: "", overrides: [], tags: ["bug"], require_tag: false };
+  const post = (id: string, title: string) => ({
+    channel: { id, type: "thread" as const, name: title, position: 0, topic: "", parent_channel_id: "400", overrides: [], tags: [], require_tag: false },
+    summary: { id, name: title, message_count: 1, participants: [] },
+  });
+  // A forum whose post list has been loaded (empty).
+  const withForum = (): State => {
+    const s = applyEvent(loaded(), "CHANNEL_CREATE", forum);
+    return { ...s, posts: { ...s.posts, "400": [] } };
+  };
+
+  it("POST_UPDATE adds a post, then replaces it in place", () => {
+    let s = withForum();
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: post("500", "one") });
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: post("501", "two") });
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: post("500", "one!") });
+    expect(s.posts["400"]?.map((p) => p.channel.name)).toEqual(["one!", "two"]);
+  });
+
+  it("POST_DELETE removes the post and its channel and messages", () => {
+    let s = applyEvent(withForum(), "POST_UPDATE", { channel_id: "400", post: post("500", "one") });
+    s = applyEvent(s, "CHANNEL_CREATE", post("500", "one").channel);
+    s = prependHistory(s, "500", [msg("31", { channel_id: "500" })], 50);
+    s = applyEvent(s, "POST_DELETE", { channel_id: "400", id: "500" });
+    expect(s.posts["400"]).toEqual([]);
+    expect(s.channels["500"]).toBeUndefined();
+    expect(s.messages["500"]).toBeUndefined();
+  });
+
+  it("POST_UPDATE and POST_DELETE leave a forum whose posts are not loaded alone", () => {
+    let s = applyEvent(loaded(), "CHANNEL_CREATE", forum);
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: post("500", "one") });
+    expect(s.posts["400"]).toBeUndefined();
+    s = applyEvent(s, "CHANNEL_CREATE", post("500", "one").channel);
+    s = applyEvent(s, "POST_DELETE", { channel_id: "400", id: "500" });
+    expect(s.posts["400"]).toBeUndefined();
+    expect(s.channels["500"]).toBeUndefined();
+  });
+
+  it("CHANNEL_UPDATE of a forum drops tags it no longer offers from its posts and respells the rest", () => {
+    const tagged = (id: string, tags: string[]) => ({ ...post(id, id), channel: { ...post(id, id).channel, tags } });
+    let s = applyEvent(withForum(), "POST_UPDATE", { channel_id: "400", post: tagged("500", ["bug", "idea"]) });
+    s = applyEvent(s, "CHANNEL_UPDATE", { ...forum, tags: ["Bug"] });
+    expect(s.posts["400"]?.[0].channel.tags).toEqual(["Bug"]);
+  });
+
+  it("deleting the forum drops its posts", () => {
+    let s = applyEvent(withForum(), "POST_UPDATE", { channel_id: "400", post: post("500", "one") });
+    s = applyEvent(s, "CHANNEL_DELETE", { id: "400" });
+    expect(s.posts["400"]).toBeUndefined();
+  });
+
+  const withLast = (id: string, last: string, author?: { id: string }) => ({
+    ...post(id, id),
+    ...(author ? { author } : {}),
+    first_message_id: id === "500" ? "40" : undefined,
+    summary: { ...post(id, id).summary, last_message_id: last },
+  });
+
+  it("POST_UPDATE moves the forum's newest message forward, even when its posts are not loaded", () => {
+    let s = applyEvent(loaded(), "CHANNEL_CREATE", forum);
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: withLast("500", "40") });
+    expect(s.readStates["400"]).toEqual({ lastMessageId: "40" });
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: withLast("501", "120") });
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: withLast("500", "99") }); // older: kept
+    expect(s.readStates["400"]).toEqual({ lastMessageId: "120" });
+  });
+
+  it("POST_UPDATE for my own message keeps the forum read", () => {
+    let s = applyEvent(withForum(), "POST_UPDATE", { channel_id: "400", post: withLast("500", "40", me) }); // my new post
+    expect(s.readStates["400"]).toEqual({ lastMessageId: "40", lastReadId: "40" });
+    s = applyEvent(s, "MESSAGE_CREATE", msg("130", { channel_id: "501", author: me })); // my reply, post not loaded
+    expect(s.messages["501"]).toBeUndefined();
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: withLast("501", "130") });
+    expect(s.readStates["400"]).toEqual({ lastMessageId: "130", lastReadId: "130" });
+    s = applyEvent(s, "MESSAGE_CREATE", msg("140", { channel_id: "501" })); // bob's reply
+    s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: withLast("501", "140") });
+    expect(s.readStates["400"]).toEqual({ lastMessageId: "140", lastReadId: "130" });
   });
 });

@@ -94,3 +94,13 @@ func TestJoinRefusesWelcomeChannel(t *testing.T) {
 	require.NotZero(t, welcomeID)
 	c.owner.Fail(http.MethodPost, joinPath(welcomeID), map[string]any{}, http.StatusBadRequest, "NOT_VOICE_CHANNEL")
 }
+
+func TestJoinRefusesContentChannels(t *testing.T) {
+	env, _ := liveKitEnv(t)
+	c := newClub(t, env)
+	for _, typ := range []string{channels.TypeAnnouncement, channels.TypeForum, channels.TypeGallery} {
+		var ch channels.Channel
+		c.owner.Do(http.MethodPost, "/api/server/channels", map[string]any{"name": typ, "type": typ}, http.StatusCreated, &ch)
+		c.owner.Fail(http.MethodPost, joinPath(ch.ID), map[string]any{}, http.StatusBadRequest, "NOT_VOICE_CHANNEL")
+	}
+}

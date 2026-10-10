@@ -3,7 +3,7 @@ import type { ConnectionStatus } from "./gateway";
 import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
   Attachment, Category, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
-  ThreadUpdate, VoiceState, Welcome,
+  PostDeleted, PostUpdate, ThreadListItem, ThreadUpdate, VoiceState, Welcome,
 } from "./types";
 
 export type ClientMessage = Message & { pending?: boolean; failed?: boolean };
@@ -38,6 +38,7 @@ export interface State {
   channels: Record<string, Channel>;
   dmIds: string[];
   messages: Record<string, ChannelMessages>; // only channels whose history was loaded
+  posts: Record<string, ThreadListItem[] | undefined>; // forum ID → its posts, once loaded
   presences: Record<string, "online" | "idle" | "offline">;
   readStates: Record<string, { lastReadId?: string; lastMessageId?: string }>;
   typing: Record<string, Record<string, number>>; // channel → user → expiry (ms)
@@ -56,6 +57,7 @@ export const initialState: State = {
   channels: {},
   dmIds: [],
   messages: {},
+  posts: {},
   presences: {},
   readStates: {},
   typing: {},
@@ -100,6 +102,7 @@ export function applyReady(s: State, r: Ready): State {
     channels,
     dmIds: dms.map((d) => d.id),
     messages: {},
+    posts: {},
     typing: {},
     voice: byKey(r.voice_states ?? [], (v) => v.user_id),
     emoji: byKey(r.emoji ?? [], (e) => e.id),
@@ -181,9 +184,11 @@ function removeChannel(s: State, id: string): State {
   delete channels[id];
   const messages = { ...s.messages };
   delete messages[id];
+  const posts = { ...s.posts };
+  delete posts[id];
   const inChannel = Object.values(s.voice).some((v) => v.channel_id === id);
   const voice = inChannel ? Object.fromEntries(Object.entries(s.voice).filter(([, v]) => v.channel_id !== id)) : s.voice;
-  let next: State = { ...s, channels, messages, voice, dmIds: s.dmIds.filter((x) => x !== id) };
+  let next: State = { ...s, channels, messages, posts, voice, dmIds: s.dmIds.filter((x) => x !== id) };
   next = updateServer(next, (cs) => (cs.channelIds.includes(id) ? { ...cs, channelIds: cs.channelIds.filter((x) => x !== id) } : cs));
   // A channel's threads go with it.
   for (const c of Object.values(s.channels)) if (c.type === "thread" && c.parent_channel_id === id) next = removeChannel(next, c.id);
@@ -270,6 +275,17 @@ function dropMention(s: State, messageId: string): State {
   return { ...s, mentions: { ...s.mentions, items: s.mentions.items.filter((i) => i !== item), unread } };
 }
 
+/** A forum's newest message is the newest across its posts; my own messages count as read, as in MESSAGE_CREATE
+ *  (which comes first and has already marked the post read up to my message, loaded or not). */
+function bumpForumRead(s: State, d: PostUpdate): State {
+  const last = d.post.summary.last_message_id;
+  const prev = s.readStates[d.channel_id] ?? {};
+  if (!last || (prev.lastMessageId && compareIds(prev.lastMessageId, last) >= 0)) return s;
+  const myId = s.me?.id;
+  const mine = s.readStates[d.post.channel.id]?.lastReadId === last || (!!myId && last === d.post.first_message_id && d.post.author?.id === myId);
+  return { ...s, readStates: { ...s.readStates, [d.channel_id]: { ...prev, lastMessageId: last, ...(mine ? { lastReadId: last } : {}) } } };
+}
+
 /** Applies a gateway DISPATCH. Unknown types leave the state unchanged. */
 export function applyEvent(s: State, type: string, data: unknown, now = Date.now()): State {
   switch (type) {
@@ -332,8 +348,19 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
       return { ...s, typing: { ...s.typing, [d.channel_id]: { ...s.typing[d.channel_id], [d.user_id]: now + 10_000 } } };
     }
     case "CHANNEL_CREATE":
-    case "CHANNEL_UPDATE":
       return upsertChannel(s, data as Channel);
+    case "CHANNEL_UPDATE": {
+      const c = data as Channel;
+      const list = s.posts[c.id];
+      if (c.type !== "forum" || !list) return upsertChannel(s, c);
+      // Posts keep only the tags the forum still offers, in its spelling (as the server does).
+      const offered = new Map((c.tags ?? []).map((t) => [t.toLowerCase(), t]));
+      const posts = list.map((p) => ({
+        ...p,
+        channel: { ...p.channel, tags: (p.channel.tags ?? []).flatMap((t) => offered.get(t.toLowerCase()) ?? []) },
+      }));
+      return upsertChannel({ ...s, posts: { ...s.posts, [c.id]: posts } }, c);
+    }
     case "CHANNEL_DELETE":
       return removeChannel(s, (data as { id: string }).id);
     case "CATEGORY_CREATE":
@@ -357,6 +384,21 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
     case "THREAD_UPDATE": {
       const d = data as ThreadUpdate;
       return updateMessages(s, d.channel_id, (items) => items.map((m) => (m.id === d.message_id ? { ...m, thread: d.thread } : m)));
+    }
+    case "POST_UPDATE": {
+      const d = data as PostUpdate;
+      const read = bumpForumRead(s, d);
+      const list = read.posts[d.channel_id];
+      if (!list) return read; // not loaded: the forum view loads the whole list
+      const at = list.findIndex((p) => p.channel.id === d.post.channel.id);
+      const next = at < 0 ? [...list, d.post] : list.map((p, i) => (i === at ? d.post : p));
+      return { ...read, posts: { ...read.posts, [d.channel_id]: next } };
+    }
+    case "POST_DELETE": {
+      const d = data as PostDeleted;
+      const list = s.posts[d.channel_id];
+      const next = list ? { ...s, posts: { ...s.posts, [d.channel_id]: list.filter((p) => p.channel.id !== d.id) } } : s;
+      return removeChannel(next, d.id);
     }
     case "SERVER_UPDATE":
       return updateServer(s, (cs) => ({ ...cs, server: data as Server }));

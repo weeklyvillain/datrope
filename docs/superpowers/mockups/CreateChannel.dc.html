@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — Create a channel</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/datrope/tokens.css">
+<link rel="stylesheet" href="ds/datrope/components/bundle.css">
+<script src="ds/datrope/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body { margin: 0; background: #131313; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico-sm { width: 14px; height: 14px; }
+.tcard { display: grid; grid-template-columns: 36px minmax(0, 1fr) 16px; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); cursor: pointer; }
+.tcard:hover { background: var(--accent); }
+.tcard:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent); }
+.tcard input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tico { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 6px; background: var(--muted); color: var(--foreground); }
+.tname { display: block; font-weight: 600; color: var(--foreground); }
+.tdesc { display: block; font-size: 13px; color: var(--muted-foreground); }
+.dot { width: 16px; height: 16px; border-radius: 999px; border: 1px solid var(--border); box-sizing: border-box; }
+.fl { font-size: 14px; font-weight: 500; color: var(--foreground); }
+.hint { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.sel { height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--input); background: var(--background); color: var(--foreground); font: inherit; font-size: 14px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 13px; color: var(--foreground); }
+.tag button { display: inline-grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 999px; background: transparent; color: var(--muted-foreground); }
+.tag button:hover { background: var(--accent); color: var(--foreground); }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--foreground); }
+.check input { width: 16px; height: 16px; accent-color: var(--primary); }
+</style>
+</helmet>
+
+<div style="position: relative; width: 960px; height: 900px; background: var(--background); color: var(--foreground); font-family: system-ui, -apple-system, &quot;Segoe UI&quot;, Roboto, sans-serif; font-size: 15px; line-height: 1.45; display: grid; place-items: center; overflow: hidden;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6);"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="cc-title" style="position: relative; width: 520px; box-sizing: border-box; display: grid; gap: 16px; padding: 24px; border-radius: 8px; border: 1px solid var(--border); background: var(--popover);">
+    <div style="display: flex; align-items: center;">
+      <h2 id="cc-title" style="flex: 1; margin: 0; font-size: 1.05rem; font-weight: 600;">Create a channel</h2>
+      <button aria-label="Close" style="display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground);"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+    </div>
+
+    <form style="display: grid; gap: 16px;">
+      <fieldset style="margin: 0; padding: 0; border: 0; display: grid; gap: 6px;">
+        <legend class="fl" style="padding: 0; margin-bottom: 6px;">Type</legend>
+
+        <label class="tcard" style="{{cardText}}">
+          <input type="radio" name="type" value="text" checked="{{isText}}" onChange="{{pickText}}">
+          <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"></line><line x1="4" x2="20" y1="15" y2="15"></line><line x1="10" x2="8" y1="3" y2="21"></line><line x1="16" x2="14" y1="3" y2="21"></line></svg></span>
+          <span><span class="tname">Text</span><span class="tdesc">Chat, share links and files.</span></span>
+          <span class="dot" style="{{dotText}}"></span>
+        </label>
+
+        <label class="tcard" style="{{cardVoice}}">
+          <input type="radio" name="type" value="voice" checked="{{isVoice}}" onChange="{{pickVoice}}">
+          <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M16 9a5 5 0 0 1 0 6"></path></svg></span>
+          <span><span class="tname">Voice</span><span class="tdesc">Talk, share your screen and camera.</span></span>
+          <span class="dot" style="{{dotVoice}}"></span>
+        </label>
+
+        <label class="tcard" style="{{cardAnn}}">
+          <input type="radio" name="type" value="announcement" checked="{{isAnn}}" onChange="{{pickAnn}}">
+          <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg></span>
+          <span><span class="tname">Announcement</span><span class="tdesc">Only chosen roles post. Everyone can react and reply.</span></span>
+          <span class="dot" style="{{dotAnn}}"></span>
+        </label>
+
+        <label class="tcard" style="{{cardForum}}">
+          <input type="radio" name="type" value="forum" checked="{{isForum}}" onChange="{{pickForum}}">
+          <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"></path><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"></path></svg></span>
+          <span><span class="tname">Forum</span><span class="tdesc">Posts with a title and tags, each with its own replies.</span></span>
+          <span class="dot" style="{{dotForum}}"></span>
+        </label>
+
+        <label class="tcard" style="{{cardGallery}}">
+          <input type="radio" name="type" value="gallery" checked="{{isGallery}}" onChange="{{pickGallery}}">
+          <span class="tico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 22H4a2 2 0 0 1-2-2V6"></path><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"></path><circle cx="12" cy="8" r="2"></circle><rect width="16" height="16" x="6" y="2" rx="2"></rect></svg></span>
+          <span><span class="tname">Gallery</span><span class="tdesc">A grid of photos and videos with comments.</span></span>
+          <span class="dot" style="{{dotGallery}}"></span>
+        </label>
+      </fieldset>
+
+      <x-import component-from-global-scope="Datrope.FormField" label="Name" placeholder="{{namePh}}" required="{{yes}}" max-length="{{maxLen}}"></x-import>
+
+      <div style="display: grid; gap: 6px;">
+        <label class="fl" for="cc-cat">Category</label>
+        <select id="cc-cat" class="sel">
+          <option>No category</option>
+          <option>Info</option>
+          <option selected>Hangout</option>
+          <option>Voice</option>
+        </select>
+      </div>
+
+      <sc-if value="{{isAnn}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <label class="fl" for="cc-posters">Who can post</label>
+          <select id="cc-posters" class="sel">
+            <option selected>Admins</option>
+            <option>Admins and moderators</option>
+          </select>
+          <p class="hint">Everyone else can read, react and reply in threads.</p>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isForum}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <label class="fl" for="cc-tag">Tags</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span class="tag">Feature<button type="button" aria-label="Remove Feature"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></span>
+            <span class="tag">Bug<button type="button" aria-label="Remove Bug"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></span>
+            <span class="tag">Question<button type="button" aria-label="Remove Question"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></span>
+          </div>
+          <input id="cc-tag" class="sel" placeholder="Add a tag and press Enter">
+          <label class="check"><input type="checkbox" checked> Require a tag on new posts</label>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isGallery}}" hint-placeholder-val="{{false}}">
+        <fieldset style="margin: 0; padding: 12px 0 0; border: 0; border-top: 1px solid var(--border); display: grid; gap: 8px;">
+          <legend class="fl" style="float: left; padding: 0; margin-bottom: 2px;">Allow</legend>
+          <div style="display: flex; gap: 20px; clear: both;">
+            <label class="check"><input type="checkbox" checked> Photos</label>
+            <label class="check"><input type="checkbox" checked> Videos</label>
+          </div>
+          <p class="hint">Other files can't be posted here.</p>
+        </fieldset>
+      </sc-if>
+
+      <div style="display: flex; flex-direction: row-reverse; gap: 8px; padding-top: 4px;">
+        <x-import component-from-global-scope="Datrope.Button" type="submit">Create</x-import>
+        <x-import component-from-global-scope="Datrope.Button" variant="outline">Cancel</x-import>
+      </div>
+    </form>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startType":{"editor":"enum","options":["text","voice","announcement","forum","gallery"],"default":"forum"},"$preview":{"width":960,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const t = this.state.type ?? this.props.startType ?? 'forum';
+    const pick = (type) => () => this.setState({ type });
+    const card = (on) => on ? 'border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--background));' : '';
+    const dot = (on) => on ? 'border: 5px solid var(--primary);' : '';
+    const ph = { text: 'general', voice: 'Lounge', announcement: 'announcements', forum: 'ideas', gallery: 'photos' };
+    return {
+      yes: true, maxLen: 100, namePh: ph[t],
+      isText: t === 'text', isVoice: t === 'voice', isAnn: t === 'announcement', isForum: t === 'forum', isGallery: t === 'gallery',
+      cardText: card(t === 'text'), cardVoice: card(t === 'voice'), cardAnn: card(t === 'announcement'), cardForum: card(t === 'forum'), cardGallery: card(t === 'gallery'),
+      dotText: dot(t === 'text'), dotVoice: dot(t === 'voice'), dotAnn: dot(t === 'announcement'), dotForum: dot(t === 'forum'), dotGallery: dot(t === 'gallery'),
+      pickText: pick('text'), pickVoice: pick('voice'), pickAnn: pick('announcement'), pickForum: pick('forum'), pickGallery: pick('gallery'),
+    };
+  }
+}
+</script>
+</body>
+</html>

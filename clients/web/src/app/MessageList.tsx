@@ -5,9 +5,12 @@ import { client, displayName, errorText, formatBytes, outranksUser, roleColor, u
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
 import { useMessageAuthor } from "@/hooks/use-message-author";
+import { useWindowFocus } from "@/hooks/use-window-focus";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
@@ -93,23 +96,9 @@ export async function jumpTo(channelId: string, messageId: string): Promise<bool
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-function useWindowFocus() {
-  const [focused, setFocused] = useState(() => document.hasFocus());
-  useEffect(() => {
-    const update = () => setFocused(document.hasFocus());
-    window.addEventListener("focus", update);
-    window.addEventListener("blur", update);
-    return () => {
-      window.removeEventListener("focus", update);
-      window.removeEventListener("blur", update);
-    };
-  }, []);
-  return focused;
-}
-
 const readMarker = (channelId: string) => client.store.getState().readStates[channelId]?.lastReadId;
 
-export function MessageList({ channelId, canManage, canReply, canReact, reply, canCreateThread = false, onOpenThread, unreadLine = true }: {
+export function MessageList({ channelId, canManage, canReply, canReact, reply, canCreateThread = false, onOpenThread, unreadLine = true, variant = "chat" }: {
   channelId: string;
   canManage: boolean;
   canReply: boolean;
@@ -122,6 +111,8 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   onOpenThread?: (threadId: string) => void;
   /** Shows the "New messages" line and the jump bar. Reaching the bottom marks the channel read either way. */
   unreadLine?: boolean;
+  /** "cards" puts every message in its own card (an announcement feed): never grouped, with its title above the text. */
+  variant?: "chat" | "cards";
 }) {
   const list = useApp((s) => s.messages[channelId]);
   const meId = useApp((s) => s.me?.id);
@@ -274,7 +265,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
           const day = new Date(m.created_at);
           const newDay = !prev || new Date(prev.created_at).toDateString() !== day.toDateString();
           // A reply, and the first unread message, always start a group, so they show their header.
-          const grouped = !!prev && !newDay && !m.reply_to && i !== unreadAt && authorKey(prev) === authorKey(m) && !prev.deleted &&
+          const grouped = variant === "chat" && !!prev && !newDay && !m.reply_to && i !== unreadAt && authorKey(prev) === authorKey(m) && !prev.deleted &&
             Date.parse(m.created_at) - Date.parse(prev.created_at) < FIVE_MINUTES;
           return (
             <Fragment key={m.id}>
@@ -289,9 +280,17 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
                   <span className="h-px flex-1 bg-destructive" />New messages
                 </div>
               )}
-              <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
-                canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
-                canCreateThread={canCreateThread} onOpenThread={onOpenThread} />
+              {variant === "cards" ? (
+                <Card className="w-[calc(100%-2rem)] max-w-3xl gap-0 self-center py-0">
+                  <MessageRow m={m} grouped={false} mine={!!meId && m.author?.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
+                    canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
+                    canCreateThread={canCreateThread} onOpenThread={onOpenThread} card />
+                </Card>
+              ) : (
+                <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
+                  canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
+                  canCreateThread={canCreateThread} onOpenThread={onOpenThread} />
+              )}
             </Fragment>
           );
         })}
@@ -327,9 +326,9 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   );
 }
 
-function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact, reply, canCreateThread, onOpenThread }: {
+function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact, reply, canCreateThread, onOpenThread, card = false }: {
   m: ClientMessage; grouped: boolean; mine: boolean; mentioned: boolean; canManage: boolean; canReply: boolean; canReact: boolean;
-  reply: ReplyState; canCreateThread: boolean; onOpenThread?: (threadId: string) => void;
+  reply: ReplyState; canCreateThread: boolean; onOpenThread?: (threadId: string) => void; card?: boolean;
 }) {
   // Deleting someone else's server message also needs me to outrank them; DMs have no hierarchy.
   // A voice channel's side chat has no pins panel, so no pinning there.
@@ -344,6 +343,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const avatarRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(m.content);
+  const [titleDraft, setTitleDraft] = useState(m.title ?? "");
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string>();
   const [reactError, showReactError] = useBriefError();
@@ -354,12 +354,15 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const replyTo = m.reply_to;
 
   const save = async () => {
-    if (draft === m.content) {
+    // Only announcement cards carry a title.
+    const title = card ? titleDraft.trim() : undefined;
+    const titleChanged = title !== undefined && title !== (m.title ?? "");
+    if (draft === m.content && !titleChanged) {
       setEditing(false);
       return;
     }
     try {
-      await unwrap(client.api.PATCH("/api/channels/{id}/messages/{messageID}", { ...path, body: { content: draft } }));
+      await unwrap(client.api.PATCH("/api/channels/{id}/messages/{messageID}", { ...path, body: { content: draft, ...(titleChanged && { title }) } }));
       setEditing(false);
     } catch (e) {
       setError(errorText(e));
@@ -390,7 +393,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const replyAuthor = m.author; // nobody replies to a webhook message: nobody can post in its channel
   const onReply = canReply && replyAuthor ? () => reply.setReplyTo({ id: m.id, author: replyAuthor, content: m.content, deleted: false }) : undefined;
   // Polls cannot be edited (the server answers POLL_NOT_EDITABLE).
-  const onEdit = mine && !m.poll ? () => { setDraft(m.content); setEditing(true); } : undefined;
+  const onEdit = mine && !m.poll ? () => { setDraft(m.content); setTitleDraft(m.title ?? ""); setEditing(true); } : undefined;
   const onPin = canPin ? () => void (m.pinned ? client.unpin(m.channel_id, m.id) : client.pin(m.channel_id, m.id)).catch((e) => setError(errorText(e))) : undefined;
   const onDelete = canDelete ? () => setConfirming(true) : undefined;
   const actionable = !m.pending && !m.deleted && !editing;
@@ -404,8 +407,8 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
     <article id={`message-${m.id}`}
       onPointerDownCapture={(e) => setNativeMenu(!!(e.target as HTMLElement).closest("a, img, video, audio") || !!window.getSelection()?.toString())}
       className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4",
-        grouped ? "py-0.5" : "mt-2 pb-0.5 pt-1",
-        mentioned ? "border-l-2 border-primary bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] pl-3.5" : "hover:bg-card/50")}>
+        card ? "rounded-xl py-4" : grouped ? "py-0.5" : "mt-2 pb-0.5 pt-1",
+        mentioned ? "border-l-2 border-primary bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] pl-3.5" : !card && "hover:bg-card/50")}>
       {replyTo && <ReplyQuote reply={replyTo} onJump={() => void jump(replyTo.id)} />}
       {grouped ? <span /> : (
         <button ref={avatarRef} type="button" tabIndex={-1} aria-hidden className="size-10 self-start justify-self-start rounded-full" onClick={() => setProfileOpen((o) => !o)}>
@@ -432,10 +435,21 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
             {m.edited_at && <span className="text-xs text-muted-foreground">(edited)</span>}
           </header>
         )}
+        {card && m.title && !m.deleted && !editing && <h3 className="mb-1 mt-1 text-lg font-semibold tracking-normal text-foreground normal-case wrap-anywhere">{m.title}</h3>}
         {m.deleted ? (
           <p className="m-0 whitespace-pre-wrap text-muted-foreground wrap-anywhere"><em>Message deleted</em></p>
         ) : editing ? (
           <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
+            {card && (
+              <Input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={100} aria-label="Edit title"
+                placeholder="Title" className="mb-2"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setEditing(false);
+                  }
+                }} />
+            )}
             <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} aria-label="Edit message" autoFocus
               onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
               onKeyDown={(e) => {

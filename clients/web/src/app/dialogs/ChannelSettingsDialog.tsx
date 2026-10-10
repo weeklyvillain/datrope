@@ -3,14 +3,17 @@ import { useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorText } from "@/components/error-text";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { FormField } from "@/components/form-field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubmit } from "@/hooks/use-submit";
+import { TagsEditor } from "../TagsEditor";
 import { PERM_LABELS } from "../../permLabels";
 import { WebhooksTab } from "./WebhooksTab";
 import { client, displayName, useApp } from "../../session";
@@ -57,6 +60,8 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
   const [name, setName] = useState(ch.name);
   const [topic, setTopic] = useState(ch.topic);
   const [category, setCategory] = useState(ch.category_id ?? "");
+  const [tags, setTags] = useState(ch.tags ?? []);
+  const [requireTag, setRequireTag] = useState(ch.require_tag);
   const byId = useApp((s) => s.server?.categories);
   const categories = useMemo(() => Object.values(byId ?? {}).sort((a, b) => a.position - b.position), [byId]);
   const { busy, error, run } = useSubmit();
@@ -67,7 +72,7 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
     <form className="grid gap-3" onSubmit={(e) => {
       e.preventDefault();
       void run(async () => {
-        client.apply("CHANNEL_UPDATE", await unwrap(client.api.PATCH("/api/channels/{id}", { ...path, body: { name, topic, ...move } })));
+        client.apply("CHANNEL_UPDATE", await unwrap(client.api.PATCH("/api/channels/{id}", { ...path, body: { name, topic, ...move, ...(ch.type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }) } })));
         onClose();
       });
     }}>
@@ -85,6 +90,19 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
             {categories.map((c) => <NativeSelectOption key={c.id} value={c.id}>{c.name}</NativeSelectOption>)}
           </NativeSelect>
         </Field>
+      )}
+      {ch.type === "forum" && (
+        <>
+          <Field>
+            <FieldLabel htmlFor={`${id}-tags`}>Tags</FieldLabel>
+            <TagsEditor id={`${id}-tags`} value={tags} onChange={setTags} />
+          </Field>
+          <div className="flex items-center gap-2">
+            <Checkbox id={`${id}-require-tag`} checked={requireTag && tags.length > 0} disabled={tags.length === 0}
+                  onCheckedChange={(v) => setRequireTag(v === true)} />
+            <Label htmlFor={`${id}-require-tag`}>Require a tag on new posts</Label>
+          </div>
+        </>
       )}
       <ErrorText error={error} />
       <div className="flex flex-wrap items-center gap-2">

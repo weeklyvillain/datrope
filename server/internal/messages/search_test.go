@@ -219,3 +219,26 @@ func TestSearchRateLimited(t *testing.T) {
 	}
 	alice.Fail(http.MethodGet, "/api/search?q=anything", nil, http.StatusTooManyRequests, "RATE_LIMITED")
 }
+
+func TestSearchCoversNewChannelTypes(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	news := createChannel(t, alice, map[string]any{"name": "news", "type": "announcement"})
+	art := createChannel(t, alice, map[string]any{"name": "art", "type": "gallery"})
+	help := createChannel(t, alice, map[string]any{"name": "help", "type": "forum"})
+
+	alice.Send(news.ID, "zeppelin in news")
+	img := alice.Upload(art.ID, "z.png", tinyPNG(t), http.StatusCreated)
+	item := alice.SendWith(art.ID, "zeppelin in art", img.ID)
+	alice.Send(startThread(t, alice, art.ID, item).ID, "zeppelin in a gallery thread")
+	var post messages.ThreadListItem
+	alice.Do(http.MethodPost, "/api/channels/"+help.ID.String()+"/posts", map[string]any{"title": "Q", "content": "zeppelin in a post"}, http.StatusCreated, &post)
+	alice.Send(post.Channel.ID, "zeppelin in a reply")
+
+	require.Equal(t, []string{"zeppelin in a reply", "zeppelin in a post", "zeppelin in a gallery thread", "zeppelin in art", "zeppelin in news"},
+		resultContents(search(t, bob, "zeppelin").Results))
+	require.Equal(t, []string{"zeppelin in a gallery thread", "zeppelin in art"}, resultContents(search(t, bob, "zeppelin in:#art").Results))
+	require.Equal(t, []string{"zeppelin in news"}, resultContents(search(t, bob, "zeppelin in:#news").Results))
+	require.Equal(t, []string{"zeppelin in a reply", "zeppelin in a post"}, resultContents(search(t, bob, "zeppelin in:#help").Results))
+}

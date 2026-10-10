@@ -13,6 +13,11 @@ export type ThreadSummary = Schemas["ThreadSummary"];
 export type ThreadUpdate = Schemas["ThreadUpdate"];
 export type ThreadListItem = Schemas["ThreadListItem"];
 export type Channel = Schemas["Channel"];
+export type ChannelType = Channel["type"];
+/** POST_UPDATE payload: a forum post was created or changed. */
+export interface PostUpdate { channel_id: string; post: ThreadListItem }
+/** POST_DELETE payload: a forum post was deleted. */
+export interface PostDeleted { channel_id: string; id: string }
 export type Override = Schemas["Override"];
 export type Attachment = Schemas["Attachment"];
 export type GIF = Schemas["GIF"];
@@ -70,6 +75,8 @@ export interface EventMap {
   CATEGORY_UPDATE: Category;
   CATEGORY_DELETE: Schemas["CategoryDeleted"];
   THREAD_UPDATE: ThreadUpdate;
+  POST_UPDATE: PostUpdate;
+  POST_DELETE: PostDeleted;
   SERVER_UPDATE: Server;
   WELCOME_UPDATE: Welcome;
   MEMBER_ADD: Member;
