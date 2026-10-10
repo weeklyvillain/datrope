@@ -1,11 +1,14 @@
 import { Perm, hasPerm, type ReplyRef } from "@datrope/core";
 import { LayoutGrid, MessageSquare, Music, Volume2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { useApp, usePerms } from "../../session";
+import { useVoice } from "../../voice/voice";
+import { textChannel } from "../Home";
 import { Topic } from "../ChannelView";
 import { Composer } from "../Composer";
 import { usePendingJump } from "../jump";
@@ -36,6 +39,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
     if (pendingJump) setSide("chat");
   }, [pendingJump]);
   const { layout, setLayout, canStage } = useVoiceLayout(channelId);
+  useLeaveToText(channelId);
 
   if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
   return (
@@ -86,7 +90,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
           <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
           {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
-        <VoiceStage channelId={channelId} layout={layout} inviteTo={ch.name} />
+        <VoiceStage channelId={channelId} layout={layout} inviteTo={ch.name} onOpenMusic={() => setSide("music")} />
       </main>
       {searching ? (
         <SearchPanel />
@@ -101,6 +105,19 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
       )}
     </>
   );
+}
+
+/** Leaving the call (not switching to another) while looking at it goes to a text channel. */
+function useLeaveToText(channelId: string) {
+  const nav = useNavigate();
+  const target = useApp(textChannel);
+  const inCall = useVoice((v) => v.channelId === channelId && (v.status === "connected" || v.status === "reconnecting"));
+  const idle = useVoice((v) => v.status === "idle");
+  const was = useRef(inCall);
+  useEffect(() => {
+    if (was.current && !inCall && idle && target) nav(`/channels/${target}`);
+    was.current = inCall;
+  }, [inCall, idle, target, nav]);
 }
 
 /** A voice channel's own messages, in the side panel. No threads here. */

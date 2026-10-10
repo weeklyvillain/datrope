@@ -132,6 +132,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{channelID}/music/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["clear-music-queue"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{channelID}/music/queue/{trackID}": {
         parameters: {
             query?: never;
@@ -143,6 +159,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["remove-queued-music"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/music/repeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set-music-repeat"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -837,6 +869,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/music/playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-music-playlists"];
+        put?: never;
+        post: operations["create-music-playlist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/music/playlists/{playlistID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-music-playlist"];
+        put?: never;
+        post?: never;
+        delete: operations["delete-music-playlist"];
+        options?: never;
+        head?: never;
+        patch: operations["rename-music-playlist"];
+        trace?: never;
+    };
+    "/api/server/music/playlists/{playlistID}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-music-playlist-items"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/music/playlists/{playlistID}/items/{itemID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove-music-playlist-item"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/music/playlists/{playlistID}/items/{itemID}/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["move-music-playlist-item"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/music/{trackID}": {
         parameters: {
             query?: never;
@@ -1354,6 +1466,40 @@ export interface components {
         "Create-categoryRequest": {
             name: string;
         };
+        "Create-music-playlistResponse": {
+            /** Format: int64 */
+            added: number;
+            /**
+             * Format: int64
+             * @description Number of tracks
+             */
+            count: number;
+            /** @description The first track's cover image, when it has one */
+            cover?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            created_by?: string;
+            /**
+             * Format: int64
+             * @description Entries of an imported playlist that are private, deleted or cannot be played
+             */
+            dropped: number;
+            /**
+             * Format: int64
+             * @description Total seconds of the tracks of known length
+             */
+            duration: number;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            items: components["schemas"]["PlaylistItem"][] | null;
+            /**
+             * Format: int64
+             * @description Tracks that did not fit (a playlist holds at most 500)
+             */
+            skipped: number;
+            title: string;
+        };
         CreateAlertRequest: {
             /** @description Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID */
             account: string;
@@ -1544,7 +1690,17 @@ export interface components {
             /** @description LiveKit server to connect to */
             url: string;
         };
+        Library: {
+            /** Format: int64 */
+            limit_bytes: number;
+            tracks: components["schemas"]["LibraryTrack"][] | null;
+            /** Format: int64 */
+            used_bytes: number;
+        };
         LibraryTrack: {
+            artist?: string;
+            /** @description The cover image's path, from the file's tags */
+            cover?: string;
             /** Format: date-time */
             created_at: string;
             /**
@@ -1554,6 +1710,11 @@ export interface components {
             duration: number;
             /** @description Snowflake ID as a decimal string */
             id: string;
+            /**
+             * Format: int64
+             * @description Bytes stored
+             */
+            size: number;
             title: string;
             /** @description Snowflake ID as a decimal string */
             uploaded_by?: string;
@@ -1646,6 +1807,27 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             channel_id: string;
         };
+        MusicPlaylist: {
+            /**
+             * Format: int64
+             * @description Number of tracks
+             */
+            count: number;
+            /** @description The first track's cover image, when it has one */
+            cover?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            created_by?: string;
+            /**
+             * Format: int64
+             * @description Total seconds of the tracks of known length
+             */
+            duration: number;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            title: string;
+        };
         MusicState: {
             /** @description The bot's LiveKit identity while it is in the channel (for per-person volume) */
             bot_id?: string;
@@ -1661,10 +1843,18 @@ export interface components {
              */
             position: number;
             queue: components["schemas"]["MusicTrack"][] | null;
-            /** @description YouTube links and searches work (yt-dlp is installed) */
+            /**
+             * @description off; all: finished tracks go back to the end of the queue; one: the current track replays
+             * @enum {string}
+             */
+            repeat: "off" | "all" | "one";
+            /** @description Links and searches work (yt-dlp is installed) */
             youtube: boolean;
         };
         MusicTrack: {
+            artist?: string;
+            /** @description The cover image's path, when there is one */
+            cover?: string;
             /**
              * Format: int64
              * @description Seconds; 0 when unknown
@@ -1674,10 +1864,12 @@ export interface components {
             id: string;
             /** @description Snowflake ID as a decimal string */
             requested_by: string;
+            /** @description A link's site: youtube, soundcloud, bandcamp, vimeo or spotify */
+            site?: string;
             /** @enum {string} */
-            source: "youtube" | "upload";
+            source: "link" | "upload";
             title: string;
-            /** @description The page it came from (YouTube); absent for uploads */
+            /** @description The page it came from; absent for uploads and for Spotify tracks not yet found */
             url?: string;
         };
         Override: {
@@ -1699,6 +1891,92 @@ export interface components {
         PlaySoundRequest: {
             /** @description Snowflake ID as a decimal string */
             sound_id: string;
+        };
+        PlaylistAdd: {
+            /** @description A voice channel: add what plays there and its queue */
+            from_channel?: string;
+            /** @description With a link: add every track of the playlist it is in */
+            playlist?: boolean;
+            /** @description A link or YouTube search words */
+            query?: string;
+            /** @description A library track */
+            track_id?: string;
+        };
+        PlaylistAddResult: {
+            /** Format: int64 */
+            added: number;
+            /**
+             * Format: int64
+             * @description Entries of an imported playlist that are private, deleted or cannot be played
+             */
+            dropped: number;
+            /**
+             * Format: int64
+             * @description Tracks that did not fit (a playlist holds at most 500)
+             */
+            skipped: number;
+        };
+        PlaylistCreate: {
+            /** @description A playlist link (YouTube, SoundCloud, Bandcamp, Spotify ...) to import */
+            from_url?: string;
+            /** @description Defaults to the imported playlist's title */
+            title?: string;
+        };
+        PlaylistDeleted: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+        };
+        PlaylistDetail: {
+            /**
+             * Format: int64
+             * @description Number of tracks
+             */
+            count: number;
+            /** @description The first track's cover image, when it has one */
+            cover?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            created_by?: string;
+            /**
+             * Format: int64
+             * @description Total seconds of the tracks of known length
+             */
+            duration: number;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            items: components["schemas"]["PlaylistItem"][] | null;
+            title: string;
+        };
+        PlaylistItem: {
+            /** @description Snowflake ID as a decimal string */
+            added_by?: string;
+            artist?: string;
+            cover?: string;
+            /**
+             * Format: int64
+             * @description Seconds; 0 when unknown
+             */
+            duration: number;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            site?: string;
+            /** @enum {string} */
+            source: "link" | "upload";
+            title: string;
+            /** @description The library track, for uploads */
+            track_id?: string;
+            url?: string;
+        };
+        PlaylistMove: {
+            /**
+             * Format: int64
+             * @description The new place, counting from 0
+             */
+            position: number;
+        };
+        PlaylistRename: {
+            title: string;
         };
         Poll: {
             anonymous: boolean;
@@ -1791,10 +2069,32 @@ export interface components {
             username: string;
         };
         QueueRequest: {
-            /** @description A YouTube link, or words to search YouTube for */
+            /** @description With a link: queue every track of the playlist it is in, not just the one it points at */
+            playlist?: boolean;
+            /** @description A saved playlist: queue all its tracks */
+            playlist_id?: string;
+            /** @description A link (YouTube, SoundCloud, Bandcamp, Vimeo, Spotify), or words to search YouTube for */
             query?: string;
+            /** @description Clear the queue first; the current track plays on */
+            replace?: boolean;
+            /** @description With several tracks: queue them in a random order */
+            shuffle?: boolean;
             /** @description A track from the server's music library */
             track_id?: string;
+        };
+        QueueResult: {
+            /**
+             * Format: int64
+             * @description Playlist entries that are private, deleted or cannot be played
+             */
+            dropped: number;
+            /**
+             * Format: int64
+             * @description Tracks that did not fit in the queue
+             */
+            skipped: number;
+            /** @description What was queued */
+            tracks: components["schemas"]["MusicTrack"][] | null;
         };
         Reaction: {
             /** Format: int64 */
@@ -1873,6 +2173,10 @@ export interface components {
         };
         RenameRequest: {
             name: string;
+        };
+        RepeatRequest: {
+            /** @enum {string} */
+            mode: "off" | "all" | "one";
         };
         ReplyRef: {
             author: components["schemas"]["PublicUser"];
@@ -2651,8 +2955,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MusicTrack"];
+                    "application/json": components["schemas"]["QueueResult"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "clear-music-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -2695,13 +3028,46 @@ export interface operations {
             };
         };
     };
+    "set-music-repeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepeatRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "control-music": {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 channelID: string;
-                action: "pause" | "resume" | "skip" | "stop";
+                action: "pause" | "resume" | "skip" | "stop" | "shuffle";
             };
             cookie?: never;
         };
@@ -4683,8 +5049,264 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LibraryTrack"][] | null;
+                    "application/json": components["schemas"]["Library"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-music-playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicPlaylist"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-music-playlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Create-music-playlistResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-music-playlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-music-playlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "rename-music-playlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistRename"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicPlaylist"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "add-music-playlist-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistAdd"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaylistAddResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "remove-music-playlist-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistID: string;
+                itemID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "move-music-playlist-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistID: string;
+                itemID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaylistMove"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

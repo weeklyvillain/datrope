@@ -593,3 +593,18 @@ describe("activities", () => {
     expect(s.activities["2"]).toBeUndefined();
   });
 });
+
+describe("music playlists", () => {
+  const pl = { id: "7", title: "Mix", count: 2, duration: 300, created_at: "2026-10-11T00:00:00Z" };
+  it("ignore events until loaded, then follow updates and deletes", () => {
+    let s = applyEvent(initialState, "MUSIC_PLAYLIST_UPDATE", pl);
+    expect(s.playlists).toBeNull();
+    s = { ...s, playlists: {} };
+    s = applyEvent(s, "MUSIC_PLAYLIST_UPDATE", pl);
+    expect(s.playlists?.["7"]?.title).toBe("Mix");
+    s = applyEvent(s, "MUSIC_PLAYLIST_UPDATE", { ...pl, title: "Road trip" });
+    expect(s.playlists?.["7"]?.title).toBe("Road trip");
+    s = applyEvent(s, "MUSIC_PLAYLIST_DELETE", { id: "7" });
+    expect(s.playlists).toEqual({});
+  });
+});

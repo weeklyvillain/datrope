@@ -1,7 +1,7 @@
 import { Perm, hasPerm, sidebarChannelIds, voiceMembers } from "@datrope/core";
 import { useDraggable } from "@dnd-kit/core";
-import { HeadphoneOff, MicOff, Video } from "lucide-react";
-import { useState, type PointerEventHandler, type ReactNode } from "react";
+import { HeadphoneOff, MicOff, Music, Video } from "lucide-react";
+import { useEffect, useState, type PointerEventHandler, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
@@ -29,7 +29,15 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
   const speaking = useVoice((v) => (v.channelId === channelId ? v.speaking : NOBODY));
   const perms = usePerms(channelId);
   const [error, setError] = useState<string>();
-  if (members.length === 0) return null;
+  const occupied = members.length > 0;
+  const musicLoaded = useApp((s) => !!s.music[channelId]);
+  const bot = useApp((s) => s.music[channelId]?.bot_id);
+  const track = useApp((s) => s.music[channelId]?.current?.title);
+  // Updates reach everyone who can see the channel; only the state at page load needs fetching.
+  useEffect(() => {
+    if (occupied && !musicLoaded) void client.loadMusic(channelId).catch(() => undefined);
+  }, [occupied, musicLoaded, channelId]);
+  if (!occupied) return null;
   const canMute = hasPerm(perms, Perm.MuteMembers);
   const canMove = hasPerm(perms, Perm.MoveMembers);
   const act = (p: Promise<unknown>) => p.then(() => setError(undefined), (e: unknown) => setError(errorText(e)));
@@ -85,6 +93,18 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
             </ModMenu>,
         );
       })}
+      {bot && (
+        <li className="flex items-center gap-1" title={track ? `Playing ${track}` : undefined}>
+          <span className={cn("grid size-6 flex-none place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-transparent",
+            speaking.includes(bot) && "ring-online")}>
+            <Music className="size-3.5" aria-hidden />
+          </span>
+          <span className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1 text-sm text-muted-foreground">
+            <span className="truncate">Music</span>
+            <Badge variant="secondary" className="px-1 py-0 text-[0.6rem]">BOT</Badge>
+          </span>
+        </li>
+      )}
       {error && <li className="px-2 text-xs text-destructive" role="alert">{error}</li>}
     </ul>
   );

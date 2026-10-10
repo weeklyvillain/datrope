@@ -6,18 +6,19 @@ import { useApp, userName } from "../../session";
 import { setScreenVolume, useVoicePrefs } from "../../voice/prefs";
 import { voice } from "../../voice/voice";
 import { entryKey, type Entry } from "./GridView";
-import { Tile } from "./Tile";
+import { Tile, type TileSize } from "./Tile";
 
 /** Whether `e` is a screen share of someone else that I'm watching. */
 export const isWatchedScreen = (e: Entry, watching: string[]) =>
   e.tile?.source === "screen" && !e.tile.local && watching.includes(e.userId);
 
 /** The first watched screen share large, everyone else (and other watched shares) in a strip below. */
-export function StageView({ entries, speaking, watching, chip, compact }: {
+export function StageView({ entries, speaking, watching, chip, bot, compact }: {
   entries: Entry[];
   speaking: string[];
   watching: string[];
   chip?: (e: Entry) => ReactNode;
+  bot?: (size: TileSize) => ReactNode; // the music bot's tile, while it is in the call
   compact?: boolean;
 }) {
   const main = entries.find((e) => isWatchedScreen(e, watching));
@@ -43,6 +44,7 @@ export function StageView({ entries, speaking, watching, chip, compact }: {
           <Tile key={entryKey(e)} userId={e.userId} tile={e.tile} size="strip" speaking={speaking.includes(e.userId)}
             watching={watching.includes(e.userId)} chip={chip?.(e)} />
         ))}
+        {bot?.("strip")}
       </div>
     </div>
   );

@@ -105,7 +105,7 @@ export async function signOut() {
   window.location.assign("/login");
 }
 
-type Tab = "channel" | "dm";
+type Tab = "channel" | "text" | "dm"; // "text": the last channel visited that is not a voice channel
 const lastKey = (tab: Tab) => `datrope.last-${tab}`;
 
 /** The last channel or DM visited in this tab (per browser tab, via sessionStorage). */

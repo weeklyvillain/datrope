@@ -87,6 +87,7 @@ type Service struct {
 	ep        Endpoints
 	publicURL string
 	http      *http.Client
+	app       appToken // Spotify's, for the music bot's catalog lookups
 
 	mu         sync.Mutex
 	activities map[id.ID]Activity

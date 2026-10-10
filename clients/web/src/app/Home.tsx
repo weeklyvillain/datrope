@@ -19,6 +19,14 @@ function homeChannel(s: State): string | undefined {
   return ids.find((id) => s.channels[id]?.type === "text") ?? ids[0];
 }
 
+/** Where leaving voice goes: the last channel visited that is not a voice channel, else the first text channel. */
+export function textChannel(s: State): string | undefined {
+  const ids = sidebarChannelIds(s);
+  const last = lastVisited("text");
+  if (last && ids.includes(last)) return last;
+  return ids.find((id) => s.channels[id]?.type === "text");
+}
+
 export function Home() {
   const target = useApp(homeChannel);
   if (target) return <Navigate to={`/channels/${target}`} replace />;

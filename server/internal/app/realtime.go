@@ -187,7 +187,7 @@ func registerEventSchemas(api huma.API) {
 		channels.ChannelDeleted{}, communities.MemberRemoved{}, communities.RoleDeleted{}, communities.Server{},
 		channels.Category{}, channels.CategoryDeleted{},
 		files.Attachment{}, voice.VoiceState{}, voice.VoiceMove{}, voice.SoundboardPlay{}, expressions.EmojiUpdate{}, expressions.SoundUpdate{},
-		integrations.ActivityUpdate{}, music.MusicState{},
+		integrations.ActivityUpdate{}, music.MusicState{}, music.MusicPlaylist{}, music.PlaylistDeleted{},
 	} {
 		s := doc.Components.Schemas.Schema(reflect.TypeOf(v), true, "")
 		refs[strings.TrimPrefix(s.Ref, "#/components/schemas/")] = map[string]string{"$ref": s.Ref}

@@ -104,6 +104,8 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		filesSvc.AddBlobTable("message_images", "sha256")
 		filesSvc.AddBlobTable("roles", "icon_sha256")
 		filesSvc.AddBlobTable("music_tracks", "sha256")
+		filesSvc.AddBlobTable("music_tracks", "cover")
+		filesSvc.AddBlobTable("music_playlist_items", "cover")
 		commSvc.SetIconBlobs(filesSvc)
 		mux.Handle("PUT /api/server/roles/{roleID}/icon", authSvc.RequireHTTP(commSvc.RoleIconUploadHandler()))
 		mux.Handle("DELETE /api/server/roles/{roleID}/icon", authSvc.RequireHTTP(commSvc.RoleIconDeleteHandler()))
@@ -182,10 +184,12 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 
 	musicSvc := music.NewService(pool, a.Bus, chanSvc, voiceSvc, cfg.LiveKit, cfg.Music)
 	musicSvc.SetCommunity(commSvc)
+	musicSvc.SetSpotify(intSvc)
 	music.Register(api, musicSvc)
 	if pool != nil { // nil only for `datrope openapi`
 		musicSvc.SetBlobs(filesSvc)
 		mux.Handle("POST /api/server/music", authSvc.RequireHTTP(musicSvc.UploadHandler()))
+		mux.Handle("GET /api/music/covers/{sum}", musicSvc.CoverHandler())
 		a.closers = append(a.closers, musicSvc.Close)
 		a.Music = musicSvc
 	}

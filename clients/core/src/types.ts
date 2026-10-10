@@ -67,6 +67,15 @@ export type Connection = Schemas["Connection"];
 export type MusicState = Schemas["MusicState"];
 export type MusicTrack = Schemas["MusicTrack"];
 export type LibraryTrack = Schemas["LibraryTrack"];
+export type Library = Schemas["Library"];
+export type QueueRequest = Schemas["QueueRequest"];
+export type QueueResult = Schemas["QueueResult"];
+export type RepeatMode = Schemas["RepeatRequest"]["mode"];
+export type MusicPlaylist = Schemas["MusicPlaylist"];
+export type PlaylistItem = Schemas["PlaylistItem"];
+export type PlaylistDetail = Schemas["PlaylistDetail"];
+export type PlaylistAdd = Schemas["PlaylistAdd"];
+export type PlaylistAddResult = Schemas["PlaylistAddResult"];
 
 /** Gateway DISPATCH payloads by event type. */
 export interface EventMap {
@@ -103,4 +112,6 @@ export interface EventMap {
   SOUNDBOARD_PLAY: SoundboardPlay;
   ACTIVITY_UPDATE: Schemas["ActivityUpdate"];
   MUSIC_UPDATE: Schemas["MusicState"];
+  MUSIC_PLAYLIST_UPDATE: Schemas["MusicPlaylist"];
+  MUSIC_PLAYLIST_DELETE: Schemas["PlaylistDeleted"];
 }

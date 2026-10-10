@@ -2,7 +2,7 @@ import { createStore } from "zustand/vanilla";
 import type { ConnectionStatus } from "./gateway";
 import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
-  Activity, Attachment, Category, MusicState, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
+  Activity, Attachment, Category, MusicPlaylist, MusicState, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
   PostDeleted, PostUpdate, ThreadListItem, ThreadUpdate, VoiceState, Welcome,
 } from "./types";
 
@@ -49,6 +49,7 @@ export interface State {
   mentions: MentionsState; // the mentions inbox
   activities: Record<string, Activity>; // by user ID: live on Twitch, listening on Spotify
   music: Record<string, MusicState>; // by voice channel ID, once loaded or announced
+  playlists: Record<string, MusicPlaylist> | null; // the server's saved playlists, by ID; null until loaded
 }
 
 export const initialState: State = {
@@ -70,6 +71,7 @@ export const initialState: State = {
   mentions: { items: [], unread: 0, hasMore: false, loaded: false },
   activities: {},
   music: {},
+  playlists: null,
 };
 
 export const createAppStore = () => createStore<State>(() => initialState);
@@ -356,6 +358,15 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
     case "MUSIC_UPDATE": {
       const m = data as MusicState;
       return { ...s, music: { ...s.music, [m.channel_id]: m } };
+    }
+    case "MUSIC_PLAYLIST_UPDATE": {
+      const p = data as MusicPlaylist;
+      return s.playlists ? { ...s, playlists: { ...s.playlists, [p.id]: p } } : s;
+    }
+    case "MUSIC_PLAYLIST_DELETE": {
+      if (!s.playlists) return s;
+      const { [(data as { id: string }).id]: _gone, ...rest } = s.playlists;
+      return { ...s, playlists: rest };
     }
     case "ACTIVITY_UPDATE": {
       const d = data as { user_id: string; activity?: Activity | null };

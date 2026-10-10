@@ -63,15 +63,27 @@ says so and text chat keeps working.
 
 ## Music bot
 
-Anyone in a voice channel can queue music with the music panel there: YouTube links or searches,
-or tracks members uploaded to the server's music library. The bot joins the channel as "Music",
-and everyone in the channel shares the queue, pause, skip and stop. It leaves when the queue
-runs out or the channel empties.
+Anyone in a voice channel can queue music with the music panel there: links (YouTube, SoundCloud,
+Bandcamp, Vimeo, Spotify), YouTube searches, whole playlist links, the server's saved playlists, or
+tracks members uploaded to the server's music library. The bot joins the channel as "Music", and
+everyone in the channel shares the queue, pause, skip, stop, shuffle, repeat and clearing the queue.
+It leaves when the queue runs out or the channel empties.
 
 The server image includes ffmpeg and yt-dlp. YouTube changes often and old yt-dlp versions stop
 working, so rebuild the image now and then (`docker compose build --pull server`). Playing
 YouTube this way is against YouTube's terms of service; the library works without it.
 `DATROPE_FFMPEG` and `DATROPE_YTDLP` point at other binaries.
+
+- **Sources:** links go through yt-dlp's YouTube, SoundCloud, Bandcamp and Vimeo extractors only.
+  `DATROPE_MUSIC_SOURCES` replaces the list (comma-separated yt-dlp extractor names or regexes).
+  The generic extractor, which would fetch any URL, is never allowed.
+- **Spotify links** play by searching YouTube for each track. They need the Spotify app set up
+  for Connections (below); without it they are refused.
+- **Uploads** (up to 100 MB) are converted to Opus when uploaded, with their title, artist and
+  cover art read from the file. `DATROPE_MUSIC_LIBRARY_MB` caps the library (default 2048).
+- **Cache:** links that play to the end are kept in `music-cache` in the data directory so they replay without
+  downloading again (not tracks over 20 minutes or live streams). `DATROPE_MUSIC_CACHE_MB` caps it
+  (default 2048); `0` turns it off.
 
 ## Twitch, YouTube and Spotify
 

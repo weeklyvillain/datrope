@@ -32,9 +32,13 @@ export function ServerSidebar({ className }: { className?: string } = {}) {
   const dmUnread = useApp((s) => s.dmIds.some((id) => isUnread(s.readStates[id])));
   const dmIds = useApp((s) => s.dmIds);
 
+  const channelType = useApp((s) => (channelId ? s.channels[channelId]?.type : undefined));
   useEffect(() => {
     if (channelId) rememberVisit("channel", channelId);
   }, [channelId]);
+  useEffect(() => {
+    if (channelId && channelType && channelType !== "voice") rememberVisit("text", channelId);
+  }, [channelId, channelType]);
   useEffect(() => {
     if (dmId) rememberVisit("dm", dmId);
   }, [dmId]);

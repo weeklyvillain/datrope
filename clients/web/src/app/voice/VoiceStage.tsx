@@ -8,7 +8,9 @@ import { useVoice, voice, type VideoTile } from "../../voice/voice";
 import { CallControls } from "./CallControls";
 import { GridView, type Entry } from "./GridView";
 import { soundChip } from "./SoundboardPanel";
+import { MusicTile } from "./MusicTile";
 import { StageView, isWatchedScreen } from "./StageView";
+import type { TileSize } from "./Tile";
 
 const NO_TILES: VideoTile[] = [];
 const NOBODY: string[] = [];
@@ -38,6 +40,7 @@ type StageProps = {
   inviteTo?: string; // channel name: offer the invite tile in a small call
   chip?: (e: Entry) => ReactNode;
   compact?: boolean; // bounded height, for a call above a conversation
+  onOpenMusic?: () => void; // the music bot's tile opens the music panel
 };
 
 /**
@@ -53,7 +56,7 @@ function OwnLayoutCall(props: StageProps) {
   return <Call {...props} layout={useVoiceLayout(props.channelId).layout} />;
 }
 
-function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = soundChip, compact }: StageProps & { layout: VoiceLayout }) {
+function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = soundChip, compact, onOpenMusic }: StageProps & { layout: VoiceLayout }) {
   const members = useApp(useShallow((s) => voiceMembers(s, channelId).map((v) => v.user_id)));
   const here = useVoice((v) => v.channelId === channelId && v.status !== "idle");
   const tiles = useVoice((v) => (v.channelId === channelId ? v.tiles : NO_TILES));
@@ -63,6 +66,10 @@ function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = so
   const perms = usePerms(channelId);
   const canConnect = hasPerm(perms, Perm.ConnectVoice);
   const canInvite = useApp(canCreateInvites);
+  const botId = useApp((s) => s.music[channelId]?.bot_id);
+  const bot = botId ? (size: TileSize) => (
+    <MusicTile channelId={channelId} size={size} speaking={speaking.includes(botId)} onOpen={onOpenMusic} />
+  ) : undefined;
 
   // Each member: their camera tile or an avatar, then their screen share. Tiles of people not (yet) listed come last.
   const entries = useMemo<Entry[]>(() => {
@@ -83,17 +90,18 @@ function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = so
   }, [members, tiles]);
 
   const stage = layout === "stage" && entries.some((e) => isWatchedScreen(e, watching));
+  const callers = members.length + (botId ? 1 : 0);
   return (
     <div className={compact ? "flex max-h-[45vh] flex-col gap-3 overflow-y-auto p-2" : "flex min-h-0 flex-1 flex-col"}>
       <div className={compact ? "contents" : "flex min-h-0 flex-1 flex-col gap-4 p-4"}>
         {audioBlocked && <Button onClick={() => voice.startAudio()}>Click to hear the call</Button>}
-        {entries.length > 0 && (
+        {(entries.length > 0 || bot) && (
           <div className={compact ? undefined : "min-h-0 flex-1"}>
             {stage ? (
-              <StageView entries={entries} speaking={speaking} watching={watching} chip={chip} compact={compact} />
+              <StageView entries={entries} speaking={speaking} watching={watching} chip={chip} bot={bot} compact={compact} />
             ) : (
-              <GridView entries={entries} speaking={speaking} watching={watching} chip={chip} compact={compact}
-                inviteTo={here && inviteTo !== undefined && canInvite && members.length >= 1 && members.length <= 4 ? inviteTo : undefined} />
+              <GridView entries={entries} speaking={speaking} watching={watching} chip={chip} bot={bot} compact={compact}
+                inviteTo={here && inviteTo !== undefined && canInvite && members.length >= 1 && callers <= 4 ? inviteTo : undefined} />
             )}
           </div>
         )}

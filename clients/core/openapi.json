@@ -497,6 +497,77 @@
         ],
         "type": "object"
       },
+      "Create-music-playlistResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "count": {
+            "description": "Number of tracks",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cover": {
+            "description": "The first track's cover image, when it has one",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "dropped": {
+            "description": "Entries of an imported playlist that are private, deleted or cannot be played",
+            "format": "int64",
+            "type": "integer"
+          },
+          "duration": {
+            "description": "Total seconds of the tracks of known length",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlaylistItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "skipped": {
+            "description": "Tracks that did not fit (a playlist holds at most 500)",
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "id",
+          "title",
+          "created_at",
+          "count",
+          "duration",
+          "added",
+          "skipped",
+          "dropped"
+        ],
+        "type": "object"
+      },
       "CreateAlertRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1122,9 +1193,44 @@
         ],
         "type": "object"
       },
+      "Library": {
+        "additionalProperties": false,
+        "properties": {
+          "limit_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tracks": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryTrack"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "used_bytes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tracks",
+          "used_bytes",
+          "limit_bytes"
+        ],
+        "type": "object"
+      },
       "LibraryTrack": {
         "additionalProperties": false,
         "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "cover": {
+            "description": "The cover image's path, from the file's tags",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "type": "string"
@@ -1139,6 +1245,11 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "size": {
+            "description": "Bytes stored",
+            "format": "int64",
+            "type": "integer"
+          },
           "title": {
             "type": "string"
           },
@@ -1152,6 +1263,7 @@
           "id",
           "title",
           "duration",
+          "size",
           "created_at"
         ],
         "type": "object"
@@ -1450,6 +1562,50 @@
         ],
         "type": "object"
       },
+      "MusicPlaylist": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "Number of tracks",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cover": {
+            "description": "The first track's cover image, when it has one",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "duration": {
+            "description": "Total seconds of the tracks of known length",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "count",
+          "duration"
+        ],
+        "type": "object"
+      },
       "MusicState": {
         "additionalProperties": false,
         "properties": {
@@ -1486,8 +1642,17 @@
               "null"
             ]
           },
+          "repeat": {
+            "description": "off; all: finished tracks go back to the end of the queue; one: the current track replays",
+            "enum": [
+              "off",
+              "all",
+              "one"
+            ],
+            "type": "string"
+          },
           "youtube": {
-            "description": "YouTube links and searches work (yt-dlp is installed)",
+            "description": "Links and searches work (yt-dlp is installed)",
             "type": "boolean"
           }
         },
@@ -1496,6 +1661,7 @@
           "paused",
           "position",
           "queue",
+          "repeat",
           "enabled",
           "youtube"
         ],
@@ -1504,6 +1670,13 @@
       "MusicTrack": {
         "additionalProperties": false,
         "properties": {
+          "artist": {
+            "type": "string"
+          },
+          "cover": {
+            "description": "The cover image's path, when there is one",
+            "type": "string"
+          },
           "duration": {
             "description": "Seconds; 0 when unknown",
             "format": "int64",
@@ -1519,9 +1692,13 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "site": {
+            "description": "A link's site: youtube, soundcloud, bandcamp, vimeo or spotify",
+            "type": "string"
+          },
           "source": {
             "enum": [
-              "youtube",
+              "link",
               "upload"
             ],
             "type": "string"
@@ -1530,7 +1707,7 @@
             "type": "string"
           },
           "url": {
-            "description": "The page it came from (YouTube); absent for uploads",
+            "description": "The page it came from; absent for uploads and for Spotify tracks not yet found",
             "type": "string"
           }
         },
@@ -1608,6 +1785,223 @@
         },
         "required": [
           "sound_id"
+        ],
+        "type": "object"
+      },
+      "PlaylistAdd": {
+        "additionalProperties": false,
+        "properties": {
+          "from_channel": {
+            "description": "A voice channel: add what plays there and its queue",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "playlist": {
+            "description": "With a link: add every track of the playlist it is in",
+            "type": "boolean"
+          },
+          "query": {
+            "description": "A link or YouTube search words",
+            "maxLength": 500,
+            "type": "string"
+          },
+          "track_id": {
+            "description": "A library track",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PlaylistAddResult": {
+        "additionalProperties": false,
+        "properties": {
+          "added": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "dropped": {
+            "description": "Entries of an imported playlist that are private, deleted or cannot be played",
+            "format": "int64",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Tracks that did not fit (a playlist holds at most 500)",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added",
+          "skipped",
+          "dropped"
+        ],
+        "type": "object"
+      },
+      "PlaylistCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "from_url": {
+            "description": "A playlist link (YouTube, SoundCloud, Bandcamp, Spotify ...) to import",
+            "maxLength": 500,
+            "type": "string"
+          },
+          "title": {
+            "description": "Defaults to the imported playlist's title",
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PlaylistDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PlaylistDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "Number of tracks",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cover": {
+            "description": "The first track's cover image, when it has one",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "duration": {
+            "description": "Total seconds of the tracks of known length",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlaylistItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "id",
+          "title",
+          "created_at",
+          "count",
+          "duration"
+        ],
+        "type": "object"
+      },
+      "PlaylistItem": {
+        "additionalProperties": false,
+        "properties": {
+          "added_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "cover": {
+            "type": "string"
+          },
+          "duration": {
+            "description": "Seconds; 0 when unknown",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "site": {
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "link",
+              "upload"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "track_id": {
+            "description": "The library track, for uploads",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "duration",
+          "source"
+        ],
+        "type": "object"
+      },
+      "PlaylistMove": {
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "description": "The new place, counting from 0",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position"
+        ],
+        "type": "object"
+      },
+      "PlaylistRename": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
         ],
         "type": "object"
       },
@@ -1913,10 +2307,27 @@
       "QueueRequest": {
         "additionalProperties": false,
         "properties": {
+          "playlist": {
+            "description": "With a link: queue every track of the playlist it is in, not just the one it points at",
+            "type": "boolean"
+          },
+          "playlist_id": {
+            "description": "A saved playlist: queue all its tracks",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
           "query": {
-            "description": "A YouTube link, or words to search YouTube for",
+            "description": "A link (YouTube, SoundCloud, Bandcamp, Vimeo, Spotify), or words to search YouTube for",
             "maxLength": 300,
             "type": "string"
+          },
+          "replace": {
+            "description": "Clear the queue first; the current track plays on",
+            "type": "boolean"
+          },
+          "shuffle": {
+            "description": "With several tracks: queue them in a random order",
+            "type": "boolean"
           },
           "track_id": {
             "description": "A track from the server's music library",
@@ -1924,6 +2335,37 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "QueueResult": {
+        "additionalProperties": false,
+        "properties": {
+          "dropped": {
+            "description": "Playlist entries that are private, deleted or cannot be played",
+            "format": "int64",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Tracks that did not fit in the queue",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tracks": {
+            "description": "What was queued",
+            "items": {
+              "$ref": "#/components/schemas/MusicTrack"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "tracks",
+          "skipped",
+          "dropped"
+        ],
         "type": "object"
       },
       "Reaction": {
@@ -2258,6 +2700,23 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "RepeatRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "off",
+              "all",
+              "one"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
         ],
         "type": "object"
       },
@@ -4068,11 +4527,49 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MusicTrack"
+                  "$ref": "#/components/schemas/QueueResult"
                 }
               }
             },
             "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/music/queue": {
+      "delete": {
+        "operationId": "clear-music-queue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "default": {
             "content": {
@@ -4141,6 +4638,54 @@
         ]
       }
     },
+    "/api/channels/{channelID}/music/repeat": {
+      "put": {
+        "operationId": "set-music-repeat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
     "/api/channels/{channelID}/music/{action}": {
       "post": {
         "operationId": "control-music",
@@ -4162,7 +4707,8 @@
                 "pause",
                 "resume",
                 "skip",
-                "stop"
+                "stop",
+                "shuffle"
               ],
               "type": "string"
             }
@@ -7169,8 +7715,43 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/Library"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/server/music/playlists": {
+      "get": {
+        "operationId": "list-music-playlists",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/LibraryTrack"
+                    "$ref": "#/components/schemas/MusicPlaylist"
                   },
                   "type": [
                     "array",
@@ -7180,6 +7761,340 @@
               }
             },
             "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      },
+      "post": {
+        "operationId": "create-music-playlist",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Create-music-playlistResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/server/music/playlists/{playlistID}": {
+      "delete": {
+        "operationId": "delete-music-playlist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlistID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      },
+      "get": {
+        "operationId": "get-music-playlist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlistID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistDetail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      },
+      "patch": {
+        "operationId": "rename-music-playlist",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlistID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistRename"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicPlaylist"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/server/music/playlists/{playlistID}/items": {
+      "post": {
+        "operationId": "add-music-playlist-items",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlistID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaylistAddResult"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/server/music/playlists/{playlistID}/items/{itemID}": {
+      "delete": {
+        "operationId": "remove-music-playlist-item",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlistID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "itemID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/server/music/playlists/{playlistID}/items/{itemID}/position": {
+      "put": {
+        "operationId": "move-music-playlist-item",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "playlistID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "itemID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistMove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "default": {
             "content": {
@@ -8515,8 +9430,14 @@
     "MessageDeleted": {
       "$ref": "#/components/schemas/MessageDeleted"
     },
+    "MusicPlaylist": {
+      "$ref": "#/components/schemas/MusicPlaylist"
+    },
     "MusicState": {
       "$ref": "#/components/schemas/MusicState"
+    },
+    "PlaylistDeleted": {
+      "$ref": "#/components/schemas/PlaylistDeleted"
     },
     "PollUpdate": {
       "$ref": "#/components/schemas/PollUpdate"

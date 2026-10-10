@@ -2,7 +2,10 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/datrope/datrope/server/internal/gateway"
@@ -27,6 +30,35 @@ type Config struct {
 	Music        music.Config // ffmpeg and yt-dlp; empty paths are looked up on PATH
 }
 
+// musicFromEnv reads the music bot's sources, cache and library size:
+// DATROPE_MUSIC_SOURCES (comma-separated yt-dlp extractors), DATROPE_MUSIC_CACHE_MB
+// (0 turns the cache off) and DATROPE_MUSIC_LIBRARY_MB.
+func (c *Config) musicFromEnv() error {
+	if v := os.Getenv("DATROPE_MUSIC_SOURCES"); v != "" {
+		c.Music.Sources = strings.Split(v, ",")
+	}
+	mb := func(name string, def int64) (int64, error) {
+		v := os.Getenv(name)
+		if v == "" {
+			return def, nil
+		}
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 0 {
+			return 0, fmt.Errorf("%s must be a number of megabytes", name)
+		}
+		return n << 20, nil
+	}
+	cache, err := mb("DATROPE_MUSIC_CACHE_MB", music.DefaultCacheBytes)
+	if err != nil {
+		return err
+	}
+	if cache > 0 {
+		c.Music.CacheDir, c.Music.CacheBytes = filepath.Join(c.DataDir, "music-cache"), cache
+	}
+	c.Music.LibraryBytes, err = mb("DATROPE_MUSIC_LIBRARY_MB", music.DefaultLibraryBytes)
+	return err
+}
+
 func ConfigFromEnv() (Config, error) {
 	c := Config{
 		DatabaseURL: os.Getenv("DATROPE_DATABASE_URL"),
@@ -47,6 +79,9 @@ func ConfigFromEnv() (Config, error) {
 	}
 	if c.DataDir == "" {
 		c.DataDir = "/data"
+	}
+	if err := c.musicFromEnv(); err != nil {
+		return c, err
 	}
 	if c.DatabaseURL == "" {
 		return c, errors.New("DATROPE_DATABASE_URL is required")

@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Attachment, Category, Channel, Emoji, JoinVoiceResponse, LibraryTrack, Member, MusicState, MusicTrack, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, Sound,
+  Attachment, Category, Channel, Emoji, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL,
 } from "./types";
 
@@ -330,13 +330,65 @@ export class DatropeClient {
     return m;
   }
 
-  /** Queues a YouTube link or search, or a library track, in a voice channel the caller is in. */
-  async queueMusic(channelId: string, what: { query: string } | { track_id: string }): Promise<MusicTrack> {
+  /** Queues a link or search, a library track or a saved playlist, in a voice channel the caller is in. */
+  async queueMusic(channelId: string, what: QueueRequest): Promise<QueueResult> {
     return unwrap(this.api.POST("/api/channels/{channelID}/music", { params: { path: { channelID: channelId } }, body: what }));
   }
 
-  async controlMusic(channelId: string, action: "pause" | "resume" | "skip" | "stop") {
+  async controlMusic(channelId: string, action: "pause" | "resume" | "skip" | "stop" | "shuffle") {
     await unwrap(this.api.POST("/api/channels/{channelID}/music/{action}", { params: { path: { channelID: channelId, action } } }));
+  }
+
+  async setMusicRepeat(channelId: string, mode: RepeatMode) {
+    await unwrap(this.api.PUT("/api/channels/{channelID}/music/repeat", { params: { path: { channelID: channelId } }, body: { mode } }));
+  }
+
+  /** Empties the queue; the current track plays on. */
+  async clearMusicQueue(channelId: string) {
+    await unwrap(this.api.DELETE("/api/channels/{channelID}/music/queue", { params: { path: { channelID: channelId } } }));
+  }
+
+  /** Loads the server's saved playlists into the store; events keep them current. */
+  async loadPlaylists(): Promise<MusicPlaylist[]> {
+    const list = (await unwrap(this.api.GET("/api/server/music/playlists"))) ?? [];
+    this.set((s) => ({ ...s, playlists: Object.fromEntries(list.map((p) => [p.id, p])) }));
+    return list;
+  }
+
+  async playlist(playlistId: string): Promise<PlaylistDetail> {
+    return unwrap(this.api.GET("/api/server/music/playlists/{playlistID}", { params: { path: { playlistID: playlistId } } }));
+  }
+
+  /** Creates a playlist, empty or imported from a playlist link. */
+  async createPlaylist(body: { title?: string; from_url?: string }) {
+    const created = await unwrap(this.api.POST("/api/server/music/playlists", { body }));
+    this.apply("MUSIC_PLAYLIST_UPDATE", created);
+    return created;
+  }
+
+  async renamePlaylist(playlistId: string, title: string) {
+    await unwrap(this.api.PATCH("/api/server/music/playlists/{playlistID}", { params: { path: { playlistID: playlistId } }, body: { title } }));
+  }
+
+  async deletePlaylist(playlistId: string) {
+    await unwrap(this.api.DELETE("/api/server/music/playlists/{playlistID}", { params: { path: { playlistID: playlistId } } }));
+    this.apply("MUSIC_PLAYLIST_DELETE", { id: playlistId });
+  }
+
+  async addToPlaylist(playlistId: string, what: PlaylistAdd): Promise<PlaylistAddResult> {
+    return unwrap(this.api.POST("/api/server/music/playlists/{playlistID}/items", { params: { path: { playlistID: playlistId } }, body: what }));
+  }
+
+  async movePlaylistItem(playlistId: string, itemId: string, position: number) {
+    await unwrap(this.api.PUT("/api/server/music/playlists/{playlistID}/items/{itemID}/position", {
+      params: { path: { playlistID: playlistId, itemID: itemId } }, body: { position },
+    }));
+  }
+
+  async removePlaylistItem(playlistId: string, itemId: string) {
+    await unwrap(this.api.DELETE("/api/server/music/playlists/{playlistID}/items/{itemID}", {
+      params: { path: { playlistID: playlistId, itemID: itemId } },
+    }));
   }
 
   async unqueueMusic(channelId: string, trackId: string) {
