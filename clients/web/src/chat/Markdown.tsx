@@ -76,7 +76,9 @@ export function MarkdownView({ text, options: base, inline = false, highlight }:
 
 /** Renders a message's content. `mentions` are the user IDs the server parsed from it;
  *  when given, only those users are highlighted. */
-export function Markdown({ text, mentions, inline, highlight }: { text: string; mentions?: string[]; inline?: boolean; highlight?: string[] }) {
+export function Markdown({ text, mentions, everyone = false, inline, highlight }: {
+  text: string; mentions?: string[]; everyone?: boolean; inline?: boolean; highlight?: string[];
+}) {
   const emoji = useApp((s) => s.emoji);
   const members = useApp((s) => s.server?.members);
   const meId = useApp((s) => s.me?.id);
@@ -92,8 +94,9 @@ export function Markdown({ text, mentions, inline, highlight }: { text: string; 
         .filter((m) => !mentioned || mentioned.has(m.user.id))
         .map((m) => [m.user.username.toLowerCase(), { id: m.user.id, name: m.user.display_name }])),
       meId,
+      everyone,
       highlight: highlightKey ? highlightKey.split(" ") : undefined,
     };
-  }, [emoji, members, meId, data, mentionKey, highlightKey]);
+  }, [emoji, members, meId, data, mentionKey, highlightKey, everyone]);
   return <MarkdownView text={text} options={options} inline={inline} />;
 }

@@ -457,7 +457,7 @@ func (s *Service) createDM(ctx context.Context, creator id.ID, recipients []id.I
 			SELECT c.id FROM channels c
 			JOIN dm_participants a ON a.channel_id = c.id AND a.user_id = $1
 			JOIN dm_participants b ON b.channel_id = c.id AND b.user_id = $2
-			WHERE c.type = 'dm' AND (SELECT count(*) FROM dm_participants p WHERE p.channel_id = c.id) = 2
+			WHERE c.type = 'dm' AND NOT c.dm_group AND (SELECT count(*) FROM dm_participants p WHERE p.channel_id = c.id) = 2
 			LIMIT 1`, creator, others[0]).Scan(&existing)
 		if err == nil {
 			return s.get(ctx, existing)
@@ -469,7 +469,7 @@ func (s *Service) createDM(ctx context.Context, creator id.ID, recipients []id.I
 	}
 	defer tx.Rollback(ctx)
 	chID := id.New()
-	if _, err := tx.Exec(ctx, `INSERT INTO channels (id, type) VALUES ($1, 'dm')`, chID); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO channels (id, type, dm_group) VALUES ($1, 'dm', $2)`, chID, len(others) > 1); err != nil {
 		return nil, err
 	}
 	for _, u := range append(others, creator) {

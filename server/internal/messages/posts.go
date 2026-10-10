@@ -66,10 +66,11 @@ func registerPosts(api huma.API, s *Service, op func(string, string, string, int
 				return nil, err
 			}
 			author := u.Public()
-			m := &Message{ID: id.New(), ChannelID: post.ID, Author: &author, Content: content, Mentions: mentions}
+			everyone := have.Has(perms.MentionEveryone) && mentionsEveryone(content)
+			m := &Message{ID: id.New(), ChannelID: post.ID, Author: &author, Content: content, Mentions: mentions, MentionEveryone: everyone}
 			m.CreatedAt = m.ID.Time()
-			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, mentions) VALUES ($1, $2, $3, $4, $5)`,
-				m.ID, post.ID, u.ID, m.Content, id.Int64s(mentions)); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, mentions, mention_everyone) VALUES ($1, $2, $3, $4, $5, $6)`,
+				m.ID, post.ID, u.ID, m.Content, id.Int64s(mentions), everyone); err != nil {
 				return nil, err
 			}
 			// Uploads go to the forum, since the post does not exist yet; once

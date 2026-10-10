@@ -22,6 +22,23 @@ type MoveRequest struct {
 	ChannelID id.ID `json:"channel_id"`
 }
 
+// movePassTTL is how long a moved member has to re-join in the new channel.
+const movePassTTL = 2 * time.Minute
+
+// movePass lets a moved member join a channel they could not connect to.
+type movePass struct {
+	channelID id.ID
+	until     time.Time
+}
+
+// hasMovePass reports whether a moderator just moved the user to the channel.
+func (s *Service) hasMovePass(userID, channelID id.ID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m, ok := s.moves[userID]
+	return ok && m.channelID == channelID && time.Now().Before(m.until)
+}
+
 // VoiceMove asks a user's clients to re-join voice in another channel.
 // Only that user receives it.
 type VoiceMove struct {
@@ -129,7 +146,7 @@ func (s *Service) reconcileUser(ctx context.Context, userID id.ID, revoked time.
 			s.mu.Unlock()
 			return nil
 		}
-		channelID, sid, serverMute, have, issued, session := p.channelID, p.sid, p.serverMute, p.sources, p.issued, p.session
+		channelID, sid, serverMute, have, issued, session, moved := p.channelID, p.sid, p.serverMute, p.sources, p.issued, p.session, p.moved
 		s.mu.Unlock()
 
 		allowed, _, err := s.channels.Perms(ctx, userID, channelID)
@@ -137,7 +154,8 @@ func (s *Service) reconcileUser(ctx context.Context, userID id.ID, revoked time.
 		if err != nil && !gone {
 			return err
 		}
-		if (!revoked.IsZero() && issued <= revoked.UnixMilli()) || sessions[session] || gone || !allowed.Has(perms.ConnectVoice) {
+		if (!revoked.IsZero() && issued <= revoked.UnixMilli()) || sessions[session] || gone ||
+			!allowed.Has(perms.ViewChannel) || (!allowed.Has(perms.ConnectVoice) && !moved) {
 			err := s.disconnect(ctx, userID, channelID, sid)
 			if gone && !deleted[channelID] { // the channel was deleted: close its room
 				deleted[channelID] = true
@@ -247,7 +265,9 @@ func (s *Service) Disconnect(ctx context.Context, callerID, userID id.ID) error 
 
 // Move sends a member to another voice channel (MOVE_MEMBERS in both).
 // LiveKit's open-source server cannot move participants, so the member's
-// clients are told to re-join there; the usual join checks apply.
+// clients are told to re-join there. The member must be able to see the
+// channel but not to connect to it: the move lets them in and they may stay
+// until they leave.
 func (s *Service) Move(ctx context.Context, callerID, userID, to id.ID) error {
 	from, _, err := s.inVoice(ctx, callerID, userID, perms.MoveMembers)
 	if err != nil {
@@ -270,9 +290,12 @@ func (s *Service) Move(ctx context.Context, callerID, userID, to id.ID) error {
 	if err != nil {
 		return err
 	}
-	if !theirs.Has(perms.ConnectVoice) {
-		return httpx.E(http.StatusForbidden, "MISSING_PERMISSION", "that member cannot connect to that channel")
+	if !theirs.Has(perms.ViewChannel) {
+		return httpx.E(http.StatusForbidden, "MISSING_PERMISSION", "that member cannot see that channel")
 	}
+	s.mu.Lock()
+	s.moves[userID] = movePass{channelID: to, until: time.Now().Add(movePassTTL)}
+	s.mu.Unlock()
 	s.bus.Publish(events.Event{Type: "VOICE_MOVE", Data: VoiceMove{ChannelID: to}, Scope: events.Scope{UserIDs: []id.ID{userID}}})
 	return nil
 }

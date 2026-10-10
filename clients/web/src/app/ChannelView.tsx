@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { Lock, Megaphone, MessageSquare, Phone } from "lucide-react";
+import { Lock, LogOut, Megaphone, MessageSquare, Phone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
@@ -10,6 +10,7 @@ import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Markdown } from "../chat/Markdown";
 import { ChannelSettingsDialog } from "./dialogs/ChannelSettingsDialog";
+import { LeaveGroupDialog } from "./dialogs/LeaveGroupDialog";
 import { useVoice, voice } from "../voice/voice";
 import { Composer } from "./Composer";
 import { MemberList } from "./MemberList";
@@ -21,6 +22,7 @@ import { ThreadPanel } from "./side-panel/ThreadPanel";
 import { SidePanel } from "./side-panel/SidePanel";
 import { ThreadsList } from "./side-panel/ThreadsList";
 import { TopBar } from "./TopBar";
+import { EmojiText } from "@/chat/EmojiText";
 import { VoiceStage } from "./voice/VoiceStage";
 
 /** A text channel or DM. `members` shows the member list beside it (hidden while a side panel is open).
@@ -35,6 +37,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
   const loadError = useChannelFeed(channelId);
   const panel = usePanel((s) => s.panel);
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const reply = useMemo(() => ({ replyTo, setReplyTo }), [replyTo]);
 
   // A reply and the side panel belong to their channel.
@@ -76,10 +79,22 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
             {ch.type === "dm" && !here && inCall === 0 && (
               <Button variant="outline" size="sm" onClick={() => void voice.join(channelId)}><Phone /> Start call</Button>
             )}
+            {ch.group && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex">
+                    <Button variant="ghost" size="icon-sm" aria-label="Leave group" className="text-muted-foreground" onClick={() => setLeaving(true)}>
+                      <LogOut />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Leave group</TooltipContent>
+              </Tooltip>
+            )}
           </>
         )}>
           {kind === "announcement" && <Megaphone className="size-5 flex-none text-muted-foreground" aria-hidden />}
-          <h2 className="flex-none">{title}</h2>
+          <h2 className="flex-none">{ch.type === "dm" ? title : <># <EmojiText text={ch.name} /></>}</h2>
           {ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
         {ch.type === "dm" && (inCall > 0 || here) && (
@@ -103,6 +118,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
               readOnlyText={ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
           </div>
         )}
+        {leaving && <LeaveGroupDialog channelId={channelId} onClose={() => setLeaving(false)} />}
       </main>
       {panel?.kind === "threads" ? (
         <SidePanel title="Threads" subtitle={`in #${ch.name}`} onClose={closePanel}>

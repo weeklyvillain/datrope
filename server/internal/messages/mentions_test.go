@@ -32,3 +32,17 @@ func TestParseMentions(t *testing.T) {
 	}
 	require.Len(t, parseMentions(many.String()), 20)
 }
+
+func TestMentionsEveryone(t *testing.T) {
+	for in, want := range map[string]bool{
+		"@everyone dinner!":   true,
+		"hey @everyone.":      true,
+		"`@everyone`":         false,
+		"me@everyone.com":     false,
+		"@everyones":          false,
+		"```\n@everyone\n```": false,
+	} {
+		require.Equal(t, want, mentionsEveryone(in), in)
+	}
+	require.Empty(t, parseMentions("@everyone"), "not a username")
+}

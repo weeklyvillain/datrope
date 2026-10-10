@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Attachment, Category, Channel, Emoji, JoinVoiceResponse, Member, Message, Poll, PollRequest, PresenceStatus, PublicUser, SearchResponse, ReplyRef, Sound,
+  Attachment, Category, Channel, Emoji, JoinVoiceResponse, LibraryTrack, Member, MusicState, MusicTrack, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL,
 } from "./types";
 
@@ -323,6 +323,59 @@ export class DatropeClient {
     return u;
   }
 
+  /** Loads a voice channel's music: what plays and what is queued. */
+  async loadMusic(channelId: string): Promise<MusicState> {
+    const m = await unwrap(this.api.GET("/api/channels/{channelID}/music", { params: { path: { channelID: channelId } } }));
+    this.apply("MUSIC_UPDATE", m);
+    return m;
+  }
+
+  /** Queues a YouTube link or search, or a library track, in a voice channel the caller is in. */
+  async queueMusic(channelId: string, what: { query: string } | { track_id: string }): Promise<MusicTrack> {
+    return unwrap(this.api.POST("/api/channels/{channelID}/music", { params: { path: { channelID: channelId } }, body: what }));
+  }
+
+  async controlMusic(channelId: string, action: "pause" | "resume" | "skip" | "stop") {
+    await unwrap(this.api.POST("/api/channels/{channelID}/music/{action}", { params: { path: { channelID: channelId, action } } }));
+  }
+
+  async unqueueMusic(channelId: string, trackId: string) {
+    await unwrap(this.api.DELETE("/api/channels/{channelID}/music/queue/{trackID}", { params: { path: { channelID: channelId, trackID: trackId } } }));
+  }
+
+  /** Uploads an audio file to the server's music library. */
+  async uploadMusic(file: Blob, title?: string): Promise<LibraryTrack> {
+    const form = new FormData();
+    form.append("file", file, file instanceof File ? file.name : "track");
+    if (title) form.append("title", title);
+    return (await this.multipartForm("POST", "/api/server/music", form)) as LibraryTrack;
+  }
+
+  /** Sets a role's icon to an emoji (Unicode, or custom:<id>); "" removes it. */
+  async setRoleIconEmoji(roleId: string, icon_emoji: string): Promise<Role> {
+    const r = await unwrap(this.api.PATCH("/api/server/roles/{roleID}", { params: { path: { roleID: roleId } }, body: { icon_emoji } }));
+    this.apply("ROLE_UPDATE", r);
+    return r;
+  }
+
+  /** Uploads an image as a role's icon, replacing any emoji. */
+  async uploadRoleIcon(roleId: string, image: Blob): Promise<Role> {
+    const form = new FormData();
+    form.append("file", image, "icon");
+    const r = (await this.multipartForm("PUT", `/api/server/roles/${roleId}/icon`, form)) as Role;
+    this.apply("ROLE_UPDATE", r);
+    return r;
+  }
+
+  /** Removes a role's icon, emoji or image. */
+  async removeRoleIcon(roleId: string): Promise<Role> {
+    const res = await fetch(this.url(`/api/server/roles/${roleId}/icon`), { method: "DELETE", headers: this.authHeaders(), credentials: "include" });
+    if (!res.ok) await this.throwApiError(res);
+    const r = (await res.json()) as Role;
+    this.apply("ROLE_UPDATE", r);
+    return r;
+  }
+
   /** My 1:1 DM with a user: the existing one, or a new one. */
   async openDM(userId: string): Promise<Channel> {
     const existing = findDM(this.store.getState(), userId);
@@ -330,6 +383,12 @@ export class DatropeClient {
     const ch = await unwrap(this.api.POST("/api/dms", { body: { recipient_ids: [userId] } }));
     this.apply("CHANNEL_CREATE", ch);
     return ch;
+  }
+
+  /** Leaves a group DM; the server deletes it once the last person is gone. */
+  async leaveDM(channelId: string) {
+    await unwrap(this.api.POST("/api/dms/{id}/leave", { params: { path: { id: channelId } } }));
+    this.apply("CHANNEL_DELETE", { id: channelId });
   }
 
   private windowGen(channelId: string): number {

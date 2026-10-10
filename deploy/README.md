@@ -61,6 +61,29 @@ forward them on your router if it is behind NAT):
 LiveKit finds the machine's public IP address by itself. If it cannot be reached, joining voice
 says so and text chat keeps working.
 
+## Music bot
+
+Anyone in a voice channel can queue music with the music panel there: YouTube links or searches,
+or tracks members uploaded to the server's music library. The bot joins the channel as "Music",
+and everyone in the channel shares the queue, pause, skip and stop. It leaves when the queue
+runs out or the channel empties.
+
+The server image includes ffmpeg and yt-dlp. YouTube changes often and old yt-dlp versions stop
+working, so rebuild the image now and then (`docker compose build --pull server`). Playing
+YouTube this way is against YouTube's terms of service; the library works without it.
+`DATROPE_FFMPEG` and `DATROPE_YTDLP` point at other binaries.
+
+## Twitch, YouTube and Spotify
+
+- **Stream alerts:** a channel's settings, Alerts tab, follow YouTube channels (no setup) or
+  Twitch streamers. A message is posted when they post a video or go live.
+- **Connections:** members link Twitch or Spotify under Settings, Connections, and others see
+  when they are live or what they are listening to.
+
+Twitch and Spotify need app credentials, which an instance admin enters under Server settings,
+Integrations. Create an app at dev.twitch.tv/console or developer.spotify.com/dashboard and add
+the redirect URL that page shows.
+
 ## Backups
 
 Back up the database (this can run while the stack is up):

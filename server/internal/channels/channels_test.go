@@ -10,6 +10,7 @@ import (
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/communities"
 	"github.com/datrope/datrope/server/internal/id"
+	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/perms"
 )
 
@@ -121,6 +122,43 @@ func TestDMs(t *testing.T) {
 	carol.Do(http.MethodGet, "/api/dms", nil, http.StatusOK, &list)
 	require.Empty(t, list)
 	alice.Fail(http.MethodPatch, "/api/channels/"+dm.ID.String(), map[string]any{"name": "x"}, http.StatusForbidden, "MISSING_PERMISSION")
+}
+
+func TestLeaveGroupDM(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	carol := env.Register("carol")
+
+	var one channels.Channel
+	alice.Do(http.MethodPost, "/api/dms", map[string]any{"recipient_ids": []string{bob.User.ID.String()}}, http.StatusOK, &one)
+	require.False(t, one.Group)
+	alice.Fail(http.MethodPost, "/api/dms/"+one.ID.String()+"/leave", nil, http.StatusBadRequest, "NOT_A_GROUP")
+
+	var group channels.Channel
+	alice.Do(http.MethodPost, "/api/dms", map[string]any{"recipient_ids": []string{bob.User.ID.String(), carol.User.ID.String()}}, http.StatusOK, &group)
+	require.True(t, group.Group)
+	path := "/api/dms/" + group.ID.String() + "/leave"
+	carol.Do(http.MethodPost, path, nil, http.StatusNoContent, nil)
+	carol.Fail(http.MethodPost, path, nil, http.StatusNotFound, "NOT_FOUND")
+
+	var list []channels.Channel
+	carol.Do(http.MethodGet, "/api/dms", nil, http.StatusOK, &list)
+	require.Empty(t, list)
+	var msgs []messages.Message
+	alice.Do(http.MethodGet, "/api/channels/"+group.ID.String()+"/messages", nil, http.StatusOK, &msgs)
+	require.Len(t, msgs, 1)
+	require.Equal(t, messages.KindMemberLeave, msgs[0].Kind)
+	require.Equal(t, carol.User.ID, msgs[0].Author.ID)
+
+	var again channels.Channel
+	bob.Do(http.MethodPost, "/api/dms", map[string]any{"recipient_ids": []string{alice.User.ID.String()}}, http.StatusOK, &again)
+	require.Equal(t, one.ID, again.ID, "a shrunken group is not reused as the 1:1 DM")
+
+	alice.Do(http.MethodPost, path, nil, http.StatusNoContent, nil)
+	bob.Do(http.MethodPost, path, nil, http.StatusNoContent, nil)
+	bob.Do(http.MethodGet, "/api/dms", nil, http.StatusOK, &list)
+	require.Len(t, list, 1, "the last one out deletes the group")
 }
 
 func TestNewChannelTypes(t *testing.T) {

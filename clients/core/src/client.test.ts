@@ -14,7 +14,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 const ready = {
-  session_id: "s", dms: [], presences: [], read_states: [], voice_states: [], emoji: [], sounds: [],
+  session_id: "s", dms: [], presences: [], read_states: [], voice_states: [], emoji: [], sounds: [], activities: [],
   user: { id: "1", username: "alice", display_name: "Alice", custom_status: "", is_admin: false, disabled: false, created_at: "2026-01-01T00:00:00Z" },
 } satisfies Ready;
 

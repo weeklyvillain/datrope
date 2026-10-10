@@ -15,6 +15,7 @@ describe("shouldNotify", () => {
   it("follows the level", () => {
     expect(shouldNotify(base)).toBe(false); // no mention
     expect(shouldNotify({ ...base, message: { ...base.message, mentions: ["1"] } })).toBe(true);
+    expect(shouldNotify({ ...base, message: { ...base.message, mention_everyone: true } })).toBe(true); // @everyone
     expect(shouldNotify({ ...base, isDM: true })).toBe(true); // DMs count as mentions
     expect(shouldNotify({ ...base, prefs: { enabled: true, level: "all" } })).toBe(true);
     expect(shouldNotify({ ...base, isDM: true, prefs: { enabled: true, level: "nothing" } })).toBe(false);

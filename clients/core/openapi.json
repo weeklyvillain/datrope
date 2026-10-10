@@ -33,6 +33,68 @@
         ],
         "type": "object"
       },
+      "Activity": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "The game being streamed, or the artists",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "twitch",
+              "spotify"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "description": "The stream title, or the track name",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "streaming",
+              "listening"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "Where to watch or listen",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "type",
+          "platform",
+          "title",
+          "url"
+        ],
+        "type": "object"
+      },
+      "ActivityUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "activity": {
+            "$ref": "#/components/schemas/Activity"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "activity"
+        ],
+        "type": "object"
+      },
       "Admin-reset-passwordRequest": {
         "additionalProperties": false,
         "properties": {
@@ -56,6 +118,24 @@
         },
         "required": [
           "disabled"
+        ],
+        "type": "object"
+      },
+      "AppCredentials": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "client_secret": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "client_secret"
         ],
         "type": "object"
       },
@@ -230,6 +310,10 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "group": {
+            "description": "DMs only: a group conversation, which people can leave",
+            "type": "boolean"
+          },
           "id": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -361,6 +445,44 @@
         ],
         "type": "object"
       },
+      "ConnectStart": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "description": "Send the browser here to sign in with the provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "Connection": {
+        "additionalProperties": false,
+        "properties": {
+          "account_name": {
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "twitch",
+              "spotify"
+            ],
+            "type": "string"
+          },
+          "show_activity": {
+            "description": "Others see when you are live or what you are listening to",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "account_name",
+          "show_activity"
+        ],
+        "type": "object"
+      },
       "Create-categoryRequest": {
         "additionalProperties": false,
         "properties": {
@@ -372,6 +494,29 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "CreateAlertRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "description": "Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "twitch",
+              "youtube"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "account"
         ],
         "type": "object"
       },
@@ -858,13 +1003,23 @@
               "admin_only"
             ],
             "type": "string"
+          },
+          "spotify_enabled": {
+            "description": "Spotify credentials are set: Spotify connections work",
+            "type": "boolean"
+          },
+          "twitch_enabled": {
+            "description": "Twitch credentials are set: stream alerts and Twitch connections work",
+            "type": "boolean"
           }
         },
         "required": [
           "registration_mode",
           "has_users",
           "max_upload_bytes",
-          "gifs_enabled"
+          "gifs_enabled",
+          "twitch_enabled",
+          "spotify_enabled"
         ],
         "type": "object"
       },
@@ -964,6 +1119,40 @@
         "required": [
           "url",
           "token"
+        ],
+        "type": "object"
+      },
+      "LibraryTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "duration": {
+            "description": "Seconds; 0 when unknown",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "uploaded_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "duration",
+          "created_at"
         ],
         "type": "object"
       },
@@ -1152,6 +1341,17 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "kind": {
+            "description": "Set on system messages: member_leave means the author left the group DM",
+            "enum": [
+              "member_leave"
+            ],
+            "type": "string"
+          },
+          "mention_everyone": {
+            "description": "The message pings everyone who can read it",
+            "type": "boolean"
+          },
           "mentions": {
             "items": {
               "description": "Snowflake ID as a decimal string",
@@ -1247,6 +1447,99 @@
         },
         "required": [
           "channel_id"
+        ],
+        "type": "object"
+      },
+      "MusicState": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_id": {
+            "description": "The bot's LiveKit identity while it is in the channel (for per-person volume)",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/MusicTrack"
+          },
+          "enabled": {
+            "description": "The server can play music (voice and ffmpeg are set up)",
+            "type": "boolean"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "position": {
+            "description": "Seconds into the current track when the state was sent",
+            "format": "double",
+            "type": "number"
+          },
+          "queue": {
+            "items": {
+              "$ref": "#/components/schemas/MusicTrack"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "youtube": {
+            "description": "YouTube links and searches work (yt-dlp is installed)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "channel_id",
+          "paused",
+          "position",
+          "queue",
+          "enabled",
+          "youtube"
+        ],
+        "type": "object"
+      },
+      "MusicTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "duration": {
+            "description": "Seconds; 0 when unknown",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "requested_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "youtube",
+              "upload"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "description": "The page it came from (YouTube); absent for uploads",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "duration",
+          "source",
+          "requested_by"
         ],
         "type": "object"
       },
@@ -1617,6 +1910,22 @@
         ],
         "type": "object"
       },
+      "QueueRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "description": "A YouTube link, or words to search YouTube for",
+            "maxLength": 300,
+            "type": "string"
+          },
+          "track_id": {
+            "description": "A track from the server's music library",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Reaction": {
         "additionalProperties": false,
         "properties": {
@@ -1704,6 +2013,16 @@
       "Ready": {
         "additionalProperties": false,
         "properties": {
+          "activities": {
+            "description": "What people who share the server are doing on linked accounts",
+            "items": {
+              "$ref": "#/components/schemas/Activity"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "dms": {
             "items": {
               "$ref": "#/components/schemas/Channel"
@@ -1782,7 +2101,8 @@
           "read_states",
           "voice_states",
           "emoji",
-          "sounds"
+          "sounds",
+          "activities"
         ],
         "type": "object"
       },
@@ -1987,6 +2307,14 @@
           "hoist": {
             "description": "Members with this role are shown separately in the member list",
             "type": "boolean"
+          },
+          "icon_emoji": {
+            "description": "A Unicode emoji, or custom:\u003cemoji id\u003e",
+            "type": "string"
+          },
+          "icon_url": {
+            "description": "An uploaded icon image (versioned URL)",
+            "type": "string"
           },
           "id": {
             "description": "Snowflake ID as a decimal string",
@@ -2408,12 +2736,22 @@
               "admin_only"
             ],
             "type": "string"
+          },
+          "spotify_configured": {
+            "description": "Spotify app credentials are set (never returned)",
+            "type": "boolean"
+          },
+          "twitch_configured": {
+            "description": "Twitch app credentials are set (never returned)",
+            "type": "boolean"
           }
         },
         "required": [
           "registration_mode",
           "max_upload_bytes",
-          "klipy_configured"
+          "klipy_configured",
+          "twitch_configured",
+          "spotify_configured"
         ],
         "type": "object"
       },
@@ -2512,6 +2850,47 @@
           "channel_id",
           "user_id",
           "sound_id"
+        ],
+        "type": "object"
+      },
+      "StreamAlert": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "description": "A Twitch login or a YouTube channel ID",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "twitch",
+              "youtube"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "channel_id",
+          "platform",
+          "account",
+          "display_name",
+          "url"
         ],
         "type": "object"
       },
@@ -2682,6 +3061,18 @@
         },
         "type": "object"
       },
+      "UpdateConnectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "show_activity": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "show_activity"
+        ],
+        "type": "object"
+      },
       "UpdateMeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2758,6 +3149,11 @@
           "hoist": {
             "type": "boolean"
           },
+          "icon_emoji": {
+            "description": "A Unicode emoji or custom:\u003cemoji id\u003e; replaces an uploaded icon. Empty removes the icon",
+            "maxLength": 64,
+            "type": "string"
+          },
           "name": {
             "maxLength": 32,
             "minLength": 1,
@@ -2824,6 +3220,14 @@
               "admin_only"
             ],
             "type": "string"
+          },
+          "spotify": {
+            "$ref": "#/components/schemas/AppCredentials",
+            "description": "Spotify app credentials (Spotify connections)"
+          },
+          "twitch": {
+            "$ref": "#/components/schemas/AppCredentials",
+            "description": "Twitch app credentials (stream alerts, Twitch connections)"
           }
         },
         "type": "object"
@@ -3593,6 +3997,202 @@
         ]
       }
     },
+    "/api/channels/{channelID}/music": {
+      "get": {
+        "operationId": "get-music",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicState"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      },
+      "post": {
+        "operationId": "queue-music",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicTrack"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/music/queue/{trackID}": {
+      "delete": {
+        "operationId": "remove-queued-music",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "trackID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/music/{action}": {
+      "post": {
+        "operationId": "control-music",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pause",
+                "resume",
+                "skip",
+                "stop"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
     "/api/channels/{id}": {
       "delete": {
         "operationId": "delete-channel",
@@ -3772,6 +4372,156 @@
         ],
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/alerts": {
+      "get": {
+        "operationId": "list-stream-alerts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StreamAlert"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
+        ]
+      },
+      "post": {
+        "operationId": "create-stream-alert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAlertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamAlert"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/channels/{id}/alerts/{alertID}": {
+      "delete": {
+        "operationId": "delete-stream-alert",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "alertID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
         ]
       }
     },
@@ -5075,6 +5825,44 @@
         ]
       }
     },
+    "/api/dms/{id}/leave": {
+      "post": {
+        "operationId": "leave-dm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/gifs/search": {
       "get": {
         "operationId": "search-gifs",
@@ -6373,6 +7161,85 @@
         ]
       }
     },
+    "/api/server/music": {
+      "get": {
+        "operationId": "list-music-library",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryTrack"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
+    "/api/server/music/{trackID}": {
+      "delete": {
+        "operationId": "delete-music-track",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trackID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "music"
+        ]
+      }
+    },
     "/api/server/preview": {
       "get": {
         "operationId": "get-server-preview",
@@ -6934,6 +7801,193 @@
         ]
       }
     },
+    "/api/users/@me/connections": {
+      "get": {
+        "operationId": "list-connections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Connection"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/users/@me/connections/{provider}": {
+      "delete": {
+        "operationId": "delete-connection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "twitch",
+                "spotify"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
+        ]
+      },
+      "patch": {
+        "operationId": "update-connection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "twitch",
+                "spotify"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
+        ]
+      },
+      "post": {
+        "operationId": "start-connection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "twitch",
+                "spotify"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectStart"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/api/users/@me/mentions": {
       "get": {
         "operationId": "list-mentions",
@@ -7431,6 +8485,9 @@
     }
   },
   "x-datrope-gateway-schemas": {
+    "ActivityUpdate": {
+      "$ref": "#/components/schemas/ActivityUpdate"
+    },
     "Attachment": {
       "$ref": "#/components/schemas/Attachment"
     },
@@ -7457,6 +8514,9 @@
     },
     "MessageDeleted": {
       "$ref": "#/components/schemas/MessageDeleted"
+    },
+    "MusicState": {
+      "$ref": "#/components/schemas/MusicState"
     },
     "PollUpdate": {
       "$ref": "#/components/schemas/PollUpdate"

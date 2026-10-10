@@ -25,6 +25,7 @@ import (
 type Channels interface {
 	Access(ctx context.Context, userID, channelID id.ID, need perms.Perms) (*channels.Channel, perms.Perms, error)
 	Readable(ctx context.Context, userID id.ID) ([]id.ID, error)
+	Get(ctx context.Context, channelID id.ID) (*channels.Channel, error)
 }
 
 type Users interface {
@@ -46,26 +47,28 @@ type Attachments interface {
 }
 
 type Message struct {
-	ID          id.ID                `json:"id"`
-	ChannelID   id.ID                `json:"channel_id"`
-	Author      *auth.PublicUser     `json:"author,omitempty" doc:"Absent for webhook messages"`
-	Webhook     *WebhookAuthor       `json:"webhook,omitempty" doc:"Who a webhook message shows as; absent for people's messages"`
-	Title       string               `json:"title,omitempty" doc:"Announcements only"`
-	Content     string               `json:"content"`
-	Attachments []files.Attachment   `json:"attachments"`
-	CreatedAt   time.Time            `json:"created_at"`
-	EditedAt    *time.Time           `json:"edited_at,omitempty"`
-	Deleted     bool                 `json:"deleted"`
-	Nonce       string               `json:"nonce,omitempty" doc:"Echoes the sender's nonce on create"`
-	ReplyTo     *ReplyRef            `json:"reply_to,omitempty"`
-	Mentions    []id.ID              `json:"mentions"`
-	Reactions   []Reaction           `json:"reactions"`
-	Embed       *linkpreview.Preview `json:"embed,omitempty" doc:"Text preview of the first link; attached after send by MESSAGE_UPDATE"`
-	Pinned      bool                 `json:"pinned"`
-	PinnedAt    *time.Time           `json:"pinned_at,omitempty"`
-	Thread      *ThreadSummary       `json:"thread,omitempty" doc:"The thread started from this message"`
-	Embeds      []WebhookEmbed       `json:"embeds,omitempty" doc:"Rich embeds a webhook posted (not link previews); image URLs point at this instance"`
-	Poll        *Poll                `json:"poll,omitempty" doc:"Set when the message is a poll"`
+	ID              id.ID                `json:"id"`
+	ChannelID       id.ID                `json:"channel_id"`
+	Author          *auth.PublicUser     `json:"author,omitempty" doc:"Absent for webhook messages"`
+	Webhook         *WebhookAuthor       `json:"webhook,omitempty" doc:"Who a webhook message shows as; absent for people's messages"`
+	Title           string               `json:"title,omitempty" doc:"Announcements only"`
+	Content         string               `json:"content"`
+	Attachments     []files.Attachment   `json:"attachments"`
+	CreatedAt       time.Time            `json:"created_at"`
+	EditedAt        *time.Time           `json:"edited_at,omitempty"`
+	Deleted         bool                 `json:"deleted"`
+	Nonce           string               `json:"nonce,omitempty" doc:"Echoes the sender's nonce on create"`
+	ReplyTo         *ReplyRef            `json:"reply_to,omitempty"`
+	Mentions        []id.ID              `json:"mentions"`
+	Reactions       []Reaction           `json:"reactions"`
+	Embed           *linkpreview.Preview `json:"embed,omitempty" doc:"Text preview of the first link; attached after send by MESSAGE_UPDATE"`
+	Pinned          bool                 `json:"pinned"`
+	PinnedAt        *time.Time           `json:"pinned_at,omitempty"`
+	Thread          *ThreadSummary       `json:"thread,omitempty" doc:"The thread started from this message"`
+	Embeds          []WebhookEmbed       `json:"embeds,omitempty" doc:"Rich embeds a webhook posted (not link previews); image URLs point at this instance"`
+	Poll            *Poll                `json:"poll,omitempty" doc:"Set when the message is a poll"`
+	MentionEveryone bool                 `json:"mention_everyone,omitempty" doc:"The message pings everyone who can read it"`
+	Kind            string               `json:"kind,omitempty" enum:"member_leave" doc:"Set on system messages: member_leave means the author left the group DM"`
 
 	replyToID *id.ID
 }
@@ -110,7 +113,7 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus, c Channels, u Users, a Atta
 }
 
 const messageCols = `id, channel_id, author_id, content, edited_at, deleted, reply_to_id, mentions, embed, pinned_at,
-	webhook_id, author_name, author_avatar_sha256, embeds, title`
+	webhook_id, author_name, author_avatar_sha256, embeds, title, kind, mention_everyone`
 
 func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var m Message
@@ -120,7 +123,7 @@ func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var authorName string
 	var avatar *string
 	dest := append([]any{&m.ID, &m.ChannelID, &authorID, &m.Content, &m.EditedAt, &m.Deleted, &replyTo, &mentions, &embed, &m.PinnedAt,
-		&webhookID, &authorName, &avatar, &embeds, &m.Title}, extra...)
+		&webhookID, &authorName, &avatar, &embeds, &m.Title, &m.Kind, &m.MentionEveryone}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return nil, err
 	}

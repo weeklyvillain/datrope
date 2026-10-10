@@ -46,6 +46,8 @@ type InstanceInfo struct {
 	HasUsers         bool   `json:"has_users" doc:"False until the first (admin) account exists"`
 	MaxUploadBytes   int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
 	GIFsEnabled      bool   `json:"gifs_enabled" doc:"A Klipy key is set, so /gif is available"`
+	TwitchEnabled    bool   `json:"twitch_enabled" doc:"Twitch credentials are set: stream alerts and Twitch connections work"`
+	SpotifyEnabled   bool   `json:"spotify_enabled" doc:"Spotify credentials are set: Spotify connections work"`
 }
 
 type UpdateMeRequest struct {
@@ -97,7 +99,7 @@ func Register(api huma.API, s *Service) {
 			}
 			return &struct{ Body InstanceInfo }{InstanceInfo{
 				RegistrationMode: set.RegistrationMode, HasUsers: n > 0, MaxUploadBytes: set.MaxUploadBytes,
-				GIFsEnabled: set.KlipyConfigured,
+				GIFsEnabled: set.KlipyConfigured, TwitchEnabled: set.TwitchConfigured, SpotifyEnabled: set.SpotifyConfigured,
 			}}, nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "get-me", Method: http.MethodGet, Path: "/api/users/@me",

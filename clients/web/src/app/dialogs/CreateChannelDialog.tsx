@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
 import { ErrorText } from "@/components/error-text";
-import { FormField } from "@/components/form-field";
+import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -23,6 +24,7 @@ const PLACEHOLDERS: Record<CreatableChannelType, string> = {
 export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: string; onClose: () => void }) {
   const nav = useNavigate();
   const id = useId();
+  const nameId = useId();
   const [name, setName] = useState("");
   const [type, setType] = useState<CreatableChannelType>("text");
   const [tags, setTags] = useState(["Feature", "Bug", "Question"]);
@@ -59,7 +61,13 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
               </Label>
             ))}
           </RadioGroup>
-          <FormField label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder={PLACEHOLDERS[type]} required maxLength={100} autoFocus />
+          <Field>
+            <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+            <div className="flex items-center gap-1">
+              <Input id={nameId} value={name} onChange={(e) => setName(e.target.value)} placeholder={PLACEHOLDERS[type]} required maxLength={100} autoFocus />
+              <EmojiInsertButton fieldId={nameId} label="Insert emoji" value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
+            </div>
+          </Field>
           {categories.length > 0 && (
             <Field>
               <FieldLabel htmlFor={`${id}-category`}>Category</FieldLabel>

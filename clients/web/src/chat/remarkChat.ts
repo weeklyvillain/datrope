@@ -8,6 +8,7 @@ export type ChatOptions = {
   shortcodes: Map<string, string> | null; // Unicode emoji by lower-cased shortcode; null while loading
   users: Map<string, { id: string; name: string }>; // mentionable users by lower-cased username
   meId?: string;
+  everyone?: boolean; // the message pinged @everyone: show it as a mention of me
   highlight?: string[]; // search terms to mark (outside spoilers, code and links)
 };
 
@@ -42,6 +43,11 @@ function tokenNodes(token: string, o: ChatOptions): Node[] {
   }
   // A mention: "@bob." ends a sentence, so trailing "." and "-" are not part of the name.
   const name = token.slice(1).replace(/[.-]+$/, "");
+  if (o.everyone && name.toLowerCase() === "everyone") {
+    const nodes: Node[] = [{ type: "chatMention", data: { hName: "span", hProperties: { className: ["mention"], "data-me": "" } }, children: [text("@everyone")] }];
+    const rest = token.slice(1 + name.length);
+    return rest ? [...nodes, text(rest)] : nodes;
+  }
   const user = name.length >= 2 && name.length <= 32 ? o.users.get(name.toLowerCase()) : undefined;
   if (!user) return [text(token)];
   const nodes: Node[] = [{

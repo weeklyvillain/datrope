@@ -12,7 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { useSubmit } from "@/hooks/use-submit";
 import { avatarColor } from "@/lib/avatar-color";
-import { isHttpsLink } from "@/lib/social";
+import { PLATFORMS, describeLink, isBareLink, isHttpsLink, linkIcon } from "@/lib/social";
+import { RefButton } from "@/components/ref-button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
 import { choosePresence, client, roleColor, useApp } from "../../session";
 import { ProfileCard } from "../people/ProfileCard";
 import { AvatarCropDialog } from "./AvatarCropDialog";
@@ -22,9 +25,9 @@ const ABOUT_MAX = 190;
 const LINKS_MAX = 5;
 const LINK_MAX_LENGTH = 200;
 
-/** The trimmed, non-empty links, or an error when one is not a full https:// link. */
+/** The trimmed, filled-in links, or an error when one is not a full https:// link. */
 function cleanLinks(links: string[]): string[] {
-  const out = links.map((l) => l.trim()).filter(Boolean);
+  const out = links.map((l) => l.trim()).filter((l) => l && !isBareLink(l));
   if (out.some((l) => Array.from(l).length > LINK_MAX_LENGTH || !isHttpsLink(l))) throw new Error("Use a full https:// link");
   return out;
 }
@@ -36,6 +39,8 @@ const limit = (v: string, max: number) => Array.from(v).slice(0, max).join("");
 export function ProfileSettings() {
   const statusId = useId();
   const aboutId = useId();
+  const customStatusId = useId();
+  const linksId = useId();
   const me = useApp((s) => s.me);
   const presence = useApp((s) => s.presence);
   const [name, setName] = useState(me?.display_name ?? "");
@@ -48,6 +53,7 @@ export function ProfileSettings() {
   const [fileError, setFileError] = useState<string>();
   const [bannerError, setBannerError] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
+  const adding = useRef(false); // a link was just added: focus goes to it, not back to "Add link"
   const bannerInput = useRef<HTMLInputElement>(null);
   const sv = useApp((s) => s.server);
   const [saved, setSaved] = useState(false);
@@ -121,25 +127,62 @@ export function ProfileSettings() {
             <FormField className="w-auto min-w-48 flex-1" label="Display name" value={name} onChange={(e) => setName(limit(e.target.value, 32))} required />
             <FormField className="w-auto min-w-48 flex-1" label="Pronouns" placeholder="they/them" value={pronouns} onChange={(e) => setPronouns(limit(e.target.value, 40))} />
           </div>
-          <FormField label="Custom status" placeholder="What are you up to?" value={customStatus} onChange={(e) => setCustomStatus(limit(e.target.value, 80))} />
+          <Field>
+            <FieldLabel htmlFor={customStatusId}>Custom status</FieldLabel>
+            <div className="flex items-center gap-1">
+              <Input id={customStatusId} placeholder="What are you up to?" value={customStatus} onChange={(e) => setCustomStatus(limit(e.target.value, 80))} />
+              <EmojiInsertButton fieldId={customStatusId} label="Add emoji to custom status" value={customStatus} onChange={(v) => setCustomStatus(limit(v, 80))} />
+            </div>
+          </Field>
           <Field>
             <FieldLabel htmlFor={aboutId}>About me</FieldLabel>
-            <Textarea id={aboutId} value={about} aria-describedby={`${aboutId}-count`}
-              onChange={(e) => setAbout(limit(e.target.value, ABOUT_MAX))} />
+            <div className="flex items-start gap-1">
+              <Textarea id={aboutId} value={about} aria-describedby={`${aboutId}-count`}
+                onChange={(e) => setAbout(limit(e.target.value, ABOUT_MAX))} />
+              <EmojiInsertButton fieldId={aboutId} label="Add emoji to About me" value={about} onChange={(v) => setAbout(limit(v, ABOUT_MAX))} />
+            </div>
             <span id={`${aboutId}-count`} className="text-right text-xs text-muted-foreground">{Array.from(about).length} / {ABOUT_MAX}</span>
           </Field>
           <fieldset className="grid gap-2 border-0 p-0">
             <legend className="mb-1 p-0 text-sm font-medium">Links</legend>
-            {links.map((l, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Input aria-label={`Link ${i + 1}`} type="url" inputMode="url" placeholder="https://" value={l}
-                  onChange={(e) => setLinks(links.map((x, j) => (j === i ? e.target.value : x)))} />
-                <Button type="button" size="icon" variant="ghost" aria-label={`Remove link ${i + 1}`}
-                  onClick={() => setLinks(links.filter((_, j) => j !== i))}><X aria-hidden /></Button>
-              </div>
-            ))}
+            {links.map((l, i) => {
+              const Icon = linkIcon(describeLink(l).icon);
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <Icon className="size-4 flex-none text-muted-foreground" />
+                  <Input id={`${linksId}-${i}`} aria-label={`Link ${i + 1}`} inputMode="url" placeholder="https://" value={l}
+                    onChange={(e) => setLinks(links.map((x, j) => (j === i ? e.target.value : x)))} />
+                  <Button type="button" size="icon" variant="ghost" aria-label={`Remove link ${i + 1}`}
+                    onClick={() => setLinks(links.filter((_, j) => j !== i))}><X aria-hidden /></Button>
+                </div>
+              );
+            })}
             {links.length < LINKS_MAX && (
-              <Button type="button" size="sm" variant="outline" className="w-fit" onClick={() => setLinks([...links, ""])}><Plus aria-hidden />Add link</Button>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <RefButton size="sm" variant="outline" className="w-fit"><Plus aria-hidden />Add link</RefButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-72 w-52 overflow-y-auto"
+                  onCloseAutoFocus={(e) => adding.current && e.preventDefault()}>
+                  {PLATFORMS.map((p) => {
+                    const Icon = linkIcon(p.icon);
+                    return (
+                      <DropdownMenuItem key={p.name} onSelect={() => {
+                        const at = links.length;
+                        adding.current = true;
+                        setLinks([...links, p.prefix]);
+                        // Focus the new field with the caret after the prefix, ready for the name.
+                        requestAnimationFrame(() => {
+                          adding.current = false;
+                          const el = document.getElementById(`${linksId}-${at}`) as HTMLInputElement | null;
+                          el?.focus();
+                          el?.setSelectionRange(p.prefix.length, p.prefix.length);
+                        });
+                      }}><Icon className="size-4" />{p.name}</DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </fieldset>
           <Field>

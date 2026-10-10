@@ -1,6 +1,6 @@
 import { ApiError, compareIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
-import { Fragment, forwardRef, useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
-import { Copy, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
+import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { Copy, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
 import { client, displayName, errorText, formatBytes, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
@@ -17,6 +17,8 @@ import { Reactions, useBriefError } from "@/chat/Reactions";
 import { PollCard } from "@/chat/PollCard";
 import { cn } from "@/lib/utils";
 import { LinkPreview } from "./LinkPreview";
+import { InlinePlayer } from "./InlinePlayer";
+import { firstPlayer } from "@/lib/players";
 import { WebhookAvatar } from "@/components/webhook-avatar";
 import { WebhookBadge, WebhookPopover } from "./WebhookAuthor";
 import { WebhookEmbeds } from "./WebhookEmbed";
@@ -32,6 +34,7 @@ import { AudioPlayer } from "./attachments/AudioPlayer";
 import { GifMedia } from "./attachments/GifMedia";
 import { ImageViewer } from "./attachments/ImageViewer";
 import { VideoPlayer } from "./attachments/VideoPlayer";
+import { MemberRoleIcon } from "@/components/role-icon";
 import { fitBox, mediaKind, showable } from "./attachments/media";
 
 /** A plain button that forwards its ref, for use as a popover trigger. */
@@ -265,7 +268,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
           const day = new Date(m.created_at);
           const newDay = !prev || new Date(prev.created_at).toDateString() !== day.toDateString();
           // A reply, and the first unread message, always start a group, so they show their header.
-          const grouped = variant === "chat" && !!prev && !newDay && !m.reply_to && i !== unreadAt && authorKey(prev) === authorKey(m) && !prev.deleted &&
+          const grouped = variant === "chat" && !!prev && !newDay && !m.reply_to && i !== unreadAt && authorKey(prev) === authorKey(m) && !prev.deleted && !prev.kind &&
             Date.parse(m.created_at) - Date.parse(prev.created_at) < FIVE_MINUTES;
           return (
             <Fragment key={m.id}>
@@ -280,14 +283,20 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
                   <span className="h-px flex-1 bg-destructive" />New messages
                 </div>
               )}
-              {variant === "cards" ? (
+              {m.kind === "member_leave" ? (
+                <p className="m-0 flex items-center gap-2 px-4 pb-0.5 pt-2 text-sm text-muted-foreground">
+                  <LogOut className="size-4 flex-none" aria-hidden />
+                  <span><span className="font-semibold text-foreground">{m.author && displayName(m.author)}</span> left the group.</span>
+                  <time className="text-xs" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
+                </p>
+              ) : variant === "cards" ? (
                 <Card className="w-[calc(100%-2rem)] max-w-3xl gap-0 self-center py-0">
-                  <MessageRow m={m} grouped={false} mine={!!meId && m.author?.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
+                  <MessageRow m={m} grouped={false} mine={!!meId && m.author?.id === meId} mentioned={!!meId && (!!m.mentions?.includes(meId) || !!m.mention_everyone)}
                     canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
                     canCreateThread={canCreateThread} onOpenThread={onOpenThread} card />
                 </Card>
               ) : (
-                <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
+                <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && (!!m.mentions?.includes(meId) || !!m.mention_everyone)}
                   canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
                   canCreateThread={canCreateThread} onOpenThread={onOpenThread} />
               )}
@@ -352,6 +361,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const hook = m.author ? undefined : m.webhook; // posted by a webhook: no profile, a WEBHOOK badge
   const name = displayName(author);
   const replyTo = m.reply_to;
+  const playable = useMemo(() => (m.deleted ? undefined : firstPlayer(m.content, window.location.hostname)), [m.content, m.deleted]);
 
   const save = async () => {
     // Only announcement cards carry a title.
@@ -429,6 +439,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
                 <NameButton className="font-semibold hover:underline" style={{ color }}>{name}</NameButton>
               </ProfilePopover>
             )}
+            {m.author && <MemberRoleIcon userId={m.author.id} className="self-center" />}
             {hook ? <WebhookBadge /> : m.author && <GuestBadge user={m.author} />}
             <time className="text-xs text-muted-foreground" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
             {m.pinned && <Pin className="size-3 self-center text-muted-foreground" aria-label="Pinned" role="img" />}
@@ -468,7 +479,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           </form>
         ) : m.content || m.edited_at ? (
           <div className={cn("wrap-anywhere", m.pending && "opacity-60")}>
-            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} />
+            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} everyone={!!m.mention_everyone} />
             {/* Grouped rows have no header, so "(edited)" follows the text. */}
             {grouped && m.edited_at && <span className="edited text-xs text-muted-foreground"> (edited)</span>}
           </div>
@@ -476,7 +487,8 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
         {!m.deleted && m.poll && <PollCard message={m} poll={m.poll} canEnd={mine || canManage} />}
         {!m.deleted && <Attachments items={m.attachments ?? []} />}
         {!m.deleted && m.embeds && m.embeds.length > 0 && <WebhookEmbeds embeds={m.embeds} />}
-        {!m.deleted && !editing && m.embed && <LinkPreview embed={m.embed} />}
+        {!m.deleted && !editing && playable && <InlinePlayer player={playable.player} url={playable.url} title={m.embed?.url === playable.url ? m.embed.title : undefined} />}
+        {!m.deleted && !editing && m.embed && m.embed.url !== playable?.url && <LinkPreview embed={m.embed} />}
         {!m.deleted && <Reactions message={m} canAdd={canReact} />}
         {thread && openThread && <div><ThreadSummary summary={thread} onOpen={openThread} /></div>}
         {m.failed && <ErrorText error="Not sent." />}

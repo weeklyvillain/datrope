@@ -61,6 +61,12 @@ export type MentionItem = Schemas["MentionItem"];
 export type MentionsPage = Schemas["MentionsPage"];
 
 export type PresenceStatus = "online" | "idle" | "invisible";
+export type Activity = Schemas["Activity"];
+export type StreamAlert = Schemas["StreamAlert"];
+export type Connection = Schemas["Connection"];
+export type MusicState = Schemas["MusicState"];
+export type MusicTrack = Schemas["MusicTrack"];
+export type LibraryTrack = Schemas["LibraryTrack"];
 
 /** Gateway DISPATCH payloads by event type. */
 export interface EventMap {
@@ -95,4 +101,6 @@ export interface EventMap {
   EMOJI_UPDATE: Schemas["EmojiUpdate"];
   SOUND_UPDATE: Schemas["SoundUpdate"];
   SOUNDBOARD_PLAY: SoundboardPlay;
+  ACTIVITY_UPDATE: Schemas["ActivityUpdate"];
+  MUSIC_UPDATE: Schemas["MusicState"];
 }

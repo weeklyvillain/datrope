@@ -15,6 +15,15 @@ type UpdateSettingsRequest struct {
 	RegistrationMode *string `json:"registration_mode,omitempty" enum:"invite_only,open,admin_only"`
 	MaxUploadBytes   *int64  `json:"max_upload_bytes,omitempty" minimum:"1048576" maximum:"10737418240"`
 	KlipyAPIKey      *string `json:"klipy_api_key,omitempty" maxLength:"200" doc:"Write-only: responses report klipy_configured instead. Empty removes the key."`
+
+	// App credentials, write-only like the Klipy key. A client ID and secret are set together; empty removes both.
+	Twitch  *AppCredentials `json:"twitch,omitempty" doc:"Twitch app credentials (stream alerts, Twitch connections)"`
+	Spotify *AppCredentials `json:"spotify,omitempty" doc:"Spotify app credentials (Spotify connections)"`
+}
+
+type AppCredentials struct {
+	ClientID     string `json:"client_id" maxLength:"200"`
+	ClientSecret string `json:"client_secret" maxLength:"200"`
 }
 
 type CreateUserRequest struct {
@@ -68,6 +77,21 @@ func registerAdmin(api huma.API, s *Service) {
 					return nil, err
 				}
 				set.KlipyConfigured = key != ""
+			}
+			for provider, c := range map[string]*AppCredentials{"twitch": in.Body.Twitch, "spotify": in.Body.Spotify} {
+				if c == nil {
+					continue
+				}
+				id, secret := strings.TrimSpace(c.ClientID), strings.TrimSpace(c.ClientSecret)
+				if (id == "") != (secret == "") {
+					return nil, httpx.BadRequest("VALIDATION_FAILED", "set both the client ID and the client secret, or neither")
+				}
+				if err := s.store.SetAppCredentials(ctx, provider, id, secret); err != nil {
+					return nil, err
+				}
+			}
+			if set, err = s.store.Settings(ctx); err != nil {
+				return nil, err
 			}
 			return &struct{ Body Settings }{set}, nil
 		})

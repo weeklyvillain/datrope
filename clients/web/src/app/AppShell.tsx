@@ -12,6 +12,7 @@ import { CommandPalette } from "./palette/CommandPalette";
 import { ServerSidebar } from "./ServerSidebar";
 import { ProfileDrawer } from "./people/ProfileDrawer";
 import { UserSettingsDialog } from "./settings/UserSettingsDialog";
+import { openSettings } from "./settings/settings-store";
 import { SoundboardListener } from "./voice/SoundboardPanel";
 
 export function AppShell() {
@@ -30,6 +31,19 @@ export function AppShell() {
   useEffect(() => {
     const t = setInterval(() => client.store.setState((s) => expireTyping(s), true), 2000);
     return () => clearInterval(t);
+  }, []);
+
+  // Back from linking an account (see ConnectionsSettings): show how it went.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const provider = q.get("connection");
+    if (!provider) return;
+    const name = provider === "twitch" ? "Twitch" : "Spotify";
+    const result = q.get("result");
+    openSettings("connections", result === "ok" ? `${name} is connected.`
+      : result === "cancelled" ? `Connecting ${name} was cancelled.`
+      : result === "expired" ? `That ${name} sign-in expired. Try again.` : `${name} could not be connected. Try again.`);
+    window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
   // A fresh READY resets the inbox; load it again after every (re)connect.

@@ -20,8 +20,10 @@ import (
 	"github.com/datrope/datrope/server/internal/gateway"
 	"github.com/datrope/datrope/server/internal/gifs"
 	"github.com/datrope/datrope/server/internal/httpx"
+	"github.com/datrope/datrope/server/internal/integrations"
 	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
+	"github.com/datrope/datrope/server/internal/music"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/webhooks"
 )
@@ -36,7 +38,10 @@ type App struct {
 	Webhooks *webhooks.Service // nil when built without a database
 	// Communities runs the guest sweep; tests call SweepGuests directly.
 	Communities *communities.Service
-	closers     []func()
+	// Integrations polls Twitch, YouTube and Spotify; tests call Poll directly.
+	Integrations *integrations.Service
+	Music        *music.Service // nil when built without a database
+	closers      []func()
 }
 
 // Close stops background work (the gateway).
@@ -97,6 +102,12 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		filesSvc.AddBlobTable("sounds", "sha256")
 		filesSvc.AddBlobTable("webhooks", "avatar_sha256")
 		filesSvc.AddBlobTable("message_images", "sha256")
+		filesSvc.AddBlobTable("roles", "icon_sha256")
+		filesSvc.AddBlobTable("music_tracks", "sha256")
+		commSvc.SetIconBlobs(filesSvc)
+		mux.Handle("PUT /api/server/roles/{roleID}/icon", authSvc.RequireHTTP(commSvc.RoleIconUploadHandler()))
+		mux.Handle("DELETE /api/server/roles/{roleID}/icon", authSvc.RequireHTTP(commSvc.RoleIconDeleteHandler()))
+		mux.Handle("GET /api/role-icons/{roleID}", commSvc.RoleIconHandler())
 		authSvc.SetBlobs(filesSvc)
 		filesSvc.AddBlobTable("users", "avatar_sha256")
 		mux.Handle("PUT /api/users/@me/avatar", authSvc.RequireHTTP(authSvc.AvatarUploadHandler()))
@@ -160,12 +171,31 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		a.Voice = voiceSvc
 	}
 
+	intSvc := integrations.NewService(pool, a.Bus, chanSvc, msgSvc, cfg.PublicURL, cfg.Integrations)
+	integrations.Register(api, intSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		mux.Handle("GET /api/connections/{provider}/callback", intSvc.CallbackHandler())
+		intSvc.Start()
+		a.closers = append(a.closers, intSvc.Close)
+		a.Integrations = intSvc
+	}
+
+	musicSvc := music.NewService(pool, a.Bus, chanSvc, voiceSvc, cfg.LiveKit, cfg.Music)
+	musicSvc.SetCommunity(commSvc)
+	music.Register(api, musicSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		musicSvc.SetBlobs(filesSvc)
+		mux.Handle("POST /api/server/music", authSvc.RequireHTTP(musicSvc.UploadHandler()))
+		a.closers = append(a.closers, musicSvc.Close)
+		a.Music = musicSvc
+	}
+
 	registerEventSchemas(api)
 	if pool != nil { // nil only for `datrope openapi`
 		gw := gateway.New(gateway.Deps{
 			Auth:         authSvc,
 			Audience:     audience{communities: commSvc, channels: chanSvc},
-			Ready:        readyBuilder{communities: commSvc, channels: chanSvc, messages: msgSvc, voice: voiceSvc, expressions: exprSvc},
+			Ready:        readyBuilder{communities: commSvc, channels: chanSvc, messages: msgSvc, voice: voiceSvc, expressions: exprSvc, integrations: intSvc},
 			Bus:          a.Bus,
 			PublicOrigin: cfg.PublicURL,
 		}, cfg.Gateway)

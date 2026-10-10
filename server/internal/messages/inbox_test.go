@@ -173,3 +173,27 @@ func TestMentionsUnreadCountCapped(t *testing.T) {
 	require.Equal(t, 100, *p.UnreadCount)
 	require.Len(t, p.Items, 25)
 }
+
+func TestMentionEveryoneNeedsPermission(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice") // the owner: an admin holds every permission
+	bob := env.Register("bob")
+	carol := env.Register("carol")
+	general := alice.General()
+
+	plain := bob.Send(general, "@everyone look")
+	require.False(t, plain.MentionEveryone, "bob may not ping everyone")
+	ping := alice.Send(general, "@everyone dinner is ready")
+	require.True(t, ping.MentionEveryone)
+
+	var p messages.MentionsPage
+	carol.Do(http.MethodGet, "/api/users/@me/mentions", nil, http.StatusOK, &p)
+	require.Equal(t, []id.ID{ping.ID}, itemIDs(p.Items))
+	require.Equal(t, 1, *p.UnreadCount)
+
+	var role struct{ ID id.ID }
+	alice.Do(http.MethodPost, "/api/server/roles",
+		map[string]any{"name": "Pingers", "permissions": uint64(perms.MentionEveryone)}, http.StatusCreated, &role)
+	alice.Do(http.MethodPut, "/api/server/members/"+bob.User.ID.String()+"/roles/"+role.ID.String(), nil, http.StatusNoContent, nil)
+	require.True(t, bob.Send(general, "@everyone now it works").MentionEveryone)
+}

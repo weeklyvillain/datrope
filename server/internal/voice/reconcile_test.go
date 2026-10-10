@@ -170,7 +170,21 @@ func TestDisconnectAndMove(t *testing.T) {
 	require.Equal(t, games, mv.ChannelID, "bob's clients are told to switch")
 	aliceWS.ExpectNoDispatch("VOICE_MOVE", 300*time.Millisecond)
 
-	deny(c.owner, games, c.community.ID, perms.ConnectVoice)
+	// A member who cannot connect to a channel can still be moved there, and stays.
+	locked := createVoice(c.owner, "Locked")
+	deny(c.owner, locked, c.community.ID, perms.ConnectVoice)
+	c.member.Fail(http.MethodPost, joinPath(locked), map[string]any{}, http.StatusForbidden, "MISSING_PERMISSION")
+	c.owner.Do(http.MethodPost, memberPath(bob)+"/move", map[string]any{"channel_id": locked}, http.StatusNoContent, nil)
+	bobWS.ExpectDispatch("VOICE_MOVE", &mv)
+	enter(t, env, cfg, c.member, locked)
+	require.NoError(t, env.App.Voice.Reconcile(context.Background()))
+	require.False(t, gone(cfg, locked, bob)(), "a moved member is not removed for lacking CONNECT")
+	c.member.Fail(http.MethodPost, joinPath(locked), map[string]any{}, http.StatusForbidden, "MISSING_PERMISSION") // the move is used up
+	c.owner.Do(http.MethodPost, memberPath(bob)+"/move", map[string]any{"channel_id": c.voiceID}, http.StatusNoContent, nil)
+	bobWS.ExpectDispatch("VOICE_MOVE", &mv)
+	enter(t, env, cfg, c.member, c.voiceID)
+
+	deny(c.owner, games, c.community.ID, perms.ViewChannel)
 	c.owner.Fail(http.MethodPost, memberPath(bob)+"/move", map[string]any{"channel_id": games}, http.StatusForbidden, "MISSING_PERMISSION")
 
 	c.owner.Do(http.MethodDelete, memberPath(bob), nil, http.StatusNoContent, nil)

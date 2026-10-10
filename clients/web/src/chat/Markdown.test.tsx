@@ -13,6 +13,13 @@ const opts = {
 };
 const html = (text: string) => renderToStaticMarkup(<MarkdownView text={text} options={opts} />);
 
+describe("@everyone", () => {
+  it("is a mention of me only when the message pinged everyone", () => {
+    expect(renderToStaticMarkup(<MarkdownView text="hi @everyone!" options={{ ...opts, everyone: true }} />)).toContain('<span class="mention" data-me="">@everyone</span>!');
+    expect(html("hi @everyone")).not.toContain("mention");
+  });
+});
+
 describe("message Markdown", () => {
   it.each([
     ["**bold** *it* ~~gone~~", "<strong>bold</strong>", "<em>it</em>", "<del>gone</del>"],

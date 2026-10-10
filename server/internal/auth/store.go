@@ -75,9 +75,11 @@ type Session struct {
 }
 
 type Settings struct {
-	RegistrationMode string `json:"registration_mode" enum:"invite_only,open,admin_only"`
-	MaxUploadBytes   int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
-	KlipyConfigured  bool   `json:"klipy_configured" doc:"A Klipy API key is set, so /gif works. The key itself is never returned."`
+	RegistrationMode  string `json:"registration_mode" enum:"invite_only,open,admin_only"`
+	MaxUploadBytes    int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
+	KlipyConfigured   bool   `json:"klipy_configured" doc:"A Klipy API key is set, so /gif works. The key itself is never returned."`
+	TwitchConfigured  bool   `json:"twitch_configured" doc:"Twitch app credentials are set (never returned)"`
+	SpotifyConfigured bool   `json:"spotify_configured" doc:"Spotify app credentials are set (never returned)"`
 }
 
 type Store struct{ db *pgxpool.Pool }
@@ -287,8 +289,9 @@ func (s *Store) DeleteSessions(ctx context.Context, userID id.ID) ([]id.ID, erro
 
 func (s *Store) Settings(ctx context.Context) (Settings, error) {
 	var x Settings
-	err := s.db.QueryRow(ctx, `SELECT registration_mode, max_upload_bytes, klipy_api_key IS NOT NULL FROM instance_settings`).
-		Scan(&x.RegistrationMode, &x.MaxUploadBytes, &x.KlipyConfigured)
+	err := s.db.QueryRow(ctx, `SELECT registration_mode, max_upload_bytes, klipy_api_key IS NOT NULL,
+		twitch_client_id IS NOT NULL, spotify_client_id IS NOT NULL FROM instance_settings`).
+		Scan(&x.RegistrationMode, &x.MaxUploadBytes, &x.KlipyConfigured, &x.TwitchConfigured, &x.SpotifyConfigured)
 	return x, err
 }
 
@@ -301,6 +304,14 @@ func (s *Store) UpdateSettings(ctx context.Context, x Settings) error {
 // SetKlipyKey stores the Klipy API key; "" removes it (turning /gif off).
 func (s *Store) SetKlipyKey(ctx context.Context, key string) error {
 	_, err := s.db.Exec(ctx, `UPDATE instance_settings SET klipy_api_key = NULLIF($1, '')`, key)
+	return err
+}
+
+// SetAppCredentials stores a provider's ("twitch" or "spotify") client ID
+// and secret; empty strings remove them.
+func (s *Store) SetAppCredentials(ctx context.Context, provider, clientID, secret string) error {
+	col := map[string]string{"twitch": "twitch", "spotify": "spotify"}[provider] // never user input in SQL
+	_, err := s.db.Exec(ctx, `UPDATE instance_settings SET `+col+`_client_id = NULLIF($1, ''), `+col+`_client_secret = NULLIF($2, '')`, clientID, secret)
 	return err
 }
 

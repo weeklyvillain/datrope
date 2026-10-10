@@ -511,6 +511,8 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByLabel("Pronouns", { exact: true }).fill("she/her");
   await alice.getByLabel("About me", { exact: true }).fill("Board games and synths");
   await alice.getByRole("button", { name: "Add link", exact: true }).click();
+  await alice.getByRole("menuitem", { name: "GitHub" }).click();
+  await expect(alice.getByLabel("Link 1", { exact: true })).toHaveValue("https://github.com/");
   await alice.getByLabel("Link 1", { exact: true }).fill("https://github.com/alice");
   await alice.getByRole("button", { name: "Save", exact: true }).click();
   await expect(alice.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();

@@ -15,7 +15,7 @@ const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: 
 const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };
 const ready = (over: Partial<Ready> = {}): Ready => ({
   session_id: "s", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
-  voice_states: [], emoji: [], sounds: [],
+  voice_states: [], emoji: [], sounds: [], activities: [],
   server: {
     ...server, roles: [everyone, mod],
     members: [{ user: { id: "20", username: "bob", display_name: "Bob", custom_status: "" }, role_ids: [], joined_at: "", accepted_rules_at: "x" }],
@@ -579,5 +579,17 @@ describe("forum posts", () => {
     s = applyEvent(s, "MESSAGE_CREATE", msg("140", { channel_id: "501" })); // bob's reply
     s = applyEvent(s, "POST_UPDATE", { channel_id: "400", post: withLast("501", "140") });
     expect(s.readStates["400"]).toEqual({ lastMessageId: "140", lastReadId: "130" });
+  });
+});
+
+describe("activities", () => {
+  it("come from READY and follow ACTIVITY_UPDATE", () => {
+    const spotify = { user_id: "2", type: "listening", platform: "spotify", title: "Song", url: "https://open.spotify.com/track/x" } as const;
+    let s = applyReady(initialState, ready({ activities: [spotify] }));
+    expect(s.activities["2"]?.title).toBe("Song");
+    s = applyEvent(s, "ACTIVITY_UPDATE", { user_id: "2", activity: { ...spotify, title: "Next" } });
+    expect(s.activities["2"]?.title).toBe("Next");
+    s = applyEvent(s, "ACTIVITY_UPDATE", { user_id: "2", activity: null as never });
+    expect(s.activities["2"]).toBeUndefined();
   });
 });

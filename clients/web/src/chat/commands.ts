@@ -6,6 +6,11 @@ export type CommandContext = {
   gifsEnabled: boolean; // instance info: a Klipy key is set
   canAttach: boolean; // the member holds AttachFiles, which posting a GIF needs
   setStatus: (text: string) => Promise<unknown>;
+  /** Set in a voice channel's chat: controls its music bot. */
+  music?: {
+    queue: (query: string) => Promise<unknown>;
+    control: (action: "pause" | "resume" | "skip" | "stop") => Promise<unknown>;
+  };
 };
 export type CommandResult =
   | { send: string }
@@ -55,6 +60,23 @@ export const COMMANDS: Command[] = [
     run: (a) => ({ open: "gif", query: a }),
   },
   { name: "poll", args: "[question]", description: "Creates a poll", run: (a) => ({ open: "poll", query: a }) },
+  {
+    name: "play", args: "<song>", description: "Queues a YouTube link or search on the music bot",
+    available: (ctx) => !!ctx.music,
+    run: async (a, ctx) => {
+      if (!a) return { error: "Usage: /play <link or search>" };
+      await ctx.music!.queue(a);
+      return { done: true };
+    },
+  },
+  ...(["skip", "pause", "resume", "stop"] as const).map((action): Command => ({
+    name: action, description: { skip: "Skips the current song", pause: "Pauses the music", resume: "Resumes the music", stop: "Stops the music and clears the queue" }[action],
+    available: (ctx) => !!ctx.music,
+    run: async (_a, ctx) => {
+      await ctx.music!.control(action);
+      return { done: true };
+    },
+  })),
 ];
 
 /** The commands that apply in this context, in registry order. */

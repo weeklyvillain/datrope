@@ -62,6 +62,7 @@ type Channel struct {
 	Topic        string            `json:"topic"`
 	Overrides    []Override        `json:"overrides"`
 	Participants []auth.PublicUser `json:"participants,omitempty" doc:"DMs only"`
+	Group        bool              `json:"group,omitempty" doc:"DMs only: a group conversation, which people can leave"`
 
 	ParentChannelID *id.ID `json:"parent_channel_id,omitempty" doc:"Threads only"`
 	ParentMessageID *id.ID `json:"parent_message_id,omitempty" doc:"Threads only; the message the thread was started from"`
@@ -95,12 +96,12 @@ func (s *Service) SeedCommunity(ctx context.Context, tx pgx.Tx, communityID id.I
 	return err
 }
 
-const channelCols = `id, community_id, type, name, position, category_id, topic, parent_channel_id, parent_message_id, tags, require_tag, created_by`
+const channelCols = `id, community_id, type, name, position, category_id, topic, parent_channel_id, parent_message_id, tags, require_tag, created_by, dm_group`
 
 func scanChannel(row pgx.Row) (*Channel, error) {
 	var c Channel
 	var cid, catID, parentCh, parentMsg, createdBy *int64
-	if err := row.Scan(&c.ID, &cid, &c.Type, &c.Name, &c.Position, &catID, &c.Topic, &parentCh, &parentMsg, &c.Tags, &c.RequireTag, &createdBy); err != nil {
+	if err := row.Scan(&c.ID, &cid, &c.Type, &c.Name, &c.Position, &catID, &c.Topic, &parentCh, &parentMsg, &c.Tags, &c.RequireTag, &createdBy, &c.Group); err != nil {
 		return nil, err
 	}
 	c.CommunityID = id.FromNullable(cid)
@@ -376,7 +377,7 @@ func (s *Service) ListVisible(ctx context.Context, userID, communityID id.ID) ([
 
 func (s *Service) ListDMs(ctx context.Context, userID id.ID) ([]Channel, error) {
 	chs, err := s.query(ctx, `
-		SELECT c.id, c.community_id, c.type, c.name, c.position, c.category_id, c.topic, c.parent_channel_id, c.parent_message_id, c.tags, c.require_tag, c.created_by
+		SELECT c.id, c.community_id, c.type, c.name, c.position, c.category_id, c.topic, c.parent_channel_id, c.parent_message_id, c.tags, c.require_tag, c.created_by, c.dm_group
 		FROM channels c JOIN dm_participants p ON p.channel_id = c.id
 		WHERE p.user_id = $1 ORDER BY c.id DESC`, userID)
 	if err != nil {

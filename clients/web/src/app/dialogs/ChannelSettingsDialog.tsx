@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
 import { ErrorText } from "@/components/error-text";
+import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { FormField } from "@/components/form-field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,14 +17,16 @@ import { useSubmit } from "@/hooks/use-submit";
 import { TagsEditor } from "../TagsEditor";
 import { PERM_LABELS } from "../../permLabels";
 import { WebhooksTab } from "./WebhooksTab";
+import { AlertsTab } from "./AlertsTab";
 import { client, displayName, useApp } from "../../session";
 
 type Tri = "inherit" | "allow" | "deny";
 
 export function ChannelSettingsDialog({ channelId, onClose }: { channelId: string; onClose: () => void }) {
   const ch = useApp((s) => s.channels[channelId]);
-  const [tab, setTab] = useState<"general" | "permissions" | "webhooks">("general");
+  const [tab, setTab] = useState<"general" | "permissions" | "webhooks" | "alerts">("general");
   const canWebhooks = useApp((s) => s.channels[channelId]?.type === "webhook" && hasPerm(myChannelPerms(s, channelId), Perm.ManageWebhooks));
+  const canAlerts = useApp((s) => ["text", "announcement"].includes(s.channels[channelId]?.type ?? "") && hasPerm(myChannelPerms(s, channelId), Perm.ManageChannels));
   if (!ch) return null;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -36,6 +39,7 @@ export function ChannelSettingsDialog({ channelId, onClose }: { channelId: strin
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="permissions">Permissions</TabsTrigger>
             {canWebhooks && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
+            {canAlerts && <TabsTrigger value="alerts">Alerts</TabsTrigger>}
           </TabsList>
           <TabsContent value="general">
             <General ch={ch} onClose={onClose} />
@@ -48,6 +52,11 @@ export function ChannelSettingsDialog({ channelId, onClose }: { channelId: strin
               <WebhooksTab channelId={ch.id} />
             </TabsContent>
           )}
+          {canAlerts && (
+            <TabsContent value="alerts">
+              <AlertsTab channelId={ch.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -57,6 +66,7 @@ export function ChannelSettingsDialog({ channelId, onClose }: { channelId: strin
 function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
   const nav = useNavigate();
   const id = useId();
+  const nameId = useId();
   const [name, setName] = useState(ch.name);
   const [topic, setTopic] = useState(ch.topic);
   const [category, setCategory] = useState(ch.category_id ?? "");
@@ -76,7 +86,13 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
         onClose();
       });
     }}>
-      <FormField label="Name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
+      <Field>
+        <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+        <div className="flex items-center gap-1">
+          <Input id={nameId} value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
+          <EmojiInsertButton fieldId={nameId} label="Insert emoji" value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
+        </div>
+      </Field>
       <Field>
         <FieldLabel htmlFor={`${id}-topic`}>Topic</FieldLabel>
         <Textarea id={`${id}-topic`} value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={1024} rows={3}

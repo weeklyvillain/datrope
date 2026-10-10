@@ -1,7 +1,7 @@
 import type { Attachment } from "@datrope/core";
 import { CirclePlus, Reply, Smile, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { client, displayName, errorText, formatBytes, useInstanceInfo } from "../session";
+import { client, displayName, errorText, formatBytes, useApp, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
@@ -37,9 +37,16 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   const [caret, setCaret] = useState(0);
   const trigger = useMemo(() => findTrigger(text, caret), [text, caret]);
   const gifsEnabled = useInstanceInfo()?.gifs_enabled ?? false;
+  const isVoice = useApp((s) => s.channels[channelId]?.type === "voice");
   const ctx = useMemo<CommandContext>(
-    () => ({ gifsEnabled, canAttach, setStatus: (custom_status) => client.updateMe({ custom_status }) }),
-    [gifsEnabled, canAttach],
+    () => ({
+      gifsEnabled, canAttach, setStatus: (custom_status) => client.updateMe({ custom_status }),
+      music: isVoice ? {
+        queue: (query) => client.queueMusic(channelId, { query }),
+        control: (action) => client.controlMusic(channelId, action),
+      } : undefined,
+    }),
+    [gifsEnabled, canAttach, isVoice, channelId],
   );
   const commands = useMemo(() => availableCommands(ctx), [ctx]);
   const suggestions = useSuggestions(channelId, trigger, commands);

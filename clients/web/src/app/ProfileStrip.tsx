@@ -1,6 +1,8 @@
 import type { PresenceStatus } from "@datrope/core";
 import { Settings } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
+import { EmojiText } from "@/chat/EmojiText";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -34,7 +36,7 @@ export function ProfileStrip() {
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-foreground">{name}</span>
             <span className="block truncate text-xs text-muted-foreground">
-              {me.custom_status || <span className="opacity-0 group-hover:opacity-100">Set a status</span>}
+              {me.custom_status ? <EmojiText text={me.custom_status} /> : <span className="opacity-0 group-hover:opacity-100">Set a status</span>}
             </span>
           </span>
         </DropdownMenuTrigger>
@@ -70,8 +72,12 @@ export function ProfileStrip() {
   );
 }
 
+/** Limits a status to 80 characters (code points), as the server does. */
+const limit = (v: string) => Array.from(v).slice(0, 80).join("");
+
 function EditStatusDialog({ current, onClose }: { current: string; onClose: () => void }) {
   const [status, setStatus] = useState(current);
+  const fieldId = useId();
   const { busy, error, run } = useSubmit();
   const save = (custom_status: string) => run(async () => {
     await client.updateMe({ custom_status });
@@ -87,8 +93,11 @@ function EditStatusDialog({ current, onClose }: { current: string; onClose: () =
           e.preventDefault();
           void save(status.trim());
         }}>
-          <Input aria-label="Status" placeholder="What are you up to?" value={status} maxLength={80} autoFocus
-            onChange={(e) => setStatus(e.target.value)} />
+          <div className="flex items-center gap-1">
+            <Input id={fieldId} aria-label="Status" placeholder="What are you up to?" value={status} autoFocus
+              onChange={(e) => setStatus(limit(e.target.value))} />
+            <EmojiInsertButton fieldId={fieldId} value={status} onChange={(v) => setStatus(limit(v))} />
+          </div>
           <ErrorText error={error} />
           <DialogFooter>
             <Button variant="outline" disabled={busy} onClick={() => void save("")}>Clear</Button>

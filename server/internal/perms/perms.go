@@ -29,10 +29,11 @@ const (
 	UseSoundboard
 	ManageExpressions
 	ManageWebhooks
+	MentionEveryone
 )
 
 // All is every flag.
-const All Perms = ManageWebhooks<<1 - 1
+const All Perms = MentionEveryone<<1 - 1
 
 // Default is what @everyone gets on a new server.
 const Default = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | CreateInvite |

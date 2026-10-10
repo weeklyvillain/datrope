@@ -16,7 +16,8 @@ describe("perms", () => {
   it("matches the Go flag values", () => {
     expect(Perm.ViewChannel).toBe(1);
     expect(Perm.Admin).toBe(1 << 16);
-    expect(ALL_PERMS).toBe((1 << 22) - 1);
+    expect(ALL_PERMS).toBe((1 << 23) - 1);
+    expect(Perm.MentionEveryone).toBe(1 << 22);
     expect(Perm.ManageWebhooks).toBe(1 << 21);
     expect(Perm.ManageServer).toBe(1 << 15);
     expect(Perm.AddReactions).toBe(1 << 17);

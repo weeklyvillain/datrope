@@ -2,7 +2,7 @@ import { createStore } from "zustand/vanilla";
 import type { ConnectionStatus } from "./gateway";
 import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
-  Attachment, Category, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
+  Activity, Attachment, Category, MusicState, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
   PostDeleted, PostUpdate, ThreadListItem, ThreadUpdate, VoiceState, Welcome,
 } from "./types";
 
@@ -47,6 +47,8 @@ export interface State {
   emoji: Record<string, Emoji>; // custom emoji, by ID
   sounds: Record<string, Sound>; // soundboard sounds, by ID
   mentions: MentionsState; // the mentions inbox
+  activities: Record<string, Activity>; // by user ID: live on Twitch, listening on Spotify
+  music: Record<string, MusicState>; // by voice channel ID, once loaded or announced
 }
 
 export const initialState: State = {
@@ -66,6 +68,8 @@ export const initialState: State = {
   emoji: {},
   sounds: {},
   mentions: { items: [], unread: 0, hasMore: false, loaded: false },
+  activities: {},
+  music: {},
 };
 
 export const createAppStore = () => createStore<State>(() => initialState);
@@ -109,6 +113,7 @@ export function applyReady(s: State, r: Ready): State {
     sounds: byKey(r.sounds ?? [], (x) => x.id),
     mentions: initialState.mentions,
     presences: Object.fromEntries((r.presences ?? []).map((p) => [p.user_id, p.status])),
+    activities: byKey(r.activities ?? [], (a) => a.user_id),
     readStates: Object.fromEntries(
       (r.read_states ?? []).map((x) => [x.channel_id, { lastReadId: x.last_read_id, lastMessageId: x.last_message_id }]),
     ),
@@ -222,8 +227,9 @@ export function findUser(s: State, userId: string): PublicUser | undefined {
 /** My 1:1 DM with a user, if there is one. */
 export function findDM(s: State, userId: string): string | undefined {
   return s.dmIds.find((id) => {
-    const ps = s.channels[id]?.participants ?? [];
-    return ps.length === 2 && ps.some((p) => p.id === userId) && ps.some((p) => p.id === s.me?.id);
+    const c = s.channels[id];
+    const ps = c?.participants ?? [];
+    return !c?.group && ps.length === 2 && ps.some((p) => p.id === userId) && ps.some((p) => p.id === s.me?.id);
   });
 }
 
@@ -262,7 +268,7 @@ function mapMentions(s: State, fn: (i: MentionItem) => MentionItem): State {
 }
 
 function addMention(s: State, m: Message): State {
-  if (!s.mentions.loaded || !s.me || m.author?.id === s.me.id || !m.mentions?.includes(s.me.id)) return s;
+  if (!s.mentions.loaded || !s.me || m.author?.id === s.me.id || !(m.mentions?.includes(s.me.id) || m.mention_everyone)) return s;
   if (s.mentions.items.some((i) => i.message.id === m.id)) return s;
   const item: MentionItem = { message: m, channel: channelRef(s, m.channel_id), unread: true };
   return { ...s, mentions: { ...s.mentions, items: [item, ...s.mentions.items], unread: s.mentions.unread + 1 } };
@@ -346,6 +352,15 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
       const d = data as { channel_id: string; user_id: string };
       if (d.user_id === s.me?.id) return s;
       return { ...s, typing: { ...s.typing, [d.channel_id]: { ...s.typing[d.channel_id], [d.user_id]: now + 10_000 } } };
+    }
+    case "MUSIC_UPDATE": {
+      const m = data as MusicState;
+      return { ...s, music: { ...s.music, [m.channel_id]: m } };
+    }
+    case "ACTIVITY_UPDATE": {
+      const d = data as { user_id: string; activity?: Activity | null };
+      const { [d.user_id]: _old, ...rest } = s.activities;
+      return { ...s, activities: d.activity ? { ...rest, [d.user_id]: d.activity } : rest };
     }
     case "CHANNEL_CREATE":
       return upsertChannel(s, data as Channel);

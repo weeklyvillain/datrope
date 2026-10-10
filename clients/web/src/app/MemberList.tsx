@@ -8,8 +8,11 @@ import { UserAvatar } from "@/components/user-avatar";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { client, displayName, roleColor, useApp } from "../session";
+import { EmojiText } from "@/chat/EmojiText";
 import { GuestBadge } from "@/components/guest-badge";
 import { ProfilePopover } from "./people/ProfilePopover";
+import { MemberRoleIcon } from "@/components/role-icon";
+import { ActivityLine } from "@/components/activity";
 import { openProfile } from "./side-panel/panel";
 
 const rank: Record<string, number> = { online: 2, idle: 1 };
@@ -27,6 +30,7 @@ interface Group {
 export function MemberList() {
   const sv = useApp((s) => s.server);
   const presences = useApp((s) => s.presences);
+  const activities = useApp((s) => s.activities);
   const meId = useApp((s) => s.me?.id);
   const nav = useNavigate();
   // Who is in a server voice channel, by user ID: the channel's name (a DM call is left out).
@@ -61,7 +65,8 @@ export function MemberList() {
           <ul className="mt-1 list-none">
             {g.members.map((m) => {
               const status = presences[m.user.id] ?? "offline";
-              const line = m.user.custom_status || (inVoice[m.user.id] ? `In voice: ${inVoice[m.user.id]}` : undefined);
+              const activity = activities[m.user.id];
+              const line = activity ? <ActivityLine activity={activity} /> : m.user.custom_status ? <EmojiText text={m.user.custom_status} /> : inVoice[m.user.id] ? `In voice: ${inVoice[m.user.id]}` : undefined;
               return (
               <ContextMenu modal={false} key={m.user.id}>
               <ContextMenuTrigger asChild>
@@ -71,7 +76,9 @@ export function MemberList() {
                     className={cn("h-auto w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal", status === "offline" && "opacity-50")}>
                     <UserAvatar user={m.user} size="md" status={status} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate" style={{ color: colors[m.user.id] }}>{displayName(m.user)}<GuestBadge user={m.user} /></span>
+                      <span className="flex items-center gap-1 truncate" style={{ color: colors[m.user.id] }}>
+                        <span className="truncate">{displayName(m.user)}</span><MemberRoleIcon userId={m.user.id} /><GuestBadge user={m.user} />
+                      </span>
                       {line && <span className="block truncate text-xs text-muted-foreground">{line}</span>}
                     </span>
                   </RefButton>

@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/datrope/datrope/server/internal/gateway"
+	"github.com/datrope/datrope/server/internal/integrations"
+	"github.com/datrope/datrope/server/internal/music"
 	"github.com/datrope/datrope/server/internal/voice"
 )
 
@@ -20,6 +22,9 @@ type Config struct {
 	DataDir    string          // uploads live in DataDir/files
 	LiveKit    voice.Config    // voice is off when LiveKit.URL is empty
 	KlipyURL   string          // Klipy's API base; "" is the real one (tests point it at a fake)
+	// Integrations are Twitch's, YouTube's and Spotify's base URLs; zero values are the real ones.
+	Integrations integrations.Endpoints
+	Music        music.Config // ffmpeg and yt-dlp; empty paths are looked up on PATH
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -35,6 +40,7 @@ func ConfigFromEnv() (Config, error) {
 			APIKey:    os.Getenv("DATROPE_LIVEKIT_API_KEY"),
 			APISecret: os.Getenv("DATROPE_LIVEKIT_API_SECRET"),
 		},
+		Music: music.Config{FFmpeg: os.Getenv("DATROPE_FFMPEG"), YtDlp: os.Getenv("DATROPE_YTDLP")},
 	}
 	if c.Addr == "" {
 		c.Addr = ":8080"

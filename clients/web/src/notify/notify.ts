@@ -1,7 +1,7 @@
 import type { NotifyPrefs } from "./prefs";
 
 export interface NotifyInput {
-  message: { author?: { id: string }; mentions?: string[] | null; channel_id: string; deleted?: boolean };
+  message: { author?: { id: string }; mentions?: string[] | null; mention_everyone?: boolean; channel_id: string; deleted?: boolean };
   meId: string | undefined;
   isDM: boolean;
   prefs: NotifyPrefs;
@@ -14,7 +14,7 @@ export interface NotifyInput {
 export function shouldNotify(i: NotifyInput): boolean {
   if (!i.meId || i.message.author?.id === i.meId || i.message.deleted) return false;
   if (!i.prefs.enabled || i.permission !== "granted" || i.prefs.level === "nothing") return false;
-  if (i.prefs.level === "mentions" && !i.isDM && !(i.message.mentions ?? []).includes(i.meId)) return false;
+  if (i.prefs.level === "mentions" && !i.isDM && !(i.message.mentions ?? []).includes(i.meId) && !i.message.mention_everyone) return false;
   return i.hidden || !i.openChannelIds.includes(i.message.channel_id);
 }
 

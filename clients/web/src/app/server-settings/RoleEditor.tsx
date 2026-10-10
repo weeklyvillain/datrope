@@ -21,6 +21,9 @@ import { ROLE_COLORS } from "@/lib/palettes";
 import { cn } from "@/lib/utils";
 import { PERM_GROUPS, PERM_LABELS } from "@/permLabels";
 import { client, displayName, useApp } from "@/session";
+import { EmojiPicker, reactionKey } from "@/chat/EmojiPicker";
+import { RefButton } from "@/components/ref-button";
+import { RoleIcon } from "@/components/role-icon";
 
 /** Names for ROLE_COLORS, in the same order. */
 const COLOR_NAMES = ["Red", "Orange", "Green", "Teal", "Blue", "Purple", "Pink", "Grey"];
@@ -108,6 +111,7 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
               <FormField label="Role name" value={name} maxLength={32} required disabled={!editable}
                 onChange={(e) => edit({ name: e.target.value })} />
               <ColorPicker value={color} disabled={!editable} onChange={(c) => edit({ color: c })} />
+              <RoleIconField role={role} disabled={!editable} />
               <SwitchRow label="Show members separately" description="Members with this role get their own group in the member list."
                 checked={hoist} disabled={!editable} onChange={(v) => edit({ hoist: v })} />
               {role.is_guest && (
@@ -345,5 +349,35 @@ function AddMembers({ role, candidates, onClose }: { role: Role; candidates: Mem
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const ICON_TYPES = "image/png,image/jpeg,image/webp,image/gif";
+
+/** The role's icon, shown next to its members' names: an emoji or a small image. Changes apply at once. */
+function RoleIconField({ role, disabled }: { role: Role; disabled: boolean }) {
+  const { busy, error, run } = useSubmit();
+  const fileId = useId();
+  const has = !!(role.icon_emoji || role.icon_url);
+  return (
+    <div className="grid gap-2">
+      <span className="text-sm font-medium">Role icon</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="grid size-9 place-items-center rounded-md border bg-card" aria-label={has ? "Current icon" : "No icon"} role="img">
+          <RoleIcon role={role} className="size-6 text-xl" />
+        </span>
+        <EmojiPicker onPick={(v) => void run(async () => { await client.setRoleIconEmoji(role.id, reactionKey(v)); })}
+          trigger={<RefButton variant="outline" size="sm" disabled={disabled || busy}>Choose emoji</RefButton>} />
+        <Button variant="outline" size="sm" disabled={disabled || busy} onClick={() => document.getElementById(fileId)?.click()}>Upload image</Button>
+        {has && <Button variant="ghost" size="sm" disabled={disabled || busy} onClick={() => void run(async () => { await client.removeRoleIcon(role.id); })}>Remove</Button>}
+        <input id={fileId} type="file" hidden accept={ICON_TYPES} aria-label="Choose a role icon image" onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void run(async () => { await client.uploadRoleIcon(role.id, f); });
+        }} />
+      </div>
+      <span className="text-xs text-muted-foreground">Shown next to the names of members whose highest icon role this is. Images: PNG, JPEG, WebP or GIF, up to 256 KB and 512 × 512 pixels.</span>
+      <ErrorText error={error} />
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeLink, isHttpsLink } from "./social";
+import { PLATFORMS, describeLink, isBareLink, isHttpsLink } from "./social";
 
 describe("describeLink", () => {
   const cases: [string, string, string][] = [
@@ -20,6 +20,11 @@ describe("describeLink", () => {
     ["https://linkedin.com/in/alice", "LinkedIn", "linkedin.com"],
     ["https://discord.gg/abc", "Discord", "discord.gg"],
     ["https://discord.com/users/1", "Discord", "discord.com"],
+    ["https://kick.com/alice", "Kick", "kick.com"],
+    ["https://alice.itch.io", "itch.io", "alice.itch.io"],
+    ["https://threads.net/@alice", "Threads", "threads.net"],
+    ["https://t.me/alice", "Telegram", "t.me"],
+    ["https://ko-fi.com/alice", "Ko-fi", "ko-fi.com"],
   ];
   it.each(cases)("%s is %s", (url, name, host) => {
     expect(describeLink(url)).toMatchObject({ name, host });
@@ -63,5 +68,20 @@ describe("isHttpsLink", () => {
     expect(isHttpsLink("javascript:alert(1)")).toBe(false);
     expect(isHttpsLink("github.com")).toBe(false);
     expect(isHttpsLink("https://u:p@x.com")).toBe(false);
+  });
+});
+
+describe("PLATFORMS", () => {
+  it("starts each known site's link on that site", () => {
+    for (const p of PLATFORMS.filter((p) => p.prefix !== "https://")) {
+      expect(isHttpsLink(p.prefix + "alice"), p.name).toBe(true);
+      expect(describeLink(p.prefix + "alice").name, p.prefix).toBe(p.name);
+    }
+  });
+
+  it("treats a prefix with nothing filled in as bare", () => {
+    expect(isBareLink("https://github.com/")).toBe(true);
+    expect(isBareLink("https://")).toBe(true);
+    expect(isBareLink("https://github.com/alice")).toBe(false);
   });
 });

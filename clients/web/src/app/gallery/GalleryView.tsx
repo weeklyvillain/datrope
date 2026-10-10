@@ -18,6 +18,7 @@ import { closePanel, openPanel, panelStore, usePanel } from "../side-panel/panel
 import { ThreadPanel } from "../side-panel/ThreadPanel";
 import { GalleryItemPanel } from "./GalleryItemPanel";
 import { galleryItems, itemTitle, sections, type GalleryFilter, type GalleryItem } from "./items";
+import { EmojiText } from "@/chat/EmojiText";
 import { UploadDialog } from "./UploadDialog";
 
 const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
@@ -78,7 +79,7 @@ export function GalleryView({ channelId }: { channelId: string }) {
       <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={ch.name}>
         <TopBar actions={canUpload && <Button size="sm" onClick={() => setUploading(true)}><Upload /> Upload</Button>}>
           <Images className="size-4 flex-none text-muted-foreground" aria-hidden />
-          <h2 className="flex-none">{ch.name}</h2>
+          <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
           {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
 

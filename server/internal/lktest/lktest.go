@@ -9,8 +9,10 @@ package lktest
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -27,8 +29,6 @@ import (
 const (
 	APIKey    = "datrope-test"
 	APISecret = "datrope-test-secret-0123456789abcdef"
-	tcpPort   = "17881" // ICE over TCP
-	udpPort   = "17882" // all WebRTC UDP traffic (UDP mux)
 )
 
 var (
@@ -47,7 +47,29 @@ func New(t *testing.T) voice.Config {
 	return cfg
 }
 
+// freePorts finds a TCP port and a UDP port nothing listens on. Test
+// packages run in parallel, each with its own LiveKit, so fixed host ports
+// would clash.
+func freePorts() (tcp, udp string, err error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", "", err
+	}
+	defer l.Close()
+	c, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		return "", "", err
+	}
+	defer c.Close()
+	return strconv.Itoa(l.Addr().(*net.TCPAddr).Port), strconv.Itoa(c.LocalAddr().(*net.UDPAddr).Port), nil
+}
+
 func start() {
+	tcpPort, udpPort, err := freePorts() // ICE over TCP; all WebRTC UDP traffic (UDP mux)
+	if err != nil {
+		startErr = err
+		return
+	}
 	// See pgtest: without this, Ryuk cannot start on Docker Desktop for Windows.
 	if runtime.GOOS == "windows" && os.Getenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE") == "" {
 		os.Setenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", "/var/run/docker.sock")

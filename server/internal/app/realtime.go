@@ -16,7 +16,9 @@ import (
 	"github.com/datrope/datrope/server/internal/files"
 	"github.com/datrope/datrope/server/internal/gateway"
 	"github.com/datrope/datrope/server/internal/id"
+	"github.com/datrope/datrope/server/internal/integrations"
 	"github.com/datrope/datrope/server/internal/messages"
+	"github.com/datrope/datrope/server/internal/music"
 	"github.com/datrope/datrope/server/internal/voice"
 )
 
@@ -31,6 +33,7 @@ type Ready struct {
 	VoiceStates []voice.VoiceState       `json:"voice_states" doc:"Who is in voice, in channels and DMs the user can see"`
 	Emoji       []expressions.Emoji      `json:"emoji" doc:"The server custom emoji; empty when the user is not a member"`
 	Sounds      []expressions.Sound      `json:"sounds" doc:"The server soundboard sounds; empty when the user is not a member"`
+	Activities  []integrations.Activity  `json:"activities" doc:"What people who share the server are doing on linked accounts"`
 }
 
 type ReadyServer struct {
@@ -42,15 +45,16 @@ type ReadyServer struct {
 }
 
 type readyBuilder struct {
-	communities *communities.Service
-	channels    *channels.Service
-	messages    *messages.Service
-	voice       *voice.Service
-	expressions *expressions.Service
+	communities  *communities.Service
+	channels     *channels.Service
+	messages     *messages.Service
+	voice        *voice.Service
+	expressions  *expressions.Service
+	integrations *integrations.Service
 }
 
 func (b readyBuilder) Build(ctx context.Context, u *auth.User, sessionID string, status func(id.ID) string) (any, error) {
-	r := Ready{SessionID: sessionID, User: u, Presences: []gateway.PresenceUpdate{}, Emoji: []expressions.Emoji{}, Sounds: []expressions.Sound{}}
+	r := Ready{SessionID: sessionID, User: u, Presences: []gateway.PresenceUpdate{}, Emoji: []expressions.Emoji{}, Sounds: []expressions.Sound{}, Activities: []integrations.Activity{}}
 	var channelIDs []id.ID
 	rs, gated, err := b.server(ctx, u.ID)
 	if err != nil {
@@ -67,11 +71,14 @@ func (b readyBuilder) Build(ctx context.Context, u *auth.User, sessionID string,
 		for _, ch := range rs.Channels {
 			channelIDs = append(channelIDs, ch.ID)
 		}
+		memberIDs := make([]id.ID, 0, len(rs.Members))
 		for _, m := range rs.Members {
+			memberIDs = append(memberIDs, m.User.ID)
 			if st := status(m.User.ID); st != gateway.StatusOffline {
 				r.Presences = append(r.Presences, gateway.PresenceUpdate{UserID: m.User.ID, Status: st})
 			}
 		}
+		r.Activities = b.integrations.Activities(memberIDs)
 	}
 	if gated {
 		r.DMs, r.ReadStates, r.VoiceStates = []channels.Channel{}, []messages.ReadState{}, []voice.VoiceState{}
@@ -180,6 +187,7 @@ func registerEventSchemas(api huma.API) {
 		channels.ChannelDeleted{}, communities.MemberRemoved{}, communities.RoleDeleted{}, communities.Server{},
 		channels.Category{}, channels.CategoryDeleted{},
 		files.Attachment{}, voice.VoiceState{}, voice.VoiceMove{}, voice.SoundboardPlay{}, expressions.EmojiUpdate{}, expressions.SoundUpdate{},
+		integrations.ActivityUpdate{}, music.MusicState{},
 	} {
 		s := doc.Components.Schemas.Schema(reflect.TypeOf(v), true, "")
 		refs[strings.TrimPrefix(s.Ref, "#/components/schemas/")] = map[string]string{"$ref": s.Ref}

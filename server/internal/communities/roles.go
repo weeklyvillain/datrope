@@ -31,6 +31,7 @@ type UpdateRoleRequest struct {
 	Color       *string      `json:"color,omitempty" enum:"#e74c3c,#f5a524,#2ecc71,#2dd4bf,#4aa3ff,#a78bfa,#fb7185,#969da2"`
 	ClearColor  bool         `json:"clear_color,omitempty" doc:"Remove the role's colour (ignored when color is set)"`
 	Hoist       *bool        `json:"hoist,omitempty"`
+	IconEmoji   *string      `json:"icon_emoji,omitempty" maxLength:"64" doc:"A Unicode emoji or custom:<emoji id>; replaces an uploaded icon. Empty removes the icon"`
 }
 
 type BanRequest struct {
@@ -176,7 +177,7 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 					return nil, httpx.BadRequest("CANNOT_RENAME_EVERYONE", "the @everyone role cannot be renamed")
 				case b.Position != nil:
 					return nil, httpx.BadRequest("CANNOT_MOVE_EVERYONE", "the @everyone role is always at the bottom")
-				case b.Color != nil || b.ClearColor || b.Hoist != nil:
+				case b.Color != nil || b.ClearColor || b.Hoist != nil || b.IconEmoji != nil:
 					return nil, httpx.BadRequest("CANNOT_STYLE_EVERYONE", "the @everyone role has no colour and is not shown separately")
 				}
 			} else if err := canEditRole(rank, r); err != nil {
@@ -200,6 +201,19 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 					return nil, err
 				}
 			}
+			var oldIcon *string // an uploaded icon an emoji replaces
+			if b.IconEmoji != nil {
+				if err := s.checkIconEmoji(ctx, tx, *b.IconEmoji); err != nil {
+					return nil, err
+				}
+				if err := tx.QueryRow(ctx, `SELECT icon_sha256 FROM roles WHERE id = $1`, r.ID).Scan(&oldIcon); err != nil {
+					return nil, err
+				}
+				if _, err := tx.Exec(ctx, `UPDATE roles SET icon_emoji = $2, icon_sha256 = NULL, icon_content_type = NULL WHERE id = $1`,
+					r.ID, *b.IconEmoji); err != nil {
+					return nil, err
+				}
+			}
 			updated, err := scanRole(tx.QueryRow(ctx, `
 				UPDATE roles SET name = COALESCE($3, name), permissions = COALESCE($4, permissions),
 				                 color = CASE WHEN $5::text IS NOT NULL THEN $5 WHEN $6 THEN NULL ELSE color END,
@@ -212,6 +226,9 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
+			}
+			if oldIcon != nil {
+				s.removeIconBlob(ctx, *oldIcon)
 			}
 			s.bus.Publish(events.Event{Type: "ROLE_UPDATE", Data: updated, Scope: events.Scope{CommunityID: a.CommunityID}})
 			if updated.Position != r.Position {

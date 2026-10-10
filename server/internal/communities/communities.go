@@ -69,10 +69,12 @@ type Role struct {
 	Color       *string     `json:"color,omitempty" enum:"#e74c3c,#f5a524,#2ecc71,#2dd4bf,#4aa3ff,#a78bfa,#fb7185,#969da2"`
 	Hoist       bool        `json:"hoist" doc:"Members with this role are shown separately in the member list"`
 	IsGuest     bool        `json:"is_guest,omitempty" doc:"The system role every guest holds; it cannot be deleted"`
+	IconEmoji   string      `json:"icon_emoji,omitempty" doc:"A Unicode emoji, or custom:<emoji id>"`
+	IconURL     string      `json:"icon_url,omitempty" doc:"An uploaded icon image (versioned URL)"`
 }
 
 // roleCols are the columns scanRole reads.
-const roleCols = `id, community_id, name, permissions, position, color, hoist, is_guest`
+const roleCols = `id, community_id, name, permissions, position, color, hoist, is_guest, icon_emoji, icon_sha256`
 
 type Member struct {
 	User     auth.PublicUser `json:"user"`
@@ -101,6 +103,7 @@ type Service struct {
 	seeder   ChannelSeeder
 	images   Images
 	presence Presence
+	blobs    IconBlobs     // role icon images; nil until SetIconBlobs
 	serverID atomic.Int64  // cached once the server exists
 	done     chan struct{} // closed by Close to stop the guest sweep
 	stop     sync.Once
@@ -329,10 +332,14 @@ func (s *Service) Roles(ctx context.Context, communityID id.ID) ([]Role, error) 
 func scanRole(row pgx.Row) (*Role, error) {
 	var r Role
 	var p int64
-	if err := row.Scan(&r.ID, &r.CommunityID, &r.Name, &p, &r.Position, &r.Color, &r.Hoist, &r.IsGuest); err != nil {
+	var iconSum *string
+	if err := row.Scan(&r.ID, &r.CommunityID, &r.Name, &p, &r.Position, &r.Color, &r.Hoist, &r.IsGuest, &r.IconEmoji, &iconSum); err != nil {
 		return nil, err
 	}
 	r.Permissions = perms.Perms(p)
+	if iconSum != nil && len(*iconSum) >= 12 {
+		r.IconURL = "/api/role-icons/" + r.ID.String() + "?v=" + (*iconSum)[:12]
+	}
 	return &r, nil
 }
 

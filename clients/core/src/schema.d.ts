@@ -116,6 +116,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{channelID}/music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-music"];
+        put?: never;
+        post: operations["queue-music"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/music/queue/{trackID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove-queued-music"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/music/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["control-music"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{id}": {
         parameters: {
             query?: never;
@@ -143,6 +191,38 @@ export interface paths {
         put?: never;
         post: operations["ack-channel"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-stream-alerts"];
+        put?: never;
+        post: operations["create-stream-alert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{id}/alerts/{alertID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-stream-alert"];
         options?: never;
         head?: never;
         patch?: never;
@@ -398,6 +478,22 @@ export interface paths {
         get: operations["list-dms"];
         put?: never;
         post: operations["create-dm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dms/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["leave-dm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -725,6 +821,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-music-library"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/music/{trackID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-music-track"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/preview": {
         parameters: {
             query?: never;
@@ -883,6 +1011,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update-me"];
+        trace?: never;
+    };
+    "/api/users/@me/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-connections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/@me/connections/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start-connection"];
+        delete: operations["delete-connection"];
+        options?: never;
+        head?: never;
+        patch: operations["update-connection"];
         trace?: never;
     };
     "/api/users/@me/mentions": {
@@ -1056,11 +1216,34 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             message_id: string;
         };
+        Activity: {
+            /** @description The game being streamed, or the artists */
+            detail?: string;
+            /** @enum {string} */
+            platform: "twitch" | "spotify";
+            /** @description The stream title, or the track name */
+            title: string;
+            /** @enum {string} */
+            type: "streaming" | "listening";
+            /** @description Where to watch or listen */
+            url: string;
+            /** @description Snowflake ID as a decimal string */
+            user_id: string;
+        };
+        ActivityUpdate: {
+            activity: components["schemas"]["Activity"];
+            /** @description Snowflake ID as a decimal string */
+            user_id: string;
+        };
         "Admin-reset-passwordRequest": {
             password: string;
         };
         "Admin-set-disabledRequest": {
             disabled: boolean;
+        };
+        AppCredentials: {
+            client_id: string;
+            client_secret: string;
         };
         Attachment: {
             /** @description Snowflake ID as a decimal string */
@@ -1118,6 +1301,8 @@ export interface components {
             category_id?: string;
             /** @description Threads and forum posts: who started it */
             created_by?: string;
+            /** @description DMs only: a group conversation, which people can leave */
+            group?: boolean;
             /** @description Snowflake ID as a decimal string */
             id: string;
             name: string;
@@ -1155,8 +1340,25 @@ export interface components {
             parent_name?: string;
             type: string;
         };
+        ConnectStart: {
+            /** @description Send the browser here to sign in with the provider */
+            url: string;
+        };
+        Connection: {
+            account_name: string;
+            /** @enum {string} */
+            provider: "twitch" | "spotify";
+            /** @description Others see when you are live or what you are listening to */
+            show_activity: boolean;
+        };
         "Create-categoryRequest": {
             name: string;
+        };
+        CreateAlertRequest: {
+            /** @description Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID */
+            account: string;
+            /** @enum {string} */
+            platform: "twitch" | "youtube";
         };
         CreateChannelRequest: {
             /** @description Snowflake ID as a decimal string */
@@ -1296,6 +1498,10 @@ export interface components {
             max_upload_bytes: number;
             /** @enum {string} */
             registration_mode: "invite_only" | "open" | "admin_only";
+            /** @description Spotify credentials are set: Spotify connections work */
+            spotify_enabled: boolean;
+            /** @description Twitch credentials are set: stream alerts and Twitch connections work */
+            twitch_enabled: boolean;
         };
         Invite: {
             code: string;
@@ -1337,6 +1543,20 @@ export interface components {
             token: string;
             /** @description LiveKit server to connect to */
             url: string;
+        };
+        LibraryTrack: {
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: int64
+             * @description Seconds; 0 when unknown
+             */
+            duration: number;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            title: string;
+            /** @description Snowflake ID as a decimal string */
+            uploaded_by?: string;
         };
         LoginRequest: {
             /** @enum {string} */
@@ -1392,6 +1612,13 @@ export interface components {
             embeds?: components["schemas"]["WebhookEmbed"][] | null;
             /** @description Snowflake ID as a decimal string */
             id: string;
+            /**
+             * @description Set on system messages: member_leave means the author left the group DM
+             * @enum {string}
+             */
+            kind?: "member_leave";
+            /** @description The message pings everyone who can read it */
+            mention_everyone?: boolean;
             mentions: string[] | null;
             /** @description Echoes the sender's nonce on create */
             nonce?: string;
@@ -1418,6 +1645,40 @@ export interface components {
         MoveRequest: {
             /** @description Snowflake ID as a decimal string */
             channel_id: string;
+        };
+        MusicState: {
+            /** @description The bot's LiveKit identity while it is in the channel (for per-person volume) */
+            bot_id?: string;
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            current?: components["schemas"]["MusicTrack"];
+            /** @description The server can play music (voice and ffmpeg are set up) */
+            enabled: boolean;
+            paused: boolean;
+            /**
+             * Format: double
+             * @description Seconds into the current track when the state was sent
+             */
+            position: number;
+            queue: components["schemas"]["MusicTrack"][] | null;
+            /** @description YouTube links and searches work (yt-dlp is installed) */
+            youtube: boolean;
+        };
+        MusicTrack: {
+            /**
+             * Format: int64
+             * @description Seconds; 0 when unknown
+             */
+            duration: number;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description Snowflake ID as a decimal string */
+            requested_by: string;
+            /** @enum {string} */
+            source: "youtube" | "upload";
+            title: string;
+            /** @description The page it came from (YouTube); absent for uploads */
+            url?: string;
         };
         Override: {
             /** Format: int64 */
@@ -1529,6 +1790,12 @@ export interface components {
             pronouns?: string;
             username: string;
         };
+        QueueRequest: {
+            /** @description A YouTube link, or words to search YouTube for */
+            query?: string;
+            /** @description A track from the server's music library */
+            track_id?: string;
+        };
         Reaction: {
             /** Format: int64 */
             count: number;
@@ -1554,6 +1821,8 @@ export interface components {
             last_read_id?: string;
         };
         Ready: {
+            /** @description What people who share the server are doing on linked accounts */
+            activities: components["schemas"]["Activity"][] | null;
             dms: components["schemas"]["Channel"][] | null;
             /** @description The server custom emoji; empty when the user is not a member */
             emoji: components["schemas"]["Emoji"][] | null;
@@ -1618,6 +1887,10 @@ export interface components {
             color?: "#e74c3c" | "#f5a524" | "#2ecc71" | "#2dd4bf" | "#4aa3ff" | "#a78bfa" | "#fb7185" | "#969da2";
             /** @description Members with this role are shown separately in the member list */
             hoist: boolean;
+            /** @description A Unicode emoji, or custom:<emoji id> */
+            icon_emoji?: string;
+            /** @description An uploaded icon image (versioned URL) */
+            icon_url?: string;
             /** @description Snowflake ID as a decimal string */
             id: string;
             /** @description The system role every guest holds; it cannot be deleted */
@@ -1750,6 +2023,10 @@ export interface components {
             max_upload_bytes: number;
             /** @enum {string} */
             registration_mode: "invite_only" | "open" | "admin_only";
+            /** @description Spotify app credentials are set (never returned) */
+            spotify_configured: boolean;
+            /** @description Twitch app credentials are set (never returned) */
+            twitch_configured: boolean;
         };
         Sound: {
             /** @description Snowflake ID as a decimal string */
@@ -1784,6 +2061,18 @@ export interface components {
             sound_id: string;
             /** @description Snowflake ID as a decimal string */
             user_id: string;
+        };
+        StreamAlert: {
+            /** @description A Twitch login or a YouTube channel ID */
+            account: string;
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            display_name: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @enum {string} */
+            platform: "twitch" | "youtube";
+            url: string;
         };
         ThreadListItem: {
             author?: components["schemas"]["PublicUser"];
@@ -1841,6 +2130,9 @@ export interface components {
             tags?: string[];
             topic?: string;
         };
+        UpdateConnectionRequest: {
+            show_activity: boolean;
+        };
         UpdateMeRequest: {
             /** @description Empty clears it */
             about_me?: string;
@@ -1863,6 +2155,8 @@ export interface components {
             /** @enum {string} */
             color?: "#e74c3c" | "#f5a524" | "#2ecc71" | "#2dd4bf" | "#4aa3ff" | "#a78bfa" | "#fb7185" | "#969da2";
             hoist?: boolean;
+            /** @description A Unicode emoji or custom:<emoji id>; replaces an uploaded icon. Empty removes the icon */
+            icon_emoji?: string;
             name?: string;
             /** Format: int64 */
             permissions?: number;
@@ -1885,6 +2179,10 @@ export interface components {
             max_upload_bytes?: number;
             /** @enum {string} */
             registration_mode?: "invite_only" | "open" | "admin_only";
+            /** @description Spotify app credentials (Spotify connections) */
+            spotify?: components["schemas"]["AppCredentials"];
+            /** @description Twitch app credentials (stream alerts, Twitch connections) */
+            twitch?: components["schemas"]["AppCredentials"];
         };
         UpdateWelcomeRequest: {
             markdown: string;
@@ -2301,6 +2599,132 @@ export interface operations {
             };
         };
     };
+    "get-music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicState"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "queue-music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrack"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "remove-queued-music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+                trackID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "control-music": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+                action: "pause" | "resume" | "skip" | "stop";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "get-channel": {
         parameters: {
             query?: never;
@@ -2410,6 +2834,102 @@ export interface operations {
                 "application/json": components["schemas"]["AckRequest"];
             };
         };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-stream-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamAlert"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-stream-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAlertRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamAlert"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-stream-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                alertID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {
@@ -3201,6 +3721,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Channel"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "leave-dm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -4119,6 +4668,64 @@ export interface operations {
             };
         };
     };
+    "list-music-library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTrack"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-music-track": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "get-server-preview": {
         parameters: {
             query?: never;
@@ -4534,6 +5141,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "start-connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "twitch" | "spotify";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectStart"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "twitch" | "spotify";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "twitch" | "spotify";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
                 };
             };
             /** @description Error */

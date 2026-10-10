@@ -111,7 +111,7 @@ function InboxItem({ item, onJump }: { item: MentionItem; onJump: () => void }) 
             <time className="flex-none text-xs text-muted-foreground" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
           </div>
           <div className="line-clamp-3 text-sm wrap-anywhere">
-            <Markdown text={m.content} inline mentions={m.mentions ?? undefined} />
+            <Markdown text={m.content} inline mentions={m.mentions ?? undefined} everyone={!!m.mention_everyone} />
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -66,6 +67,9 @@ func (s *Service) StoreBlob(ctx context.Context, tx pgx.Tx, data []byte) (sum st
 	}
 	return staged.Sum, nil
 }
+
+// OpenBlob opens a stored blob for reading (music library tracks).
+func (s *Service) OpenBlob(sum string) (io.ReadSeekCloser, error) { return s.store.Open(sum) }
 
 // ServeBlob writes a stored image with the headers every public image uses.
 func (s *Service) ServeBlob(w http.ResponseWriter, r *http.Request, sum, contentType string, immutable bool) {

@@ -29,6 +29,7 @@ import { CreateChannelDialog } from "../dialogs/CreateChannelDialog";
 import { voice } from "../../voice/voice";
 import { VoiceMembers } from "../voice/VoiceMembers";
 import { CategoryHeader, type CategoryAction } from "./CategoryHeader";
+import { EmojiText } from "@/chat/EmojiText";
 import { NONE, groupOf, moveTo, type Groups } from "./order";
 
 // Drag IDs: "ch:<channel>", "cat:<category>", and "group:<category or NONE>" for an empty group's drop area;
@@ -345,7 +346,7 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
             className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground no-underline hover:text-foreground",
               (active || unread || ch.type === "welcome") && "text-foreground", unread && "font-semibold")}>
             <ChannelIcon ch={ch} />
-            <span className="truncate">{ch.name}</span>
+            <span className="truncate"><EmojiText text={ch.name} /></span>
           </Link>
           {manageable.includes(id) && (
             <Button variant="ghost" size="icon-xs" aria-label={`Settings for ${ch.name}`} title="Channel settings"

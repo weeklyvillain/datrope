@@ -21,7 +21,8 @@
 	handle {
 		# wasm-unsafe-eval: Enhanced noise suppression compiles RNNoise (WebAssembly) in an audio worklet.
 		# static.klipy.com: GIF picker previews load straight from Klipy's CDN.
-		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' data: blob: https://static.klipy.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# frame-src: YouTube, Twitch and Spotify players, loaded only when someone presses play in chat.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' data: blob: https://static.klipy.com; frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://clips.twitch.tv https://open.spotify.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 		root * /srv
 		try_files {path} /index.html
 		file_server

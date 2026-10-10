@@ -14,6 +14,8 @@ import { client, displayName, errorText, roleColor, useApp } from "@/session";
 import { openProfile } from "../side-panel/panel";
 import { openSettings } from "../settings/settings-store";
 import { ProfileLinks } from "./ProfileLinks";
+import { EmojiText } from "@/chat/EmojiText";
+import { ActivityCard, useActivity } from "@/components/activity";
 import { useAssignableRoles } from "./use-assignable-roles";
 
 const joined = new Intl.DateTimeFormat(undefined, { dateStyle: "long" });
@@ -44,6 +46,7 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
     return !ch ? undefined : ch.type === "dm" ? null : ch.name;
   });
   const { held } = useAssignableRoles(userId);
+  const activity = useActivity(userId);
   const [error, setError] = useState<string>();
   if (!user) return <p className="m-0 p-4 text-sm text-muted-foreground">This person is not available.</p>;
   const panel = variant === "panel";
@@ -79,15 +82,16 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
           </div>
           {panel && actions}
         </div>
-        {user.custom_status && <p className="mt-2 text-sm">{user.custom_status}</p>}
+        {user.custom_status && <p className="mt-2 text-sm wrap-anywhere"><EmojiText text={user.custom_status} /></p>}
         {panel && voiceName !== undefined && (
           <p className="mt-2 text-sm">{voiceName === null ? "In a call" : <><span className="text-muted-foreground">In voice:</span> {voiceName}</>}</p>
         )}
         <Separator className="my-3" />
+        {activity && <section className="mb-3"><ActivityCard activity={activity} /></section>}
         {user.about_me && (
           <section className="mb-3">
             <h3 className={sec}>About me</h3>
-            <p className="m-0 whitespace-pre-wrap text-sm wrap-anywhere">{user.about_me}</p>
+            <p className="m-0 whitespace-pre-wrap text-sm wrap-anywhere"><EmojiText text={user.about_me} /></p>
           </section>
         )}
         {user.links?.some(isHttpsLink) && (

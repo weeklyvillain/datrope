@@ -93,7 +93,19 @@ describe("runCommand", () => {
 
   it("lists every command once, in lower case", () => {
     const names = COMMANDS.map((c) => c.name);
-    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "status", "gif", "poll"]);
+    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "status", "gif", "poll",
+      "play", "skip", "pause", "resume", "stop"]);
+  });
+
+  it("controls the music bot only in a voice channel's chat", async () => {
+    expect(availableCommands(ctx()).map((c) => c.name)).not.toContain("play");
+    const calls: string[] = [];
+    const voice: CommandContext = { ...ctx(), music: { queue: async (q) => calls.push(`queue ${q}`), control: async (a) => calls.push(a) } };
+    expect(availableCommands(voice).map((c) => c.name)).toEqual(expect.arrayContaining(["play", "skip", "pause", "resume", "stop"]));
+    expect(await runCommand("/play never gonna", voice)).toEqual({ done: true });
+    expect(await runCommand("/play", voice)).toEqual({ error: "Usage: /play <link or search>" });
+    expect(await runCommand("/skip", voice)).toEqual({ done: true });
+    expect(calls).toEqual(["queue never gonna", "skip"]);
   });
 });
 

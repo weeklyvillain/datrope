@@ -78,6 +78,7 @@ type pendingJoin struct {
 	channelID  id.ID
 	self       selfState
 	serverMute bool
+	moved      bool // a moderator moved them here: they may stay without CONNECT
 	at         time.Time
 }
 
@@ -92,6 +93,7 @@ type participant struct {
 	addedAt    time.Time
 	self       selfState
 	serverMute bool
+	moved      bool                           // a moderator moved them here: they may stay without CONNECT
 	tracks     map[string]livekit.TrackSource // published tracks by track SID
 	sources    []livekit.TrackSource          // what LiveKit currently lets them publish
 }
@@ -128,13 +130,14 @@ type Service struct {
 
 	soundLimit *ratelimit.Limiter // one soundboard play per 2 s per user
 
-	// mu guards users, pending and changed. It is held while publishing
+	// mu guards users, pending, moves and changed. It is held while publishing
 	// voice events so they reach clients in order.
 	mu      sync.Mutex
 	users   map[id.ID]*participant
 	pending map[id.ID]pendingJoin
-	changed map[id.ID]change // when a user's entry last changed; Sync ignores older snapshots of them
-	seq     uint64           // counts changes (clocks can be too coarse to order them)
+	moves   map[id.ID]movePass // a moderator's move, until the moved user joins
+	changed map[id.ID]change   // when a user's entry last changed; Sync ignores older snapshots of them
+	seq     uint64             // counts changes (clocks can be too coarse to order them)
 
 	poke      chan struct{}       // asks the background loop to reconcile
 	outMu     sync.Mutex          // guards signedOut and revoked (see onEvent)
@@ -150,7 +153,7 @@ func NewService(cfg Config, bus *events.Bus, ch Channels, ranks Ranks) *Service 
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Service{
 		cfg: cfg, bus: bus, channels: ch, ranks: ranks,
-		users: map[id.ID]*participant{}, pending: map[id.ID]pendingJoin{}, changed: map[id.ID]change{},
+		users: map[id.ID]*participant{}, pending: map[id.ID]pendingJoin{}, moves: map[id.ID]movePass{}, changed: map[id.ID]change{},
 		poke: make(chan struct{}, 1), signedOut: map[id.ID]time.Time{}, revoked: map[id.ID]time.Time{},
 		ctx: ctx, cancel: cancel, soundLimit: ratelimit.New(30, 1),
 	}
@@ -221,9 +224,13 @@ func (s *Service) Join(ctx context.Context, user *auth.User, sessionID, channelI
 	if !s.cfg.Enabled() {
 		return nil, unavailable("voice is not set up on this server")
 	}
-	c, p, err := s.channels.Access(ctx, user.ID, channelID, perms.ConnectVoice)
+	c, p, err := s.channels.Access(ctx, user.ID, channelID, 0)
 	if err != nil {
 		return nil, err
+	}
+	moved := s.hasMovePass(user.ID, channelID)
+	if !p.Has(perms.ConnectVoice) && !moved {
+		return nil, httpx.MissingPermission()
 	}
 	if c.Type != channels.TypeVoice && c.Type != channels.TypeDM {
 		return nil, httpx.BadRequest("NOT_VOICE_CHANNEL", "this is not a voice channel")
@@ -232,7 +239,7 @@ func (s *Service) Join(ctx context.Context, user *auth.User, sessionID, channelI
 		slog.ErrorContext(ctx, "voice: livekit unreachable", "err", err)
 		return nil, unavailable("the voice server is unreachable")
 	}
-	serverMute := s.prepareJoin(ctx, user.ID, channelID, selfState{mute: req.SelfMute, deaf: req.SelfDeaf})
+	serverMute := s.prepareJoin(ctx, user.ID, channelID, selfState{mute: req.SelfMute, deaf: req.SelfDeaf}, moved)
 	token, err := s.cfg.JoinToken(channelID, user.ID, displayName(user), Sources(p, serverMute),
 		Attrs{SessionID: sessionID, SelfMute: req.SelfMute, SelfDeaf: req.SelfDeaf})
 	if err != nil {
@@ -244,8 +251,11 @@ func (s *Service) Join(ctx context.Context, user *auth.User, sessionID, channelI
 // prepareJoin keeps the client's flags until LiveKit reports the user, and
 // takes them out of any other channel at once: a user is in one voice
 // channel at a time. Rejoining the same channel keeps a server mute.
-func (s *Service) prepareJoin(ctx context.Context, userID, channelID id.ID, self selfState) (serverMute bool) {
+func (s *Service) prepareJoin(ctx context.Context, userID, channelID id.ID, self selfState, moved bool) (serverMute bool) {
 	s.mu.Lock()
+	if moved {
+		delete(s.moves, userID) // one join per move
+	}
 	var leave *id.ID
 	if p := s.users[userID]; p != nil {
 		if p.channelID == channelID {
@@ -256,7 +266,7 @@ func (s *Service) prepareJoin(ctx context.Context, userID, channelID id.ID, self
 			leave = &p.channelID
 		}
 	}
-	s.pending[userID] = pendingJoin{channelID: channelID, self: self, serverMute: serverMute, at: time.Now()}
+	s.pending[userID] = pendingJoin{channelID: channelID, self: self, serverMute: serverMute, moved: moved, at: time.Now()}
 	s.touchLocked(userID)
 	s.mu.Unlock()
 	if leave != nil {
@@ -385,13 +395,14 @@ func (s *Service) joinedLocked(v seen) (remove id.ID, stale bool) {
 		addedAt: time.Now(), self: v.self, tracks: v.tracks, sources: v.sources}
 	reconnected := old != nil && old.channelID == v.channelID
 	if reconnected {
-		p.self, p.serverMute = old.self, old.serverMute
+		p.self, p.serverMute, p.moved = old.self, old.serverMute, old.moved
 	} else if old != nil {
 		s.publishLeftLocked(v.userID, old.channelID)
 		remove, stale = old.channelID, true
 	}
 	if pj, ok := s.pending[v.userID]; ok && pj.channelID == v.channelID {
 		p.self = pj.self
+		p.moved = p.moved || pj.moved
 		if !reconnected { // the old connection was reported gone first
 			p.serverMute = pj.serverMute
 		}
