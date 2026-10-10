@@ -74,6 +74,10 @@
           "filename": {
             "type": "string"
           },
+          "gif": {
+            "description": "Posted with /gif: clients play it muted and looped, without controls, like an image",
+            "type": "boolean"
+          },
           "height": {
             "format": "int64",
             "type": "integer"
@@ -272,7 +276,8 @@
               "voice",
               "welcome",
               "dm",
-              "thread"
+              "thread",
+              "webhook"
             ],
             "type": "string"
           }
@@ -362,7 +367,8 @@
           "type": {
             "enum": [
               "text",
-              "voice"
+              "voice",
+              "webhook"
             ],
             "type": "string"
           }
@@ -510,6 +516,72 @@
         ],
         "type": "object"
       },
+      "EmbedAuthor": {
+        "additionalProperties": false,
+        "properties": {
+          "icon_url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "EmbedField": {
+        "additionalProperties": false,
+        "properties": {
+          "inline": {
+            "description": "Up to three inline fields share a row",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Markdown",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "EmbedFooter": {
+        "additionalProperties": false,
+        "properties": {
+          "icon_url": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      },
+      "EmbedImage": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
       "Emoji": {
         "additionalProperties": false,
         "properties": {
@@ -577,6 +649,60 @@
         ],
         "type": "object"
       },
+      "GIF": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Pass to POST /api/gifs/{id}/attach",
+            "type": "string"
+          },
+          "preview_url": {
+            "description": "A small animated WebP (or GIF) on Klipy's CDN",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "preview_url",
+          "width",
+          "height"
+        ],
+        "type": "object"
+      },
+      "GIFPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GIF"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next": {
+            "description": "Pass as pos to get the next page; absent on the last page",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
       "GuestJoinRequest": {
         "additionalProperties": false,
         "properties": {
@@ -622,6 +748,10 @@
       "InstanceInfo": {
         "additionalProperties": false,
         "properties": {
+          "gifs_enabled": {
+            "description": "A Klipy key is set, so /gif is available",
+            "type": "boolean"
+          },
           "has_users": {
             "description": "False until the first (admin) account exists",
             "type": "boolean"
@@ -643,7 +773,8 @@
         "required": [
           "registration_mode",
           "has_users",
-          "max_upload_bytes"
+          "max_upload_bytes",
+          "gifs_enabled"
         ],
         "type": "object"
       },
@@ -890,7 +1021,8 @@
             ]
           },
           "author": {
-            "$ref": "#/components/schemas/PublicUser"
+            "$ref": "#/components/schemas/PublicUser",
+            "description": "Absent for webhook messages"
           },
           "channel_id": {
             "description": "Snowflake ID as a decimal string",
@@ -914,6 +1046,16 @@
           "embed": {
             "$ref": "#/components/schemas/Preview",
             "description": "Text preview of the first link; attached after send by MESSAGE_UPDATE"
+          },
+          "embeds": {
+            "description": "Rich embeds a webhook posted (not link previews); image URLs point at this instance",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEmbed"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "id": {
             "description": "Snowflake ID as a decimal string",
@@ -942,6 +1084,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "poll": {
+            "$ref": "#/components/schemas/Poll",
+            "description": "Set when the message is a poll"
+          },
           "reactions": {
             "items": {
               "$ref": "#/components/schemas/Reaction"
@@ -957,12 +1103,15 @@
           "thread": {
             "$ref": "#/components/schemas/ThreadSummary",
             "description": "The thread started from this message"
+          },
+          "webhook": {
+            "$ref": "#/components/schemas/WebhookAuthor",
+            "description": "Who a webhook message shows as; absent for people's messages"
           }
         },
         "required": [
           "id",
           "channel_id",
-          "author",
           "content",
           "attachments",
           "created_at",
@@ -1072,6 +1221,201 @@
         },
         "required": [
           "sound_id"
+        ],
+        "type": "object"
+      },
+      "Poll": {
+        "additionalProperties": false,
+        "properties": {
+          "anonymous": {
+            "type": "boolean"
+          },
+          "ended": {
+            "description": "Ended early, or ends_at has passed",
+            "type": "boolean"
+          },
+          "ends_at": {
+            "description": "When the poll closes by itself; absent when it runs until ended",
+            "format": "date-time",
+            "type": "string"
+          },
+          "multi": {
+            "type": "boolean"
+          },
+          "my_votes": {
+            "description": "Positions the requesting user chose; always empty in gateway events",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PollOption"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "question": {
+            "type": "string"
+          },
+          "total_voters": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question",
+          "multi",
+          "anonymous",
+          "ended",
+          "options",
+          "total_voters",
+          "my_votes"
+        ],
+        "type": "object"
+      },
+      "PollOption": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "emoji": {
+            "description": "A Unicode emoji or custom:\u003cemoji id\u003e",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "count"
+        ],
+        "type": "object"
+      },
+      "PollOptionCount": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "type": "object"
+      },
+      "PollOptionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "emoji": {
+            "description": "A Unicode emoji or custom:\u003cemoji id\u003e",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 55,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      },
+      "PollRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "anonymous": {
+            "description": "Nobody can see who chose what",
+            "type": "boolean"
+          },
+          "duration": {
+            "description": "Omit for a poll that runs until ended",
+            "enum": [
+              "1h",
+              "4h",
+              "8h",
+              "24h",
+              "3d",
+              "1w"
+            ],
+            "type": "string"
+          },
+          "multi": {
+            "description": "Voters may choose several answers",
+            "type": "boolean"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PollOptionRequest"
+            },
+            "maxItems": 10,
+            "minItems": 2,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "question": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "options"
+        ],
+        "type": "object"
+      },
+      "PollUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "ended": {
+            "type": "boolean"
+          },
+          "message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PollOptionCount"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "total_voters": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "channel_id",
+          "message_id",
+          "options",
+          "total_voters",
+          "ended"
         ],
         "type": "object"
       },
@@ -1718,15 +2062,16 @@
             "maxLength": 64,
             "type": "string"
           },
+          "poll": {
+            "$ref": "#/components/schemas/PollRequest",
+            "description": "Makes the message a poll; content may then be empty"
+          },
           "reply_to_id": {
             "description": "Reply to this message (same channel)",
             "pattern": "^[0-9]+$",
             "type": "string"
           }
         },
-        "required": [
-          "content"
-        ],
         "type": "object"
       },
       "Server": {
@@ -1948,6 +2293,10 @@
       "Settings": {
         "additionalProperties": false,
         "properties": {
+          "klipy_configured": {
+            "description": "A Klipy API key is set, so /gif works. The key itself is never returned.",
+            "type": "boolean"
+          },
           "max_upload_bytes": {
             "description": "Largest file a user may upload",
             "format": "int64",
@@ -1964,7 +2313,8 @@
         },
         "required": [
           "registration_mode",
-          "max_upload_bytes"
+          "max_upload_bytes",
+          "klipy_configured"
         ],
         "type": "object"
       },
@@ -2309,6 +2659,11 @@
       "UpdateSettingsRequest": {
         "additionalProperties": false,
         "properties": {
+          "klipy_api_key": {
+            "description": "Write-only: responses report klipy_configured instead. Empty removes the key.",
+            "maxLength": 200,
+            "type": "string"
+          },
           "max_upload_bytes": {
             "format": "int64",
             "maximum": 10737418240,
@@ -2467,6 +2822,195 @@
           "server_mute",
           "camera",
           "screen"
+        ],
+        "type": "object"
+      },
+      "VoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "positions": {
+            "description": "The chosen answers by position; empty removes the vote",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "positions"
+        ],
+        "type": "object"
+      },
+      "Webhook": {
+        "additionalProperties": false,
+        "properties": {
+          "avatar_url": {
+            "description": "Absent when it has none; clients draw the webhook icon",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "channel_id",
+          "name",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "WebhookAuthor": {
+        "additionalProperties": false,
+        "properties": {
+          "avatar_url": {
+            "description": "Absent when it has none; clients draw the webhook icon",
+            "type": "string"
+          },
+          "id": {
+            "description": "Absent once the webhook is deleted",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WebhookEmbed": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/EmbedAuthor"
+          },
+          "color": {
+            "description": "The accent colour, 0xRRGGBB",
+            "format": "int64",
+            "type": "integer"
+          },
+          "description": {
+            "description": "Markdown",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/EmbedField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "footer": {
+            "$ref": "#/components/schemas/EmbedFooter"
+          },
+          "image": {
+            "$ref": "#/components/schemas/EmbedImage"
+          },
+          "thumbnail": {
+            "$ref": "#/components/schemas/EmbedImage"
+          },
+          "timestamp": {
+            "description": "RFC 3339, UTC",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "description": "Makes the title a link",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WebhookRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WebhookWithURL": {
+        "additionalProperties": false,
+        "properties": {
+          "avatar_url": {
+            "description": "Absent when it has none; clients draw the webhook icon",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "token": {
+            "description": "Shown once",
+            "type": "string"
+          },
+          "url": {
+            "description": "POST Discord-style messages here; shown once",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "url",
+          "id",
+          "channel_id",
+          "name",
+          "created_at"
         ],
         "type": "object"
       },
@@ -3337,6 +3881,187 @@
         ]
       }
     },
+    "/api/channels/{id}/messages/{messageID}/poll/end": {
+      "post": {
+        "operationId": "end-poll",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/messages/{messageID}/poll/options/{n}/voters": {
+      "get": {
+        "operationId": "list-poll-voters",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The answer's position",
+            "in": "path",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "description": "The answer's position",
+              "format": "int64",
+              "maximum": 9,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublicUser"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/messages/{messageID}/poll/vote": {
+      "put": {
+        "operationId": "vote-poll",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "messageID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Poll"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/channels/{id}/messages/{messageID}/reactions/{emoji}": {
       "delete": {
         "operationId": "remove-reaction",
@@ -3869,6 +4594,110 @@
         ]
       }
     },
+    "/api/channels/{id}/webhooks": {
+      "get": {
+        "operationId": "list-webhooks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Webhook"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "post": {
+        "operationId": "create-webhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookWithURL"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
     "/api/dms": {
       "get": {
         "operationId": "list-dms",
@@ -3950,6 +4779,171 @@
         ],
         "tags": [
           "channels"
+        ]
+      }
+    },
+    "/api/gifs/search": {
+      "get": {
+        "operationId": "search-gifs",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "next from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "pos",
+            "schema": {
+              "description": "next from the previous page",
+              "maxLength": 10,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GIFPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "gifs"
+        ]
+      }
+    },
+    "/api/gifs/trending": {
+      "get": {
+        "operationId": "list-trending-gifs",
+        "parameters": [
+          {
+            "description": "next from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "pos",
+            "schema": {
+              "description": "next from the previous page",
+              "maxLength": 10,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GIFPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "gifs"
+        ]
+      }
+    },
+    "/api/gifs/{id}/attach": {
+      "post": {
+        "description": "Stores the GIF on this server as an unsent attachment; send it with attachment_ids.",
+        "operationId": "attach-gif",
+        "parameters": [
+          {
+            "description": "A GIF's id from trending or search",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "A GIF's id from trending or search",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "gifs"
         ]
       }
     },
@@ -6005,6 +6999,142 @@
           "voice"
         ]
       }
+    },
+    "/api/webhooks/{id}": {
+      "delete": {
+        "operationId": "delete-webhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "patch": {
+        "operationId": "update-webhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Webhook"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/webhooks/{id}/token": {
+      "post": {
+        "operationId": "regenerate-webhook-token",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookWithURL"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "webhooks"
+        ]
+      }
     }
   },
   "x-datrope-gateway-schemas": {
@@ -6034,6 +7164,9 @@
     },
     "MessageDeleted": {
       "$ref": "#/components/schemas/MessageDeleted"
+    },
+    "PollUpdate": {
+      "$ref": "#/components/schemas/PollUpdate"
     },
     "PresenceUpdate": {
       "$ref": "#/components/schemas/PresenceUpdate"

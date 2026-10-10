@@ -3,6 +3,7 @@ import {
   type Channel, type InstanceInfo, type PresenceStatus, type PublicUser, type ServerState, type State,
 } from "@datrope/core";
 import { useStore } from "zustand";
+import { useEffect, useState } from "react";
 import { myRank, outranks } from "@/lib/hierarchy";
 
 const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
@@ -151,6 +152,22 @@ export function instanceInfo(): Promise<InstanceInfo> {
     throw e;
   });
   return instance;
+}
+
+/** Drops the cached instance info, after an admin changes what it reports. */
+export function forgetInstanceInfo() {
+  instance = undefined;
+}
+
+/** Instance info for rendering: undefined until it loads (or if it fails). */
+export function useInstanceInfo(): InstanceInfo | undefined {
+  const [info, setInfo] = useState<InstanceInfo>();
+  useEffect(() => {
+    let live = true;
+    instanceInfo().then((i) => { if (live) setInfo(i); }, () => undefined);
+    return () => { live = false; };
+  }, []);
+  return info;
 }
 
 export function formatBytes(n: number): string {

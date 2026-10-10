@@ -25,6 +25,7 @@ export const PERM_LABELS: { flag: number; label: string; description: string; ch
   { flag: Perm.CreateThreads, label: "Create threads", description: "Start threads off a message.", channel: true },
   { flag: Perm.UseSoundboard, label: "Use soundboard", description: "Play soundboard sounds in voice.", channel: true },
   { flag: Perm.ManageExpressions, label: "Manage emoji and sounds", description: "Add, rename and remove custom emoji and soundboard sounds.", channel: false },
+  { flag: Perm.ManageWebhooks, label: "Manage webhooks", description: "Add, rename and delete the webhooks of webhook channels, and get their URLs.", channel: true },
   { flag: Perm.Admin, label: "Administrator (every permission)", description: "Every permission, in every channel, whatever the channel settings say.", channel: false },
 ];
 
@@ -37,5 +38,5 @@ export const PERM_GROUPS: { title: string; flags: number[] }[] = [
   },
   { title: "Voice", flags: [Perm.ConnectVoice, Perm.Speak, Perm.Stream, Perm.UseSoundboard, Perm.MuteMembers, Perm.MoveMembers] },
   { title: "Moderation", flags: [Perm.Kick, Perm.Ban] },
-  { title: "Server", flags: [Perm.ManageChannels, Perm.ManageRoles, Perm.ManageExpressions, Perm.ManageServer, Perm.Admin] },
+  { title: "Server", flags: [Perm.ManageChannels, Perm.ManageRoles, Perm.ManageWebhooks, Perm.ManageExpressions, Perm.ManageServer, Perm.Admin] },
 ];

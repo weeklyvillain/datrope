@@ -1,6 +1,6 @@
 import { Perm, hasPerm, type State, type User } from "@datrope/core";
 import {
-  ArrowLeft, Ban, BookOpen, Database, Hash, Palette, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
+  ArrowLeft, Ban, BookOpen, Database, Hash, Palette, Plug, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { client, lastVisited, useApp, usePerms } from "@/session";
 import { Bans } from "./Bans";
 import { Emoji } from "./Emoji";
+import { Integrations } from "./Integrations";
 import { Invites } from "./Invites";
 import { Look } from "./Look";
 import { Members } from "./Members";
@@ -59,6 +60,7 @@ export const sections: SettingsSection[] = [
   { id: "soundboard", label: "Soundboard", group: "Expressions", icon: Volume2, visible: can(Perm.ManageExpressions), element: <Soundboard /> },
   { id: "sign-ups", label: "Sign-ups", group: "Instance", icon: UserPlus, visible: admin, element: <SignUps /> },
   { id: "uploads", label: "Uploads and voice", group: "Instance", icon: Database, visible: admin, element: <Uploads /> },
+  { id: "integrations", label: "Integrations", group: "Instance", icon: Plug, visible: admin, element: <Integrations /> },
 ];
 
 const GROUPS: Group[] = ["Server", "People", "Expressions", "Instance"];

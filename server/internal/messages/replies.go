@@ -47,7 +47,7 @@ func (s *Service) withReplies(ctx context.Context, ms []Message) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	rows, err := s.db.Query(ctx, `SELECT id, author_id, left(content, $2), deleted FROM messages WHERE id = ANY($1)`,
+	rows, err := s.db.Query(ctx, `SELECT id, author_id, author_name, left(content, $2), deleted FROM messages WHERE id = ANY($1)`,
 		id.Int64s(ids), replyPreviewLen)
 	if err != nil {
 		return err
@@ -57,14 +57,21 @@ func (s *Service) withReplies(ctx context.Context, ms []Message) error {
 	var authors []id.ID
 	for rows.Next() {
 		r := &ReplyRef{}
-		if err := rows.Scan(&r.ID, &r.Author.ID, &r.Content, &r.Deleted); err != nil {
+		var authorID *int64
+		var authorName string
+		if err := rows.Scan(&r.ID, &authorID, &authorName, &r.Content, &r.Deleted); err != nil {
 			return err
 		}
 		if r.Deleted {
 			r.Content = ""
 		}
+		if authorID != nil {
+			r.Author.ID = id.ID(*authorID)
+			authors = append(authors, r.Author.ID)
+		} else { // a webhook message (nobody can reply in a webhook channel today): show its name
+			r.Author = auth.PublicUser{Username: authorName, DisplayName: authorName}
+		}
 		refs[r.ID] = r
-		authors = append(authors, r.Author.ID)
 	}
 	if err := rows.Err(); err != nil {
 		return err
@@ -78,7 +85,9 @@ func (s *Service) withReplies(ctx context.Context, ms []Message) error {
 			continue
 		}
 		if r := refs[*ms[i].replyToID]; r != nil {
-			r.Author = users[r.Author.ID]
+			if r.Author.ID != 0 {
+				r.Author = users[r.Author.ID]
+			}
 			ms[i].ReplyTo = r
 		}
 	}

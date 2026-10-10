@@ -22,7 +22,8 @@ const (
 	TypeVoice   = "voice"
 	TypeWelcome = "welcome" // exactly one per server; its content is the welcome page
 	TypeDM      = "dm"
-	TypeThread  = "thread" // started from a message; uses its parent channel's permissions
+	TypeThread  = "thread"  // started from a message; uses its parent channel's permissions
+	TypeWebhook = "webhook" // only webhooks post at its top level; its threads are ordinary
 )
 
 var ErrNotFound = errors.New("channel not found")
@@ -50,7 +51,7 @@ type Override struct {
 type Channel struct {
 	ID           id.ID             `json:"id"`
 	CommunityID  *id.ID            `json:"-"` // nil for DMs
-	Type         string            `json:"type" enum:"text,voice,welcome,dm,thread"`
+	Type         string            `json:"type" enum:"text,voice,welcome,dm,thread,webhook"`
 	Name         string            `json:"name"`
 	Position     int               `json:"position" doc:"Dense index inside the channel's group (its category, or none)"`
 	CategoryID   *id.ID            `json:"category_id,omitempty"`
@@ -270,13 +271,18 @@ func (s *Service) permsIn(ctx context.Context, userID id.ID, c *Channel) (perms.
 }
 
 // Perms returns userID's permissions in a channel: zero if they cannot see
-// it, ErrNotFound if it does not exist.
+// it, ErrNotFound if it does not exist. In a webhook channel nobody, not even
+// the owner, may send or attach: only its webhooks post there. Its threads
+// are not masked (they use permsIn on their parent).
 func (s *Service) Perms(ctx context.Context, userID, channelID id.ID) (perms.Perms, *Channel, error) {
 	c, err := s.get(ctx, channelID)
 	if err != nil {
 		return 0, nil, err
 	}
 	p, err := s.permsIn(ctx, userID, c)
+	if c.Type == TypeWebhook {
+		p &^= perms.WebhookMasked
+	}
 	return p, c, err
 }
 

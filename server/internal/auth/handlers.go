@@ -45,6 +45,7 @@ type InstanceInfo struct {
 	RegistrationMode string `json:"registration_mode" enum:"invite_only,open,admin_only"`
 	HasUsers         bool   `json:"has_users" doc:"False until the first (admin) account exists"`
 	MaxUploadBytes   int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
+	GIFsEnabled      bool   `json:"gifs_enabled" doc:"A Klipy key is set, so /gif is available"`
 }
 
 type UpdateMeRequest struct {
@@ -96,6 +97,7 @@ func Register(api huma.API, s *Service) {
 			}
 			return &struct{ Body InstanceInfo }{InstanceInfo{
 				RegistrationMode: set.RegistrationMode, HasUsers: n > 0, MaxUploadBytes: set.MaxUploadBytes,
+				GIFsEnabled: set.KlipyConfigured,
 			}}, nil
 		})
 	huma.Register(api, huma.Operation{OperationID: "get-me", Method: http.MethodGet, Path: "/api/users/@me",

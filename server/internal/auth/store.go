@@ -77,6 +77,7 @@ type Session struct {
 type Settings struct {
 	RegistrationMode string `json:"registration_mode" enum:"invite_only,open,admin_only"`
 	MaxUploadBytes   int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
+	KlipyConfigured  bool   `json:"klipy_configured" doc:"A Klipy API key is set, so /gif works. The key itself is never returned."`
 }
 
 type Store struct{ db *pgxpool.Pool }
@@ -286,8 +287,8 @@ func (s *Store) DeleteSessions(ctx context.Context, userID id.ID) ([]id.ID, erro
 
 func (s *Store) Settings(ctx context.Context) (Settings, error) {
 	var x Settings
-	err := s.db.QueryRow(ctx, `SELECT registration_mode, max_upload_bytes FROM instance_settings`).
-		Scan(&x.RegistrationMode, &x.MaxUploadBytes)
+	err := s.db.QueryRow(ctx, `SELECT registration_mode, max_upload_bytes, klipy_api_key IS NOT NULL FROM instance_settings`).
+		Scan(&x.RegistrationMode, &x.MaxUploadBytes, &x.KlipyConfigured)
 	return x, err
 }
 
@@ -295,6 +296,20 @@ func (s *Store) UpdateSettings(ctx context.Context, x Settings) error {
 	_, err := s.db.Exec(ctx, `UPDATE instance_settings SET registration_mode = $1, max_upload_bytes = $2`,
 		x.RegistrationMode, x.MaxUploadBytes)
 	return err
+}
+
+// SetKlipyKey stores the Klipy API key; "" removes it (turning /gif off).
+func (s *Store) SetKlipyKey(ctx context.Context, key string) error {
+	_, err := s.db.Exec(ctx, `UPDATE instance_settings SET klipy_api_key = NULLIF($1, '')`, key)
+	return err
+}
+
+// KlipyConfig returns the Klipy API key ("" when unset) and the instance secret.
+func (s *Store) KlipyConfig(ctx context.Context) (string, []byte, error) {
+	var key string
+	var secret []byte
+	err := s.db.QueryRow(ctx, `SELECT coalesce(klipy_api_key, ''), instance_secret FROM instance_settings`).Scan(&key, &secret)
+	return key, secret, err
 }
 
 // TouchSession records use, at most once a minute per session.

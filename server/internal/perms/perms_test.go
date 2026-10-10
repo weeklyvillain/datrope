@@ -62,7 +62,7 @@ func TestHas(t *testing.T) {
 
 func TestBitValuesAreStable(t *testing.T) {
 	// The web client mirrors these values (clients/core/src/perms.ts).
-	if ViewChannel != 1 || Admin != 1<<16 || All != 1<<21-1 {
+	if ViewChannel != 1 || Admin != 1<<16 || All != 1<<22-1 {
 		t.Fatalf("flag values changed: view=%d admin=%d all=%d", ViewChannel, Admin, All)
 	}
 }
@@ -73,7 +73,15 @@ func TestNewFlags(t *testing.T) {
 	require.Equal(t, Perms(1<<18), CreateThreads)
 	require.Equal(t, Perms(1<<19), UseSoundboard)
 	require.Equal(t, Perms(1<<20), ManageExpressions)
-	require.Equal(t, Perms(1<<21-1), All)
+	require.Equal(t, Perms(1<<22-1), All)
 	require.True(t, Default.Has(AddReactions|CreateThreads|UseSoundboard))
 	require.False(t, Default.Has(ManageExpressions))
+}
+
+func TestManageWebhooks(t *testing.T) {
+	require.Equal(t, Perms(1<<21), ManageWebhooks, "the TypeScript client mirrors this value")
+	require.False(t, Default.Has(ManageWebhooks), "only admins and those granted it manage webhooks")
+	require.True(t, Base(Member{Roles: []Perms{Admin}}).Has(ManageWebhooks))
+	require.True(t, All.Has(ManageWebhooks))
+	require.Equal(t, SendMessages|AttachFiles, WebhookMasked)
 }

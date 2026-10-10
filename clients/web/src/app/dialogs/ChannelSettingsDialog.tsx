@@ -1,4 +1,4 @@
-import { unwrap, type Channel, type Override } from "@datrope/core";
+import { Perm, hasPerm, myChannelPerms, unwrap, type Channel, type Override } from "@datrope/core";
 import { useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubmit } from "@/hooks/use-submit";
 import { PERM_LABELS } from "../../permLabels";
+import { WebhooksTab } from "./WebhooksTab";
 import { client, displayName, useApp } from "../../session";
 
 type Tri = "inherit" | "allow" | "deny";
 
 export function ChannelSettingsDialog({ channelId, onClose }: { channelId: string; onClose: () => void }) {
   const ch = useApp((s) => s.channels[channelId]);
-  const [tab, setTab] = useState<"general" | "permissions">("general");
+  const [tab, setTab] = useState<"general" | "permissions" | "webhooks">("general");
+  const canWebhooks = useApp((s) => s.channels[channelId]?.type === "webhook" && hasPerm(myChannelPerms(s, channelId), Perm.ManageWebhooks));
   if (!ch) return null;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -30,6 +32,7 @@ export function ChannelSettingsDialog({ channelId, onClose }: { channelId: strin
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="permissions">Permissions</TabsTrigger>
+            {canWebhooks && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
           </TabsList>
           <TabsContent value="general">
             <General ch={ch} onClose={onClose} />
@@ -37,6 +40,11 @@ export function ChannelSettingsDialog({ channelId, onClose }: { channelId: strin
           <TabsContent value="permissions">
             <Permissions ch={ch} />
           </TabsContent>
+          {canWebhooks && (
+            <TabsContent value="webhooks">
+              <WebhooksTab channelId={ch.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

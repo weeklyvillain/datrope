@@ -1,6 +1,9 @@
 package auth_test
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -94,4 +97,65 @@ func TestUploadLimitSetting(t *testing.T) {
 	require.Equal(t, int64(10485760), info.MaxUploadBytes)
 
 	admin.Fail(http.MethodPatch, "/api/admin/settings", map[string]any{"max_upload_bytes": 1000}, http.StatusBadRequest, "VALIDATION_FAILED")
+}
+
+func TestKlipyKeyIsWriteOnly(t *testing.T) {
+	env := apptest.New(t)
+	admin := env.Register("admin")
+	bob := env.Register("bob")
+	const key = "klipy-key-never-shown-91f2"
+
+	var info auth.InstanceInfo
+	env.Anon().Do(http.MethodGet, "/api/instance", nil, http.StatusOK, &info)
+	require.False(t, info.GIFsEnabled, "off until a key is set")
+
+	bob.Fail(http.MethodPatch, "/api/admin/settings", map[string]any{"klipy_api_key": key}, http.StatusForbidden, "MISSING_PERMISSION")
+
+	body, err := json.Marshal(map[string]any{"klipy_api_key": "  " + key + "\n"})
+	require.NoError(t, err)
+	_, raw := admin.Raw(http.MethodPatch, "/api/admin/settings", bytes.NewReader(body), "application/json", http.StatusOK)
+	require.NotContains(t, string(raw), key)
+	var set auth.Settings
+	require.NoError(t, json.Unmarshal(raw, &set))
+	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeOpen, MaxUploadBytes: 52428800, KlipyConfigured: true}, set)
+
+	var stored string
+	require.NoError(t, env.Pool.QueryRow(context.Background(), `SELECT klipy_api_key FROM instance_settings`).Scan(&stored))
+	require.Equal(t, key, stored, "stored trimmed")
+
+	_, raw = admin.Raw(http.MethodGet, "/api/admin/settings", nil, "", http.StatusOK)
+	require.NotContains(t, string(raw), key)
+	require.Contains(t, string(raw), `"klipy_configured":true`)
+	_, raw = env.Anon().Raw(http.MethodGet, "/api/instance", nil, "", http.StatusOK)
+	require.NotContains(t, string(raw), key)
+	require.NoError(t, json.Unmarshal(raw, &info))
+	require.True(t, info.GIFsEnabled)
+
+	// Changing another setting keeps the key.
+	admin.Do(http.MethodPatch, "/api/admin/settings", map[string]any{"max_upload_bytes": 2097152}, http.StatusOK, &set)
+	require.True(t, set.KlipyConfigured)
+
+	// An empty key removes it.
+	admin.Do(http.MethodPatch, "/api/admin/settings", map[string]any{"klipy_api_key": ""}, http.StatusOK, &set)
+	require.False(t, set.KlipyConfigured)
+	env.Anon().Do(http.MethodGet, "/api/instance", nil, http.StatusOK, &info)
+	require.False(t, info.GIFsEnabled)
+}
+
+func TestKlipyConfig(t *testing.T) {
+	env := apptest.New(t)
+	admin := env.Register("admin")
+	store := auth.NewStore(env.Pool)
+	ctx := context.Background()
+
+	key, secret, err := store.KlipyConfig(ctx)
+	require.NoError(t, err)
+	require.Empty(t, key)
+	require.Len(t, secret, 32, "the migration generates a 32-byte instance secret")
+
+	admin.Do(http.MethodPatch, "/api/admin/settings", map[string]any{"klipy_api_key": "k-123"}, http.StatusOK, nil)
+	key, again, err := store.KlipyConfig(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "k-123", key)
+	require.Equal(t, secret, again, "the secret never changes")
 }

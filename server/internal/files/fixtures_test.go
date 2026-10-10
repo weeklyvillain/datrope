@@ -152,3 +152,10 @@ func gifClaiming(w, h int) []byte {
 	binary.LittleEndian.PutUint16(g[8:], uint16(h))
 	return g
 }
+
+// mp4Video is n bytes that sniff as video/mp4: an ftyp box (brand isom,
+// compatible with mp41), then zeros.
+func mp4Video(n int) []byte {
+	b := []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 2, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '1'}
+	return append(b, make([]byte, n-len(b))...)
+}

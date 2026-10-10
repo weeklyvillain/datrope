@@ -15,6 +15,8 @@ export type ThreadListItem = Schemas["ThreadListItem"];
 export type Channel = Schemas["Channel"];
 export type Override = Schemas["Override"];
 export type Attachment = Schemas["Attachment"];
+export type GIF = Schemas["GIF"];
+export type GIFPage = Schemas["GIFPage"];
 export type Message = Schemas["Message"];
 export type Emoji = Schemas["Emoji"];
 export type Sound = Schemas["Sound"];
@@ -22,7 +24,17 @@ export type SoundboardPlay = Schemas["SoundboardPlay"];
 export type Reaction = Schemas["Reaction"];
 export type ReactionEvent = Schemas["ReactionEvent"];
 export type ReplyRef = Schemas["ReplyRef"];
-export type Embed = Schemas["Preview"];
+export type Poll = Schemas["Poll"];
+export type PollOption = Schemas["PollOption"];
+export type PollRequest = Schemas["PollRequest"];
+export type PollUpdate = Schemas["PollUpdate"];
+export type Embed = Schemas["Preview"]; // a link preview
+export type WebhookAuthor = Schemas["WebhookAuthor"];
+/** A rich embed a webhook posted (Message.embeds); not the link preview (Embed). */
+export type WebhookEmbed = Schemas["WebhookEmbed"];
+export type EmbedField = Schemas["EmbedField"];
+export type Webhook = Schemas["Webhook"];
+export type WebhookWithURL = Schemas["WebhookWithURL"];
 export type Ready = Schemas["Ready"];
 export type ReadState = Schemas["ReadState"];
 export type Invite = Schemas["Invite"];
@@ -72,6 +84,7 @@ export interface EventMap {
   VOICE_MOVE: VoiceMove;
   MESSAGE_REACTION_ADD: ReactionEvent;
   MESSAGE_REACTION_REMOVE: ReactionEvent;
+  POLL_UPDATE: PollUpdate;
   EMOJI_UPDATE: Schemas["EmojiUpdate"];
   SOUND_UPDATE: Schemas["SoundUpdate"];
   SOUNDBOARD_PLAY: SoundboardPlay;

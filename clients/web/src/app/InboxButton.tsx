@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserAvatar } from "@/components/user-avatar";
-import { useUser } from "@/hooks/use-user";
+import { WebhookAvatar } from "@/components/webhook-avatar";
+import { useMessageAuthor } from "@/hooks/use-message-author";
 import { openMessage } from "./jump";
 import { stamp } from "./MessageList";
+import { WebhookBadge } from "./WebhookAuthor";
 
 /** The header's "Inbox" button: an unread count badge, and a popover listing the messages that mention me. */
 export function InboxButton() {
@@ -88,8 +90,8 @@ function InboxItem({ item, onJump }: { item: MentionItem; onJump: () => void }) 
   const resolved = useApp((s) => (orphan && s.channels[item.channel.id] ? channelRef(s, item.channel.id) : undefined));
   const where = resolved ?? item.channel;
   const place = useApp((s) => (where.type === "dm" ? (s.channels[where.id] ? dmName(s.channels[where.id], s.me?.id) : "Direct message") : undefined));
-  const author = useUser(m.author.id, m.author) ?? m.author;
-  const color = useApp((s) => (where.type === "dm" ? undefined : roleColor(s.server, m.author.id)));
+  const author = useMessageAuthor(m);
+  const color = useApp((s) => (where.type === "dm" || !m.author ? undefined : roleColor(s.server, m.author.id)));
   const text = where.type === "dm" ? place
     : where.type === "thread" ? `# ${where.parent_name ?? ""} · thread${where.name ? ` "${where.name}"` : ""}`
     : `# ${where.name}`;
@@ -101,10 +103,11 @@ function InboxItem({ item, onJump }: { item: MentionItem; onJump: () => void }) 
         <Button variant="outline" size="xs" aria-label={`Jump to message from ${displayName(author)}`} onClick={onJump}>Jump</Button>
       </div>
       <div className="flex gap-2.5">
-        <UserAvatar user={author} size="md" />
+        {m.author ? <UserAvatar user={author} size="md" /> : <WebhookAvatar avatarUrl={m.webhook?.avatar_url} size="md" />}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="truncate text-sm font-semibold" style={{ color }}>{displayName(author)}</span>
+            {!m.author && <WebhookBadge />}
             <time className="flex-none text-xs text-muted-foreground" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
           </div>
           <div className="line-clamp-3 text-sm wrap-anywhere">

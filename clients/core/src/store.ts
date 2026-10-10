@@ -1,8 +1,8 @@
 import { createStore } from "zustand/vanilla";
 import type { ConnectionStatus } from "./gateway";
-import { Perm, basePerms, channelPerms, hasPerm } from "./perms";
+import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
-  Attachment, Category, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
+  Attachment, Category, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
   ThreadUpdate, VoiceState, Welcome,
 } from "./types";
 
@@ -257,7 +257,7 @@ function mapMentions(s: State, fn: (i: MentionItem) => MentionItem): State {
 }
 
 function addMention(s: State, m: Message): State {
-  if (!s.mentions.loaded || !s.me || m.author.id === s.me.id || !m.mentions?.includes(s.me.id)) return s;
+  if (!s.mentions.loaded || !s.me || m.author?.id === s.me.id || !m.mentions?.includes(s.me.id)) return s;
   if (s.mentions.items.some((i) => i.message.id === m.id)) return s;
   const item: MentionItem = { message: m, channel: channelRef(s, m.channel_id), unread: true };
   return { ...s, mentions: { ...s.mentions, items: [item, ...s.mentions.items], unread: s.mentions.unread + 1 } };
@@ -276,10 +276,10 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
     case "MESSAGE_CREATE": {
       const m = data as Message;
       const prev = s.readStates[m.channel_id] ?? {};
-      const mine = m.author.id === s.me?.id;
+      const mine = !!m.author && m.author.id === s.me?.id; // a webhook message has no author
       const next: State = {
         ...s,
-        typing: withoutTyping(s.typing, m.channel_id, m.author.id),
+        typing: m.author ? withoutTyping(s.typing, m.channel_id, m.author.id) : s.typing,
         readStates: {
           ...s.readStates,
           [m.channel_id]: {
@@ -302,10 +302,16 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
     }
     case "MESSAGE_UPDATE": {
       const m = data as Message;
-      // Reactions (and thread summaries) are kept up to date by their own events, so the existing copy wins.
-      const inbox = mapMentions(s, (i) => (i.message.id === m.id ? { ...i, message: { ...m, reactions: i.message.reactions } } : i));
+      // Reactions, polls (with my_votes, which events never carry) and thread summaries are kept up to
+      // date by their own events and responses, so the existing copy wins.
+      const inbox = mapMentions(s, (i) => {
+        if (i.message.id !== m.id) return i;
+        // The inbox gets no POLL_UPDATE, so take the event's counts but keep my votes.
+        const poll = m.poll && i.message.poll ? { ...m.poll, my_votes: i.message.poll.my_votes } : m.poll;
+        return { ...i, message: { ...m, reactions: i.message.reactions, ...(poll ? { poll } : {}) } };
+      });
       return updateMessages(inbox, m.channel_id, (items) => updateReplies(
-        items.map((x) => (x.id === m.id ? { ...m, reactions: x.reactions, thread: m.thread ?? x.thread } : x)),
+        items.map((x) => (x.id === m.id ? { ...m, reactions: x.reactions, thread: m.thread ?? x.thread, ...(x.poll ? { poll: x.poll } : {}) } : x)),
         m.id, { content: Array.from(m.content).slice(0, REPLY_PREVIEW_LEN).join("") },
       ));
     }
@@ -420,6 +426,15 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
         return { ...m, reactions };
       }));
     }
+    case "POLL_UPDATE": {
+      const d = data as PollUpdate;
+      const counts = d.options ?? [];
+      return updateMessages(s, d.channel_id, (items) => items.map((m) => {
+        if (m.id !== d.message_id || !m.poll) return m;
+        const options = (m.poll.options ?? []).map((o, i) => ({ ...o, count: counts[i]?.count ?? o.count }));
+        return { ...m, poll: { ...m.poll, options, total_voters: d.total_voters, ended: d.ended } };
+      }));
+    }
     default:
       return s;
   }
@@ -441,6 +456,15 @@ export function addPending(
 
 export function markFailed(s: State, channelId: string, nonce: string): State {
   return updateMessages(s, channelId, (items) => items.map((x) => (x.pending && x.nonce === nonce ? { ...x, failed: true } : x)));
+}
+
+/**
+ * Merges only my_votes from a vote's response into the stored poll. Counts, total_voters and ended
+ * come from POLL_UPDATE; the response may be older than one that already arrived.
+ */
+export function setPoll(s: State, channelId: string, messageId: string, poll: Poll): State {
+  return updateMessages(s, channelId, (items) =>
+    items.map((m) => (m.id === messageId && m.poll ? { ...m, poll: { ...m.poll, my_votes: poll.my_votes } } : m)));
 }
 
 /** Adds an older page (as the API returns it: newest first). */
@@ -563,12 +587,26 @@ export function canCreateInvites(s: State): boolean {
   return !s.me?.guest_expires_at && hasPerm(myBasePerms(s), Perm.CreateInvite);
 }
 
-export function myChannelPerms(s: State, channelId: string): number {
-  const ch = s.channels[channelId];
-  if (!ch || !s.me) return 0;
+/** My permissions in a channel as its roles and overrides give them, before a webhook channel's mask. */
+function rawChannelPerms(s: State, ch: Channel): number {
+  if (!s.me) return 0;
   if (ch.type === "dm") return channelPerms({ id: "", owner_id: "" }, [], s.me.id, [], ch);
   if (!s.server) return 0;
   return channelPerms(s.server.server, Object.values(s.server.roles), s.me.id, myRoleIds(s), ch, isGated(s));
+}
+
+/** My permissions in a channel or DM. Nobody sends or attaches in a webhook channel (the server's channels.Perms). */
+export function myChannelPerms(s: State, channelId: string): number {
+  const ch = s.channels[channelId];
+  if (!ch) return 0;
+  const p = rawChannelPerms(s, ch);
+  return ch.type === "webhook" ? p & ~WEBHOOK_MASKED : p;
+}
+
+/** My permissions in the threads of a channel: the channel's own, without a webhook channel's mask. */
+export function myThreadPerms(s: State, parentChannelId: string): number {
+  const ch = s.channels[parentChannelId];
+  return ch ? rawChannelPerms(s, ch) : 0;
 }
 
 /** Roles from highest to lowest; @everyone last. Returns a new array: select it with useShallow. */

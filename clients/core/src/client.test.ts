@@ -5,7 +5,7 @@ import { ApiError } from "./api";
 import { DatropeClient } from "./client";
 import { applyReady, prependHistory } from "./store";
 import { Perm } from "./perms";
-import type { Attachment, Message, Ready } from "./types";
+import type { Attachment, Message, Poll, Ready } from "./types";
 
 const BASE = "http://test.local";
 const server = setupServer();
@@ -517,4 +517,83 @@ it("drops a window response that was overtaken by a newer one", async () => {
   gates.A();
   await a;
   expect(client.store.getState().messages["300"].items.map((m) => m.content)).toEqual(["wB"]);
+});
+
+const poll: Poll = {
+  question: "Pizza?", multi: false, anonymous: false, ended: false, total_voters: 0, my_votes: [],
+  options: [{ text: "Yes", count: 0 }, { text: "No", emoji: "\u{1F355}", count: 0 }],
+};
+
+it("posts a poll as a message", async () => {
+  let sent: unknown;
+  server.use(http.post(`${BASE}/api/channels/:id/messages`, async ({ request }) => {
+    sent = await request.json();
+    return HttpResponse.json({ ...message({ content: "", nonce: "" }), poll }, { status: 201 });
+  }));
+  const client = readyClient();
+  const req = { question: "Pizza?", options: [{ text: "Yes" }, { text: "No", emoji: "\u{1F355}" }], multi: false, anonymous: false, duration: "24h" as const };
+  const m = await client.sendPoll("300", req);
+  expect(sent).toEqual({ content: "", poll: req });
+  expect(client.store.getState().messages["300"].items.map((x) => x.id)).toEqual([m.id]);
+  expect(client.store.getState().messages["300"].items[0].poll).toEqual(poll);
+});
+
+it("votes and stores the poll with my votes", async () => {
+  const voted: Poll = { ...poll, total_voters: 1, my_votes: [1], options: [{ text: "Yes", count: 0 }, { text: "No", emoji: "\u{1F355}", count: 1 }] };
+  let body: unknown;
+  let path = "";
+  server.use(http.put(`${BASE}/api/channels/:id/messages/:mid/poll/vote`, async ({ request }) => {
+    body = await request.json();
+    path = new URL(request.url).pathname;
+    return HttpResponse.json(voted);
+  }));
+  const client = readyClient();
+  client.store.setState(prependHistory(client.store.getState(), "300", [{ ...message({ content: "", nonce: "" }), poll }], 50), true);
+  expect(await client.votePoll("300", "77", [1])).toEqual(voted);
+  expect(path).toBe("/api/channels/300/messages/77/poll/vote");
+  expect(body).toEqual({ positions: [1] });
+  // Only my_votes comes from the response; counts arrive through POLL_UPDATE.
+  expect(client.store.getState().messages["300"].items[0].poll).toEqual({ ...poll, my_votes: [1] });
+});
+
+it("ends a poll and lists an answer's voters", async () => {
+  const paths: string[] = [];
+  server.use(
+    http.post(`${BASE}/api/channels/:id/messages/:mid/poll/end`, ({ request }) => {
+      paths.push(new URL(request.url).pathname);
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.get(`${BASE}/api/channels/:id/messages/:mid/poll/options/:n/voters`, ({ request }) => {
+      paths.push(new URL(request.url).pathname);
+      return HttpResponse.json([{ id: "2", username: "bob", display_name: "Bob", custom_status: "" }]);
+    }),
+  );
+  const client = readyClient();
+  await client.endPoll("300", "77");
+  expect((await client.pollVoters("300", "77", 1)).map((u) => u.username)).toEqual(["bob"]);
+  expect(paths).toEqual(["/api/channels/300/messages/77/poll/end", "/api/channels/300/messages/77/poll/options/1/voters"]);
+});
+
+it("manages webhooks", async () => {
+  const hook = { id: "40", channel_id: "300", name: "CI", created_at: "2026-01-01T00:00:00Z" };
+  let created: unknown;
+  let avatarMethod = "";
+  server.use(
+    http.post(`${BASE}/api/channels/:id/webhooks`, async ({ request }) => {
+      created = await request.json();
+      return HttpResponse.json({ ...hook, token: "t", url: "https://chat.example/api/webhooks/40/t" }, { status: 201 });
+    }),
+    http.post(`${BASE}/api/webhooks/:id/token`, () =>
+      HttpResponse.json({ ...hook, token: "u", url: "https://chat.example/api/webhooks/40/u" })),
+    http.put(`${BASE}/api/webhooks/:id/avatar`, ({ request }) => {
+      avatarMethod = request.method;
+      return HttpResponse.json({ ...hook, avatar_url: "/api/webhooks/40/avatar?v=abc" });
+    }),
+  );
+  const client = readyClient();
+  expect((await client.createWebhook("300", "CI")).url).toBe("https://chat.example/api/webhooks/40/t");
+  expect(created).toEqual({ name: "CI" });
+  expect((await client.regenerateWebhookToken("40")).token).toBe("u");
+  expect((await client.uploadWebhookAvatar("40", new Blob(["x"]))).avatar_url).toBe("/api/webhooks/40/avatar?v=abc");
+  expect(avatarMethod).toBe("PUT");
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimMessage, notificationBody, notificationTitle, shouldNotify, type NotifyInput } from "./notify";
+import { claimMessage, notificationAuthor, notificationBody, notificationTitle, shouldNotify, type NotifyInput } from "./notify";
 
 const base: NotifyInput = {
   message: { author: { id: "2" }, mentions: [], channel_id: "100" },
@@ -29,6 +29,10 @@ describe("shouldNotify", () => {
     expect(shouldNotify({ ...dm, meId: undefined })).toBe(false);
   });
 
+  it("notifies for a webhook message, which has no author", () => {
+    expect(shouldNotify({ ...base, message: { mentions: ["1"], channel_id: "100" } })).toBe(true);
+  });
+
   it("stays quiet in the conversation you are looking at", () => {
     const dm = { ...base, isDM: true };
     expect(shouldNotify({ ...dm, hidden: false })).toBe(false);
@@ -43,6 +47,12 @@ describe("notification text", () => {
     expect(notificationTitle("Bob", { type: "dm", name: "" })).toBe("Bob (direct message)");
     expect(notificationTitle("Carol", { type: "thread", name: "Saturday plan", parent_name: "games" })).toBe("Carol in #games");
     expect(notificationTitle("Carol", { type: "thread", name: "", parent_name: "" })).toBe("Carol in a thread");
+  });
+
+  it("marks a webhook as one, so it cannot pass for a person", () => {
+    expect(notificationAuthor("Alice", false)).toBe("Alice");
+    expect(notificationAuthor("alice", true)).toBe("alice (webhook)");
+    expect(notificationTitle(notificationAuthor("CI", true), { type: "text", name: "builds" })).toBe("CI (webhook) in #builds");
   });
 
   it("is plain text up to 120 characters", () => {

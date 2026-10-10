@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { BookOpen, CheckCheck, Hash, Link2, Phone, Settings, Volume2 } from "lucide-react";
+import { BookOpen, CheckCheck, Hash, Link2, Phone, Settings, Volume2, Webhook } from "lucide-react";
 import {
   createContext, useContext, useEffect, useMemo, useRef, useState,
   type CSSProperties, type HTMLAttributes, type ReactNode, type Ref,
@@ -30,7 +30,9 @@ import { VoiceMembers } from "../voice/VoiceMembers";
 import { CategoryHeader, type CategoryAction } from "./CategoryHeader";
 import { NONE, groupOf, moveTo, type Groups } from "./order";
 
-const ICONS = { welcome: BookOpen, text: Hash, voice: Volume2, dm: Hash, thread: Hash } as const;
+const ICONS = { welcome: BookOpen, text: Hash, voice: Volume2, dm: Hash, thread: Hash, webhook: Webhook } as const;
+/** The channel types whose unread messages the sidebar marks. */
+const MARKS_UNREAD = new Set<string>(["text", "webhook"]);
 
 // Drag IDs: "ch:<channel>", "cat:<category>", and "group:<category or NONE>" for an empty group's drop area;
 // "vm:<user>" for someone in voice, dropped on "vc:<voice channel>" to move them there.
@@ -266,7 +268,7 @@ function CategorySection({ category, ids, onAction }: { category: Category; ids:
   });
   // Collapsed, it still shows the current channel, unread ones and one being dragged in.
   const shown = collapsed
-    ? ids.filter((id) => id === activeId || id === dragId || (channels[id]?.type === "text" && isUnread(readStates[id])))
+    ? ids.filter((id) => id === activeId || id === dragId || (MARKS_UNREAD.has(channels[id]?.type ?? "") && isUnread(readStates[id])))
     : ids;
   return (
     <div ref={setNodeRef} role="group" aria-label={category.name} className={cn(isDragging && "opacity-40")}
@@ -326,7 +328,7 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
   const { activeId, manageable, openSettings, justDropped, dragKind } = useTree();
   const ch = useApp((s) => s.channels[id]);
   const drop = useDroppable({ id: `vc:${id}`, disabled: dragKind !== "vm" || ch?.type !== "voice" });
-  const unread = useApp((s) => s.channels[id]?.type === "text" && isUnread(s.readStates[id]));
+  const unread = useApp((s) => MARKS_UNREAD.has(s.channels[id]?.type ?? "") && isUnread(s.readStates[id]));
   const canConnect = useApp((s) => hasPerm(myChannelPerms(s, id), Perm.ConnectVoice));
   const nav = useNavigate();
   const lastMessageId = useApp((s) => s.readStates[id]?.lastMessageId);

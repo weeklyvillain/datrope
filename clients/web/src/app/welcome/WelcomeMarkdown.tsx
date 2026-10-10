@@ -1,5 +1,5 @@
 import { Perm, hasPerm, myChannelPerms, type State } from "@datrope/core";
-import { BookOpen, Hash, Volume2 } from "lucide-react";
+import { BookOpen, Hash, Volume2, Webhook } from "lucide-react";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
 import { Link } from "react-router-dom";
 import remarkGfm from "remark-gfm";
@@ -77,7 +77,7 @@ export function WelcomeMarkdown({ markdown, preview = false }: { markdown: strin
   );
 }
 
-const ICONS = { welcome: BookOpen, text: Hash, voice: Volume2, dm: Hash, thread: Hash } as const;
+const ICONS = { welcome: BookOpen, text: Hash, voice: Volume2, dm: Hash, thread: Hash, webhook: Webhook } as const;
 
 /** The visible server channel with this name, if any. */
 function findChannel(s: State, name: string): string | undefined {

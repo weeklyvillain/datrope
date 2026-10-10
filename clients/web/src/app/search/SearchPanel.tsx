@@ -6,13 +6,15 @@ import { client, displayName, dmName, errorText, roleColor, useApp } from "../..
 import { Markdown } from "@/chat/Markdown";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
+import { WebhookAvatar } from "@/components/webhook-avatar";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@/hooks/use-user";
+import { useMessageAuthor } from "@/hooks/use-message-author";
 import { cn } from "@/lib/utils";
 import { openMessage } from "../jump";
 import { stamp } from "../MessageList";
 import { closePanel, panelStore, setSearchQuery, usePanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
+import { WebhookBadge } from "../WebhookAuthor";
 import { SearchChips } from "./SearchChips";
 import { clearSearchResults, resultsStore, setSearchResults, updateSearchResults, useSearchResults } from "./results";
 
@@ -175,8 +177,8 @@ function GroupLabel({ where, first }: { where: ChannelRef; first: boolean }) {
 
 function ResultRow({ result, terms, active, onOpen }: { result: SearchResult; terms: string[]; active: boolean; onOpen: () => void }) {
   const m = result.message;
-  const author = useUser(m.author.id, m.author) ?? m.author;
-  const color = useApp((s) => (result.channel.type === "dm" ? undefined : roleColor(s.server, m.author.id)));
+  const author = useMessageAuthor(m);
+  const color = useApp((s) => (result.channel.type === "dm" || !m.author ? undefined : roleColor(s.server, m.author.id)));
   const file = m.attachments?.[0]?.filename;
   const nameId = `sr-name-${m.id}`;
   const textId = `sr-text-${m.id}`;
@@ -184,16 +186,19 @@ function ResultRow({ result, terms, active, onOpen }: { result: SearchResult; te
     <button type="button" onClick={onOpen} aria-labelledby={`${nameId} ${textId}`}
       className={cn("mx-2 flex gap-2.5 rounded-lg border border-transparent p-2 text-left outline-none hover:border-border hover:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50",
         active && "border-border bg-background")}>
-      <UserAvatar user={author} size="md" />
+      {m.author ? <UserAvatar user={author} size="md" /> : <WebhookAvatar avatarUrl={m.webhook?.avatar_url} size="md" />}
       <span className="block min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span id={nameId} className="truncate text-sm font-semibold" style={{ color }}>{displayName(author)}</span>
+          {!m.author && <WebhookBadge />}
           <time className="flex-none text-xs text-muted-foreground" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
         </span>
         {m.content ? (
           <span id={textId} className="line-clamp-3 block text-sm wrap-anywhere">
             <Markdown text={m.content} inline highlight={terms} mentions={m.mentions ?? undefined} />
           </span>
+        ) : m.poll ? (
+          <span id={textId} className="block truncate text-sm text-muted-foreground">Poll: {m.poll.question}</span>
         ) : file ? (
           <span id={textId} className="block truncate text-sm text-muted-foreground">📎 {file}</span>
         ) : null}

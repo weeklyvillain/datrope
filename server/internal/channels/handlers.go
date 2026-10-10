@@ -20,7 +20,7 @@ import (
 
 type CreateChannelRequest struct {
 	Name       string `json:"name" minLength:"1" maxLength:"100"`
-	Type       string `json:"type" enum:"text,voice"`
+	Type       string `json:"type" enum:"text,voice,webhook"`
 	CategoryID *id.ID `json:"category_id,omitempty"`
 }
 
@@ -345,11 +345,18 @@ func (s *Service) overrideTarget(ctx context.Context, in overridePath, bits perm
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	c, have, err := s.Access(ctx, auth.Current(ctx).User.ID, chID, perms.ManageRoles)
+	me := auth.Current(ctx).User.ID
+	c, _, err := s.Access(ctx, me, chID, perms.ManageRoles)
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	if !have.Has(bits) { // you can only allow or deny permissions you hold
+	// You can only allow or deny permissions you hold. A webhook channel's
+	// mask does not count: its overrides also govern its threads.
+	held, err := s.permsIn(ctx, me, c)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	if !held.Has(bits) {
 		return nil, 0, nil, httpx.MissingPermission()
 	}
 	if c.Type == TypeThread {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -13,6 +14,7 @@ import (
 type UpdateSettingsRequest struct {
 	RegistrationMode *string `json:"registration_mode,omitempty" enum:"invite_only,open,admin_only"`
 	MaxUploadBytes   *int64  `json:"max_upload_bytes,omitempty" minimum:"1048576" maximum:"10737418240"`
+	KlipyAPIKey      *string `json:"klipy_api_key,omitempty" maxLength:"200" doc:"Write-only: responses report klipy_configured instead. Empty removes the key."`
 }
 
 type CreateUserRequest struct {
@@ -59,6 +61,13 @@ func registerAdmin(api huma.API, s *Service) {
 			}
 			if err := s.store.UpdateSettings(ctx, set); err != nil {
 				return nil, err
+			}
+			if in.Body.KlipyAPIKey != nil {
+				key := strings.TrimSpace(*in.Body.KlipyAPIKey)
+				if err := s.store.SetKlipyKey(ctx, key); err != nil {
+					return nil, err
+				}
+				set.KlipyConfigured = key != ""
 			}
 			return &struct{ Body Settings }{set}, nil
 		})

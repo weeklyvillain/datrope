@@ -1,7 +1,7 @@
 import type { Attachment } from "@datrope/core";
 import { CirclePlus, Reply, Smile, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { client, displayName, errorText, formatBytes, instanceInfo } from "../session";
+import { client, displayName, errorText, formatBytes, instanceInfo, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Autocomplete, useSuggestions, type Suggestion } from "@/chat/AutocompleteList";
 import { findTrigger } from "@/chat/autocomplete";
+import { availableCommands, isCommand, runCommand, type CommandContext, type ModalKind } from "@/chat/commands";
 import { EmojiPicker, emojiText } from "@/chat/EmojiPicker";
 import type { ReplyState } from "./MessageList";
+import { PollDialog } from "@/chat/PollDialog";
+import { GifDialog } from "./GifDialog";
 
 const MAX_FILES = 10; // the server's limit per message
 const MAX_LENGTH = 4000;
@@ -23,13 +26,14 @@ interface PendingFile {
   error?: string;
 }
 
-export function Composer({ channelId, canSend, canAttach, placeholder, reply, label = "Message" }:
-  { channelId: string; canSend: boolean; canAttach: boolean; placeholder: string; reply: ReplyState; label?: string }) {
+export function Composer({ channelId, canSend, canAttach, placeholder, reply, label = "Message", readOnlyText = "You can't send messages here." }:
+  { channelId: string; canSend: boolean; canAttach: boolean; placeholder: string; reply: ReplyState; label?: string; readOnlyText?: string }) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [error, setError] = useState<string>();
   const picker = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
+  const running = useRef(false); // a command (/status) is in flight
   const { replyTo, setReplyTo } = reply;
   const box = () => form.current?.querySelector("textarea");
 
@@ -37,7 +41,14 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   const listId = useId();
   const [caret, setCaret] = useState(0);
   const trigger = useMemo(() => findTrigger(text, caret), [text, caret]);
-  const suggestions = useSuggestions(channelId, trigger);
+  const gifsEnabled = useInstanceInfo()?.gifs_enabled ?? false;
+  const ctx = useMemo<CommandContext>(
+    () => ({ gifsEnabled, canAttach, setStatus: (custom_status) => client.updateMe({ custom_status }) }),
+    [gifsEnabled, canAttach],
+  );
+  const commands = useMemo(() => availableCommands(ctx), [ctx]);
+  const suggestions = useSuggestions(channelId, trigger, commands);
+  const [modal, setModal] = useState<{ open: ModalKind; query: string } | null>(null); // opened by /gif and /poll
   const [dismissedAt, setDismissedAt] = useState<number | null>(null); // Escape closes the list for that trigger
   const [active, setActive] = useState(0);
   const listOpen = !!trigger && suggestions.length > 0 && dismissedAt !== trigger.start;
@@ -62,7 +73,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     if (replyTo) box()?.focus();
   }, [replyTo]);
 
-  if (!canSend) return <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-muted-foreground">You can't send messages here.</div>;
+  if (!canSend) return <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-muted-foreground">{readOnlyText}</div>;
 
   const uploading = files.some((f) => !f.attachment && !f.error);
   const ready = files.flatMap((f) => (f.attachment ? [f.attachment] : []));
@@ -102,22 +113,46 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     if (trigger) insert(trigger.start, caret, s.insert);
   };
 
-  const submit = () => {
-    const content = text.trim();
-    if (uploading || (!content && ready.length === 0)) return;
-    setText("");
-    setFiles([]);
-    setError(undefined);
+  // Sends in the background, as a reply if one is pending; a failure shows under the box.
+  const deliver = (content: string, attachments: Attachment[]) => {
+    const reply = replyTo ?? undefined;
     setReplyTo(null);
     void (async () => {
       // From a detached window (an old message jumped to), go back to the present first.
       // If that fails, the message is sent anyway (the store still shows my own message).
       if (client.store.getState().messages[channelId]?.hasNewer) await client.loadLatest(channelId).catch(() => undefined);
-      await client.send(channelId, content, ready, replyTo ?? undefined);
+      await client.send(channelId, content, attachments, reply);
     })().catch((e) => setError(errorText(e)));
   };
 
+  const post = (content: string) => {
+    setText("");
+    setFiles([]);
+    setError(undefined);
+    deliver(content, ready);
+  };
+
+  const submit = () => {
+    const content = text.trim();
+    if (uploading || (!content && ready.length === 0)) return;
+    if (!isCommand(content)) return post(content);
+    if (running.current) return;
+    running.current = true;
+    void runCommand(content, ctx)
+      .then((result) => {
+        if (!result) return post(content);
+        if ("error" in result) return setError(result.error); // keep the text for fixing
+        if ("send" in result) return post(result.send);
+        setText(""); // done, or a modal takes over
+        setError(undefined);
+        if ("open" in result) setModal({ open: result.open, query: result.query ?? "" });
+      })
+      .catch((e) => setError(errorText(e)))
+      .finally(() => { running.current = false; });
+  };
+
   return (
+    <>
     <form ref={form} className="px-4 pb-4"
       onSubmit={(e) => { e.preventDefault(); submit(); }}
       onDragOver={(e) => { if (canAttach && e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
@@ -226,5 +261,14 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
       </div>
       <ErrorText error={error} />
     </form>
+    {modal?.open === "gif" && (
+      <GifDialog channelId={channelId} query={modal.query} onClose={() => setModal(null)}
+        onPick={(attachment, caption) => {
+          setModal(null);
+          deliver(caption, [attachment]);
+        }} />
+    )}
+    {modal?.open === "poll" && <PollDialog channelId={channelId} question={modal.query} onClose={() => setModal(null)} />}
+    </>
   );
 }

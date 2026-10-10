@@ -39,6 +39,7 @@ type Attachment struct {
 	Width        *int   `json:"width,omitempty"`
 	Height       *int   `json:"height,omitempty"`
 	Inline       bool   `json:"inline" doc:"An image the client may show in the message"`
+	GIF          bool   `json:"gif,omitempty" doc:"Posted with /gif: clients play it muted and looped, without controls, like an image"`
 	URL          string `json:"url"`
 	ThumbnailURL string `json:"thumbnail_url,omitempty"`
 
@@ -105,14 +106,14 @@ func (s *Service) Start() {
 
 func (s *Service) Close() { s.stop.Do(func() { close(s.done) }) }
 
-const attachmentCols = `id, channel_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline`
+const attachmentCols = `id, channel_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif`
 
 func scanAttachment(row pgx.Row) (*Attachment, error) {
 	var a Attachment
 	var msg *int64
 	var thumb *string
 	if err := row.Scan(&a.ID, &a.ChannelID, &a.uploaderID, &msg, &a.Filename, &a.ContentType, &a.Size,
-		&a.sum, &a.Width, &a.Height, &thumb, &a.Inline); err != nil {
+		&a.sum, &a.Width, &a.Height, &thumb, &a.Inline, &a.GIF); err != nil {
 		return nil, err
 	}
 	a.messageID = id.FromNullable(msg)
@@ -161,7 +162,7 @@ func (s *Service) authorized(ctx context.Context, raw string) (*Attachment, erro
 
 // save processes a staged upload and records it. Images get their metadata
 // stripped, their size measured, and a thumbnail when useful.
-func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filename string, staged *Staged) (*Attachment, error) {
+func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filename string, staged *Staged, gif *gifSize) (*Attachment, error) {
 	var thumb *Staged
 	defer func() { // no-ops for files that were committed
 		s.store.Discard(staged)
@@ -192,6 +193,14 @@ func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filenam
 			slog.InfoContext(ctx, "files: keeping image as a plain file", "attachment_id", a.ID, "err", err)
 		}
 	}
+	if gif != nil {
+		a.GIF = true
+		s.store.Discard(thumb) // a still thumbnail would stop the animation
+		thumb = nil
+		if a.Width == nil && gif.width > 0 && gif.height > 0 {
+			a.Width, a.Height = &gif.width, &gif.height
+		}
+	}
 	a.Size, a.sum = staged.Size, staged.Sum
 	var thumbArg *string
 	if thumb != nil {
@@ -216,9 +225,9 @@ func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filenam
 		}
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO attachments (id, channel_id, uploader_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		a.ID, a.ChannelID, uploaderID, a.Filename, a.ContentType, a.Size, a.sum, a.Width, a.Height, thumbArg, a.Inline); err != nil {
+		INSERT INTO attachments (id, channel_id, uploader_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		a.ID, a.ChannelID, uploaderID, a.Filename, a.ContentType, a.Size, a.sum, a.Width, a.Height, thumbArg, a.Inline, a.GIF); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

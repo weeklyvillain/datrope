@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/datrope/datrope/server/internal/id"
+	"github.com/datrope/datrope/server/internal/perms"
 )
 
 // CreateThread starts the thread on a message, or returns the existing one.
@@ -51,4 +52,11 @@ func (s *Service) ThreadsOf(ctx context.Context, parentID id.ID) ([]Channel, err
 		out = append(out, *c)
 	}
 	return out, nil
+}
+
+// ThreadPerms returns what userID may do in parent's threads: parent's
+// permissions without the webhook-channel mask, since a thread uses its
+// parent's overrides but anyone may post in a webhook channel's threads.
+func (s *Service) ThreadPerms(ctx context.Context, userID id.ID, parent *Channel) (perms.Perms, error) {
+	return s.permsIn(ctx, userID, parent)
 }

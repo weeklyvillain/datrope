@@ -19,6 +19,7 @@ type Config struct {
 	Gateway    gateway.Options // zero value = production defaults
 	DataDir    string          // uploads live in DataDir/files
 	LiveKit    voice.Config    // voice is off when LiveKit.URL is empty
+	KlipyURL   string          // Klipy's API base; "" is the real one (tests point it at a fake)
 }
 
 func ConfigFromEnv() (Config, error) {

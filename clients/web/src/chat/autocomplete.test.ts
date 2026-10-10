@@ -10,6 +10,14 @@ describe("composer autocomplete", () => {
     ["time 10:30", 10, null],
     ["done :parrot: ", 14, null],
     ["`@bob", 5, null],
+    ["/", 1, { kind: "command", query: "", start: 0 }],
+    ["/shr", 4, { kind: "command", query: "shr", start: 0 }],
+    ["/shrug hi", 9, null], // past the name: the picker closes
+    ["/shrug hi", 3, { kind: "command", query: "sh", start: 0 }], // caret back inside the name
+    ["hi /shr", 7, null], // only at the very start of the message
+    ["a\n/shr", 6, null], // not at the start of a later line either
+    ["//", 2, null], // the // escape
+    ["/usr/bin", 8, null],
   ])("%s", (text, caret, want) => {
     expect(findTrigger(text as string, caret as number)).toEqual(want);
   });

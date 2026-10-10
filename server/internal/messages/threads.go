@@ -19,6 +19,8 @@ import (
 type Threads interface {
 	CreateThread(ctx context.Context, parent *channels.Channel, messageID, creatorID id.ID, name string) (*channels.Channel, bool, error)
 	ThreadsOf(ctx context.Context, parentID id.ID) ([]channels.Channel, error)
+	// ThreadPerms is what a user may do in parent's threads (no webhook-channel mask).
+	ThreadPerms(ctx context.Context, userID id.ID, parent *channels.Channel) (perms.Perms, error)
 }
 
 func (s *Service) SetThreads(t Threads) { s.threads = t }
@@ -60,7 +62,7 @@ func (s *Service) summaries(ctx context.Context, threads map[id.ID]string) (map[
 	}
 	rows, err := s.db.Query(ctx, `
 		SELECT channel_id, count(*) FILTER (WHERE NOT deleted), max(id) FILTER (WHERE NOT deleted),
-		       coalesce(array_agg(author_id ORDER BY id) FILTER (WHERE NOT deleted), '{}')
+		       coalesce(array_agg(author_id ORDER BY id) FILTER (WHERE NOT deleted AND author_id IS NOT NULL), '{}')
 		FROM messages WHERE channel_id = ANY($1) GROUP BY channel_id`, id.Int64s(ids))
 	if err != nil {
 		return nil, err
@@ -190,10 +192,15 @@ func registerThreads(api huma.API, s *Service, op func(string, string, string, i
 			if err != nil {
 				return nil, err
 			}
-			if ch.Type != channels.TypeText && ch.Type != channels.TypeVoice {
-				return nil, httpx.BadRequest("NO_THREADS_HERE", "threads can only be started in text and voice channels")
+			if ch.Type != channels.TypeText && ch.Type != channels.TypeVoice && ch.Type != channels.TypeWebhook {
+				return nil, httpx.BadRequest("NO_THREADS_HERE", "threads can only be started in text, voice and webhook channels")
 			}
-			if !have.Has(perms.CreateThreads | perms.SendMessages) {
+			// Posting in the thread is what counts: a webhook channel's mask does not apply there.
+			inThread, err := s.threads.ThreadPerms(ctx, me, ch)
+			if err != nil {
+				return nil, err
+			}
+			if !have.Has(perms.CreateThreads) || !inThread.Has(perms.SendMessages) {
 				return nil, httpx.MissingPermission()
 			}
 			m, err := s.get(ctx, ch.ID, in.MessageID)

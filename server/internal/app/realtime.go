@@ -176,7 +176,7 @@ func registerEventSchemas(api huma.API) {
 	refs := map[string]any{}
 	for _, v := range []any{
 		Ready{}, gateway.Hello{}, gateway.PresenceUpdate{}, auth.PublicUser{},
-		messages.Message{}, messages.MessageDeleted{}, messages.TypingStart{}, messages.ReactionEvent{}, messages.ThreadUpdate{},
+		messages.Message{}, messages.MessageDeleted{}, messages.TypingStart{}, messages.ReactionEvent{}, messages.ThreadUpdate{}, messages.PollUpdate{},
 		channels.ChannelDeleted{}, communities.MemberRemoved{}, communities.RoleDeleted{}, communities.Server{},
 		channels.Category{}, channels.CategoryDeleted{},
 		files.Attachment{}, voice.VoiceState{}, voice.VoiceMove{}, voice.SoundboardPlay{}, expressions.EmojiUpdate{}, expressions.SoundUpdate{},

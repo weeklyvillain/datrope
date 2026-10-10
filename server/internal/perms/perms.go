@@ -28,10 +28,11 @@ const (
 	CreateThreads
 	UseSoundboard
 	ManageExpressions
+	ManageWebhooks
 )
 
 // All is every flag.
-const All Perms = ManageExpressions<<1 - 1
+const All Perms = ManageWebhooks<<1 - 1
 
 // Default is what @everyone gets on a new server.
 const Default = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | CreateInvite |
@@ -42,6 +43,10 @@ const GuestDefault = ViewChannel | ReadHistory | SendMessages | ConnectVoice | S
 
 // DM is the fixed set every DM participant holds (reactions included).
 const DM = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | AddReactions | UseSoundboard
+
+// WebhookMasked is what a webhook channel takes from everyone, the owner and
+// admins included: only its webhooks post there. Its threads keep it.
+const WebhookMasked = SendMessages | AttachFiles
 
 // overridable is what a channel override may allow or deny.
 const overridable = All &^ Admin

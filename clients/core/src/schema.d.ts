@@ -180,6 +180,54 @@ export interface paths {
         patch: operations["edit-message"];
         trace?: never;
     };
+    "/api/channels/{id}/messages/{messageID}/poll/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["end-poll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{id}/messages/{messageID}/poll/options/{n}/voters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-poll-voters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{id}/messages/{messageID}/poll/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["vote-poll"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{id}/messages/{messageID}/reactions/{emoji}": {
         parameters: {
             query?: never;
@@ -292,6 +340,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{id}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-webhooks"];
+        put?: never;
+        post: operations["create-webhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dms": {
         parameters: {
             query?: never;
@@ -302,6 +366,55 @@ export interface paths {
         get: operations["list-dms"];
         put?: never;
         post: operations["create-dm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gifs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["search-gifs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gifs/trending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-trending-gifs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gifs/{id}/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Stores the GIF on this server as an unsent attachment; send it with attachment_ids. */
+        post: operations["attach-gif"];
         delete?: never;
         options?: never;
         head?: never;
@@ -868,6 +981,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-webhook"];
+        options?: never;
+        head?: never;
+        patch: operations["update-webhook"];
+        trace?: never;
+    };
+    "/api/webhooks/{id}/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["regenerate-webhook-token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -891,6 +1036,8 @@ export interface components {
             /** @description Detected from the contents, not the name */
             content_type: string;
             filename: string;
+            /** @description Posted with /gif: clients play it muted and looped, without controls, like an image */
+            gif?: boolean;
             /** Format: int64 */
             height?: number;
             /** @description Snowflake ID as a decimal string */
@@ -954,7 +1101,7 @@ export interface components {
             position: number;
             topic: string;
             /** @enum {string} */
-            type: "text" | "voice" | "welcome" | "dm" | "thread";
+            type: "text" | "voice" | "welcome" | "dm" | "thread" | "webhook";
         };
         ChannelDeleted: {
             /** @description Snowflake ID as a decimal string */
@@ -978,7 +1125,7 @@ export interface components {
             category_id?: string;
             name: string;
             /** @enum {string} */
-            type: "text" | "voice";
+            type: "text" | "voice" | "webhook";
         };
         CreateDMRequest: {
             recipient_ids: string[] | null;
@@ -1016,6 +1163,25 @@ export interface components {
         EditRequest: {
             content: string;
         };
+        EmbedAuthor: {
+            icon_url?: string;
+            name: string;
+            url?: string;
+        };
+        EmbedField: {
+            /** @description Up to three inline fields share a row */
+            inline?: boolean;
+            name: string;
+            /** @description Markdown */
+            value: string;
+        };
+        EmbedFooter: {
+            icon_url?: string;
+            text: string;
+        };
+        EmbedImage: {
+            url: string;
+        };
         Emoji: {
             /** @description Snowflake ID as a decimal string */
             creator_id?: string;
@@ -1036,6 +1202,22 @@ export interface components {
             };
             message: string;
         };
+        GIF: {
+            /** Format: int64 */
+            height: number;
+            /** @description Pass to POST /api/gifs/{id}/attach */
+            id: string;
+            /** @description A small animated WebP (or GIF) on Klipy's CDN */
+            preview_url: string;
+            title: string;
+            /** Format: int64 */
+            width: number;
+        };
+        GIFPage: {
+            items: components["schemas"]["GIF"][] | null;
+            /** @description Pass as pos to get the next page; absent on the last page */
+            next?: string;
+        };
         GuestJoinRequest: {
             /** @enum {string} */
             client: "web" | "native";
@@ -1051,6 +1233,8 @@ export interface components {
             heartbeat_interval: number;
         };
         InstanceInfo: {
+            /** @description A Klipy key is set, so /gif is available */
+            gifs_enabled: boolean;
             /** @description False until the first (admin) account exists */
             has_users: boolean;
             /**
@@ -1140,7 +1324,8 @@ export interface components {
         };
         Message: {
             attachments: components["schemas"]["Attachment"][] | null;
-            author: components["schemas"]["PublicUser"];
+            /** @description Absent for webhook messages */
+            author?: components["schemas"]["PublicUser"];
             /** @description Snowflake ID as a decimal string */
             channel_id: string;
             content: string;
@@ -1151,6 +1336,8 @@ export interface components {
             edited_at?: string;
             /** @description Text preview of the first link; attached after send by MESSAGE_UPDATE */
             embed?: components["schemas"]["Preview"];
+            /** @description Rich embeds a webhook posted (not link previews); image URLs point at this instance */
+            embeds?: components["schemas"]["WebhookEmbed"][] | null;
             /** @description Snowflake ID as a decimal string */
             id: string;
             mentions: string[] | null;
@@ -1159,10 +1346,14 @@ export interface components {
             pinned: boolean;
             /** Format: date-time */
             pinned_at?: string;
+            /** @description Set when the message is a poll */
+            poll?: components["schemas"]["Poll"];
             reactions: components["schemas"]["Reaction"][] | null;
             reply_to?: components["schemas"]["ReplyRef"];
             /** @description The thread started from this message */
             thread?: components["schemas"]["ThreadSummary"];
+            /** @description Who a webhook message shows as; absent for people's messages */
+            webhook?: components["schemas"]["WebhookAuthor"];
         };
         MessageDeleted: {
             /** @description Snowflake ID as a decimal string */
@@ -1193,6 +1384,62 @@ export interface components {
         PlaySoundRequest: {
             /** @description Snowflake ID as a decimal string */
             sound_id: string;
+        };
+        Poll: {
+            anonymous: boolean;
+            /** @description Ended early, or ends_at has passed */
+            ended: boolean;
+            /**
+             * Format: date-time
+             * @description When the poll closes by itself; absent when it runs until ended
+             */
+            ends_at?: string;
+            multi: boolean;
+            /** @description Positions the requesting user chose; always empty in gateway events */
+            my_votes: number[] | null;
+            options: components["schemas"]["PollOption"][] | null;
+            question: string;
+            /** Format: int64 */
+            total_voters: number;
+        };
+        PollOption: {
+            /** Format: int64 */
+            count: number;
+            /** @description A Unicode emoji or custom:<emoji id> */
+            emoji?: string;
+            text: string;
+        };
+        PollOptionCount: {
+            /** Format: int64 */
+            count: number;
+        };
+        PollOptionRequest: {
+            /** @description A Unicode emoji or custom:<emoji id> */
+            emoji?: string;
+            text: string;
+        };
+        PollRequest: {
+            /** @description Nobody can see who chose what */
+            anonymous?: boolean;
+            /**
+             * @description Omit for a poll that runs until ended
+             * @enum {string}
+             */
+            duration?: "1h" | "4h" | "8h" | "24h" | "3d" | "1w";
+            /** @description Voters may choose several answers */
+            multi?: boolean;
+            options: components["schemas"]["PollOptionRequest"][] | null;
+            question: string;
+        };
+        PollUpdate: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            ended: boolean;
+            /** @description Snowflake ID as a decimal string */
+            message_id: string;
+            options: components["schemas"]["PollOptionCount"][] | null;
+            /** Format: int64 */
+            total_voters: number;
         };
         PresenceUpdate: {
             /** @enum {string} */
@@ -1366,9 +1613,11 @@ export interface components {
         SendRequest: {
             /** @description Uploads (POST /api/attachments) to send with the message */
             attachment_ids?: string[] | null;
-            content: string;
+            content?: string;
             /** @description Client-chosen; echoed in MESSAGE_CREATE so the sender can match its pending message */
             nonce?: string;
+            /** @description Makes the message a poll; content may then be empty */
+            poll?: components["schemas"]["PollRequest"];
             /** @description Reply to this message (same channel) */
             reply_to_id?: string;
         };
@@ -1436,6 +1685,8 @@ export interface components {
             last_used_at: string;
         };
         Settings: {
+            /** @description A Klipy API key is set, so /gif works. The key itself is never returned. */
+            klipy_configured: boolean;
             /**
              * Format: int64
              * @description Largest file a user may upload
@@ -1556,6 +1807,8 @@ export interface components {
             palette?: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
         };
         UpdateSettingsRequest: {
+            /** @description Write-only: responses report klipy_configured instead. Empty removes the key. */
+            klipy_api_key?: string;
             /** Format: int64 */
             max_upload_bytes?: number;
             /** @enum {string} */
@@ -1608,6 +1861,69 @@ export interface components {
             server_mute: boolean;
             /** @description Snowflake ID as a decimal string */
             user_id: string;
+        };
+        VoteRequest: {
+            /** @description The chosen answers by position; empty removes the vote */
+            positions: number[] | null;
+        };
+        Webhook: {
+            /** @description Absent when it has none; clients draw the webhook icon */
+            avatar_url?: string;
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            created_by?: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            name: string;
+        };
+        WebhookAuthor: {
+            /** @description Absent when it has none; clients draw the webhook icon */
+            avatar_url?: string;
+            /** @description Absent once the webhook is deleted */
+            id?: string;
+            name: string;
+        };
+        WebhookEmbed: {
+            author?: components["schemas"]["EmbedAuthor"];
+            /**
+             * Format: int64
+             * @description The accent colour, 0xRRGGBB
+             */
+            color?: number;
+            /** @description Markdown */
+            description?: string;
+            fields?: components["schemas"]["EmbedField"][] | null;
+            footer?: components["schemas"]["EmbedFooter"];
+            image?: components["schemas"]["EmbedImage"];
+            thumbnail?: components["schemas"]["EmbedImage"];
+            /** @description RFC 3339, UTC */
+            timestamp?: string;
+            title?: string;
+            /** @description Makes the title a link */
+            url?: string;
+        };
+        WebhookRequest: {
+            name: string;
+        };
+        WebhookWithURL: {
+            /** @description Absent when it has none; clients draw the webhook icon */
+            avatar_url?: string;
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            created_by?: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            name: string;
+            /** @description Shown once */
+            token: string;
+            /** @description POST Discord-style messages here; shown once */
+            url: string;
         };
         Welcome: {
             /** @description Snowflake ID as a decimal string */
@@ -2181,6 +2497,106 @@ export interface operations {
             };
         };
     };
+    "end-poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-poll-voters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageID: string;
+                /** @description The answer's position */
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUser"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "vote-poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Poll"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "add-reaction": {
         parameters: {
             query?: never;
@@ -2498,6 +2914,72 @@ export interface operations {
             };
         };
     };
+    "list-webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookWithURL"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "list-dms": {
         parameters: {
             query?: never;
@@ -2547,6 +3029,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "search-gifs": {
+        parameters: {
+            query: {
+                q: string;
+                /** @description next from the previous page */
+                pos?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GIFPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-trending-gifs": {
+        parameters: {
+            query?: {
+                /** @description next from the previous page */
+                pos?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GIFPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "attach-gif": {
+        parameters: {
+            query: {
+                channel_id: string;
+            };
+            header?: never;
+            path: {
+                /** @description A GIF's id from trending or search */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
                 };
             };
             /** @description Error */
@@ -4036,6 +4617,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JoinResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "regenerate-webhook-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookWithURL"];
                 };
             };
             /** @description Error */

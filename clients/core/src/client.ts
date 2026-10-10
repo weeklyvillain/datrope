@@ -2,9 +2,12 @@ import { ApiError, createApi, unwrap, type Api } from "./api";
 import { Gateway } from "./gateway";
 import {
   ackLocal, addPending, applyEvent, applyReady, createAppStore, initialState, markFailed, prependHistory,
-  appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, type State,
+  appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
-import type { Attachment, Category, Channel, Emoji, JoinVoiceResponse, Member, Message, PresenceStatus, SearchResponse, ReplyRef, Sound, ThreadListItem, User } from "./types";
+import type {
+  Attachment, Category, Channel, Emoji, JoinVoiceResponse, Member, Message, Poll, PollRequest, PresenceStatus, PublicUser, SearchResponse, ReplyRef, Sound,
+  ThreadListItem, User, Webhook, WebhookWithURL,
+} from "./types";
 
 export interface ClientOptions {
   baseUrl: string; // "" for the web app
@@ -398,6 +401,41 @@ export class DatropeClient {
     }));
   }
 
+  /** Posts a poll. It is not shown as pending: a poll appears once the server has it. */
+  async sendPoll(channelId: string, poll: PollRequest, content = ""): Promise<Message> {
+    const m = await unwrap(this.api.POST("/api/channels/{id}/messages", {
+      params: { path: { id: channelId } },
+      body: { content, poll },
+    }));
+    // The gateway usually delivers this first; applying it twice is harmless.
+    this.set((s) => applyEvent(s, "MESSAGE_CREATE", m));
+    return m;
+  }
+
+  /** Replaces my vote ([] removes it). The response is the only place my_votes comes from. */
+  async votePoll(channelId: string, messageId: string, positions: number[]): Promise<Poll> {
+    const poll = await unwrap(this.api.PUT("/api/channels/{id}/messages/{messageID}/poll/vote", {
+      params: { path: { id: channelId, messageID: messageId } },
+      body: { positions },
+    }));
+    this.set((s) => setPoll(s, channelId, messageId, poll));
+    return poll;
+  }
+
+  /** Ends a poll early (its author, or MANAGE_MESSAGES). POLL_UPDATE brings the result. */
+  async endPoll(channelId: string, messageId: string) {
+    await unwrap(this.api.POST("/api/channels/{id}/messages/{messageID}/poll/end", {
+      params: { path: { id: channelId, messageID: messageId } },
+    }));
+  }
+
+  /** Who chose an answer of an open (not anonymous) poll. */
+  async pollVoters(channelId: string, messageId: string, position: number): Promise<PublicUser[]> {
+    return (await unwrap(this.api.GET("/api/channels/{id}/messages/{messageID}/poll/options/{n}/voters", {
+      params: { path: { id: channelId, messageID: messageId, n: position } },
+    }))) ?? [];
+  }
+
   /** Adds a custom emoji (MANAGE_EXPRESSIONS). */
   async uploadEmoji(name: string, file: Blob): Promise<Emoji> {
     const form = new FormData();
@@ -434,6 +472,41 @@ export class DatropeClient {
   /** Plays a sound to the call you are in (USE_SOUNDBOARD, SPEAK). */
   async playSound(soundId: string) {
     await unwrap(this.api.POST("/api/voice/soundboard", { body: { sound_id: soundId } }));
+  }
+
+  /** The webhooks of a webhook channel (MANAGE_WEBHOOKS). Tokens are never listed. */
+  async listWebhooks(channelId: string): Promise<Webhook[]> {
+    return (await unwrap(this.api.GET("/api/channels/{id}/webhooks", { params: { path: { id: channelId } } }))) ?? [];
+  }
+
+  /** Creates a webhook. The answer holds its URL, which is shown this once. */
+  async createWebhook(channelId: string, name: string): Promise<WebhookWithURL> {
+    return unwrap(this.api.POST("/api/channels/{id}/webhooks", { params: { path: { id: channelId } }, body: { name } }));
+  }
+
+  async renameWebhook(id: string, name: string): Promise<Webhook> {
+    return unwrap(this.api.PATCH("/api/webhooks/{id}", { params: { path: { id } }, body: { name } }));
+  }
+
+  async deleteWebhook(id: string) {
+    await unwrap(this.api.DELETE("/api/webhooks/{id}", { params: { path: { id } } }));
+  }
+
+  /** Replaces a webhook's token; its old URL stops working. The answer holds the new URL, shown this once. */
+  async regenerateWebhookToken(id: string): Promise<WebhookWithURL> {
+    return unwrap(this.api.POST("/api/webhooks/{id}/token", { params: { path: { id } } }));
+  }
+
+  async uploadWebhookAvatar(id: string, image: Blob): Promise<Webhook> {
+    return (await this.multipart("PUT", `/api/webhooks/${encodeURIComponent(id)}/avatar`, image, "avatar.png")) as Webhook;
+  }
+
+  async removeWebhookAvatar(id: string): Promise<Webhook> {
+    const res = await fetch(this.url(`/api/webhooks/${encodeURIComponent(id)}/avatar`), {
+      method: "DELETE", headers: this.authHeaders(), credentials: "include",
+    });
+    if (!res.ok) await this.throwApiError(res);
+    return (await res.json()) as Webhook;
   }
 
   /** Uploads a file for a message in channelId; pass the result to send(). */

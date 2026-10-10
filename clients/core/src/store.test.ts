@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, prependHistory,
+  addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, myThreadPerms, prependHistory,
   rolesByRank, voiceMembers, channelGroups, sidebarChannelIds, findUser, findDM, type State,
-  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, publicUser, canCreateInvites,
+  replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, setPoll, publicUser, canCreateInvites,
 } from "./store";
-import { Perm } from "./perms";
+import { ALL_PERMS, Perm, WEBHOOK_MASKED, hasPerm } from "./perms";
 import type { Message, Ready, VoiceState } from "./types";
 
 const bob = { id: "2", username: "bob", display_name: "Bob", custom_status: "" };
@@ -184,6 +184,60 @@ describe("store", () => {
     let s = applyReady(initialState, { ...ready(), voice_states: [inGeneral] });
     s = applyEvent(s, "CHANNEL_DELETE", { id: "101" });
     expect(s.voice).toEqual({});
+  });
+
+  it("applies POLL_UPDATE counts and keeps my votes through MESSAGE_UPDATE", () => {
+    const poll = {
+      question: "Pizza?", multi: false, anonymous: false, ended: false, total_voters: 1, my_votes: [0],
+      options: [{ text: "Yes", count: 1 }, { text: "No", count: 0 }],
+    };
+    let s = prependHistory(applyReady(initialState, ready()), "101", [msg("500", { poll })], 50);
+    s = applyEvent(s, "POLL_UPDATE", { channel_id: "101", message_id: "500", options: [{ count: 1 }, { count: 2 }], total_voters: 3, ended: true });
+    expect(s.messages["101"].items[0].poll).toEqual({
+      ...poll, total_voters: 3, ended: true, options: [{ text: "Yes", count: 1 }, { text: "No", count: 2 }],
+    });
+    // A pin republishes the message; events never carry my_votes, so my copy wins.
+    s = applyEvent(s, "MESSAGE_UPDATE", msg("500", { pinned: true, poll: { ...poll, my_votes: [] } }));
+    expect(s.messages["101"].items[0]).toMatchObject({ pinned: true, poll: { my_votes: [0], total_voters: 3 } });
+    // A vote's response only brings my_votes; its (older) counts never overwrite POLL_UPDATE's.
+    s = setPoll(s, "101", "500", { ...poll, my_votes: [1] });
+    expect(s.messages["101"].items[0].poll).toMatchObject({
+      my_votes: [1], total_voters: 3, ended: true, options: [{ text: "Yes", count: 1 }, { text: "No", count: 2 }],
+    });
+    // POLL_UPDATE for a message I have not loaded changes nothing.
+    expect(applyEvent(s, "POLL_UPDATE", { channel_id: "101", message_id: "999", options: [], total_voters: 0, ended: false })).toEqual(s);
+  });
+
+  it("keeps my votes in the mentions inbox through MESSAGE_UPDATE", () => {
+    const poll = {
+      question: "Pizza?", multi: false, anonymous: false, ended: false, total_voters: 2, my_votes: [0],
+      options: [{ text: "Yes", count: 2 }, { text: "No", count: 0 }],
+    };
+    let s = setMentions(loaded(), { items: [], unread_count: 0 }, false);
+    s = applyEvent(s, "MESSAGE_CREATE", msg("500", { mentions: ["20"], poll }));
+    s = applyEvent(s, "MESSAGE_UPDATE", msg("500", { poll: { ...poll, total_voters: 3, my_votes: [] } }));
+    expect(s.mentions.items[0].message.poll).toMatchObject({ my_votes: [0], total_voters: 3 });
+  });
+
+  it("masks sending in a webhook channel, but not in its threads", () => {
+    const alerts = { id: "102", type: "webhook" as const, name: "alerts", position: 1, topic: "", overrides: [] };
+    let s = applyEvent(applyReady(initialState, ready()), "CHANNEL_CREATE", alerts);
+    expect(myChannelPerms(s, "102")).toBe(Perm.ViewChannel);
+    expect(myThreadPerms(s, "102")).toBe(Perm.ViewChannel | Perm.SendMessages);
+    expect(myChannelPerms(s, "101")).toBe(Perm.ViewChannel | Perm.SendMessages);
+    // The owner too: everything but sending and attaching.
+    s = applyEvent(applyReady(initialState, ready({ server: { ...ready().server!, owner_id: "20" } })), "CHANNEL_CREATE", alerts);
+    expect(myChannelPerms(s, "102")).toBe(ALL_PERMS & ~WEBHOOK_MASKED);
+    expect(hasPerm(myChannelPerms(s, "102"), Perm.ManageWebhooks)).toBe(true);
+    expect(myThreadPerms(s, "102")).toBe(ALL_PERMS);
+  });
+
+  it("takes a webhook message, which has no author", () => {
+    let s = setMentions(loaded(), { items: [], unread_count: 0 }, false);
+    s = applyEvent(s, "MESSAGE_CREATE", msg("30", { author: undefined, webhook: { id: "7", name: "CI" }, mentions: ["20"] }));
+    expect(s.messages["101"].items.at(-1)).toMatchObject({ id: "30", webhook: { name: "CI" } });
+    expect(s.readStates["101"]).toMatchObject({ lastMessageId: "30", lastReadId: undefined });
+    expect(s.mentions.items.map((i) => i.message.id)).toEqual(["30"]);
   });
 });
 

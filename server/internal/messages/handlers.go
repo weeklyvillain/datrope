@@ -19,10 +19,11 @@ import (
 )
 
 type SendRequest struct {
-	Content       string  `json:"content" maxLength:"4000"`
-	Nonce         string  `json:"nonce,omitempty" maxLength:"64" doc:"Client-chosen; echoed in MESSAGE_CREATE so the sender can match its pending message"`
-	AttachmentIDs []id.ID `json:"attachment_ids,omitempty" maxItems:"10" doc:"Uploads (POST /api/attachments) to send with the message"`
-	ReplyToID     *id.ID  `json:"reply_to_id,omitempty" doc:"Reply to this message (same channel)"`
+	Content       string       `json:"content,omitempty" maxLength:"4000"`
+	Nonce         string       `json:"nonce,omitempty" maxLength:"64" doc:"Client-chosen; echoed in MESSAGE_CREATE so the sender can match its pending message"`
+	AttachmentIDs []id.ID      `json:"attachment_ids,omitempty" maxItems:"10" doc:"Uploads (POST /api/attachments) to send with the message"`
+	ReplyToID     *id.ID       `json:"reply_to_id,omitempty" doc:"Reply to this message (same channel)"`
+	Poll          *PollRequest `json:"poll,omitempty" doc:"Makes the message a poll; content may then be empty"`
 }
 
 type EditRequest struct {
@@ -61,6 +62,7 @@ func Register(api huma.API, s *Service) {
 	}
 
 	registerReactions(api, s, op, access)
+	registerPolls(api, s, op, access)
 	registerPins(api, s, op, access)
 	registerThreads(api, s, op, access)
 	registerSearch(api, s, op)
@@ -95,7 +97,13 @@ func Register(api huma.API, s *Service) {
 				return nil, httpx.BadRequest("VALIDATION_FAILED", "use only one of before, after and around")
 			}
 			ms, err := s.list(ctx, ch.ID, ptrs[0], ptrs[1], ptrs[2], in.Limit)
-			return &struct{ Body []Message }{ms}, err
+			if err != nil {
+				return nil, err
+			}
+			if err := s.withMyVotes(ctx, ms, auth.Current(ctx).User.ID); err != nil {
+				return nil, err
+			}
+			return &struct{ Body []Message }{ms}, nil
 		})
 
 	huma.Register(api, op("send-message", http.MethodPost, "/api/channels/{id}/messages", http.StatusCreated),
@@ -112,8 +120,13 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			content := strings.TrimSpace(in.Body.Content)
-			if content == "" && len(in.Body.AttachmentIDs) == 0 {
-				return nil, httpx.BadRequest("EMPTY_MESSAGE", "a message needs text or an attachment")
+			if content == "" && len(in.Body.AttachmentIDs) == 0 && in.Body.Poll == nil {
+				return nil, httpx.BadRequest("EMPTY_MESSAGE", "a message needs text, an attachment or a poll")
+			}
+			if in.Body.Poll != nil {
+				if err := s.checkPoll(ctx, in.Body.Poll); err != nil {
+					return nil, err
+				}
 			}
 			if in.Body.ReplyToID != nil {
 				if err := s.checkReply(ctx, ch.ID, *in.Body.ReplyToID); err != nil {
@@ -125,7 +138,8 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			u := auth.Current(ctx).User
-			m := &Message{ID: id.New(), ChannelID: ch.ID, Author: u.Public(), Content: content, Nonce: in.Body.Nonce, Mentions: mentions, replyToID: in.Body.ReplyToID}
+			author := u.Public()
+			m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Content: content, Nonce: in.Body.Nonce, Mentions: mentions, replyToID: in.Body.ReplyToID}
 			m.CreatedAt = m.ID.Time()
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
@@ -138,6 +152,11 @@ func Register(api huma.API, s *Service) {
 			}
 			if m.Attachments, err = s.attachments.Claim(ctx, tx, m.ID, ch.ID, u.ID, in.Body.AttachmentIDs); err != nil {
 				return nil, err
+			}
+			if in.Body.Poll != nil {
+				if err := insertPoll(ctx, tx, m.ID, m.CreatedAt, in.Body.Poll); err != nil {
+					return nil, err
+				}
 			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
@@ -167,8 +186,15 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
-			if m.Author.ID != auth.Current(ctx).User.ID {
+			if m.Author == nil || m.Author.ID != auth.Current(ctx).User.ID { // nobody edits a webhook's message
 				return nil, httpx.MissingPermission()
+			}
+			var isPoll bool
+			if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM polls WHERE message_id = $1)`, m.ID).Scan(&isPoll); err != nil {
+				return nil, err
+			}
+			if isPoll {
+				return nil, errPollNotEditable()
 			}
 			current, err := s.attachments.ForMessages(ctx, []id.ID{m.ID})
 			if err != nil {
@@ -216,10 +242,13 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
-			if m.Author.ID != auth.Current(ctx).User.ID && !have.Has(perms.ManageMessages) {
+			me := auth.Current(ctx).User.ID
+			mine := m.Author != nil && m.Author.ID == me
+			if !mine && !have.Has(perms.ManageMessages) {
 				return nil, httpx.MissingPermission()
 			}
-			if me := auth.Current(ctx).User.ID; m.Author.ID != me && ch.Type != channels.TypeDM {
+			// A webhook message has no author to outrank: MANAGE_MESSAGES is enough.
+			if !mine && m.Author != nil && ch.Type != channels.TypeDM {
 				ok, err := s.ranks.Outranks(ctx, me, m.Author.ID)
 				if err != nil {
 					return nil, err
@@ -233,16 +262,26 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			defer tx.Rollback(ctx)
-			if _, err := tx.Exec(ctx, `UPDATE messages SET content = '', deleted = TRUE, embed = NULL, pinned_at = NULL, pinned_by = NULL WHERE id = $1`, m.ID); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE messages SET content = '', deleted = TRUE, embed = NULL, embeds = NULL, author_avatar_sha256 = NULL,
+				pinned_at = NULL, pinned_by = NULL WHERE id = $1`, m.ID); err != nil {
 				return nil, err
 			}
 			if _, err := tx.Exec(ctx, `DELETE FROM message_reactions WHERE message_id = $1`, m.ID); err != nil {
+				return nil, err
+			}
+			// Soft delete: the FK cascade never fires, so the poll (options and votes cascade) goes here.
+			if _, err := tx.Exec(ctx, `DELETE FROM polls WHERE message_id = $1`, m.ID); err != nil {
 				return nil, err
 			}
 			sums, err := s.attachments.DeleteForMessage(ctx, tx, m.ID)
 			if err != nil {
 				return nil, err
 			}
+			images, err := deleteImages(ctx, tx, m.ID)
+			if err != nil {
+				return nil, err
+			}
+			sums = append(sums, images...)
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
 			}

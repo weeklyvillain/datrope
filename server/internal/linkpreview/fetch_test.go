@@ -94,6 +94,6 @@ func TestFetchChecksRedirects(t *testing.T) {
 	dials := 0
 	allowFirst := func(net.IP) bool { dials++; return dials == 1 } // the front server only
 	_, err := fetchWith(t.Context(), front.URL, allowFirst)
-	require.ErrorIs(t, err, errBlockedAddress)
+	require.ErrorIs(t, err, ErrBlockedAddress)
 	require.Equal(t, 2, dials)
 }

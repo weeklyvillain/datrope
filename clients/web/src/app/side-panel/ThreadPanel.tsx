@@ -1,14 +1,16 @@
-import { Perm, hasPerm } from "@datrope/core";
+import { Perm, hasPerm, myThreadPerms } from "@datrope/core";
 import { useEffect, useState } from "react";
-import { client, displayName, errorText, roleColor, useApp, usePerms } from "../../session";
+import { client, displayName, errorText, roleColor, useApp } from "../../session";
 import { Markdown } from "@/chat/Markdown";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
-import { useUser } from "@/hooks/use-user";
+import { WebhookAvatar } from "@/components/webhook-avatar";
+import { useMessageAuthor } from "@/hooks/use-message-author";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { Composer } from "../Composer";
 import { Attachments, MessageList, type ReplyState } from "../MessageList";
 import { repliesText } from "../threads";
+import { WebhookBadge } from "../WebhookAuthor";
 import { SidePanel } from "./SidePanel";
 
 /** Inside a thread nobody replies to a single message. */
@@ -20,7 +22,8 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "short", time
 export function ThreadPanel({ threadId, parentChannelId, onClose }: { threadId: string; parentChannelId: string; onClose: () => void }) {
   const thread = useApp((s) => s.channels[threadId]);
   const parentName = useApp((s) => s.channels[parentChannelId]?.name);
-  const perms = usePerms(parentChannelId);
+  // A thread uses its parent channel's permissions, without a webhook channel's mask.
+  const perms = useApp((s) => myThreadPerms(s, parentChannelId));
   const [error, setError] = useState<string>();
 
   // A thread I have not seen yet (e.g. opened from the threads list) is fetched once.
@@ -75,8 +78,8 @@ function ReplyCount({ channelId, messageId, fallback }: { channelId: string; mes
 function ParentMessage({ channelId, messageId }: { channelId: string; messageId?: string }) {
   const m = useApp((s) => s.messages[channelId]?.items.find((x) => x.id === messageId));
   const loaded = useApp((s) => !!s.messages[channelId]);
-  const color = useApp((s) => (m ? roleColor(s.server, m.author.id) : undefined));
-  const author = useUser(m?.author.id ?? "", m?.author);
+  const color = useApp((s) => (m?.author ? roleColor(s.server, m.author.id) : undefined));
+  const author = useMessageAuthor(m);
   const [searched, setSearched] = useState(false);
   const found = !!m;
 
@@ -108,13 +111,14 @@ function ParentMessage({ channelId, messageId }: { channelId: string; messageId?
       </p>
     );
   }
-  const name = displayName(author ?? m.author);
+  const name = displayName(author);
   return (
     <article className="grid max-h-[40vh] flex-none grid-cols-[40px_minmax(0,1fr)] gap-x-3 overflow-y-auto border-b px-4 py-3">
-      <UserAvatar user={author ?? m.author} size="lg" />
+      {m.author ? <UserAvatar user={author} size="lg" /> : <WebhookAvatar avatarUrl={m.webhook?.avatar_url} size="lg" />}
       <div className="min-w-0">
         <header className="flex items-baseline gap-2">
           <strong className="font-semibold" style={{ color }}>{name}</strong>
+          {!m.author && <WebhookBadge />}
           <time className="text-xs text-muted-foreground" dateTime={m.created_at}>{timeFormat.format(new Date(m.created_at))}</time>
         </header>
         <div className="wrap-anywhere"><Markdown text={m.content} mentions={m.mentions ?? undefined} /></div>

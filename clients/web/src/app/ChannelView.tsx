@@ -1,4 +1,4 @@
-import { Perm, hasPerm, voiceMembers, type ReplyRef } from "@datrope/core";
+import { Perm, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
 import { MessageSquare, Phone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -28,6 +28,7 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
   const ch = useApp((s) => s.channels[channelId]);
   const me = useApp((s) => s.me);
   const perms = usePerms(channelId);
+  const threadPerms = useApp((s) => myThreadPerms(s, channelId));
   const inCall = useApp((s) => voiceMembers(s, channelId).length);
   const here = useVoice((v) => v.channelId === channelId && v.status !== "idle");
   const loadError = useChannelFeed(channelId);
@@ -46,9 +47,10 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
 
   if (!ch) return <main className="grid min-h-full min-w-0 flex-1 place-items-center bg-background p-8 text-center text-muted-foreground">This channel is not available.</main>;
   const title = ch.type === "dm" ? dmName(ch, me?.id) : `# ${ch.name}`;
-  // Threads live in text channels only (never in DMs, threads or voice side chats).
-  const threads = ch.type === "text";
-  const canCreateThread = threads && hasPerm(perms, Perm.CreateThreads) && hasPerm(perms, Perm.SendMessages);
+  // Threads live in text and webhook channels only (never in DMs, threads or voice side chats).
+  const threads = ch.type === "text" || ch.type === "webhook";
+  // Starting one needs SEND_MESSAGES in the thread, which a webhook channel's mask does not take away.
+  const canCreateThread = threads && hasPerm(perms, Perm.CreateThreads) && hasPerm(threadPerms, Perm.SendMessages);
   const openThread = (threadId: string) => openPanel({ kind: "thread", threadId });
   return (
     <>
@@ -86,7 +88,8 @@ export function ChannelView({ channelId, members = false }: { channelId: string;
           canCreateThread={canCreateThread} onOpenThread={threads ? openThread : undefined} />}
         <TypingLine channelId={channelId} />
         <Composer channelId={channelId} canSend={hasPerm(perms, Perm.SendMessages)} canAttach={hasPerm(perms, Perm.AttachFiles)}
-          placeholder={ch.type === "dm" ? `Message ${dmName(ch, me?.id)}` : `Message #${ch.name}`} reply={reply} />
+          placeholder={ch.type === "dm" ? `Message ${dmName(ch, me?.id)}` : `Message #${ch.name}`} reply={reply}
+          readOnlyText={ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
       </main>
       {panel?.kind === "threads" ? (
         <SidePanel title="Threads" subtitle={`in #${ch.name}`} onClose={closePanel}>

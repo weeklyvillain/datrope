@@ -1,0 +1,158 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import { COMMANDS, availableCommands, flip, isCommand, parseCommand, randomInt, roll, runCommand, type CommandContext } from "./commands";
+import { MarkdownView } from "./Markdown";
+
+// The session module creates the client from window.location, which Node lacks; MarkdownView needs neither.
+vi.mock("@/session", () => ({ client: {}, useApp: () => undefined }));
+
+const opts = { custom: new Map(), shortcodes: new Map(), users: new Map(), meId: "1" };
+/** The text a message shows once its Markdown is rendered. */
+const rendered = (md: string) => renderToStaticMarkup(<MarkdownView text={md} options={opts} />).replace(/<[^>]+>/g, "");
+
+const ctx = (): CommandContext & { statuses: string[] } => {
+  const statuses: string[] = [];
+  return { statuses, gifsEnabled: true, canAttach: true, setStatus: async (t) => { statuses.push(t); } };
+};
+const send = async (text: string) => runCommand(text, ctx());
+
+describe("parseCommand", () => {
+  it.each([
+    ["/shrug", { name: "shrug", args: "" }],
+    ["/shrug hi there", { name: "shrug", args: "hi there" }],
+    ["/SHRUG  hi ", { name: "shrug", args: "hi" }],
+    ["/me waves\nagain", { name: "me", args: "waves\nagain" }],
+  ])("%j", (text, want) => {
+    expect(parseCommand(text)).toEqual(want);
+  });
+
+  it.each(["/", "/ hi", "/usr/bin/env", "/123", "hello /shrug", "//shrug", ""])("%j is not a command", (text) => {
+    expect(parseCommand(text)).toBeNull();
+  });
+});
+
+describe("runCommand", () => {
+  it("passes plain text and non-commands through", async () => {
+    expect(await send("hello")).toBeNull();
+    expect(await send("/usr/bin/env")).toBeNull();
+    expect(await send("/")).toBeNull();
+    expect(isCommand("hello")).toBe(false);
+    expect(isCommand("/usr/bin/env")).toBe(false);
+  });
+
+  it("sends // as a literal slash", async () => {
+    expect(isCommand("//shrug")).toBe(true);
+    expect(await send("//shrug")).toEqual({ send: "/shrug" });
+  });
+
+  it("rejects an unknown command", async () => {
+    expect(isCommand("/nope")).toBe(true);
+    expect(await send("/nope")).toEqual({ error: "Unknown command /nope. Start with // to send it as text." });
+  });
+
+  it("refuses output over the 4000-character message limit", async () => {
+    expect(await send(`/shrug ${"a".repeat(3999)}`)).toEqual({ error: "That message would be over 4000 characters" });
+  });
+
+  it.each([
+    ["/shrug", "¯\\_(ツ)_/¯"],
+    ["/shrug ok", "ok ¯\\_(ツ)_/¯"],
+    ["/tableflip", "(╯°□°)╯︵ ┻━┻"],
+    ["/tableflip argh", "argh (╯°□°)╯︵ ┻━┻"],
+    ["/unflip", "┬─┬ノ( º _ ºノ)"],
+    ["/unflip sorry", "sorry ┬─┬ノ( º _ ºノ)"],
+    ["/me waves", "waves"],
+  ])("%s renders as %j", async (text, want) => {
+    const result = await send(text);
+    expect(result).toHaveProperty("send");
+    expect(rendered((result as { send: string }).send)).toBe(want);
+  });
+
+  it("/me is italic and /spoiler hides its text", async () => {
+    expect(await send("/me waves")).toEqual({ send: "_waves_" });
+    expect(await send("/spoiler he dies")).toEqual({ send: "||he dies||" });
+  });
+
+  it.each(["/me", "/spoiler"])("%s needs text", async (text) => {
+    expect(await send(text)).toEqual({ error: `Usage: ${text} <${text === "/me" ? "action" : "text"}>` });
+  });
+
+  it("/status sets and clears the custom status", async () => {
+    const c = ctx();
+    expect(await runCommand("/status  gaming ", c)).toEqual({ done: true });
+    expect(await runCommand("/status", c)).toEqual({ done: true });
+    expect(c.statuses).toEqual(["gaming", ""]);
+    expect(await runCommand(`/status ${"x".repeat(81)}`, c)).toEqual({ error: "A status can be at most 80 characters" });
+    expect(c.statuses).toHaveLength(2);
+  });
+
+  it("/roll and /flip use real randomness", async () => {
+    expect(await send("/flip")).toMatchObject({ send: expect.stringMatching(/^🪙 (Heads|Tails)$/) });
+    expect(await send("/roll")).toMatchObject({ send: expect.stringMatching(/^🎲 1d20: \*\*([1-9]|1\d|20)\*\*$/) });
+  });
+
+  it("lists every command once, in lower case", () => {
+    const names = COMMANDS.map((c) => c.name);
+    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "status", "gif", "poll"]);
+  });
+});
+
+describe("roll", () => {
+  const fixed = (...values: number[]) => () => values.shift()!; // rand returns 0-based values
+
+  it.each([
+    ["", [13], "🎲 1d20: **14**"],
+    ["d6", [2], "🎲 1d6: **3**"],
+    ["2d6", [2, 4], "🎲 2d6: 3 + 5 = **8**"],
+    ["2D6", [0, 0], "🎲 2d6: 1 + 1 = **2**"],
+    ["20d1000", Array(20).fill(999), `🎲 20d1000: ${Array(20).fill(1000).join(" + ")} = **20000**`],
+  ])("%j", (spec, values, want) => {
+    expect(roll(spec, fixed(...values))).toEqual({ send: want });
+  });
+
+  it.each(["21d6", "0d6", "1d1", "1d1001", "99d99999", "abc", "2d", "-1d6"])("%j is refused", (spec) => {
+    expect(roll(spec, fixed(0))).toHaveProperty("error");
+  });
+});
+
+describe("flip and randomInt", () => {
+  it("flips by the random value", () => {
+    expect(flip(() => 0)).toEqual({ send: "🪙 Heads" });
+    expect(flip(() => 1)).toEqual({ send: "🪙 Tails" });
+  });
+
+  it("stays in range", () => {
+    for (let i = 0; i < 1000; i++) {
+      const n = randomInt(6);
+      expect(n).toBeGreaterThanOrEqual(0);
+      expect(n).toBeLessThan(6);
+    }
+  });
+});
+
+describe("/poll", () => {
+  it("opens the poll dialog, prefilled with the question", async () => {
+    expect(await send("/poll")).toEqual({ open: "poll", query: "" });
+    expect(await send("/poll  Pizza or tacos? ")).toEqual({ open: "poll", query: "Pizza or tacos?" });
+  });
+});
+
+describe("/gif", () => {
+  it("opens the GIF picker with the search text", async () => {
+    expect(await send("/gif")).toEqual({ open: "gif", query: "" });
+    expect(await send("/GIF  happy cat ")).toEqual({ open: "gif", query: "happy cat" });
+  });
+
+  it("does not exist without a Klipy key", async () => {
+    const off = { ...ctx(), gifsEnabled: false };
+    expect(await runCommand("/gif cat", off)).toEqual({ error: "Unknown command /gif. Start with // to send it as text." });
+    expect(availableCommands(off).map((c) => c.name)).not.toContain("gif");
+    expect(availableCommands(ctx()).map((c) => c.name)).toContain("gif");
+  });
+
+  it("does not exist without the AttachFiles permission", async () => {
+    const off = { ...ctx(), canAttach: false };
+    expect(await runCommand("/gif cat", off)).toEqual({ error: "Unknown command /gif. Start with // to send it as text." });
+    expect(availableCommands(off).map((c) => c.name)).not.toContain("gif");
+  });
+});

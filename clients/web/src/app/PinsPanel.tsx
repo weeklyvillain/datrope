@@ -9,6 +9,8 @@ import { RefButton } from "@/components/ref-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Attachments } from "./MessageList";
+import { shownAuthor } from "./message-author";
+import { WebhookBadge } from "./WebhookAuthor";
 
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
@@ -71,14 +73,18 @@ export function PinsPanel({ channelId, onJump }: { channelId: string; onJump: (m
 
 function PinRow({ m, canUnpin, onJump }: { m: Message; canUnpin: boolean; onJump: () => void }) {
   const [error, setError] = useState<string>();
+  const author = shownAuthor(m);
   return (
     <li className="rounded-md border bg-background px-3 py-2">
       <div className="flex items-center gap-2">
-        <strong className="min-w-0 flex-1 truncate font-semibold">{displayName(m.author)}</strong>
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <strong className="min-w-0 truncate font-semibold">{displayName(author)}</strong>
+          {!m.author && <WebhookBadge />}
+        </span>
         <time className="flex-none text-xs text-muted-foreground" dateTime={m.created_at}>{dateTime.format(new Date(m.created_at))}</time>
         <Button variant="outline" size="xs" onClick={onJump}>Jump</Button>
         {canUnpin && (
-          <Button variant="ghost" size="icon-sm" aria-label={`Unpin message from ${displayName(m.author)}, ${dateTime.format(new Date(m.created_at))}`} title="Unpin" className="text-muted-foreground"
+          <Button variant="ghost" size="icon-sm" aria-label={`Unpin message from ${displayName(author)}, ${dateTime.format(new Date(m.created_at))}`} title="Unpin" className="text-muted-foreground"
             onClick={() => { setError(undefined); client.unpin(m.channel_id, m.id).catch((e) => setError(errorText(e))); }}>
             <PinOff />
           </Button>
@@ -86,6 +92,7 @@ function PinRow({ m, canUnpin, onJump }: { m: Message; canUnpin: boolean; onJump
       </div>
       <div className="wrap-anywhere text-sm">
         <Markdown text={m.content} mentions={m.mentions ?? undefined} />
+        {m.poll && <p className="m-0 text-muted-foreground">Poll: {m.poll.question}</p>}
       </div>
       <Attachments items={m.attachments ?? []} />
       <ErrorText error={error} />

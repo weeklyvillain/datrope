@@ -18,10 +18,12 @@ import (
 	"github.com/datrope/datrope/server/internal/expressions"
 	"github.com/datrope/datrope/server/internal/files"
 	"github.com/datrope/datrope/server/internal/gateway"
+	"github.com/datrope/datrope/server/internal/gifs"
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/voice"
+	"github.com/datrope/datrope/server/internal/webhooks"
 )
 
 type App struct {
@@ -31,6 +33,7 @@ type App struct {
 	Files    *files.Service // nil when built without a database
 	Voice    *voice.Service // nil when built without a database
 	Messages *messages.Service
+	Webhooks *webhooks.Service // nil when built without a database
 	// Communities runs the guest sweep; tests call SweepGuests directly.
 	Communities *communities.Service
 	closers     []func()
@@ -92,6 +95,8 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		mux.Handle("GET /api/server/images/{id}", filesSvc.ServerImageDownload())
 		filesSvc.AddBlobTable("emoji", "sha256") // before Start: the first sweep must know every blob table
 		filesSvc.AddBlobTable("sounds", "sha256")
+		filesSvc.AddBlobTable("webhooks", "avatar_sha256")
+		filesSvc.AddBlobTable("message_images", "sha256")
 		authSvc.SetBlobs(filesSvc)
 		filesSvc.AddBlobTable("users", "avatar_sha256")
 		mux.Handle("PUT /api/users/@me/avatar", authSvc.RequireHTTP(authSvc.AvatarUploadHandler()))
@@ -106,14 +111,30 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		a.Files = filesSvc
 	}
 
+	// filesSvc is nil for `datrope openapi`; the GIF handlers never run then.
+	gifs.Register(api, gifs.NewService(authSvc, filesSvc, cfg.KlipyURL))
 	// filesSvc is nil when built without a database; messages never calls it then.
 	msgSvc := messages.NewService(pool, a.Bus, chanSvc, authSvc, filesSvc, commSvc)
 	messages.Register(api, msgSvc)
 	if pool != nil { // nil only for `datrope openapi`
 		msgSvc.SetPreviews(linkpreview.New(pool))
+		msgSvc.SetBlobs(filesSvc)
+		mux.Handle("GET /api/messages/{messageID}/images/{sha256}", authSvc.RequireHTTP(msgSvc.ImageHandler()))
 	}
 	a.Messages = msgSvc
 	a.closers = append(a.closers, msgSvc.Wait)
+
+	// filesSvc is nil when built without a database; webhooks never calls it then.
+	hookSvc := webhooks.NewService(pool, chanSvc, msgSvc, filesSvc, cfg.PublicURL)
+	webhooks.Register(api, hookSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		// Like the LiveKit webhook, there is no session: the token in the URL is the credential.
+		mux.Handle("POST /api/webhooks/{id}/{token}", hookSvc.ExecuteHandler())
+		mux.Handle("PUT /api/webhooks/{id}/avatar", authSvc.RequireHTTP(hookSvc.AvatarUploadHandler()))
+		mux.Handle("DELETE /api/webhooks/{id}/avatar", authSvc.RequireHTTP(hookSvc.AvatarDeleteHandler()))
+		mux.Handle("GET /api/webhooks/{id}/avatar", authSvc.RequireHTTP(hookSvc.AvatarHandler()))
+		a.Webhooks = hookSvc
+	}
 
 	exprSvc := expressions.NewService(pool, a.Bus, commSvc, filesSvc, msgSvc)
 	msgSvc.SetCustomEmoji(exprSvc)

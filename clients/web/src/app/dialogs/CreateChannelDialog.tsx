@@ -16,7 +16,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
   const nav = useNavigate();
   const id = useId();
   const [name, setName] = useState("");
-  const [type, setType] = useState<"text" | "voice">("text");
+  const [type, setType] = useState<"text" | "voice" | "webhook">("text");
   const [category, setCategory] = useState(categoryId ?? "");
   const byId = useApp((s) => s.server?.categories);
   const categories = useMemo(() => Object.values(byId ?? {}).sort((a, b) => a.position - b.position), [byId]);
@@ -46,6 +46,10 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="voice" id={`${id}-voice`} />
                 <Label htmlFor={`${id}-voice`}>Voice</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="webhook" id={`${id}-webhook`} />
+                <Label htmlFor={`${id}-webhook`}>Webhook</Label>
               </div>
             </RadioGroup>
           </div>

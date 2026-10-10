@@ -82,7 +82,7 @@ async function send(page: Page, text: string) {
   await page.getByLabel("Message", { exact: true }).press("Enter");
 }
 
-test("the owner sets up the server, a friend joins by invite, accepts the rules, and they chat", async ({ browser }) => {
+test("the owner sets up the server, a friend joins by invite, accepts the rules, and they chat", async ({ browser, request }) => {
   // 1. alice registers first, owns the server, and lands in #general.
   const alice = await (await browser.newContext()).newPage();
   await alice.goto("/register");
@@ -254,6 +254,96 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   const shown = md.getByRole("button", { name: "spoiler", exact: true });
   await expect(shown).toHaveAttribute("aria-expanded", "true");
   await expect.poll(() => shown.evaluate((e) => getComputedStyle(e).color)).not.toBe("rgba(0, 0, 0, 0)");
+
+  // Slash commands: the picker completes /shrug, and the face arrives with its backslash.
+  const box = alice.getByLabel("Message", { exact: true });
+  await box.fill("/shr");
+  await expect(alice.getByRole("listbox", { name: "Command suggestions" }).getByRole("option", { name: /^\/shrug/ })).toBeVisible();
+  await box.press("Tab");
+  await expect(box).toHaveValue("/shrug ");
+  await box.pressSequentially("hi");
+  await box.press("Enter");
+  await expect(bob.getByRole("article").filter({ hasText: "hi ¯\\_(ツ)_/¯" })).toBeVisible();
+  await expect(box).toHaveValue("");
+
+  // An unknown command is not sent, and the text stays for fixing.
+  await send(alice, "/nope");
+  await expect(alice.getByRole("alert").filter({ hasText: "Unknown command /nope" })).toBeVisible();
+  await expect(box).toHaveValue("/nope");
+  await box.fill("");
+
+  // /gif: hidden until an admin adds a Klipy key in Server settings → Integrations. Tests never
+  // reach Klipy: the GIF endpoints are stubbed, and "attach" uploads a real image so the message can claim it.
+  await send(alice, "/gif cat");
+  await expect(alice.getByRole("alert").filter({ hasText: "Unknown command /gif" })).toBeVisible();
+  await box.fill("");
+  await openServerSettings(alice);
+  await alice.getByRole("link", { name: "Integrations" }).click();
+  await expect(alice.getByText("No key is set, so /gif is hidden.")).toBeVisible();
+  await alice.getByLabel("Klipy API key").fill("e2e-not-a-real-key");
+  await alice.getByRole("button", { name: "Save key" }).click();
+  await expect(alice.getByText("A Klipy API key is set. /gif is available.")).toBeVisible();
+  await expect(alice.getByLabel("Klipy API key")).toHaveValue("");
+  await alice.getByRole("button", { name: /Back to chat/ }).click();
+  await alice.getByRole("link", { name: "general" }).click();
+
+  const cat = { id: "cat-1", title: "Cat", preview_url: `data:image/png;base64,${PIXEL_PNG}`, width: 100, height: 80 };
+  const searches: string[] = [];
+  await alice.route(/\/api\/gifs\/(trending|search)/, (route) => {
+    searches.push(new URL(route.request().url()).searchParams.get("q") ?? "");
+    return route.fulfill({ json: { items: [cat] } });
+  });
+  await alice.route(/\/api\/gifs\/[^/]+\/attach/, async (route) => {
+    const channelId = new URL(route.request().url()).searchParams.get("channel_id")!;
+    const res = await alice.request.post(`/api/attachments?channel_id=${channelId}`, {
+      headers: { "X-Datrope-CSRF": "1" },
+      multipart: { file: { name: "cat.png", mimeType: "image/png", buffer: Buffer.from(PIXEL_PNG, "base64") } },
+    });
+    expect(res.status()).toBe(201);
+    await route.fulfill({ status: 201, json: { ...(await res.json()), gif: true } });
+  });
+
+  // The picker offers /gif once the instance info says GIFs are on.
+  await box.fill("/gi");
+  await expect(alice.getByRole("listbox", { name: "Command suggestions" }).getByRole("option", { name: /^\/gif/ })).toBeVisible();
+  await box.fill("/gif cat");
+  await box.press("Enter");
+  const gifDialog = alice.getByRole("dialog", { name: "Send a GIF" });
+  await expect(gifDialog.getByLabel("Search GIFs")).toHaveValue("cat");
+  await expect(gifDialog.getByText("Powered by KLIPY")).toBeVisible();
+  await gifDialog.getByRole("button", { name: "Cat" }).click();
+  await gifDialog.getByLabel("Caption").fill("so cute");
+  await gifDialog.getByRole("button", { name: "Send" }).click();
+  await expect(gifDialog).toBeHidden();
+  await expect(bob.getByRole("article").filter({ hasText: "so cute" }).getByRole("img", { name: "cat.png" })).toBeVisible();
+  expect(searches).toContain("cat");
+
+  // Polls: alice creates one with /poll; bob votes and alice's count changes live; alice sees who voted, then ends it.
+  await box.fill("/poll Pizza or tacos?");
+  await box.press("Enter");
+  const pollDialog = alice.getByRole("dialog", { name: "Create a poll" });
+  await expect(pollDialog.getByLabel("Question")).toHaveValue("Pizza or tacos?");
+  await pollDialog.getByLabel("Answer 1", { exact: true }).fill("Pizza");
+  await pollDialog.getByLabel("Answer 2", { exact: true }).fill("Tacos");
+  await expect(pollDialog.getByLabel("Duration")).toHaveValue("24h");
+  await pollDialog.getByRole("button", { name: "Post poll" }).click();
+  await expect(pollDialog).toBeHidden();
+
+  const pollForAlice = alice.getByRole("region", { name: "Poll: Pizza or tacos?" });
+  const pollForBob = bob.getByRole("region", { name: "Poll: Pizza or tacos?" });
+  await expect(pollForAlice.getByText(/^0 votes · ends in/)).toBeVisible();
+  await pollForBob.getByRole("button", { name: "Pizza, 0%" }).click();
+  await expect(pollForBob.getByRole("button", { name: "Pizza, 100%" })).toHaveAttribute("aria-pressed", "true");
+  await expect(pollForAlice.getByText(/^1 vote · ends in/)).toBeVisible();
+  await expect(pollForAlice.getByRole("button", { name: "Pizza, 100%" })).toHaveAttribute("aria-pressed", "false");
+
+  await pollForAlice.getByRole("button", { name: "Voters for Pizza, 1" }).click();
+  await expect(alice.getByRole("dialog").getByText("bob", { exact: true })).toBeVisible();
+  await alice.keyboard.press("Escape");
+
+  await pollForAlice.getByRole("button", { name: "End poll" }).click();
+  await expect(pollForBob.getByText("1 vote · Final results")).toBeVisible();
+  await expect(pollForBob.getByRole("button", { name: "Tacos, 0%" })).toBeDisabled();
 
   // 7. bob starts a DM with alice from the Messages tab; alice sees the unread dot and the message.
   await bob.getByRole("tab", { name: "Messages" }).click();
@@ -504,6 +594,50 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await inbox.getByRole("button", { name: "Mark all read" }).click();
   await expect(inbox.getByRole("img", { name: "Unread" })).toHaveCount(0);
   await bob.keyboard.press("Escape");
+
+  // Webhooks: alice creates a webhook channel; nobody can post in it, not even its owner.
+  await alice.getByRole("button", { name: "Datrope menu" }).click();
+  await alice.getByRole("menuitem", { name: "Create channel" }).click();
+  await alice.getByRole("radio", { name: "Webhook" }).click();
+  await alice.getByLabel("Name").fill("alerts");
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  const aliceAlerts = alice.getByRole("main", { name: "# alerts" });
+  await expect(aliceAlerts.getByText("Only webhooks can post in this channel.")).toBeVisible();
+  await expect(aliceAlerts.getByLabel("Message", { exact: true })).toHaveCount(0);
+
+  // Channel settings → Webhooks: "CI" is created and its URL shown once.
+  await alice.getByRole("link", { name: "alerts" }).hover();
+  await alice.getByRole("button", { name: "Settings for alerts" }).click();
+  await alice.getByRole("tab", { name: "Webhooks" }).click();
+  await alice.getByLabel("Webhook name").fill("CI");
+  await alice.getByRole("button", { name: "Create webhook" }).click();
+  const hookUrl = await alice.getByLabel("Webhook URL").inputValue();
+  expect(hookUrl).toMatch(/\/api\/webhooks\/\d+\/[A-Za-z0-9_-]{43}$/);
+  await alice.keyboard.press("Escape");
+
+  // A service posts in Discord's format, with no session (the test's own request context never logs in); bob sees the message and its embed.
+  const posted = await request.post(new URL(hookUrl).pathname, {
+    data: {
+      content: "Build passed",
+      embeds: [{
+        title: "v1.2.3", description: "**All** checks green", color: 0x2ecc71,
+        fields: [{ name: "Branch", value: "main", inline: true }, { name: "Commit", value: "abc123", inline: true }],
+        footer: { text: "nightly" },
+      }],
+    },
+  });
+  expect(posted.status()).toBe(204);
+  await bob.getByRole("tab", { name: "Channels" }).click();
+  await bob.getByRole("link", { name: "alerts" }).click();
+  const bobAlerts = bob.getByRole("main", { name: "# alerts" });
+  const hookMessage = bobAlerts.getByRole("article").filter({ hasText: "Build passed" });
+  await expect(hookMessage).toBeVisible();
+  await expect(hookMessage.getByRole("button", { name: "CI", exact: true })).toBeVisible();
+  await expect(hookMessage.getByText("Webhook", { exact: true })).toBeVisible();
+  await expect(hookMessage.getByText("v1.2.3")).toBeVisible();
+  await expect(hookMessage.getByText("Branch")).toBeVisible();
+  await expect(hookMessage.locator("strong").filter({ hasText: "All" })).toBeVisible(); // the description's Markdown
+  await expect(bobAlerts.getByText("Only webhooks can post in this channel.")).toBeVisible();
 });
 
 test("a visitor joins with a guest link and shows up as a guest", async ({ browser }) => {

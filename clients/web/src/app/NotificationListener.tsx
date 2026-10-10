@@ -2,10 +2,11 @@ import { channelRef, findUser } from "@datrope/core";
 import type { Message } from "@datrope/core";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { claimMessage, notificationBody, notificationTitle, shouldNotify } from "../notify/notify";
+import { claimMessage, notificationAuthor, notificationBody, notificationTitle, shouldNotify } from "../notify/notify";
 import { notifyPrefs } from "../notify/prefs";
 import { client, displayName } from "../session";
 import { openMessage } from "./jump";
+import { shownAuthor } from "./message-author";
 import { panelStore } from "./side-panel/panel";
 
 const CLAIMED_KEY = "datrope.notified";
@@ -59,10 +60,10 @@ export function NotificationListener() {
       s = client.store.getState();
     }
     const where = channelRef(s, m.channel_id);
-    const author = findUser(s, m.author.id) ?? m.author;
+    const author = shownAuthor(m, m.author && findUser(s, m.author.id));
     const icon = author.avatar_url || s.server?.server.icon_url;
     try {
-      const n = new Notification(notificationTitle(displayName(author), where), {
+      const n = new Notification(notificationTitle(notificationAuthor(displayName(author), !m.author), where), {
         body: notificationBody(m.content, m.attachments?.length ?? 0),
         icon: icon ? new URL(icon, window.location.origin).href : undefined,
         tag: m.id,

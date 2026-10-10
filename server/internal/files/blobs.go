@@ -69,6 +69,21 @@ func (s *Service) StoreBlob(ctx context.Context, tx pgx.Tx, data []byte) (sum st
 
 // ServeBlob writes a stored image with the headers every public image uses.
 func (s *Service) ServeBlob(w http.ResponseWriter, r *http.Request, sum, contentType string, immutable bool) {
+	cache := "public, max-age=60"
+	if immutable {
+		cache = "public, max-age=31536000, immutable"
+	}
+	s.serveBlob(w, r, sum, contentType, cache)
+}
+
+// ServePrivateBlob writes a stored image that only some signed-in users may
+// see (webhook avatars, webhook messages' images): only their browser caches it.
+func (s *Service) ServePrivateBlob(w http.ResponseWriter, r *http.Request, sum, contentType string) {
+	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	s.serveBlob(w, r, sum, contentType, "private, max-age=86400")
+}
+
+func (s *Service) serveBlob(w http.ResponseWriter, r *http.Request, sum, contentType, cacheControl string) {
 	f, err := s.store.Open(sum)
 	if errors.Is(err, os.ErrNotExist) {
 		httpx.WriteHTTPError(w, r, httpx.NotFound("image"))
@@ -83,11 +98,7 @@ func (s *Service) ServeBlob(w http.ResponseWriter, r *http.Request, sum, content
 	h.Set("Content-Type", contentType)
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	if immutable {
-		h.Set("Cache-Control", "public, max-age=31536000, immutable")
-	} else {
-		h.Set("Cache-Control", "public, max-age=60")
-	}
+	h.Set("Cache-Control", cacheControl)
 	h.Set("ETag", `"`+sum+`"`)
 	http.ServeContent(w, r, "", time.Time{}, f)
 }

@@ -48,7 +48,8 @@ type Attachments interface {
 type Message struct {
 	ID          id.ID                `json:"id"`
 	ChannelID   id.ID                `json:"channel_id"`
-	Author      auth.PublicUser      `json:"author"`
+	Author      *auth.PublicUser     `json:"author,omitempty" doc:"Absent for webhook messages"`
+	Webhook     *WebhookAuthor       `json:"webhook,omitempty" doc:"Who a webhook message shows as; absent for people's messages"`
 	Content     string               `json:"content"`
 	Attachments []files.Attachment   `json:"attachments"`
 	CreatedAt   time.Time            `json:"created_at"`
@@ -62,6 +63,8 @@ type Message struct {
 	Pinned      bool                 `json:"pinned"`
 	PinnedAt    *time.Time           `json:"pinned_at,omitempty"`
 	Thread      *ThreadSummary       `json:"thread,omitempty" doc:"The thread started from this message"`
+	Embeds      []WebhookEmbed       `json:"embeds,omitempty" doc:"Rich embeds a webhook posted (not link previews); image URLs point at this instance"`
+	Poll        *Poll                `json:"poll,omitempty" doc:"Set when the message is a poll"`
 
 	replyToID *id.ID
 }
@@ -93,30 +96,49 @@ type Service struct {
 	ranks       Ranks
 	custom      CustomEmoji
 	reactLimit  *ratelimit.Limiter
+	voteLimit   *ratelimit.Limiter
 	searchLimit *ratelimit.Limiter
 	previews    Previews
 	threads     Threads
+	blobs       Blobs          // stores and serves webhook messages' images
 	bg          sync.WaitGroup // background preview work
 }
 
 func NewService(pool *pgxpool.Pool, bus *events.Bus, c Channels, u Users, a Attachments, r Ranks) *Service {
-	return &Service{db: pool, bus: bus, channels: c, users: u, attachments: a, ranks: r, reactLimit: ratelimit.New(60, 10), searchLimit: ratelimit.New(120, 30)}
+	return &Service{db: pool, bus: bus, channels: c, users: u, attachments: a, ranks: r, reactLimit: ratelimit.New(60, 10), voteLimit: ratelimit.New(60, 10), searchLimit: ratelimit.New(120, 30)}
 }
 
-const messageCols = `id, channel_id, author_id, content, edited_at, deleted, reply_to_id, mentions, embed, pinned_at`
+const messageCols = `id, channel_id, author_id, content, edited_at, deleted, reply_to_id, mentions, embed, pinned_at,
+	webhook_id, author_name, author_avatar_sha256, embeds`
 
 func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var m Message
-	var replyTo *int64
+	var authorID, webhookID, replyTo *int64
 	var mentions []int64
-	var embed []byte
-	dest := append([]any{&m.ID, &m.ChannelID, &m.Author.ID, &m.Content, &m.EditedAt, &m.Deleted, &replyTo, &mentions, &embed, &m.PinnedAt}, extra...)
+	var embed, embeds []byte
+	var authorName string
+	var avatar *string
+	dest := append([]any{&m.ID, &m.ChannelID, &authorID, &m.Content, &m.EditedAt, &m.Deleted, &replyTo, &mentions, &embed, &m.PinnedAt,
+		&webhookID, &authorName, &avatar, &embeds}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return nil, err
 	}
 	if embed != nil {
 		if err := json.Unmarshal(embed, &m.Embed); err != nil {
 			return nil, err
+		}
+	}
+	if embeds != nil {
+		if err := json.Unmarshal(embeds, &m.Embeds); err != nil {
+			return nil, err
+		}
+	}
+	if authorID != nil {
+		m.Author = &auth.PublicUser{ID: id.ID(*authorID)} // the rest is filled by withAuthors
+	} else { // posted by a webhook
+		m.Webhook = &WebhookAuthor{ID: id.FromNullable(webhookID), Name: authorName}
+		if avatar != nil {
+			m.Webhook.AvatarURL = imageURL(m.ID, *avatar)
 		}
 	}
 	m.Pinned = m.PinnedAt != nil
@@ -130,17 +152,26 @@ func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	return &m, nil
 }
 
+// withAuthors fills the authors of people's messages; webhook messages have none.
 func (s *Service) withAuthors(ctx context.Context, ms []Message) error {
 	ids := make([]id.ID, 0, len(ms))
 	for _, m := range ms {
-		ids = append(ids, m.Author.ID)
+		if m.Author != nil {
+			ids = append(ids, m.Author.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
 	}
 	users, err := s.users.PublicUsers(ctx, ids)
 	if err != nil {
 		return err
 	}
 	for i := range ms {
-		ms[i].Author = users[ms[i].Author.ID]
+		if ms[i].Author != nil {
+			u := users[ms[i].Author.ID]
+			ms[i].Author = &u
+		}
 	}
 	return nil
 }
@@ -175,7 +206,7 @@ func (s *Service) list(ctx context.Context, channelID id.ID, before, after, arou
 }
 
 // hydrate fills what the messages table does not hold: authors, attachments,
-// reply references, reactions and thread summaries.
+// reply references, reactions, polls and thread summaries.
 func (s *Service) hydrate(ctx context.Context, ms []Message) error {
 	if err := s.withAuthors(ctx, ms); err != nil {
 		return err
@@ -187,6 +218,9 @@ func (s *Service) hydrate(ctx context.Context, ms []Message) error {
 		return err
 	}
 	if err := s.withReactions(ctx, ms); err != nil {
+		return err
+	}
+	if err := s.withPolls(ctx, ms); err != nil {
 		return err
 	}
 	return s.withThreads(ctx, ms)

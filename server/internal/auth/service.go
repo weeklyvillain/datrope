@@ -108,6 +108,11 @@ func (s *Service) UserIDsByUsername(ctx context.Context, names []string) (map[st
 
 func (s *Service) Settings(ctx context.Context) (Settings, error) { return s.store.Settings(ctx) }
 
+// KlipyConfig returns the Klipy API key ("" when /gif is off) and the instance secret.
+func (s *Service) KlipyConfig(ctx context.Context) (string, []byte, error) {
+	return s.store.KlipyConfig(ctx)
+}
+
 // authenticateRequest applies the rules shared by Huma operations and plain
 // handlers: a bearer token wins; otherwise the session cookie is used, and a
 // cookie request that changes state must carry the CSRF header.

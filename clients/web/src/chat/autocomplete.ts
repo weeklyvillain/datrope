@@ -1,10 +1,14 @@
-export type Trigger = { kind: "emoji" | "mention"; query: string; start: number };
+export type Trigger = { kind: "emoji" | "mention" | "command"; query: string; start: number };
 
 const MENTION = /(?:^|[\s(])@([A-Za-z0-9_.-]{2,})$/;
 const EMOJI = /(?:^|\s):([A-Za-z0-9_+-]{2,})$/;
+// A slash command's name, typed at the very start of the message.
+const COMMAND = /^\/([A-Za-z]*)$/;
 
-/** The `@mention` or `:emoji` being typed just before the caret, if any. */
+/** The `/command`, `@mention` or `:emoji` being typed just before the caret, if any. */
 export function findTrigger(text: string, caret: number): Trigger | null {
+  const command = COMMAND.exec(text.slice(0, caret));
+  if (command) return { kind: "command", query: command[1]!, start: 0 };
   const lineStart = text.lastIndexOf("\n", caret - 1) + 1;
   const line = text.slice(lineStart, caret);
   // Inside an unclosed inline code span.

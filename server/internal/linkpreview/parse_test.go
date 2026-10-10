@@ -43,7 +43,7 @@ func TestCleanMakesPostgresSafe(t *testing.T) {
 
 func TestFetchRefusesPrivateAddresses(t *testing.T) {
 	_, err := fetch(t.Context(), "http://127.0.0.1:1/")
-	require.ErrorIs(t, err, errBlockedAddress)
+	require.ErrorIs(t, err, ErrBlockedAddress)
 	_, err = fetch(t.Context(), "ftp://example.com/")
 	require.Error(t, err)
 }

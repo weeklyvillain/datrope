@@ -4,23 +4,29 @@ import { Copy, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Tra
 import { client, displayName, errorText, formatBytes, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
-import { useUser } from "@/hooks/use-user";
+import { useMessageAuthor } from "@/hooks/use-message-author";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
+import { PollCard } from "@/chat/PollCard";
 import { cn } from "@/lib/utils";
 import { LinkPreview } from "./LinkPreview";
+import { WebhookAvatar } from "@/components/webhook-avatar";
+import { WebhookBadge, WebhookPopover } from "./WebhookAuthor";
+import { WebhookEmbeds } from "./WebhookEmbed";
 import { ProfilePopover } from "./people/ProfilePopover";
 import { MessageToolbar } from "./MessageToolbar";
 import { ReplyQuote } from "./ReplyQuote";
 import { ThreadSummary } from "./ThreadSummary";
 import { clearPendingJump, usePendingJump } from "./jump";
 import { firstUnreadIndex, idTime } from "./unread";
+import { authorKey } from "./message-author";
 import { GuestBadge } from "@/components/guest-badge";
 import { AudioPlayer } from "./attachments/AudioPlayer";
+import { GifMedia } from "./attachments/GifMedia";
 import { ImageViewer } from "./attachments/ImageViewer";
 import { VideoPlayer } from "./attachments/VideoPlayer";
 import { fitBox, mediaKind, showable } from "./attachments/media";
@@ -174,7 +180,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
         divider.current.scrollIntoView({ block: "start" });
         return;
       }
-    } else if (!stick.current && items.at(-1)?.author.id !== meId) return;
+    } else if (!stick.current && items.at(-1)?.author?.id !== meId) return;
     if (list.hasNewer) return;
     bottom.current?.scrollIntoView({ block: "end" });
   }, [channelId, !!list, lastId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -268,7 +274,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
           const day = new Date(m.created_at);
           const newDay = !prev || new Date(prev.created_at).toDateString() !== day.toDateString();
           // A reply, and the first unread message, always start a group, so they show their header.
-          const grouped = !!prev && !newDay && !m.reply_to && i !== unreadAt && prev.author.id === m.author.id && !prev.deleted &&
+          const grouped = !!prev && !newDay && !m.reply_to && i !== unreadAt && authorKey(prev) === authorKey(m) && !prev.deleted &&
             Date.parse(m.created_at) - Date.parse(prev.created_at) < FIVE_MINUTES;
           return (
             <Fragment key={m.id}>
@@ -283,7 +289,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
                   <span className="h-px flex-1 bg-destructive" />New messages
                 </div>
               )}
-              <MessageRow m={m} grouped={grouped} mine={m.author.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
+              <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && !!m.mentions?.includes(meId)}
                 canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
                 canCreateThread={canCreateThread} onOpenThread={onOpenThread} />
             </Fragment>
@@ -331,8 +337,9 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
     const type = s.channels[m.channel_id]?.type;
     return type !== "voice" && (canManage || type === "dm");
   });
-  const canDelete = useApp((s) => mine || (canManage && (s.channels[m.channel_id]?.type === "dm" || outranksUser(s, m.author.id))));
-  const color = useApp((s) => (s.channels[m.channel_id]?.type === "dm" ? undefined : roleColor(s.server, m.author.id)));
+  // A webhook message has no author to outrank: MANAGE_MESSAGES is enough.
+  const canDelete = useApp((s) => mine || (canManage && (s.channels[m.channel_id]?.type === "dm" || !m.author || outranksUser(s, m.author.id))));
+  const color = useApp((s) => (s.channels[m.channel_id]?.type === "dm" || !m.author ? undefined : roleColor(s.server, m.author.id)));
   const [profileOpen, setProfileOpen] = useState(false);
   const avatarRef = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
@@ -341,7 +348,8 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const [error, setError] = useState<string>();
   const [reactError, showReactError] = useBriefError();
   const path = { params: { path: { id: m.channel_id, messageID: m.id } } };
-  const author = useUser(m.author.id, m.author) ?? m.author;
+  const author = useMessageAuthor(m);
+  const hook = m.author ? undefined : m.webhook; // posted by a webhook: no profile, a WEBHOOK badge
   const name = displayName(author);
   const replyTo = m.reply_to;
 
@@ -379,8 +387,10 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
     }
   };
 
-  const onReply = canReply ? () => reply.setReplyTo({ id: m.id, author: m.author, content: m.content, deleted: false }) : undefined;
-  const onEdit = mine ? () => { setDraft(m.content); setEditing(true); } : undefined;
+  const replyAuthor = m.author; // nobody replies to a webhook message: nobody can post in its channel
+  const onReply = canReply && replyAuthor ? () => reply.setReplyTo({ id: m.id, author: replyAuthor, content: m.content, deleted: false }) : undefined;
+  // Polls cannot be edited (the server answers POLL_NOT_EDITABLE).
+  const onEdit = mine && !m.poll ? () => { setDraft(m.content); setEditing(true); } : undefined;
   const onPin = canPin ? () => void (m.pinned ? client.unpin(m.channel_id, m.id) : client.pin(m.channel_id, m.id)).catch((e) => setError(errorText(e))) : undefined;
   const onDelete = canDelete ? () => setConfirming(true) : undefined;
   const actionable = !m.pending && !m.deleted && !editing;
@@ -399,17 +409,24 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
       {replyTo && <ReplyQuote reply={replyTo} onJump={() => void jump(replyTo.id)} />}
       {grouped ? <span /> : (
         <button ref={avatarRef} type="button" tabIndex={-1} aria-hidden className="size-10 self-start justify-self-start rounded-full" onClick={() => setProfileOpen((o) => !o)}>
-          <UserAvatar user={author} size="lg" />
+          {hook ? <WebhookAvatar avatarUrl={hook.avatar_url} size="lg" /> : <UserAvatar user={author} size="lg" />}
         </button>
       )}
       <div className="min-w-0">
         {!grouped && (
           <header className="flex items-baseline gap-2">
-            <ProfilePopover userId={author.id} fallback={m.author} open={profileOpen} onOpenChange={setProfileOpen}
-              onInteractOutside={(e) => avatarRef.current?.contains(e.target as Node) && e.preventDefault()}>
-              <NameButton className="font-semibold hover:underline" style={{ color }}>{name}</NameButton>
-            </ProfilePopover>
-            <GuestBadge user={author} />
+            {hook ? (
+              <WebhookPopover webhook={hook} open={profileOpen} onOpenChange={setProfileOpen}
+                onInteractOutside={(e) => avatarRef.current?.contains(e.target as Node) && e.preventDefault()}>
+                <NameButton className="font-semibold hover:underline">{name}</NameButton>
+              </WebhookPopover>
+            ) : (
+              <ProfilePopover userId={author.id} fallback={m.author} open={profileOpen} onOpenChange={setProfileOpen}
+                onInteractOutside={(e) => avatarRef.current?.contains(e.target as Node) && e.preventDefault()}>
+                <NameButton className="font-semibold hover:underline" style={{ color }}>{name}</NameButton>
+              </ProfilePopover>
+            )}
+            {hook ? <WebhookBadge /> : m.author && <GuestBadge user={m.author} />}
             <time className="text-xs text-muted-foreground" dateTime={m.created_at}>{stamp(new Date(m.created_at))}</time>
             {m.pinned && <Pin className="size-3 self-center text-muted-foreground" aria-label="Pinned" role="img" />}
             {m.edited_at && <span className="text-xs text-muted-foreground">(edited)</span>}
@@ -442,7 +459,9 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
             {grouped && m.edited_at && <span className="edited text-xs text-muted-foreground"> (edited)</span>}
           </div>
         ) : null}
+        {!m.deleted && m.poll && <PollCard message={m} poll={m.poll} canEnd={mine || canManage} />}
         {!m.deleted && <Attachments items={m.attachments ?? []} />}
+        {!m.deleted && m.embeds && m.embeds.length > 0 && <WebhookEmbeds embeds={m.embeds} />}
         {!m.deleted && !editing && m.embed && <LinkPreview embed={m.embed} />}
         {!m.deleted && <Reactions message={m} canAdd={canReact} />}
         {thread && openThread && <div><ThreadSummary summary={thread} onOpen={openThread} /></div>}
@@ -467,10 +486,11 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           </DialogHeader>
           <div className="max-h-[40vh] overflow-y-auto rounded-lg border bg-background px-3 py-2 wrap-anywhere">
             <div className="flex items-baseline gap-2">
-              <strong className="font-semibold" style={{ color }}>{name}<GuestBadge user={author} /></strong>
+              <strong className="font-semibold" style={{ color }}>{name}{hook ? <WebhookBadge /> : m.author && <GuestBadge user={m.author} />}</strong>
               <span className="text-xs text-muted-foreground">{stamp(new Date(m.created_at))}</span>
             </div>
             <Markdown text={m.content} mentions={m.mentions ?? undefined} />
+            {m.poll && <p className="m-0 text-sm text-muted-foreground">Poll: {m.poll.question}</p>}
             {(m.attachments?.length ?? 0) > 0 && (
               <p className="m-0 text-sm text-muted-foreground">
                 {m.attachments!.length === 1 ? "1 attachment" : `${m.attachments!.length} attachments`}
@@ -553,6 +573,7 @@ export function Attachments({ items }: { items: Attachment[] }) {
       )}
       {images.length > 0 && <ImageViewer images={images} index={viewing} onIndexChange={setViewing} />}
       {others.map((a) => {
+        if (a.gif) return <GifMedia key={a.id} attachment={a} />; // an MP4, or a GIF image too big to inline
         const kind = mediaKind(a);
         if (kind === "audio") return <AudioPlayer key={a.id} attachment={a} />;
         if (kind === "video") return <VideoPlayer key={a.id} attachment={a} />;

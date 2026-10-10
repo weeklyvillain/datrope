@@ -28,12 +28,13 @@ export function Home() {
   );
 }
 
-/** /channels/:channelId — a text, voice or welcome channel. */
+/** /channels/:channelId — a text, webhook, voice or welcome channel. */
 export function ChannelRoute() {
   const { channelId = "" } = useParams();
   const ch = useApp((s) => s.channels[channelId]);
   switch (ch?.type) {
     case "text":
+    case "webhook":
       return <ChannelView key={channelId} channelId={channelId} members />;
     case "voice":
       return <VoiceChannelView key={channelId} channelId={channelId} />;

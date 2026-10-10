@@ -20,7 +20,8 @@
 
 	handle {
 		# wasm-unsafe-eval: Enhanced noise suppression compiles RNNoise (WebAssembly) in an audio worklet.
-		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# static.klipy.com: GIF picker previews load straight from Klipy's CDN.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; img-src 'self' data: blob: https://static.klipy.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 		root * /srv
 		try_files {path} /index.html
 		file_server

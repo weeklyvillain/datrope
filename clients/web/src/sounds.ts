@@ -26,7 +26,7 @@ client.onEvent((type, data) => {
   if (type !== "MESSAGE_CREATE") return;
   const m = data as Message;
   const s = client.store.getState();
-  if (m.author.id === s.me?.id || !s.dmIds.includes(m.channel_id)) return;
+  if ((m.author && m.author.id === s.me?.id) || !s.dmIds.includes(m.channel_id)) return;
   if (document.hasFocus() && location.pathname === `/messages/${m.channel_id}`) return;
   play("dm");
 });

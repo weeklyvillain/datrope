@@ -13,9 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/datrope/datrope/server/internal/auth"
-	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
-	"github.com/datrope/datrope/server/internal/perms"
 )
 
 // multipartOverhead is the room allowed for form headers around the file.
@@ -41,18 +39,10 @@ func (s *Service) upload(w http.ResponseWriter, r *http.Request) (*Attachment, e
 	if err != nil {
 		return nil, err
 	}
-	ch, _, err := s.channels.Access(ctx, me, channelID, perms.AttachFiles)
+	limit, err := s.UploadLimit(ctx, me, channelID)
 	if err != nil {
 		return nil, err
 	}
-	if ch.Type == channels.TypeWelcome {
-		return nil, httpx.BadRequest("NO_MESSAGES_HERE", "the welcome channel has no messages")
-	}
-	set, err := s.settings.Settings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	limit := set.MaxUploadBytes
 	r.Body = http.MaxBytesReader(w, r.Body, limit+multipartOverhead)
 	mr, err := r.MultipartReader()
 	if err != nil {
@@ -74,7 +64,7 @@ func (s *Service) upload(w http.ResponseWriter, r *http.Request) (*Attachment, e
 		if err != nil {
 			return nil, uploadError(err, limit)
 		}
-		return s.save(ctx, channelID, me, cleanFilename(part.FileName()), staged)
+		return s.save(ctx, channelID, me, cleanFilename(part.FileName()), staged, nil)
 	}
 }
 

@@ -239,7 +239,7 @@ func (s *Service) searchScope(ctx context.Context, userID id.ID, scope []id.ID, 
 	}
 	var cid id.ID
 	err := s.db.QueryRow(ctx, `
-		SELECT id FROM channels WHERE id = ANY($1) AND type IN ('text', 'voice') AND lower(name) = lower($2)
+		SELECT id FROM channels WHERE id = ANY($1) AND type IN ('text', 'voice', 'webhook') AND lower(name) = lower($2)
 		ORDER BY id LIMIT 1`, id.Int64s(scope), in).Scan(&cid)
 	if err == pgx.ErrNoRows {
 		return nil, httpx.BadRequest("UNKNOWN_FILTER", fmt.Sprintf("no channel called %q", "#"+in))

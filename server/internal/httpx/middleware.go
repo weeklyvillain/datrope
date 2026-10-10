@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -67,14 +68,38 @@ func ClientIPFrom(ctx context.Context) string {
 	return s
 }
 
+// Logger logs each request. Paths under /api/webhooks/ are cut after the
+// webhook's ID: an execute URL carries the webhook's token.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
-		slog.InfoContext(r.Context(), "http", "method", r.Method, "path", r.URL.Path, "status", sw.status,
+		slog.InfoContext(r.Context(), "http", "method", r.Method, "path", redactPath(r.URL.Path), "status", sw.status,
 			"duration_ms", time.Since(start).Milliseconds(), "request_id", RequestIDFrom(r.Context()))
 	})
+}
+
+const webhooksPrefix = "/api/webhooks/"
+
+// redactPath keeps /api/webhooks/{id} and replaces anything after it with
+// "/…", whatever the method and whether a route matched. It looks at the
+// cleaned path, so "/api//webhooks/…" (which the mux redirects) is cut, and
+// matches the prefix in any case. A first segment that is not a numeric ID
+// may be a token ("/api/webhooks//TOKEN"), so it is cut too.
+func redactPath(p string) string {
+	c := path.Clean(p)
+	if len(c) < len(webhooksPrefix) || !strings.EqualFold(c[:len(webhooksPrefix)], webhooksPrefix) {
+		return p
+	}
+	id, more, _ := strings.Cut(c[len(webhooksPrefix):], "/")
+	if id == "" || strings.Trim(id, "0123456789") != "" {
+		return webhooksPrefix + "…"
+	}
+	if more != "" {
+		return webhooksPrefix + id + "/…"
+	}
+	return webhooksPrefix + id
 }
 
 func Recover(next http.Handler) http.Handler {

@@ -21,7 +21,9 @@ const (
 	maxRedirects = 3
 )
 
-var errBlockedAddress = errors.New("link preview: address not allowed")
+// ErrBlockedAddress is the error for a URL that resolves (or redirects) to an
+// address that is not allowed: private, loopback, link-local and the like.
+var ErrBlockedAddress = errors.New("address not allowed")
 
 var blockedNets = func() []*net.IPNet {
 	var out []*net.IPNet
@@ -56,8 +58,60 @@ func Blocked(ip net.IP) bool {
 	return false
 }
 
+// Public reports whether ip may be dialled for a URL someone else supplied.
+func Public(ip net.IP) bool { return !Blocked(ip) }
+
+// LogURL is rawURL cut to its scheme and host, for logs: the path and query
+// of a URL someone else supplied can carry signed tokens.
+func LogURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "(invalid URL)"
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+// NewClient returns an HTTP client for URLs someone else supplied. Every
+// address it dials must pass allow, checked after DNS resolution and so on
+// every redirect. It never uses an environment proxy, follows at most
+// maxRedirects http(s) redirects and gives up after timeout.
+func NewClient(allow func(net.IP) bool, timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{
+		Timeout: timeout,
+		Control: func(network, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+			if !allow(net.ParseIP(host)) {
+				return ErrBlockedAddress
+			}
+			return nil
+		},
+	}
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy:                  nil, // never through an environment proxy: it would dial for us
+			DialContext:            dialer.DialContext,
+			TLSHandshakeTimeout:    timeout,
+			ResponseHeaderTimeout:  timeout,
+			MaxResponseHeaderBytes: 64 << 10,
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) > maxRedirects {
+				return errors.New("too many redirects")
+			}
+			if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+				return errors.New("redirect to an unsupported scheme")
+			}
+			return nil
+		},
+	}
+}
+
 func fetch(ctx context.Context, rawURL string) (*Preview, error) {
-	return fetchWith(ctx, rawURL, func(ip net.IP) bool { return !Blocked(ip) })
+	return fetchWith(ctx, rawURL, Public)
 }
 
 // fetchWith fetches and parses a page; allow decides every address dialled
@@ -68,38 +122,7 @@ func fetchWith(ctx context.Context, rawURL string, allow func(net.IP) bool) (*Pr
 		return nil, fmt.Errorf("link preview: unsupported URL %q", rawURL)
 	}
 	u.User = nil // never send credentials from a message
-	dialer := &net.Dialer{
-		Timeout: fetchTimeout,
-		Control: func(network, address string, _ syscall.RawConn) error {
-			host, _, err := net.SplitHostPort(address)
-			if err != nil {
-				return err
-			}
-			if !allow(net.ParseIP(host)) {
-				return errBlockedAddress
-			}
-			return nil
-		},
-	}
-	client := &http.Client{
-		Timeout: fetchTimeout,
-		Transport: &http.Transport{
-			Proxy:                  nil, // never through an environment proxy: it would dial for us
-			DialContext:            dialer.DialContext,
-			TLSHandshakeTimeout:    fetchTimeout,
-			ResponseHeaderTimeout:  fetchTimeout,
-			MaxResponseHeaderBytes: 64 << 10,
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) > maxRedirects {
-				return errors.New("link preview: too many redirects")
-			}
-			if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
-				return errors.New("link preview: redirect to an unsupported scheme")
-			}
-			return nil
-		},
-	}
+	client := NewClient(allow, fetchTimeout)
 	defer client.CloseIdleConnections()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -109,8 +132,8 @@ func fetchWith(ctx context.Context, rawURL string, allow func(net.IP) bool) (*Pr
 	req.Header.Set("Accept", "text/html")
 	res, err := client.Do(req)
 	if err != nil {
-		if errors.Is(err, errBlockedAddress) {
-			return nil, errBlockedAddress
+		if errors.Is(err, ErrBlockedAddress) {
+			return nil, ErrBlockedAddress
 		}
 		return nil, err
 	}

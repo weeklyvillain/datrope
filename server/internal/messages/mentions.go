@@ -38,8 +38,12 @@ func parseMentions(content string) []string {
 
 // mentionIDs resolves the users mentioned in content; unknown names are ignored.
 func (s *Service) mentionIDs(ctx context.Context, content string) ([]id.ID, error) {
+	return s.resolveMentions(ctx, parseMentions(content))
+}
+
+// resolveMentions turns mentioned usernames into user IDs, in order; unknown names are ignored.
+func (s *Service) resolveMentions(ctx context.Context, names []string) ([]id.ID, error) {
 	out := []id.ID{}
-	names := parseMentions(content)
 	if len(names) == 0 {
 		return out, nil
 	}

@@ -23,10 +23,13 @@ export const Perm = {
   CreateThreads: 1 << 18,
   UseSoundboard: 1 << 19,
   ManageExpressions: 1 << 20,
+  ManageWebhooks: 1 << 21,
 } as const;
 
 // JavaScript bitwise operators work on 32 bits; revisit if flags pass bit 30.
-export const ALL_PERMS = (1 << 21) - 1;
+export const ALL_PERMS = (1 << 22) - 1;
+/** What a webhook channel takes from everyone, the owner included: only webhooks post there (perms.WebhookMasked). */
+export const WEBHOOK_MASKED = Perm.SendMessages | Perm.AttachFiles;
 export const DM_PERMS = Perm.ViewChannel | Perm.SendMessages | Perm.AttachFiles | Perm.ReadHistory |
   Perm.ConnectVoice | Perm.Speak | Perm.Stream | Perm.AddReactions | Perm.UseSoundboard;
 const OVERRIDABLE = ALL_PERMS & ~Perm.Admin;

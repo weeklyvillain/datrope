@@ -14,4 +14,13 @@ describe("firstUnreadIndex", () => {
   ])("case %#", (items, lastRead, me, want) => {
     expect(firstUnreadIndex(items, lastRead as string | undefined, me)).toBe(want);
   });
+
+  it("counts a webhook message (no author) as unread", () => {
+    expect(firstUnreadIndex([m("10"), { id: "11", pending: false }], "10", "1")).toBe(1);
+  });
+
+  it.each([
+  ])("case %#", (items, lastRead, me, want) => {
+    expect(firstUnreadIndex(items, lastRead as string | undefined, me)).toBe(want);
+  });
 });
