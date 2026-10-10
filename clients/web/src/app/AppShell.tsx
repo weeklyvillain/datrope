@@ -15,8 +15,12 @@ export function AppShell() {
   const notMember = useApp((s) => s.connection === "ready" && s.server === null);
   const gated = useApp(isGated);
   const welcomeId = useApp((s) => s.server?.channelIds.find((id) => s.channels[id]?.type === "welcome"));
+  const serverName = useApp((s) => s.server?.server.name);
   const { pathname } = useLocation();
   usePalette();
+  useEffect(() => {
+    document.title = serverName ? `Datrope - ${serverName}` : "Datrope";
+  }, [serverName]);
   useTheme();
   useEffect(() => {
     const t = setInterval(() => client.store.setState((s) => expireTyping(s), true), 2000);
