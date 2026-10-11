@@ -1,9 +1,9 @@
-import { Perm, emojiList, hasPerm, type PublicUser } from "@datrope/core";
+import { Perm, emojiList, hasPerm, type PublicUser, type Role } from "@datrope/core";
 import { useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { displayName, useApp, usePerms } from "@/session";
 import { cn } from "@/lib/utils";
-import { rank, type Trigger } from "./autocomplete";
+import { pingableRoles, rank, type Trigger } from "./autocomplete";
 import type { Command } from "./commands";
 import { useEmojiData } from "./emoji-data";
 import { sizedImage } from "@/lib/sized-image";
@@ -20,6 +20,9 @@ export function useSuggestions(channelId: string, trigger: Trigger | null, comma
     return ch?.type === "dm" ? ch.participants ?? [] : Object.values(s.server?.members ?? {}).map((m) => m.user);
   }));
   const canPingEveryone = hasPerm(usePerms(channelId), Perm.MentionEveryone);
+  const canPingRoles = hasPerm(usePerms(channelId), Perm.MentionRoles);
+  const roles = useApp(useShallow((s): Role[] => (s.channels[channelId]?.type === "dm" ? [] : Object.values(s.server?.roles ?? {}))));
+  const everyoneId = useApp((s) => s.server?.server.id ?? "");
   const custom = useApp(useShallow(emojiList));
   const data = useEmojiData();
   const shortcodes = useMemo(() => (data?.list ?? []).flatMap((e) => e.shortcodes.map((key) => ({ key, emoji: e.emoji }))), [data]);
@@ -43,12 +46,18 @@ export function useSuggestions(channelId: string, trigger: Trigger | null, comma
         id: "everyone", insert: "@everyone ", text: "@everyone", hint: "Notify everyone who can read this channel",
         icon: <span className="grid size-6 place-items-center rounded-full bg-muted text-xs font-semibold" aria-hidden="true">@</span>,
       }] : [];
-      return [...everyone, ...[...byUsername, ...byName].filter(({ u }) => !seen.has(u.id) && !!seen.add(u.id)).map(({ u }) => ({
+      const roleHits = rank(q, pingableRoles(roles, everyoneId, canPingRoles).map((r) => ({ key: r.name, r }))).map(({ r }): Suggestion => ({
+        id: `role-${r.id}`, insert: `<@&${r.id}> `, text: `@${r.name}`, hint: "Role",
+        icon: <span className="grid size-6 place-items-center rounded-full bg-muted text-xs font-semibold" aria-hidden="true"
+          style={r.color ? { color: r.color } : undefined}>@</span>,
+      }));
+      const userHits = [...byUsername, ...byName].filter(({ u }) => !seen.has(u.id) && !!seen.add(u.id)).map(({ u }): Suggestion => ({
         id: `user-${u.id}`, insert: `@${u.username} `, text: displayName(u), hint: `@${u.username}`,
         icon: <span className="grid size-6 place-items-center rounded-full bg-muted text-[10px] font-semibold" aria-hidden="true">
           {displayName(u).slice(0, 2).toUpperCase()}
         </span>,
-      }))].slice(0, MAX);
+      }));
+      return [...everyone, ...userHits, ...roleHits].slice(0, MAX);
     }
     const fromServer = rank(q, custom.map((e) => ({ key: e.name, e }))).map(({ e }): Suggestion => ({
       id: `custom-${e.id}`, insert: `:${e.name}: `, text: `:${e.name}:`,
@@ -58,7 +67,7 @@ export function useSuggestions(channelId: string, trigger: Trigger | null, comma
       id: `unicode-${s.key}`, insert: s.emoji, text: `:${s.key}:`, icon: <span className="text-xl leading-none">{s.emoji}</span>,
     }));
     return [...fromServer, ...fromUnicode].slice(0, MAX);
-  }, [trigger, users, custom, shortcodes, commands, canPingEveryone]);
+  }, [trigger, users, custom, shortcodes, commands, canPingEveryone, canPingRoles, roles, everyoneId]);
 }
 
 const LABELS: Record<Trigger["kind"], string> = {

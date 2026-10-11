@@ -25,14 +25,20 @@ export const Perm = {
   ManageExpressions: 1 << 20,
   ManageWebhooks: 1 << 21,
   MentionEveryone: 1 << 22,
+  MentionRoles: 1 << 23,
 } as const;
 
 // JavaScript bitwise operators work on 32 bits; revisit if flags pass bit 30.
-export const ALL_PERMS = (1 << 23) - 1;
+export const ALL_PERMS = (1 << 24) - 1;
 /** What a webhook channel takes from everyone, the owner included: only webhooks post there (perms.WebhookMasked). */
 export const WEBHOOK_MASKED = Perm.SendMessages | Perm.AttachFiles;
 export const DM_PERMS = Perm.ViewChannel | Perm.SendMessages | Perm.AttachFiles | Perm.ReadHistory |
   Perm.ConnectVoice | Perm.Speak | Perm.Stream | Perm.AddReactions | Perm.UseSoundboard;
+/** What a role members give themselves may never grant (perms.SelfAssignPower). */
+export const SELF_ASSIGN_POWER = Perm.Admin | Perm.ManageMessages | Perm.ManageRoles | Perm.ManageChannels | Perm.ManageServer |
+  Perm.ManageExpressions | Perm.ManageWebhooks | Perm.Kick | Perm.Ban | Perm.MuteMembers | Perm.MoveMembers |
+  Perm.MentionEveryone | Perm.MentionRoles;
+export const selfAssignSafe = (p: number) => (p & SELF_ASSIGN_POWER) === 0;
 const OVERRIDABLE = ALL_PERMS & ~Perm.Admin;
 
 export const hasPerm = (p: number, q: number) => (p & q) === q;

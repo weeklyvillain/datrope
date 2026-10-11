@@ -314,3 +314,17 @@ func TestExecuteTrimsBeforeLimits(t *testing.T) {
 	require.Equal(t, strings.Repeat("a", 2000), m.Content)
 	require.Equal(t, strings.Repeat("b", 80), m.Webhook.Name)
 }
+
+func TestExecutePingsOnlyMentionableRoles(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	alerts := webhookChannel(t, alice, "alerts")
+	_, path := newWebhook(t, alice, alerts, "CI")
+	var open, closed struct{ ID id.ID }
+	alice.Do(http.MethodPost, "/api/server/roles", map[string]any{"name": "Oncall", "permissions": 0, "mentionable": true}, http.StatusCreated, &open)
+	alice.Do(http.MethodPost, "/api/server/roles", map[string]any{"name": "Staff", "permissions": 0}, http.StatusCreated, &closed)
+	var m messages.Message
+	env.Anon().Do(http.MethodPost, path+"?wait=true", map[string]any{
+		"content": "deploy failed <@&" + open.ID.String() + "> <@&" + closed.ID.String() + ">"}, http.StatusOK, &m)
+	require.Equal(t, []id.ID{open.ID}, m.MentionRoles)
+}

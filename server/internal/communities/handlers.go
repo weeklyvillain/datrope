@@ -228,4 +228,5 @@ func Register(api huma.API, s *Service) {
 
 	registerRoles(api, s, op)
 	registerWelcome(api, s, op)
+	registerSelfRoles(api, s, op)
 }

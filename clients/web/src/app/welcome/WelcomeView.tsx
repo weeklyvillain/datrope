@@ -10,6 +10,7 @@ import { client, errorText, useApp, usePerms } from "@/session";
 import { TopBar } from "../TopBar";
 import { SearchPanel } from "../search/SearchPanel";
 import { usePanel } from "../side-panel/panel";
+import { SelfRolePicker } from "./SelfRolePicker";
 import { WelcomeEditor } from "./WelcomeEditor";
 import { WelcomeMarkdown } from "./WelcomeMarkdown";
 import { sizedImage } from "@/lib/sized-image";
@@ -69,6 +70,7 @@ export function WelcomeView({ channelId }: { channelId: string }) {
                 <Button onClick={() => setEditing(true)}><Pencil />Write the welcome page</Button>
               </div>
             ) : <p className="text-muted-foreground">Nothing here yet.</p>}
+          {welcome && <SelfRolePicker />}
         </article>
       </div>
       {gated && <RulesGate />}

@@ -4,6 +4,8 @@ import remarkGfm from "remark-gfm";
 import { useMemo, useState, type ReactNode } from "react";
 import { MentionTrigger } from "@/app/people/MentionTrigger";
 import { CodeBlock } from "@/components/code-block";
+import { useShallow } from "zustand/react/shallow";
+import { myRoleIds } from "@datrope/core";
 import { useApp } from "@/session";
 import { remarkChat, type ChatOptions } from "./remarkChat";
 import { useEmojiData } from "./emoji-data";
@@ -91,15 +93,19 @@ export function MarkdownView({ text, options: base, inline = false, highlight }:
 }
 
 /** Renders a message's content. `mentions` are the user IDs the server parsed from it;
- *  when given, only those users are highlighted. */
-export function Markdown({ text, mentions, everyone = false, inline, highlight }: {
-  text: string; mentions?: string[]; everyone?: boolean; inline?: boolean; highlight?: string[];
+ *  when given, only those users are highlighted. `roles` are the role IDs the server resolved;
+ *  a pill is marked as mine only for those. */
+export function Markdown({ text, mentions, roles, everyone = false, inline, highlight }: {
+  text: string; mentions?: string[]; roles?: string[]; everyone?: boolean; inline?: boolean; highlight?: string[];
 }) {
   const emoji = useApp((s) => s.emoji);
   const members = useApp((s) => s.server?.members);
   const meId = useApp((s) => s.me?.id);
+  const allRoles = useApp((s) => s.server?.roles);
+  const mine = useApp(useShallow(myRoleIds));
   const data = useEmojiData();
   const mentionKey = mentions?.join(",");
+  const rolesKey = roles?.join(",");
   const highlightKey = highlight?.join(" ");
   const options = useMemo<ChatOptions>(() => {
     const mentioned = mentionKey === undefined ? null : new Set(mentionKey.split(","));
@@ -112,10 +118,14 @@ export function Markdown({ text, mentions, everyone = false, inline, highlight }
       users: new Map(Object.values(members ?? {})
         .filter((m) => !mentioned || mentioned.has(m.user.id))
         .map((m) => [m.user.username.toLowerCase(), { id: m.user.id, name: m.user.display_name }])),
+      roles: new Map(Object.values(allRoles ?? {}).map((r) => [r.id, {
+        name: r.name, color: r.color ?? undefined,
+        me: !!rolesKey && rolesKey.split(",").includes(r.id) && mine.includes(r.id),
+      }])),
       meId,
       everyone,
       highlight: highlightKey ? highlightKey.split(" ") : undefined,
     };
-  }, [emoji, members, meId, data, mentionKey, highlightKey, everyone]);
+  }, [emoji, members, allRoles, mine, meId, data, mentionKey, rolesKey, highlightKey, everyone]);
   return <MarkdownView text={text} options={options} inline={inline} />;
 }

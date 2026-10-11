@@ -16,13 +16,15 @@ var RoleColors = []string{"#e74c3c", "#f5a524", "#2ecc71", "#2dd4bf", "#4aa3ff",
 // ownerRank is above any role position.
 const ownerRank = 1 << 30
 
-// rank is userID's highest role position (ownerRank for the owner, -1 for
-// non-members). tx may be nil.
+// rank is the highest position among userID's roles that carry authority
+// (ownerRank for the owner, -1 for non-members). Self-assignable roles grant
+// none: anyone can take them, so they must not shield a member from moderation.
+// tx may be nil.
 func (s *Service) rank(ctx context.Context, tx pgx.Tx, serverID, userID id.ID) (int, error) {
 	var r int
 	q := `
 		SELECT CASE WHEN c.owner_id = $2 THEN $3
-		            ELSE COALESCE((SELECT max(ro.position) FROM member_roles mr JOIN roles ro ON ro.id = mr.role_id
+		            ELSE COALESCE((SELECT max(ro.position) FROM member_roles mr JOIN roles ro ON ro.id = mr.role_id AND NOT ro.self_assignable
 		                           WHERE mr.community_id = $1 AND mr.user_id = $2), 0) END
 		FROM communities c JOIN members m ON m.community_id = c.id AND m.user_id = $2
 		WHERE c.id = $1`

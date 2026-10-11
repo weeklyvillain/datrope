@@ -197,3 +197,32 @@ func TestMentionEveryoneNeedsPermission(t *testing.T) {
 	alice.Do(http.MethodPut, "/api/server/members/"+bob.User.ID.String()+"/roles/"+role.ID.String(), nil, http.StatusNoContent, nil)
 	require.True(t, bob.Send(general, "@everyone now it works").MentionEveryone)
 }
+
+func TestMentionsInboxViaRole(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	carol := env.Register("carol")
+	general := alice.General()
+	srv := alice.Server()
+	var raid struct{ ID id.ID }
+	alice.Do(http.MethodPost, "/api/server/roles", map[string]any{"name": "Raiders", "permissions": 0, "mentionable": true}, http.StatusCreated, &raid)
+	alice.Do(http.MethodPut, "/api/server/members/"+bob.User.ID.String()+"/roles/"+raid.ID.String(), nil, http.StatusNoContent, nil)
+	secret := alice.CreateTextChannel("secret")
+	alice.Do(http.MethodPut, "/api/channels/"+secret.String()+"/overrides/role/"+srv.ID.String(),
+		map[string]any{"allow": 0, "deny": perms.ViewChannel}, http.StatusOK, nil)
+
+	ping := alice.Send(general, "raid <@&"+raid.ID.String()+">")
+	alice.Send(secret, "hidden <@&"+raid.ID.String()+">")
+
+	var p messages.MentionsPage
+	bob.Do(http.MethodGet, "/api/users/@me/mentions", nil, http.StatusOK, &p)
+	require.Equal(t, []id.ID{ping.ID}, itemIDs(p.Items), "role holders are mentioned, but not where they can't read")
+	require.Equal(t, 1, *p.UnreadCount)
+	carol.Do(http.MethodGet, "/api/users/@me/mentions", nil, http.StatusOK, &p)
+	require.Empty(t, p.Items, "not a holder")
+
+	var acked messages.AckMentionsResult
+	bob.Do(http.MethodPost, "/api/users/@me/mentions/ack", nil, http.StatusOK, &acked)
+	require.Len(t, acked.ReadStates, 1)
+}

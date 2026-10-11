@@ -68,6 +68,7 @@ type Message struct {
 	Embeds          []WebhookEmbed       `json:"embeds,omitempty" doc:"Rich embeds a webhook posted (not link previews); image URLs point at this instance"`
 	Poll            *Poll                `json:"poll,omitempty" doc:"Set when the message is a poll"`
 	MentionEveryone bool                 `json:"mention_everyone,omitempty" doc:"The message pings everyone who can read it"`
+	MentionRoles    []id.ID              `json:"mention_roles" doc:"Roles the message pinged; their members are mentioned"`
 	Kind            string               `json:"kind,omitempty" enum:"member_leave" doc:"Set on system messages: member_leave means the author left the group DM"`
 
 	replyToID *id.ID
@@ -113,17 +114,17 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus, c Channels, u Users, a Atta
 }
 
 const messageCols = `id, channel_id, author_id, content, edited_at, deleted, reply_to_id, mentions, embed, pinned_at,
-	webhook_id, author_name, author_avatar_sha256, embeds, title, kind, mention_everyone`
+	webhook_id, author_name, author_avatar_sha256, embeds, title, kind, mention_everyone, mention_roles`
 
 func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var m Message
 	var authorID, webhookID, replyTo *int64
-	var mentions []int64
+	var mentions, mentionRoles []int64
 	var embed, embeds []byte
 	var authorName string
 	var avatar *string
 	dest := append([]any{&m.ID, &m.ChannelID, &authorID, &m.Content, &m.EditedAt, &m.Deleted, &replyTo, &mentions, &embed, &m.PinnedAt,
-		&webhookID, &authorName, &avatar, &embeds, &m.Title, &m.Kind, &m.MentionEveryone}, extra...)
+		&webhookID, &authorName, &avatar, &embeds, &m.Title, &m.Kind, &m.MentionEveryone, &mentionRoles}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return nil, err
 	}
@@ -150,6 +151,10 @@ func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	m.Mentions = make([]id.ID, len(mentions))
 	for i, v := range mentions {
 		m.Mentions[i] = id.ID(v)
+	}
+	m.MentionRoles = make([]id.ID, len(mentionRoles))
+	for i, v := range mentionRoles {
+		m.MentionRoles[i] = id.ID(v)
 	}
 	m.CreatedAt = m.ID.Time()
 	m.Attachments = []files.Attachment{}

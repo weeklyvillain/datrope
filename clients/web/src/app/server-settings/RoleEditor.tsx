@@ -1,4 +1,4 @@
-import { hasPerm, Perm, unwrap, type Member, type Role } from "@datrope/core";
+import { hasPerm, Perm, SELF_ASSIGN_POWER, unwrap, type Member, type Role } from "@datrope/core";
 import { Lock, TriangleAlert, X } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { useId, useMemo, useState, type CSSProperties } from "react";
@@ -20,6 +20,7 @@ import { canManageRole, myRank, outranks } from "@/lib/hierarchy";
 import { ROLE_COLORS } from "@/lib/palettes";
 import { cn } from "@/lib/utils";
 import { PERM_GROUPS, PERM_LABELS } from "@/permLabels";
+import { selfAssignBlocker } from "./selfAssign";
 import { client, displayName, useApp } from "@/session";
 import { EmojiPicker, reactionKey } from "@/chat/EmojiPicker";
 import { RefButton } from "@/components/ref-button";
@@ -36,6 +37,9 @@ interface Edits {
   color?: Color | null; // null = no colour
   hoist?: boolean;
   permissions?: number;
+  selfAssignable?: boolean;
+  mentionable?: boolean;
+  description?: string;
 }
 
 interface Props {
@@ -59,11 +63,18 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
   const color = edits.color === undefined ? role.color : edits.color ?? undefined;
   const hoist = edits.hoist ?? role.hoist;
   const permissions = edits.permissions ?? role.permissions;
+  const selfAssignable = edits.selfAssignable ?? role.self_assignable;
+  const mentionable = edits.mentionable ?? role.mentionable;
+  const description = edits.description ?? role.description;
+  const blocker = selfAssignBlocker(role, everyone, permissions);
   const changed = {
     name: name.trim() !== role.name,
     color: color !== role.color,
     hoist: hoist !== role.hoist,
     permissions: permissions !== role.permissions,
+    selfAssignable: selfAssignable !== role.self_assignable,
+    mentionable: mentionable !== role.mentionable,
+    description: description.trim() !== role.description,
   };
   const dirty = Object.values(changed).some(Boolean);
   const edit = (e: Edits) => setEdits((x) => ({ ...x, ...e }));
@@ -73,6 +84,9 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
       ...(changed.name && { name: name.trim() }),
       ...(changed.permissions && { permissions }),
       ...(changed.hoist && { hoist }),
+      ...(changed.selfAssignable && { self_assignable: selfAssignable }),
+      ...(changed.mentionable && { mentionable }),
+      ...(changed.description && { description: description.trim() }),
       ...(changed.color && (color ? { color } : { clear_color: true })),
     };
     client.apply("ROLE_UPDATE", await unwrap(client.api.PATCH("/api/server/roles/{roleID}", {
@@ -114,6 +128,13 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
               <RoleIconField role={role} disabled={!editable} />
               <SwitchRow label="Show members separately" description="Members with this role get their own group in the member list."
                 checked={hoist} disabled={!editable} onChange={(v) => edit({ hoist: v })} />
+              <SwitchRow label="Mentionable by anyone" description="Anyone can ping this role with @role. Members with Mention any role can always ping it."
+                checked={mentionable} disabled={!editable} onChange={(v) => edit({ mentionable: v })} />
+              <SwitchRow label="Self-assignable" description={blocker ?? "Members can give themselves this role on the welcome page."}
+                checked={selfAssignable && !blocker} disabled={!editable || !!blocker} onChange={(v) => edit({ selfAssignable: v })} />
+              <FormField label="Description" value={description} maxLength={120} disabled={!editable}
+                hint="Shown next to the role on the welcome page."
+                onChange={(e) => edit({ description: e.target.value })} />
               {role.is_guest && (
                 <p className="text-muted-foreground">
                   System role for guests — can't be deleted. Guests also have @everyone's permissions, so to keep them out of a channel, deny this role in that channel's permissions.
@@ -138,10 +159,11 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
               <h4 className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.title}</h4>
               {g.flags.map((flag) => {
                 const p = LABELS.get(flag)!;
+                const locked = selfAssignable && (flag & SELF_ASSIGN_POWER) !== 0 && !hasPerm(permissions, flag);
                 return (
                   <SwitchRow key={flag} label={p.label} description={p.description} checked={hasPerm(permissions, flag)}
-                    disabled={!editable} lacking={editable && !hasPerm(perms, flag)} separated
-                    warning={flag === Perm.Admin ? ADMIN_WARNING : undefined}
+                    disabled={!editable || locked} lacking={editable && !hasPerm(perms, flag)} separated
+                    warning={flag === Perm.Admin ? ADMIN_WARNING : locked ? "Turn off Self-assignable to grant this." : undefined}
                     onChange={(v) => edit({ permissions: v ? permissions | flag : permissions & ~flag })} />
                 );
               })}

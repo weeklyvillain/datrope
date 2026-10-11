@@ -155,18 +155,22 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			everyone := have.Has(perms.MentionEveryone) && mentionsEveryone(content)
+			roles, err := s.roleMentionIDs(ctx, ch.ID, content, have.Has(perms.MentionRoles), maxMentions-len(mentions))
+			if err != nil {
+				return nil, err
+			}
 			u := auth.Current(ctx).User
 			author := u.Public()
 			m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Title: title, Content: content, Nonce: in.Body.Nonce, Mentions: mentions,
-				MentionEveryone: everyone, replyToID: in.Body.ReplyToID}
+				MentionEveryone: everyone, MentionRoles: roles, replyToID: in.Body.ReplyToID}
 			m.CreatedAt = m.ID.Time()
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
 				return nil, err
 			}
 			defer tx.Rollback(ctx)
-			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, reply_to_id, mentions, title, mention_everyone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-				m.ID, m.ChannelID, u.ID, m.Content, in.Body.ReplyToID, id.Int64s(mentions), m.Title, everyone); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, reply_to_id, mentions, title, mention_everyone, mention_roles) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				m.ID, m.ChannelID, u.ID, m.Content, in.Body.ReplyToID, id.Int64s(mentions), m.Title, everyone, id.Int64s(roles)); err != nil {
 				return nil, err
 			}
 			if m.Attachments, err = s.attachments.Claim(ctx, tx, m.ID, ch.ID, u.ID, in.Body.AttachmentIDs); err != nil {
@@ -254,13 +258,17 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			everyone := have.Has(perms.MentionEveryone) && mentionsEveryone(content)
+			roles, err := s.roleMentionIDs(ctx, ch.ID, content, have.Has(perms.MentionRoles), maxMentions-len(mentions))
+			if err != nil {
+				return nil, err
+			}
 			// A changed first link drops the old embed now; attachPreview fetches the new one.
 			linkChanged := firstLink(content) != firstLink(m.Content)
 			updated, err := scanMessage(s.db.QueryRow(ctx, `
 				UPDATE messages SET content = $2, mentions = $3, edited_at = now(), embed = CASE WHEN $4 THEN NULL ELSE embed END,
-					title = COALESCE($5, title), mention_everyone = $6
+					title = COALESCE($5, title), mention_everyone = $6, mention_roles = $7
 				WHERE id = $1 AND NOT deleted RETURNING `+messageCols,
-				m.ID, content, id.Int64s(mentions), linkChanged, title, everyone))
+				m.ID, content, id.Int64s(mentions), linkChanged, title, everyone, id.Int64s(roles)))
 			if errors.Is(err, pgx.ErrNoRows) { // deleted since s.get
 				return nil, httpx.NotFound("message")
 			}

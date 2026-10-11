@@ -4,6 +4,7 @@ import { claimMessage, notificationAuthor, notificationBody, notificationTitle, 
 const base: NotifyInput = {
   message: { author: { id: "2" }, mentions: [], channel_id: "100" },
   meId: "1",
+  myRoleIds: [],
   isDM: false,
   prefs: { enabled: true, level: "mentions" },
   permission: "granted",
@@ -19,6 +20,11 @@ describe("shouldNotify", () => {
     expect(shouldNotify({ ...base, isDM: true })).toBe(true); // DMs count as mentions
     expect(shouldNotify({ ...base, prefs: { enabled: true, level: "all" } })).toBe(true);
     expect(shouldNotify({ ...base, isDM: true, prefs: { enabled: true, level: "nothing" } })).toBe(false);
+  });
+
+  it("notifies on a ping of a role I hold at the mentions level", () => {
+    expect(shouldNotify({ ...base, prefs: { ...base.prefs, level: "mentions" }, myRoleIds: ["9"],
+      message: { ...base.message, mentions: [], mention_roles: ["9"] } })).toBe(true);
   });
 
   it("needs the switch, the permission and someone else", () => {

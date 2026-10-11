@@ -22,6 +22,10 @@ type CreateRoleRequest struct {
 	Permissions perms.Perms `json:"permissions"`
 	Color       *string     `json:"color,omitempty" enum:"#e74c3c,#f5a524,#2ecc71,#2dd4bf,#4aa3ff,#a78bfa,#fb7185,#969da2"`
 	Hoist       bool        `json:"hoist,omitempty" doc:"Show members with this role separately in the member list"`
+
+	SelfAssignable bool   `json:"self_assignable,omitempty"`
+	Mentionable    bool   `json:"mentionable,omitempty"`
+	Description    string `json:"description,omitempty" maxLength:"120"`
 }
 
 type UpdateRoleRequest struct {
@@ -32,6 +36,10 @@ type UpdateRoleRequest struct {
 	ClearColor  bool         `json:"clear_color,omitempty" doc:"Remove the role's colour (ignored when color is set)"`
 	Hoist       *bool        `json:"hoist,omitempty"`
 	IconEmoji   *string      `json:"icon_emoji,omitempty" maxLength:"64" doc:"A Unicode emoji or custom:<emoji id>; replaces an uploaded icon. Empty removes the icon"`
+
+	SelfAssignable *bool   `json:"self_assignable,omitempty"`
+	Mentionable    *bool   `json:"mentionable,omitempty"`
+	Description    *string `json:"description,omitempty" maxLength:"120"`
 }
 
 type BanRequest struct {
@@ -63,6 +71,20 @@ func canTouch(a actor, ps ...perms.Perms) error {
 		if !a.Base.Has(p) {
 			return httpx.MissingPermission()
 		}
+	}
+	return nil
+}
+
+// checkSelfAssign: a role members give themselves grants no power and is never the Guest role.
+func checkSelfAssign(guest, selfAssignable bool, p perms.Perms) error {
+	if !selfAssignable {
+		return nil
+	}
+	if guest {
+		return httpx.BadRequest("CANNOT_SELF_ASSIGN", "the Guest role cannot be self-assignable")
+	}
+	if !perms.SelfAssignSafe(p) {
+		return httpx.BadRequest("SELF_ASSIGN_POWER", "a self-assignable role cannot grant moderation, admin or mention permissions")
 	}
 	return nil
 }
@@ -105,6 +127,9 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if err := canTouch(a, in.Body.Permissions); err != nil {
 				return nil, err
 			}
+			if err := checkSelfAssign(false, in.Body.SelfAssignable, in.Body.Permissions); err != nil {
+				return nil, err
+			}
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
 				return nil, err
@@ -129,10 +154,11 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 				return nil, err
 			}
 			r, err := scanRole(tx.QueryRow(ctx, `
-				INSERT INTO roles (id, community_id, name, permissions, position, color, hoist)
-				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				INSERT INTO roles (id, community_id, name, permissions, position, color, hoist, self_assignable, mentionable, description)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 				RETURNING `+roleCols,
-				id.New(), a.CommunityID, strings.TrimSpace(in.Body.Name), int64(in.Body.Permissions), pos, in.Body.Color, in.Body.Hoist))
+				id.New(), a.CommunityID, strings.TrimSpace(in.Body.Name), int64(in.Body.Permissions), pos, in.Body.Color, in.Body.Hoist,
+				in.Body.SelfAssignable, in.Body.Mentionable, strings.TrimSpace(in.Body.Description)))
 			if err != nil {
 				return nil, err
 			}
@@ -177,7 +203,8 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 					return nil, httpx.BadRequest("CANNOT_RENAME_EVERYONE", "the @everyone role cannot be renamed")
 				case b.Position != nil:
 					return nil, httpx.BadRequest("CANNOT_MOVE_EVERYONE", "the @everyone role is always at the bottom")
-				case b.Color != nil || b.ClearColor || b.Hoist != nil || b.IconEmoji != nil:
+				case b.Color != nil || b.ClearColor || b.Hoist != nil || b.IconEmoji != nil ||
+					b.SelfAssignable != nil || b.Mentionable != nil || b.Description != nil:
 					return nil, httpx.BadRequest("CANNOT_STYLE_EVERYONE", "the @everyone role has no colour and is not shown separately")
 				}
 			} else if err := canEditRole(rank, r); err != nil {
@@ -195,6 +222,21 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			}
 			if err := canTouch(a, check...); err != nil {
 				return nil, err
+			}
+			sa, final := r.SelfAssignable, r.Permissions
+			if b.SelfAssignable != nil {
+				sa = *b.SelfAssignable
+			}
+			if b.Permissions != nil {
+				final = *b.Permissions
+			}
+			if err := checkSelfAssign(r.IsGuest, sa, final); err != nil {
+				return nil, err
+			}
+			var desc *string
+			if b.Description != nil {
+				d := strings.TrimSpace(*b.Description)
+				desc = &d
 			}
 			if b.Position != nil {
 				if err := moveRole(ctx, tx, a.CommunityID, r, *b.Position); err != nil {
@@ -217,10 +259,11 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			updated, err := scanRole(tx.QueryRow(ctx, `
 				UPDATE roles SET name = COALESCE($3, name), permissions = COALESCE($4, permissions),
 				                 color = CASE WHEN $5::text IS NOT NULL THEN $5 WHEN $6 THEN NULL ELSE color END,
-				                 hoist = COALESCE($7, hoist)
+				                 hoist = COALESCE($7, hoist), self_assignable = COALESCE($8, self_assignable),
+				                 mentionable = COALESCE($9, mentionable), description = COALESCE($10, description)
 				WHERE id = $1 AND community_id = $2
 				RETURNING `+roleCols,
-				r.ID, a.CommunityID, b.Name, newPerms, b.Color, b.ClearColor, b.Hoist))
+				r.ID, a.CommunityID, b.Name, newPerms, b.Color, b.ClearColor, b.Hoist, b.SelfAssignable, b.Mentionable, desc))
 			if err != nil {
 				return nil, err
 			}

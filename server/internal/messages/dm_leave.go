@@ -54,7 +54,7 @@ func (s *Service) leaveDM(ctx context.Context, u *auth.User, chID id.ID) error {
 		return err
 	}
 	author := u.Public()
-	m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Kind: KindMemberLeave, Mentions: []id.ID{}}
+	m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Kind: KindMemberLeave, Mentions: []id.ID{}, MentionRoles: []id.ID{}}
 	m.CreatedAt = m.ID.Time()
 	if left == 0 {
 		if _, err := tx.Exec(ctx, `DELETE FROM channels WHERE id = $1`, ch.ID); err != nil {

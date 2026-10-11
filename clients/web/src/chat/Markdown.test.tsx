@@ -104,3 +104,16 @@ describe("code blocks", () => {
     expect(html("```foo\nbar\n```")).toContain(">foo<");
   });
 });
+
+describe("role mentions", () => {
+  const roles = new Map([["55", { name: "Raid Team", color: "#e74c3c", me: true }], ["66", { name: "Staff", me: false }]]);
+  const r = (text: string) => renderToStaticMarkup(<MarkdownView text={text} options={{ ...opts, roles }} />);
+  it("renders a pill with the role's name and colour, marked when it pings me", () => {
+    expect(r("go <@&55>!")).toContain('<span class="mention" data-role-id="55" style="color:#e74c3c" data-me="">@Raid Team</span>!');
+    expect(r("<@&66>")).toContain('<span class="mention" data-role-id="66">@Staff</span>');
+  });
+  it("shows unknown roles as deleted and leaves code alone", () => {
+    expect(r("<@&77>")).toContain('<span class="mention">@deleted-role</span>');
+    expect(r("`<@&55>`")).toContain("<code>&lt;@&amp;55&gt;</code>");
+  });
+});

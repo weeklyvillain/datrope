@@ -853,6 +853,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/me/roles/{roleID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["add-my-role"];
+        post?: never;
+        delete: operations["remove-my-role"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/members": {
         parameters: {
             query?: never;
@@ -1590,11 +1606,14 @@ export interface components {
         CreateRoleRequest: {
             /** @enum {string} */
             color?: "#e74c3c" | "#f5a524" | "#2ecc71" | "#2dd4bf" | "#4aa3ff" | "#a78bfa" | "#fb7185" | "#969da2";
+            description?: string;
             /** @description Show members with this role separately in the member list */
             hoist?: boolean;
+            mentionable?: boolean;
             name: string;
             /** Format: int64 */
             permissions: number;
+            self_assignable?: boolean;
         };
         CreateThreadRequest: {
             name?: string;
@@ -1833,6 +1852,8 @@ export interface components {
             kind?: "member_leave";
             /** @description The message pings everyone who can read it */
             mention_everyone?: boolean;
+            /** @description Roles the message pinged; their members are mentioned */
+            mention_roles: string[] | null;
             mentions: string[] | null;
             /** @description Echoes the sender's nonce on create */
             nonce?: string;
@@ -2244,6 +2265,8 @@ export interface components {
         Role: {
             /** @enum {string} */
             color?: "#e74c3c" | "#f5a524" | "#2ecc71" | "#2dd4bf" | "#4aa3ff" | "#a78bfa" | "#fb7185" | "#969da2";
+            /** @description Shown next to the role in the welcome page's role picker */
+            description: string;
             /** @description Members with this role are shown separately in the member list */
             hoist: boolean;
             /** @description A Unicode emoji, or custom:<emoji id> */
@@ -2254,6 +2277,8 @@ export interface components {
             id: string;
             /** @description The system role every guest holds; it cannot be deleted */
             is_guest?: boolean;
+            /** @description Anyone can ping this role; otherwise only holders of MENTION_ROLES */
+            mentionable: boolean;
             name: string;
             /** Format: int64 */
             permissions: number;
@@ -2262,6 +2287,8 @@ export interface components {
              * @description Higher is more senior; @everyone is 0
              */
             position: number;
+            /** @description Members can give themselves this role on the welcome page */
+            self_assignable: boolean;
         };
         RoleDeleted: {
             /** @description Snowflake ID as a decimal string */
@@ -2535,9 +2562,11 @@ export interface components {
             clear_color?: boolean;
             /** @enum {string} */
             color?: "#e74c3c" | "#f5a524" | "#2ecc71" | "#2dd4bf" | "#4aa3ff" | "#a78bfa" | "#fb7185" | "#969da2";
+            description?: string;
             hoist?: boolean;
             /** @description A Unicode emoji or custom:<emoji id>; replaces an uploaded icon. Empty removes the icon */
             icon_emoji?: string;
+            mentionable?: boolean;
             name?: string;
             /** Format: int64 */
             permissions?: number;
@@ -2546,6 +2575,7 @@ export interface components {
              * @description Higher is more senior; @everyone is always 0
              */
             position?: number;
+            self_assignable?: boolean;
         };
         UpdateServerRequest: {
             description?: string;
@@ -5079,6 +5109,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Invite"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "add-my-role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "remove-my-role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

@@ -1,8 +1,10 @@
+import { mentionsMe } from "@datrope/core";
 import type { NotifyPrefs } from "./prefs";
 
 export interface NotifyInput {
-  message: { author?: { id: string }; mentions?: string[] | null; mention_everyone?: boolean; channel_id: string; deleted?: boolean };
+  message: { author?: { id: string }; mentions?: string[] | null; mention_roles?: string[] | null; mention_everyone?: boolean; channel_id: string; deleted?: boolean };
   meId: string | undefined;
+  myRoleIds: readonly string[];
   isDM: boolean;
   prefs: NotifyPrefs;
   permission: NotificationPermission | "unsupported";
@@ -14,7 +16,7 @@ export interface NotifyInput {
 export function shouldNotify(i: NotifyInput): boolean {
   if (!i.meId || i.message.author?.id === i.meId || i.message.deleted) return false;
   if (!i.prefs.enabled || i.permission !== "granted" || i.prefs.level === "nothing") return false;
-  if (i.prefs.level === "mentions" && !i.isDM && !(i.message.mentions ?? []).includes(i.meId) && !i.message.mention_everyone) return false;
+  if (i.prefs.level === "mentions" && !i.isDM && !mentionsMe(i.message, i.meId, i.myRoleIds)) return false;
   return i.hidden || !i.openChannelIds.includes(i.message.channel_id);
 }
 

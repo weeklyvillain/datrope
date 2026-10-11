@@ -260,6 +260,16 @@ export class DatropeClient {
     this.connect(this.store.getState().presence);
   }
 
+  /** Gives me a self-assignable role from the welcome page; MEMBER_UPDATE updates the store. */
+  async addMyRole(roleId: string) {
+    await unwrap(this.api.PUT("/api/server/me/roles/{roleID}", { params: { path: { roleID: roleId } } }));
+  }
+
+  /** Drops a self-assignable role I hold. */
+  async removeMyRole(roleId: string) {
+    await unwrap(this.api.DELETE("/api/server/me/roles/{roleID}", { params: { path: { roleID: roleId } } }));
+  }
+
   /** Rejoins the server with an invite (after a kick), then reconnects. */
   async joinServer(code: string) {
     await unwrap(this.api.POST("/api/invites/{code}/accept", { params: { path: { code } } }));

@@ -2,6 +2,7 @@ package communities_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -129,4 +130,50 @@ func TestModerationCannotTargetHigherPermissions(t *testing.T) {
 	carol.Join(alice.Invite())
 	alice.Do(http.MethodPut, base+"/members/"+carol.User.ID.String()+"/roles/"+admin.ID.String(), nil, http.StatusNoContent, nil)
 	alice.Do(http.MethodDelete, base+"/members/"+carol.User.ID.String(), nil, http.StatusNoContent, nil)
+}
+
+func TestSelfAssignableRoleRules(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	sv := alice.Server()
+	base := "/api/server/roles"
+
+	var raid communities.Role
+	alice.Do(http.MethodPost, base, map[string]any{"name": "Raiders", "permissions": 0, "self_assignable": true,
+		"mentionable": true, "description": "Raid nights, pinged on Fridays"}, http.StatusCreated, &raid)
+	require.True(t, raid.SelfAssignable)
+	require.True(t, raid.Mentionable)
+	require.Equal(t, "Raid nights, pinged on Fridays", raid.Description)
+
+	// Power bits and self-assignable never meet, in either order.
+	alice.Fail(http.MethodPost, base, map[string]any{"name": "x", "permissions": uint64(perms.Kick), "self_assignable": true},
+		http.StatusBadRequest, "SELF_ASSIGN_POWER")
+	alice.Fail(http.MethodPatch, base+"/"+raid.ID.String(), map[string]any{"permissions": uint64(perms.ManageMessages)},
+		http.StatusBadRequest, "SELF_ASSIGN_POWER")
+	var mods communities.Role
+	alice.Do(http.MethodPost, base, map[string]any{"name": "Mods", "permissions": uint64(perms.Ban)}, http.StatusCreated, &mods)
+	alice.Fail(http.MethodPatch, base+"/"+mods.ID.String(), map[string]any{"self_assignable": true},
+		http.StatusBadRequest, "SELF_ASSIGN_POWER")
+	// Harmless permissions are fine.
+	alice.Do(http.MethodPatch, base+"/"+raid.ID.String(), map[string]any{"permissions": uint64(perms.AttachFiles)}, http.StatusOK, nil)
+
+	// @everyone and the Guest role can't be self-assignable.
+	alice.Fail(http.MethodPatch, base+"/"+sv.ID.String(), map[string]any{"self_assignable": true},
+		http.StatusBadRequest, "CANNOT_STYLE_EVERYONE")
+	alice.GuestInvite(3600) // creates the Guest role
+	for _, r := range alice.Server().Roles {
+		if r.IsGuest {
+			alice.Fail(http.MethodPatch, base+"/"+r.ID.String(), map[string]any{"self_assignable": true},
+				http.StatusBadRequest, "CANNOT_SELF_ASSIGN")
+		}
+	}
+
+	// Description length.
+	alice.Fail(http.MethodPatch, base+"/"+raid.ID.String(), map[string]any{"description": strings.Repeat("a", 121)},
+		http.StatusBadRequest, "VALIDATION_FAILED")
+	var cleared communities.Role
+	alice.Do(http.MethodPatch, base+"/"+raid.ID.String(), map[string]any{"self_assignable": false, "description": ""}, http.StatusOK, &cleared)
+	require.False(t, cleared.SelfAssignable)
+	require.Empty(t, cleared.Description)
+	require.True(t, cleared.Mentionable, "omitted fields are unchanged")
 }

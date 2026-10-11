@@ -1,4 +1,4 @@
-import { channelRef, findUser } from "@datrope/core";
+import { channelRef, findUser, myRoleIds } from "@datrope/core";
 import type { Message } from "@datrope/core";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -53,6 +53,7 @@ export function NotificationListener() {
     const ok = shouldNotify({
       message: m,
       meId: s.me?.id,
+      myRoleIds: myRoleIds(s),
       isDM: s.channels[m.channel_id]?.type === "dm",
       prefs: notifyPrefs.getState(),
       permission: "Notification" in window ? Notification.permission : "unsupported",

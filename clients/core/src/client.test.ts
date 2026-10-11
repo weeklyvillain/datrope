@@ -26,7 +26,7 @@ const attachment: Attachment = {
 function message(body: { content: string; nonce: string }, attachments: Attachment[] = []): Message {
   return {
     id: "77", channel_id: "300", author: { id: "1", username: "alice", display_name: "Alice", custom_status: "" },
-    content: body.content, created_at: "2026-01-01T00:00:00Z", deleted: false, pinned: false, nonce: body.nonce, attachments, mentions: [], reactions: [],
+    content: body.content, created_at: "2026-01-01T00:00:00Z", deleted: false, pinned: false, nonce: body.nonce, attachments, mentions: [], mention_roles: [], reactions: [],
   };
 }
 
@@ -177,7 +177,7 @@ const serverReady = (over: { rules_gate?: boolean; accepted?: boolean } = {}): R
   ...ready,
   server: {
     ...sv, rules_gate: over.rules_gate ?? false,
-    roles: [{ id: "1", name: "@everyone", permissions: Perm.ViewChannel, position: 0, hoist: false }],
+    roles: [{ id: "1", name: "@everyone", permissions: Perm.ViewChannel, position: 0, hoist: false, self_assignable: false, mentionable: false, description: "" }],
     members: [member(over.accepted ?? true)],
     categories: [],
     channels: [{ id: "100", type: "welcome", name: "welcome", position: -1, topic: "", overrides: [], tags: [], require_tag: false }],

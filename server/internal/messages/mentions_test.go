@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/datrope/datrope/server/internal/id"
 )
 
 func TestParseMentions(t *testing.T) {
@@ -45,4 +47,26 @@ func TestMentionsEveryone(t *testing.T) {
 		require.Equal(t, want, mentionsEveryone(in), in)
 	}
 	require.Empty(t, parseMentions("@everyone"), "not a username")
+}
+
+func TestParseRoleMentions(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []id.ID
+	}{
+		{"raid <@&123> and <@&456>", []id.ID{123, 456}},
+		{"<@&123><@&123>", []id.ID{123}},
+		{"`<@&123>` and\n```\n<@&456>\n```", nil},
+		{"<@123> <@&abc> @&123", nil},
+	}
+	for _, c := range cases {
+		require.Equal(t, c.want, parseRoleMentions(c.in, maxMentions), c.in)
+	}
+	var many strings.Builder
+	for i := 1; i <= 30; i++ {
+		fmt.Fprintf(&many, "<@&%d> ", i)
+	}
+	require.Len(t, parseRoleMentions(many.String(), maxMentions), 20)
+	require.Len(t, parseRoleMentions(many.String(), 3), 3)
+	require.Empty(t, parseRoleMentions(many.String(), 0))
 }

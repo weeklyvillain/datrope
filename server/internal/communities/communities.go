@@ -71,10 +71,14 @@ type Role struct {
 	IsGuest     bool        `json:"is_guest,omitempty" doc:"The system role every guest holds; it cannot be deleted"`
 	IconEmoji   string      `json:"icon_emoji,omitempty" doc:"A Unicode emoji, or custom:<emoji id>"`
 	IconURL     string      `json:"icon_url,omitempty" doc:"An uploaded icon image (versioned URL)"`
+
+	SelfAssignable bool   `json:"self_assignable" doc:"Members can give themselves this role on the welcome page"`
+	Mentionable    bool   `json:"mentionable" doc:"Anyone can ping this role; otherwise only holders of MENTION_ROLES"`
+	Description    string `json:"description" doc:"Shown next to the role in the welcome page's role picker"`
 }
 
 // roleCols are the columns scanRole reads.
-const roleCols = `id, community_id, name, permissions, position, color, hoist, is_guest, icon_emoji, icon_sha256`
+const roleCols = `id, community_id, name, permissions, position, color, hoist, is_guest, icon_emoji, icon_sha256, self_assignable, mentionable, description`
 
 type Member struct {
 	User     auth.PublicUser `json:"user"`
@@ -333,7 +337,7 @@ func scanRole(row pgx.Row) (*Role, error) {
 	var r Role
 	var p int64
 	var iconSum *string
-	if err := row.Scan(&r.ID, &r.CommunityID, &r.Name, &p, &r.Position, &r.Color, &r.Hoist, &r.IsGuest, &r.IconEmoji, &iconSum); err != nil {
+	if err := row.Scan(&r.ID, &r.CommunityID, &r.Name, &p, &r.Position, &r.Color, &r.Hoist, &r.IsGuest, &r.IconEmoji, &iconSum, &r.SelfAssignable, &r.Mentionable, &r.Description); err != nil {
 		return nil, err
 	}
 	r.Permissions = perms.Perms(p)

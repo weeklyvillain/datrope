@@ -243,6 +243,20 @@ func TestDeletingOthersMessagesFollowsHierarchy(t *testing.T) {
 	bob.Do(http.MethodDelete, "/api/channels/"+ch.String()+"/messages/"+byMember.ID.String(), nil, http.StatusNoContent, nil)
 }
 
+func TestSelfAssignableRoleDoesNotShieldMessages(t *testing.T) {
+	env, alice, bob, _, ch := setup(t)
+	dave := env.Register("dave")
+	var mod, top struct{ ID id.ID }
+	alice.Do(http.MethodPost, "/api/server/roles", map[string]any{"name": "Moderator", "permissions": uint64(perms.ManageMessages | perms.Kick)}, http.StatusCreated, &mod)
+	alice.Do(http.MethodPost, "/api/server/roles", map[string]any{"name": "Raiders", "permissions": 0, "self_assignable": true}, http.StatusCreated, &top)
+	alice.Do(http.MethodPut, "/api/server/members/"+bob.User.ID.String()+"/roles/"+mod.ID.String(), nil, http.StatusNoContent, nil)
+	dave.Do(http.MethodPut, "/api/server/me/roles/"+top.ID.String(), nil, http.StatusNoContent, nil)
+
+	m := dave.Send(ch, "shielded?")
+	bob.Do(http.MethodDelete, "/api/channels/"+ch.String()+"/messages/"+m.ID.String(), nil, http.StatusNoContent, nil)
+	bob.Do(http.MethodDelete, "/api/server/members/"+dave.User.ID.String(), nil, http.StatusNoContent, nil)
+}
+
 // createChannel creates a server channel of any type and returns it.
 func createChannel(t *testing.T, c *apptest.Client, body map[string]any) channels.Channel {
 	t.Helper()

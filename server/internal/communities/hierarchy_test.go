@@ -122,3 +122,18 @@ func TestConcurrentMovesKeepPositionsUnique(t *testing.T) {
 	}
 	require.Len(t, seen, len(ids)+1)
 }
+
+// A self-assignable role carries no authority: holding one, however high it
+// sits, must not shield a member from moderators.
+func TestSelfAssignableRoleDoesNotRaiseRank(t *testing.T) {
+	_, alice, bob, _, dave, _, helper := staff(t)
+	var top communities.Role
+	alice.Do(http.MethodPost, "/api/server/roles", map[string]any{"name": "Raiders", "permissions": 0, "self_assignable": true}, http.StatusCreated, &top)
+	require.Greater(t, top.Position, helper.Position+1) // above Moderator too
+	alice.Do(http.MethodPut, "/api/server/members/"+dave.User.ID.String()+"/roles/"+helper.ID.String(), nil, http.StatusNoContent, nil)
+	dave.Do(http.MethodPut, "/api/server/me/roles/"+top.ID.String(), nil, http.StatusNoContent, nil)
+
+	// bob (Moderator) still outranks dave and can take his Helper role away, then kick him.
+	bob.Do(http.MethodDelete, "/api/server/members/"+dave.User.ID.String()+"/roles/"+helper.ID.String(), nil, http.StatusNoContent, nil)
+	bob.Do(http.MethodDelete, "/api/server/members/"+dave.User.ID.String(), nil, http.StatusNoContent, nil)
+}

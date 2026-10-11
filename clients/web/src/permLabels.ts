@@ -13,6 +13,7 @@ export const PERM_LABELS: { flag: number; label: string; description: string; ch
   { flag: Perm.Speak, label: "Speak", description: "Talk in voice channels.", channel: true },
   { flag: Perm.Stream, label: "Video and screen share", description: "Turn on a camera or share a screen in voice.", channel: true },
   { flag: Perm.MentionEveryone, label: "Mention @everyone", description: "Ping everyone who can read the channel with @everyone.", channel: true },
+  { flag: Perm.MentionRoles, label: "Mention any role", description: "Ping any role with @role, even roles not set as mentionable by anyone.", channel: true },
   { flag: Perm.ManageMessages, label: "Manage messages", description: "Delete other people's messages.", channel: true },
   { flag: Perm.MuteMembers, label: "Mute members", description: "Mute people in voice for everyone.", channel: true },
   { flag: Perm.MoveMembers, label: "Move members", description: "Move people between voice channels or disconnect them.", channel: true },
@@ -35,7 +36,7 @@ export const PERM_GROUPS: { title: string; flags: number[] }[] = [
   { title: "General", flags: [Perm.ViewChannel, Perm.CreateInvite] },
   {
     title: "Text",
-    flags: [Perm.SendMessages, Perm.AttachFiles, Perm.ReadHistory, Perm.AddReactions, Perm.CreateThreads, Perm.MentionEveryone, Perm.ManageMessages],
+    flags: [Perm.SendMessages, Perm.AttachFiles, Perm.ReadHistory, Perm.AddReactions, Perm.CreateThreads, Perm.MentionEveryone, Perm.MentionRoles, Perm.ManageMessages],
   },
   { title: "Voice", flags: [Perm.ConnectVoice, Perm.Speak, Perm.Stream, Perm.UseSoundboard, Perm.MuteMembers, Perm.MoveMembers] },
   { title: "Moderation", flags: [Perm.Kick, Perm.Ban] },

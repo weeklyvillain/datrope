@@ -55,6 +55,10 @@ func registerPosts(api huma.API, s *Service, op func(string, string, string, int
 			if err != nil {
 				return nil, err
 			}
+			roles, err := s.roleMentionIDs(ctx, forum.ID, content, have.Has(perms.MentionRoles), maxMentions-len(mentions))
+			if err != nil {
+				return nil, err
+			}
 			u := auth.Current(ctx).User
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
@@ -67,10 +71,10 @@ func registerPosts(api huma.API, s *Service, op func(string, string, string, int
 			}
 			author := u.Public()
 			everyone := have.Has(perms.MentionEveryone) && mentionsEveryone(content)
-			m := &Message{ID: id.New(), ChannelID: post.ID, Author: &author, Content: content, Mentions: mentions, MentionEveryone: everyone}
+			m := &Message{ID: id.New(), ChannelID: post.ID, Author: &author, Content: content, Mentions: mentions, MentionEveryone: everyone, MentionRoles: roles}
 			m.CreatedAt = m.ID.Time()
-			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, mentions, mention_everyone) VALUES ($1, $2, $3, $4, $5, $6)`,
-				m.ID, post.ID, u.ID, m.Content, id.Int64s(mentions), everyone); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, mentions, mention_everyone, mention_roles) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				m.ID, post.ID, u.ID, m.Content, id.Int64s(mentions), everyone, id.Int64s(roles)); err != nil {
 				return nil, err
 			}
 			// Uploads go to the forum, since the post does not exist yet; once

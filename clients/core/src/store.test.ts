@@ -10,8 +10,8 @@ import type { Message, Ready, VoiceState } from "./types";
 const bob = { id: "2", username: "bob", display_name: "Bob", custom_status: "" };
 
 const server = { id: "1", name: "Datrope", description: "", palette: "emerald", owner_id: "10", created_at: "", rules_gate: false } as const;
-const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | Perm.SendMessages, position: 0, hoist: false };
-const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff" } as const;
+const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | Perm.SendMessages, position: 0, hoist: false, self_assignable: false, mentionable: false, description: "" };
+const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff", self_assignable: false, mentionable: false, description: "" } as const;
 const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };
 const ready = (over: Partial<Ready> = {}): Ready => ({
   session_id: "s", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
@@ -29,7 +29,7 @@ const ready = (over: Partial<Ready> = {}): Ready => ({
 });
 
 function msg(id: string, extra: Partial<Message> = {}): Message {
-  return { id, channel_id: "101", author: bob, content: `m${id}`, created_at: "2026-01-01T00:00:00Z", deleted: false, pinned: false, attachments: [], mentions: [], reactions: [], ...extra };
+  return { id, channel_id: "101", author: bob, content: `m${id}`, created_at: "2026-01-01T00:00:00Z", deleted: false, pinned: false, attachments: [], mentions: [], mention_roles: [], reactions: [], ...extra };
 }
 
 function loaded(): State {

@@ -8,6 +8,7 @@ export type ChatOptions = {
   shortcodes: Map<string, string> | null; // Unicode emoji by lower-cased shortcode; null while loading
   users: Map<string, { id: string; name: string }>; // mentionable users by lower-cased username
   meId?: string;
+  roles?: Map<string, { name: string; color?: string; me: boolean }>; // by role ID; me = it pinged me
   everyone?: boolean; // the message pinged @everyone: show it as a mention of me
   highlight?: string[]; // search terms to mark (outside spoilers, code and links)
 };
@@ -17,11 +18,22 @@ type Node = { type: string; value?: string; children?: Node[]; data?: Record<str
 const SKIP = new Set(["code", "inlineCode", "link"]);
 // Mentions follow the server's rule: preceded by start or a character that is not
 // a letter, digit, "_", ".", "-" or "@"; names longer than 32 are not usernames.
-const TOKEN = /(\|\|[\s\S]+?\|\||:[A-Za-z0-9_+-]{2,32}:|(?<![A-Za-z0-9_.@-])@[A-Za-z0-9_.-]{2,})/g;
+const TOKEN = /(<@&\d{1,20}>|\|\|[\s\S]+?\|\||:[A-Za-z0-9_+-]{2,32}:|(?<![A-Za-z0-9_.@-])@[A-Za-z0-9_.-]{2,})/g;
 
 const text = (value: string): Node => ({ type: "text", value });
 
 function tokenNodes(token: string, o: ChatOptions): Node[] {
+  if (token.startsWith("<@&")) {
+    const id = token.slice(3, -1);
+    const role = o.roles?.get(id);
+    const props: Record<string, unknown> = { className: ["mention"] };
+    if (role) {
+      props["data-role-id"] = id;
+      if (role.color) props.style = `color:${role.color}`;
+      if (role.me) props["data-me"] = "";
+    }
+    return [{ type: "chatMention", data: { hName: "span", hProperties: props }, children: [text(role ? "@" + role.name : "@deleted-role")] }];
+  }
   if (token.startsWith("||")) {
     return [{
       type: "chatSpoiler",

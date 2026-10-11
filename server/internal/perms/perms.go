@@ -30,10 +30,11 @@ const (
 	ManageExpressions
 	ManageWebhooks
 	MentionEveryone
+	MentionRoles
 )
 
 // All is every flag.
-const All Perms = MentionEveryone<<1 - 1
+const All Perms = MentionRoles<<1 - 1
 
 // Default is what @everyone gets on a new server.
 const Default = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | CreateInvite |
@@ -41,6 +42,13 @@ const Default = ViewChannel | SendMessages | AttachFiles | ReadHistory | Connect
 
 // GuestDefault is what the Guest role gets when it is created.
 const GuestDefault = ViewChannel | ReadHistory | SendMessages | ConnectVoice | Speak
+
+// SelfAssignPower is what a role members give themselves may never grant.
+const SelfAssignPower = Admin | ManageMessages | ManageRoles | ManageChannels | ManageServer | ManageExpressions |
+	ManageWebhooks | Kick | Ban | MuteMembers | MoveMembers | MentionEveryone | MentionRoles
+
+// SelfAssignSafe reports whether a role granting p may be self-assignable.
+func SelfAssignSafe(p Perms) bool { return p&SelfAssignPower == 0 }
 
 // DM is the fixed set every DM participant holds (reactions included).
 const DM = ViewChannel | SendMessages | AttachFiles | ReadHistory | ConnectVoice | Speak | Stream | AddReactions | UseSoundboard

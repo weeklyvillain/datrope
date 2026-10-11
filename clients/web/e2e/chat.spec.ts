@@ -868,3 +868,42 @@ test("code blocks, pasted snippets and code file previews", async ({ browser }) 
   await alice.getByRole("button", { name: "Send" }).click();
   await expect(bob.locator(".code-block").filter({ hasText: "main.go" }).locator(".hljs-keyword").first()).toHaveText("package");
 });
+
+// Runs after the first test: alice owns the server and bob is a member who accepted the rules.
+test("members pick roles on the welcome page, which unlock channels and can be pinged", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+
+  // State-changing API calls with the session cookie need the CSRF header.
+  const CSRF = { "X-Datrope-CSRF": "1" };
+  const put = (path: string, data: object) => alice.request.put(path, { headers: CSRF, data });
+
+  // alice creates a self-assignable, mentionable role and a channel only it can see (setup through the API).
+  const role = await (await alice.request.post("/api/server/roles", {
+    headers: CSRF, data: { name: "Raiders", permissions: 0, self_assignable: true, mentionable: true, description: "Raid nights on Friday" },
+  })).json() as { id: string };
+  const server = await (await alice.request.get("/api/server")).json() as { id: string };
+  const raids = await (await alice.request.post("/api/server/channels", { headers: CSRF, data: { name: "raids", type: "text" } })).json() as { id: string };
+  expect((await put(`/api/channels/${raids.id}/overrides/role/${server.id}`, { allow: 0, deny: 1 })).ok()).toBe(true);
+  expect((await put(`/api/channels/${raids.id}/overrides/role/${role.id}`, { allow: 1, deny: 0 })).ok()).toBe(true);
+
+  // bob picks the role on the welcome page and #raids appears.
+  await expect(bob.getByRole("link", { name: "raids" })).toHaveCount(0);
+  await bob.getByRole("link", { name: "welcome" }).click();
+  await bob.getByRole("switch", { name: /Raiders/ }).click();
+  await expect(bob.getByRole("switch", { name: /Raiders/ })).toBeChecked();
+  await expect(bob.getByRole("link", { name: "raids" })).toBeVisible();
+
+  // alice pings the role from autocomplete; bob sees it as a mention of him.
+  await alice.getByRole("link", { name: "raids" }).click();
+  await alice.getByLabel("Message", { exact: true }).fill("tonight @Raid");
+  await alice.getByRole("option", { name: /@Raiders/ }).click();
+  await alice.getByLabel("Message", { exact: true }).press("Enter");
+  await bob.getByRole("link", { name: "raids" }).click();
+  const msg = bob.getByRole("main", { name: "# raids" }).getByRole("article").filter({ hasText: "tonight" });
+  await expect(msg.locator(".mention[data-me]")).toHaveText("@Raiders");
+  await bob.getByRole("button", { name: "Inbox", exact: true }).click();
+  await expect(bob.getByRole("dialog", { name: "Inbox" }).getByText("@Raiders")).toBeVisible();
+});

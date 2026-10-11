@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { findTrigger, rank } from "./autocomplete";
+import type { Role } from "@datrope/core";
+import { findTrigger, pingableRoles, rank } from "./autocomplete";
 
 describe("composer autocomplete", () => {
   it.each([
@@ -25,5 +26,16 @@ describe("composer autocomplete", () => {
   it("ranks prefix matches first, then shorter keys", () => {
     const items = ["sparrow", "parrot", "party_parrot", "pa"].map((key) => ({ key }));
     expect(rank("par", items).map((i) => i.key)).toEqual(["parrot", "party_parrot", "sparrow"]);
+  });
+});
+
+const role = (id: string, mentionable: boolean, position: number) =>
+  ({ id, name: `r${id}`, permissions: 0, position, hoist: false, self_assignable: false, mentionable, description: "" }) as Role;
+
+describe("pingableRoles", () => {
+  const roles = [role("1", false, 0), role("2", true, 1), role("3", false, 2)]; // "1" is @everyone
+  it("lists mentionable roles, or every role but @everyone with MENTION_ROLES, senior first", () => {
+    expect(pingableRoles(roles, "1", false).map((r) => r.id)).toEqual(["2"]);
+    expect(pingableRoles(roles, "1", true).map((r) => r.id)).toEqual(["3", "2"]);
   });
 });

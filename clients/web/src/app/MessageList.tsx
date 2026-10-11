@@ -1,4 +1,5 @@
-import { ApiError, compareIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
+import { ApiError, compareIds, mentionsMe, myRoleIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
+import { useShallow } from "zustand/react/shallow";
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Copy, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
 import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
@@ -122,6 +123,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
 }) {
   const list = useApp((s) => s.messages[channelId]);
   const meId = useApp((s) => s.me?.id);
+  const roleIds = useApp(useShallow(myRoleIds));
   const scroller = useRef<HTMLDivElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const divider = useRef<HTMLDivElement>(null);
@@ -294,12 +296,12 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
                 </p>
               ) : variant === "cards" ? (
                 <Card className="w-[calc(100%-2rem)] max-w-3xl gap-0 self-center py-0">
-                  <MessageRow m={m} grouped={false} mine={!!meId && m.author?.id === meId} mentioned={!!meId && (!!m.mentions?.includes(meId) || !!m.mention_everyone)}
+                  <MessageRow m={m} grouped={false} mine={!!meId && m.author?.id === meId} mentioned={!!meId && mentionsMe(m, meId, roleIds)}
                     canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
                     canCreateThread={canCreateThread} onOpenThread={onOpenThread} card />
                 </Card>
               ) : (
-                <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && (!!m.mentions?.includes(meId) || !!m.mention_everyone)}
+                <MessageRow m={m} grouped={grouped} mine={!!meId && m.author?.id === meId} mentioned={!!meId && mentionsMe(m, meId, roleIds)}
                   canManage={canManage} canReply={canReply} canReact={canReact} reply={reply}
                   canCreateThread={canCreateThread} onOpenThread={onOpenThread} />
               )}
@@ -482,7 +484,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           </form>
         ) : m.content || m.edited_at ? (
           <div className={cn("wrap-anywhere", m.pending && "opacity-60")}>
-            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} everyone={!!m.mention_everyone} />
+            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} roles={m.pending ? undefined : m.mention_roles ?? undefined} everyone={!!m.mention_everyone} />
             {/* Grouped rows have no header, so "(edited)" follows the text. */}
             {grouped && m.edited_at && <span className="edited text-xs text-muted-foreground"> (edited)</span>}
           </div>

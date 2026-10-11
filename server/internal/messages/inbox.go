@@ -31,8 +31,8 @@ type AckMentionsResult struct {
 
 const mentionsUnreadCap = 100
 
-// mentionsWhere: live messages that mention $1 (or @everyone), by someone else (or a webhook), where $1 can still read them ($2).
-var mentionsWhere = `(m.mentions @> ARRAY[$1::bigint] OR m.mention_everyone) AND NOT m.deleted AND m.author_id IS DISTINCT FROM $1 AND ` + readableSQL("$2")
+// mentionsWhere: live messages that mention $1 (by name, @everyone or a role $1 holds), by someone else (or a webhook), where $1 can still read them ($2).
+var mentionsWhere = `(m.mentions @> ARRAY[$1::bigint] OR m.mention_everyone OR m.mention_roles && ARRAY(SELECT role_id FROM member_roles WHERE user_id = $1)) AND NOT m.deleted AND m.author_id IS DISTINCT FROM $1 AND ` + readableSQL("$2")
 
 // unreadSQL: m is newer than $1's read position in its channel.
 const unreadSQL = `m.id > COALESCE((SELECT rs.last_message_id FROM read_states rs WHERE rs.user_id = $1 AND rs.channel_id = m.channel_id), 0)`

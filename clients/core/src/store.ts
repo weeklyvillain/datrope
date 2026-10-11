@@ -1,4 +1,5 @@
 import { createStore } from "zustand/vanilla";
+import { mentionsMe } from "./mentions";
 import type { ConnectionStatus } from "./gateway";
 import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
@@ -270,7 +271,7 @@ function mapMentions(s: State, fn: (i: MentionItem) => MentionItem): State {
 }
 
 function addMention(s: State, m: Message): State {
-  if (!s.mentions.loaded || !s.me || m.author?.id === s.me.id || !(m.mentions?.includes(s.me.id) || m.mention_everyone)) return s;
+  if (!s.mentions.loaded || !s.me || m.author?.id === s.me.id || !mentionsMe(m, s.me.id, myRoleIds(s))) return s;
   if (s.mentions.items.some((i) => i.message.id === m.id)) return s;
   const item: MentionItem = { message: m, channel: channelRef(s, m.channel_id), unread: true };
   return { ...s, mentions: { ...s.mentions, items: [item, ...s.mentions.items], unread: s.mentions.unread + 1 } };
@@ -514,7 +515,7 @@ export function addPending(
   if (!s.me) return s;
   const pending: ClientMessage = {
     id: `pending:${nonce}`, channel_id: channelId, nonce, content, attachments, pending: true, deleted: false, pinned: false,
-    reply_to: replyTo, mentions: [], reactions: [],
+    reply_to: replyTo, mentions: [], mention_roles: [], reactions: [],
     author: { id: s.me.id, username: s.me.username, display_name: s.me.display_name, custom_status: s.me.custom_status },
     created_at: new Date().toISOString(),
   };

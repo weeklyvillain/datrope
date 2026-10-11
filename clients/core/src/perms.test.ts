@@ -3,9 +3,9 @@ import { ALL_PERMS, DM_PERMS, Perm, basePerms, canPost, channelPerms, hasPerm } 
 import type { Channel, Role } from "./types";
 
 const community = { id: "100", owner_id: "1" };
-const everyone: Role = { id: "100", name: "@everyone", position: 0, hoist: false,
+const everyone: Role = { id: "100", name: "@everyone", position: 0, hoist: false, self_assignable: false, mentionable: false, description: "",
   permissions: Perm.ViewChannel | Perm.SendMessages | Perm.ReadHistory };
-const mods: Role = { id: "200", name: "Mods", position: 1, hoist: false, permissions: Perm.Kick };
+const mods: Role = { id: "200", name: "Mods", position: 1, hoist: false, self_assignable: false, mentionable: false, description: "", permissions: Perm.Kick };
 const roles = [everyone, mods];
 
 function channel(overrides: Channel["overrides"]): Channel {
@@ -16,7 +16,7 @@ describe("perms", () => {
   it("matches the Go flag values", () => {
     expect(Perm.ViewChannel).toBe(1);
     expect(Perm.Admin).toBe(1 << 16);
-    expect(ALL_PERMS).toBe((1 << 23) - 1);
+    expect(ALL_PERMS).toBe((1 << 24) - 1);
     expect(Perm.MentionEveryone).toBe(1 << 22);
     expect(Perm.ManageWebhooks).toBe(1 << 21);
     expect(Perm.ManageServer).toBe(1 << 15);

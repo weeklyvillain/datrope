@@ -62,7 +62,7 @@ func TestHas(t *testing.T) {
 
 func TestBitValuesAreStable(t *testing.T) {
 	// The web client mirrors these values (clients/core/src/perms.ts).
-	if ViewChannel != 1 || Admin != 1<<16 || All != 1<<23-1 {
+	if ViewChannel != 1 || Admin != 1<<16 || All != 1<<24-1 {
 		t.Fatalf("flag values changed: view=%d admin=%d all=%d", ViewChannel, Admin, All)
 	}
 }
@@ -73,7 +73,7 @@ func TestNewFlags(t *testing.T) {
 	require.Equal(t, Perms(1<<18), CreateThreads)
 	require.Equal(t, Perms(1<<19), UseSoundboard)
 	require.Equal(t, Perms(1<<20), ManageExpressions)
-	require.Equal(t, Perms(1<<23-1), All)
+	require.Equal(t, Perms(1<<24-1), All)
 	require.True(t, Default.Has(AddReactions|CreateThreads|UseSoundboard))
 	require.False(t, Default.Has(ManageExpressions))
 }
@@ -90,4 +90,16 @@ func TestMentionEveryone(t *testing.T) {
 	require.Equal(t, Perms(1<<22), MentionEveryone, "the TypeScript client mirrors this value")
 	require.False(t, Default.Has(MentionEveryone), "pinging everyone is granted, not default")
 	require.True(t, Base(Member{Roles: []Perms{Admin}}).Has(MentionEveryone))
+}
+
+func TestSelfAssignSafe(t *testing.T) {
+	require.Equal(t, Perms(1<<23), MentionRoles)
+	require.True(t, All.Has(MentionRoles))
+	require.False(t, Default.Has(MentionRoles))
+	require.True(t, SelfAssignSafe(0))
+	require.True(t, SelfAssignSafe(Default))
+	for _, p := range []Perms{Admin, ManageMessages, ManageRoles, ManageChannels, ManageServer, ManageExpressions,
+		ManageWebhooks, Kick, Ban, MuteMembers, MoveMembers, MentionEveryone, MentionRoles} {
+		require.False(t, SelfAssignSafe(ViewChannel|p), p)
+	}
 }

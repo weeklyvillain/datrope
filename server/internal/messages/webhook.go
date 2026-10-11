@@ -181,15 +181,19 @@ func (e WebhookEmbed) visible() bool {
 type storedImage struct{ sum, contentType string }
 
 // PostWebhook stores and publishes a webhook's message. @everyone and @here
-// never mention anyone, not even users with those names; other user mentions
-// work as in any message.
+// never mention anyone, not even users with those names; other user mentions,
+// and mentionable roles work as in any message.
 func (s *Service) PostWebhook(ctx context.Context, p WebhookPost) (*Message, error) {
 	names := slices.DeleteFunc(parseMentions(p.Content), func(n string) bool { return n == "everyone" || n == "here" })
 	mentions, err := s.resolveMentions(ctx, names)
 	if err != nil {
 		return nil, err
 	}
-	m := &Message{ID: id.New(), ChannelID: p.ChannelID, Content: p.Content, Mentions: mentions, Attachments: []files.Attachment{}}
+	roles, err := s.roleMentionIDs(ctx, p.ChannelID, p.Content, false, maxMentions-len(mentions))
+	if err != nil {
+		return nil, err
+	}
+	m := &Message{ID: id.New(), ChannelID: p.ChannelID, Content: p.Content, Mentions: mentions, MentionRoles: roles, Attachments: []files.Attachment{}}
 	m.CreatedAt = m.ID.Time()
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -256,9 +260,9 @@ func (s *Service) PostWebhook(ctx context.Context, p WebhookPost) (*Message, err
 		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO messages (id, channel_id, content, mentions, webhook_id, author_name, author_avatar_sha256, embeds)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		m.ID, m.ChannelID, m.Content, id.Int64s(mentions), p.WebhookID, name, avatar, embeds); err != nil {
+		INSERT INTO messages (id, channel_id, content, mentions, webhook_id, author_name, author_avatar_sha256, embeds, mention_roles)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		m.ID, m.ChannelID, m.Content, id.Int64s(mentions), p.WebhookID, name, avatar, embeds, id.Int64s(roles)); err != nil {
 		return nil, err
 	}
 	for sum, ct := range keep {

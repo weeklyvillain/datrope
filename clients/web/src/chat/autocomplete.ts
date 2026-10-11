@@ -1,3 +1,5 @@
+import type { Role } from "@datrope/core";
+
 export type Trigger = { kind: "emoji" | "mention" | "command"; query: string; start: number };
 
 const MENTION = /(?:^|[\s(])@([A-Za-z0-9_.-]{2,})$/;
@@ -30,4 +32,9 @@ export function rank<T extends { key: string }>(query: string, items: T[]): T[] 
     .sort((a, b) => Number(a.at > 0) - Number(b.at > 0) || a.item.key.length - b.item.key.length)
     .slice(0, 8)
     .map((x) => x.item);
+}
+
+/** Roles I may ping here, senior first: mentionable ones, or all but @everyone with MENTION_ROLES. */
+export function pingableRoles(roles: Role[], everyoneId: string, canPingAny: boolean): Role[] {
+  return roles.filter((r) => r.id !== everyoneId && (canPingAny || r.mentionable)).sort((a, b) => b.position - a.position);
 }
