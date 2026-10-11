@@ -50,8 +50,29 @@ export const toggleMaximizeWindow = () => getCurrentWindow().toggleMaximize();
 /** Goes through the shell's close request, which hides the window to the tray. */
 export const closeWindow = () => getCurrentWindow().close();
 
+/** A screen or window the user can share, as the shell lists it for the picker. */
+export interface ScreenSource {
+  id: string;
+  kind: "screen" | "window";
+  name: string;
+  /** A data: URL; missing when the source couldn't be drawn. */
+  thumbnail: string | null;
+}
+
+/** A server page wants to share: the shell has given this webview the whole window for the picker. */
+export interface ScreenPickRequest {
+  server: string;
+  sources: ScreenSource[];
+}
+
+/** The picker's answer: what to share, or null to cancel. */
+export const answerScreenPick = (id: string | null) => invoke<void>("screen_pick_done", { id });
+
 export const onRailState = (cb: (s: RailState) => void) => listenHere("rail_state", cb);
 export const onChromeRequest = (cb: (a: ChromeRequest) => void) => listenHere("chrome_request", cb);
+export const onScreenPick = (cb: (r: ScreenPickRequest) => void) => listenHere("screen_pick", cb);
+/** The request ended without this picker (the page reloaded or asked again): close it. */
+export const onScreenPickClosed = (cb: () => void) => listenHere("screen_pick_closed", cb);
 
 /** Listens to an event the shell sends to this webview; returns the unsubscribe for an effect cleanup. */
 function listenHere<T>(event: string, cb: (payload: T) => void): () => void {

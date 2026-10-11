@@ -15,6 +15,7 @@ function fake() {
       handlers.set(event, cb as (p: unknown) => void);
       return () => handlers.delete(event);
     },
+    channel: async (cb) => cb,
   };
   return { t, calls, handlers, failWith: (e: string | undefined) => (fail = e) };
 }
@@ -58,6 +59,17 @@ describe("Desktop", () => {
     f.failWith("HotKey already registered");
     expect(await d.setPttKey("F9")).toBe("HotKey already registered");
     expect(f.calls).toContainEqual(["desktop_ptt_set_key", { key: "F9" }]);
+  });
+
+  it("asks the shell's picker for a screen and passes the frame channel", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    const onFrame = vi.fn();
+    await d.pickScreen(30, onFrame);
+    d.stopScreen();
+    await tick();
+    expect(f.calls).toContainEqual(["desktop_screen_pick", { fps: 30, frames: onFrame }]);
+    expect(f.calls).toContainEqual(["desktop_screen_stop", undefined]);
   });
 
   it("stops listening even if unsubscribed before listen resolves", async () => {

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::ipc::Channel;
-use tauri::webview::{NewWindowResponse, WebviewBuilder};
+use tauri::webview::{NewWindowResponse, PermissionKind, PermissionResponse, WebviewBuilder};
 use tauri::{
     AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Url, WebviewUrl, Window,
 };
@@ -424,6 +424,8 @@ pub const SERVER_PERMISSIONS: &[&str] = &[
     "allow-desktop-voice-state",
     "allow-desktop-ptt-set-key",
     "allow-desktop-server-info",
+    "allow-desktop-screen-pick",
+    "allow-desktop-screen-stop",
 ];
 
 fn add_server_capability(app: &AppHandle, label: &str, origin: &str) -> tauri::Result<()> {
@@ -475,6 +477,7 @@ pub fn add_server_webview(app: &AppHandle, s: &Server) -> tauri::Result<()> {
     // The bundled app's origin (the offline page lives there): tauri://localhost in release, the dev server in dev.
     let app_origin = app_base(app).origin().ascii_serialization();
     let nav_origin = origin.clone();
+    let mic_origin = origin.clone();
     let mut b = WebviewBuilder::new(&label, WebviewUrl::External(url))
         .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
         .on_navigation(move |target| {
@@ -492,6 +495,14 @@ pub fn add_server_webview(app: &AppHandle, s: &Server) -> tauri::Result<()> {
         .on_new_window(|target, _features| {
             open_external(&target);
             NewWindowResponse::Deny
+        })
+        .on_permission_request(move |webview, kind| {
+            // Voice needs the microphone: the server's own pages get it without a prompt. Everything else asks.
+            if kind == PermissionKind::Microphone && mic_allowed(&mic_origin, webview.url().ok()) {
+                PermissionResponse::Allow
+            } else {
+                PermissionResponse::Default
+            }
         });
     if let Some(args) = server_browser_args() {
         b = b.additional_browser_args(args);
@@ -519,9 +530,15 @@ pub fn add_server_webview(app: &AppHandle, s: &Server) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Whether a page at `url` is the server at `origin` (not the bundled offline page or anything else).
+pub fn mic_allowed(origin: &str, url: Option<Url>) -> bool {
+    url.is_some_and(|u| u.origin().ascii_serialization() == origin)
+}
+
 /// A server webview started loading a new document: the old page can't report leaving its call any more (reload,
-/// sign-out, navigating away), so leave it on its behalf and free the push-to-talk key.
+/// sign-out, navigating away), so leave it on its behalf and free the push-to-talk key. Its screen share stops too.
 fn page_started(app: &AppHandle, label: &str) {
+    crate::screen::page_gone(app, label);
     let (updates, badge_changed) = app.state::<Shell>().0.lock().unwrap().page_reset(label);
     for update in &updates {
         if let Some(l) = &update.release {
@@ -889,6 +906,24 @@ mod tests {
         inner.page_reset("server-b");
         assert_eq!(inner.voice.in_call(), Some("server-a"));
         assert_eq!(inner.ptt.press(true), Some(("server-a".into(), true)));
+    }
+
+    #[test]
+    fn only_the_server_itself_gets_the_microphone() {
+        let origin = "https://chat.example.com";
+        assert!(mic_allowed(
+            origin,
+            "https://chat.example.com/channels/1".parse().ok()
+        ));
+        assert!(!mic_allowed(
+            origin,
+            "https://evil.example.com/".parse().ok()
+        ));
+        assert!(!mic_allowed(
+            origin,
+            "http://tauri.localhost/offline.html".parse().ok()
+        ));
+        assert!(!mic_allowed(origin, None));
     }
 
     #[test]

@@ -6,6 +6,8 @@
 export interface DesktopTransport {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   listen<T>(event: string, cb: (payload: T) => void): Promise<() => void>;
+  /** A channel to pass to a command, which then sends its messages to `cb`. */
+  channel<T>(cb: (message: T) => void): Promise<unknown>;
 }
 
 export class Desktop {
@@ -53,6 +55,19 @@ export class Desktop {
 
   setServerInfo(name: string, icon?: string) {
     void this.t.invoke("desktop_server_info", { name, icon: icon ?? null }).catch(() => undefined);
+  }
+
+  /**
+   * Opens the app's screen picker and, once the user picks, starts capturing at up to `fps`. Resolves to the
+   * capture's generation (frame messages and the shared buffer carry it), or null if the user cancelled.
+   */
+  async pickScreen<T>(fps: number, onFrame: (message: T) => void): Promise<number | null> {
+    const frames = await this.t.channel(onFrame);
+    return this.t.invoke<number | null>("desktop_screen_pick", { fps, frames });
+  }
+
+  stopScreen() {
+    void this.t.invoke("desktop_screen_stop").catch(() => undefined);
   }
 
   on<T>(event: "ptt" | "leave_voice" | "open_notification" | "visible", cb: (payload: T) => void): () => void {
@@ -104,6 +119,7 @@ function tauriTransport(): DesktopTransport {
       );
       return subscribed.then(() => stop);
     },
+    channel: (cb) => import("@tauri-apps/api/core").then((m) => new m.Channel(cb)),
   };
 }
 

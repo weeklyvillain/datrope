@@ -33,3 +33,11 @@ reqwest = { version = "0.13", features = ["json"] }
 
 [target.'cfg(windows)'.dependencies]
 tauri-winrt-notification = "0.8"
+# Screen share: our own picker (xcap for the list and thumbnails), Windows Graphics Capture for the frames, and a
+# WebView2 shared buffer to hand them to the page. webview2-com must match the version wry uses.
+windows-capture = "2.0.1"
+xcap = { version = "0.9.8", default-features = false }
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+base64 = "0.22"
+webview2-com = "0.39"
+windows = "0.62"

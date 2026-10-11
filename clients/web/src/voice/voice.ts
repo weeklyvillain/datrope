@@ -11,6 +11,7 @@ import { play } from "../sounds";
 import { audioPrefs, captureOptions } from "./audio-prefs";
 import { CallAudio } from "./call-audio";
 import { applyPrefs, watchPrefs } from "./mixer";
+import { captureNativeScreen, nativeScreenAvailable, nativeScreenSize } from "./native-screen";
 import { canPickOutput } from "./output";
 import { UNKNOWN, watchQuality, type Quality } from "./stats";
 import { encoding, type StreamSettings } from "./stream-prefs";
@@ -330,6 +331,13 @@ class Voice {
    */
   private async capture(s: StreamSettings) {
     const e = encoding(s);
+    if (nativeScreenAvailable()) {
+      // The desktop app's own picker; it captures no audio yet.
+      const video = await captureNativeScreen(e.fps);
+      if (!video) return undefined;
+      video.contentHint = e.contentHint;
+      return { video, audio: undefined };
+    }
     try {
       const media = await navigator.mediaDevices.getDisplayMedia({
         audio: s.audio,
@@ -356,7 +364,9 @@ class Voice {
     pub.options = { ...pub.options, videoEncoding, degradationPreference: e.degradationPreference };
     track.publishOptions = { ...track.publishOptions, videoEncoding, degradationPreference: e.degradationPreference };
     const mst = track.mediaStreamTrack;
-    await mst.applyConstraints({ width: { max: e.width }, height: { max: e.height }, frameRate: { ideal: e.fps, max: e.fps } });
+    // A native capture comes at the source's full size and can't be constrained: the encoder scales it down instead.
+    const native = nativeScreenSize(mst);
+    if (!native) await mst.applyConstraints({ width: { max: e.width }, height: { max: e.height }, frameRate: { ideal: e.fps, max: e.fps } });
     mst.contentHint = e.contentHint;
     const sender = track.sender;
     if (sender) {
@@ -364,7 +374,8 @@ class Voice {
       for (const enc of params.encodings) {
         enc.maxBitrate = e.maxBitrate;
         enc.maxFramerate = e.fps;
-        enc.scaleResolutionDownBy = 1; // the capture is already the chosen size
+        // A browser capture is already the chosen size.
+        enc.scaleResolutionDownBy = native ? Math.max(1, native.width / e.width, native.height / e.height) : 1;
       }
       await sender.setParameters(params);
     }

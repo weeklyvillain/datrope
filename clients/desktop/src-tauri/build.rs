@@ -9,6 +9,7 @@ fn main() {
         "chrome_mode",
         "chrome_request",
         "update_restart",
+        "screen_pick_done",
         // offline page
         "server_retry",
         // server pages
@@ -18,6 +19,8 @@ fn main() {
         "desktop_voice_state",
         "desktop_ptt_set_key",
         "desktop_server_info",
+        "desktop_screen_pick",
+        "desktop_screen_stop",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { nativeScreenAvailable } from "../../voice/native-screen";
 import { saveStreamPrefs, streamPrefs } from "../../voice/stream-prefs";
 import { voice } from "../../voice/voice";
 import { StreamFields } from "./StreamFields";
 
-/** Picks how to stream; the browser's own picker then chooses what. */
+/** Picks how to stream; the browser's (or the desktop app's) picker then chooses what. */
 export function GoLiveDialog({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState(() => streamPrefs.getState());
   return (
@@ -13,7 +14,9 @@ export function GoLiveDialog({ onClose }: { onClose: () => void }) {
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Go Live</DialogTitle>
-          <DialogDescription>Your browser asks what to share next.</DialogDescription>
+          <DialogDescription>
+            {nativeScreenAvailable() ? "Pick a screen or window next." : "Your browser asks what to share next."}
+          </DialogDescription>
         </DialogHeader>
         <StreamFields value={settings} onChange={setSettings} />
         <DialogFooter>

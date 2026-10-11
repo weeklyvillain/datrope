@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-screen-stop"
+description = "Enables the desktop_screen_stop command without any pre-configured scope."
+commands.allow = ["desktop_screen_stop"]
+
+[[permission]]
+identifier = "deny-desktop-screen-stop"
+description = "Denies the desktop_screen_stop command without any pre-configured scope."
+commands.deny = ["desktop_screen_stop"]

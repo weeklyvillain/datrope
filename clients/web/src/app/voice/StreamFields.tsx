@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import { nativeScreenAvailable } from "../../voice/native-screen";
 import { withMode, type StreamMode, type StreamSettings } from "../../voice/stream-prefs";
 
 const MODES: { value: StreamMode; label: string; hint: string; icon: typeof Gamepad2 }[] = [
@@ -48,10 +49,13 @@ export function StreamFields({ value, onChange }: { value: StreamSettings; onCha
           <ToggleGroupItem value="60">60 fps</ToggleGroupItem>
         </ToggleGroup>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <Label htmlFor={`${id}-audio`}>Share audio</Label>
-        <Switch id={`${id}-audio`} checked={value.audio} onCheckedChange={(audio) => onChange({ ...value, audio })} />
-      </div>
+      {/* The desktop app's own capture has no audio yet. */}
+      {!nativeScreenAvailable() && (
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={`${id}-audio`}>Share audio</Label>
+          <Switch id={`${id}-audio`} checked={value.audio} onCheckedChange={(audio) => onChange({ ...value, audio })} />
+        </div>
+      )}
     </div>
   );
 }

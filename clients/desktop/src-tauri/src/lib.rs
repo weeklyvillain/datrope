@@ -1,6 +1,7 @@
 mod commands;
 mod notify;
 mod ptt;
+mod screen;
 mod servers;
 mod shell;
 mod state;
@@ -45,6 +46,7 @@ pub fn run() {
                 shell::purge_orphan_data(&data_root, &store);
             }
             app.manage(Shell(Mutex::new(Inner::new(store, path, data_root))));
+            app.manage(screen::Screen::default());
             let hidden = std::env::args().any(|a| a == "--hidden");
             shell::create_main_window(app.handle(), hidden)?;
             tray::build(app.handle())?;
@@ -78,6 +80,9 @@ pub fn run() {
             commands::desktop_ptt_set_key,
             commands::desktop_server_info,
             commands::update_restart,
+            commands::desktop_screen_pick,
+            commands::desktop_screen_stop,
+            commands::screen_pick_done,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Datrope")

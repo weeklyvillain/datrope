@@ -106,6 +106,7 @@ pub fn server_remove(app: AppHandle, webview: Webview, id: String) -> Result<(),
         inner.limiter.forget(&id);
         inner.voice.forget(&label);
         inner.channels.remove(&label);
+        crate::screen::page_gone(&app, &label);
         unregister_key = inner.ptt.set(&label, None).unregister;
         if inner.selected.as_deref() == Some(id.as_str()) {
             inner.selected = inner.store.servers.first().map(|s| s.id.clone());
@@ -437,6 +438,79 @@ pub fn desktop_server_info(
     if changed {
         shell::emit_rail_state(&app);
     }
+    Ok(())
+}
+
+/// A server page wants to share its screen. The shell's own picker, in the chrome over the whole window, chooses
+/// what (the page never sees the list). Resolves to the capture's generation, or none if the user cancelled; the
+/// frames then arrive on `frames` and in the shared buffer posted to the page.
+#[tauri::command]
+pub async fn desktop_screen_pick(
+    app: AppHandle,
+    webview: Webview,
+    fps: u32,
+    frames: Channel<serde_json::Value>,
+) -> Result<Option<u64>, String> {
+    let id = caller(&webview)?;
+    if !cfg!(windows) {
+        return Err("Screen share from the app is only on Windows so far.".into());
+    }
+    let label = webview.label().to_string();
+    let sources = tauri::async_runtime::spawn_blocking(crate::screen::sources)
+        .await
+        .map_err(|e| e.to_string())?;
+    if sources.is_empty() {
+        return Err("There is nothing to share.".into());
+    }
+    let server = app
+        .state::<Shell>()
+        .0
+        .lock()
+        .unwrap()
+        .store
+        .get(&id)
+        .map(|s| s.name.clone())
+        .unwrap_or_default();
+    let mut answer =
+        crate::screen::open_pick(&app, &label, sources.iter().map(|s| s.id.clone()).collect());
+    shell::set_mode(&app, ChromeMode::Full, false).map_err(|e| e.to_string())?;
+    if let Some(rail) = app.get_webview(RAIL) {
+        let _ = rail.set_focus();
+    }
+    let _ = app.emit_to(
+        EventTarget::webview(RAIL),
+        "screen_pick",
+        crate::screen::PickRequest { server, sources },
+    );
+    let chosen = answer.recv().await.flatten();
+    // Back to the page, unless a newer request has the picker open.
+    if !crate::screen::picking(&app) {
+        let _ = app.emit_to(EventTarget::webview(RAIL), "screen_pick_closed", ());
+        let _ = shell::set_mode(&app, ChromeMode::Closed, false);
+    }
+    let Some(source) = chosen else {
+        return Ok(None);
+    };
+    crate::screen::start(&app, &label, &source, fps, frames).map(Some)
+}
+
+/// The picker's answer: a source id it was offered, or none for cancel.
+#[tauri::command]
+pub fn screen_pick_done(
+    app: AppHandle,
+    webview: Webview,
+    id: Option<String>,
+) -> Result<(), String> {
+    only_rail(&webview)?;
+    crate::screen::answer_pick(&app, id);
+    Ok(())
+}
+
+/// The page stopped sharing (or the shared window closed and the page noticed).
+#[tauri::command]
+pub fn desktop_screen_stop(app: AppHandle, webview: Webview) -> Result<(), String> {
+    caller(&webview)?;
+    crate::screen::stop_for(&app, webview.label());
     Ok(())
 }
 
