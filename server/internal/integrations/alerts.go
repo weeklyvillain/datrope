@@ -17,19 +17,22 @@ import (
 	"github.com/datrope/datrope/server/internal/perms"
 )
 
-// StreamAlert: a channel follows a Twitch streamer or a YouTube channel.
+// StreamAlert: a channel follows a Twitch streamer, a YouTube channel or an RSS/Atom feed.
 type StreamAlert struct {
 	ID          id.ID  `json:"id"`
 	ChannelID   id.ID  `json:"channel_id"`
-	Platform    string `json:"platform" enum:"twitch,youtube"`
-	Account     string `json:"account" doc:"A Twitch login or a YouTube channel ID"`
+	Platform    string `json:"platform" enum:"twitch,youtube,rss"`
+	Account     string `json:"account" doc:"A Twitch login, a YouTube channel ID or a feed URL"`
 	DisplayName string `json:"display_name"`
 	URL         string `json:"url"`
+	TitleFilter string `json:"title_filter" doc:"RSS: only entries whose title contains this are posted (empty: all)"`
 }
 
 type CreateAlertRequest struct {
-	Platform string `json:"platform" enum:"twitch,youtube"`
-	Account  string `json:"account" minLength:"1" maxLength:"200" doc:"Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID"`
+	Platform    string `json:"platform" enum:"twitch,youtube,rss"`
+	Account     string `json:"account" minLength:"1" maxLength:"200" doc:"Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID. RSS: the feed URL"`
+	Name        string `json:"name,omitempty" maxLength:"100" doc:"RSS: the name messages are posted under (default: the feed's title)"`
+	TitleFilter string `json:"title_filter,omitempty" maxLength:"100" doc:"RSS: post only entries whose title contains this, in any case"`
 }
 
 const maxAlertsPerChannel = 20
@@ -56,8 +59,11 @@ func escapeMarkdown(s string) string {
 }
 
 func alertURL(platform, account string) string {
-	if platform == "twitch" {
+	switch platform {
+	case "twitch":
 		return "https://www.twitch.tv/" + account
+	case "rss":
+		return account
 	}
 	return "https://www.youtube.com/channel/" + account
 }
@@ -93,13 +99,13 @@ func (s *Service) alertChannel(ctx context.Context, raw string) (*channels.Chann
 }
 
 func (s *Service) listAlerts(ctx context.Context, channelID id.ID) ([]StreamAlert, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, channel_id, platform, account, display_name FROM stream_alerts WHERE channel_id = $1 ORDER BY id`, channelID)
+	rows, err := s.db.Query(ctx, `SELECT id, channel_id, platform, account, display_name, title_filter FROM stream_alerts WHERE channel_id = $1 ORDER BY id`, channelID)
 	if err != nil {
 		return nil, err
 	}
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (StreamAlert, error) {
 		var a StreamAlert
-		err := r.Scan(&a.ID, &a.ChannelID, &a.Platform, &a.Account, &a.DisplayName)
+		err := r.Scan(&a.ID, &a.ChannelID, &a.Platform, &a.Account, &a.DisplayName, &a.TitleFilter)
 		a.URL = alertURL(a.Platform, a.Account)
 		return a, err
 	})
@@ -150,6 +156,20 @@ func registerAlerts(api huma.API, s *Service, op func(string, string, string, in
 					return nil, errBadAccount("that Twitch user was not found")
 				}
 				a.Account, a.DisplayName = strings.ToLower(users[0].Login), users[0].DisplayName
+			case "rss":
+				u, ok := feedURLOf(in.Body.Account)
+				if !ok {
+					return nil, errBadAccount("use a feed URL starting with https://")
+				}
+				f, err := s.fetchFeed(ctx, u)
+				if err != nil {
+					return nil, errBadAccount("that URL is not an RSS or Atom feed")
+				}
+				a.Account, a.DisplayName = u, feedName(in.Body.Name, f.Title, u)
+				a.TitleFilter = strings.TrimSpace(in.Body.TitleFilter)
+				if len(f.Entries) > 0 {
+					last = f.Entries[0].ID // only entries after now are posted
+				}
 			default:
 				channelID, name, err := s.resolveYouTube(ctx, in.Body.Account)
 				if err != nil {
@@ -169,9 +189,9 @@ func registerAlerts(api huma.API, s *Service, op func(string, string, string, in
 				return nil, httpx.BadRequest("ALERT_LIMIT", "a channel can follow at most 20 streamers and channels")
 			}
 			tag, err := s.db.Exec(ctx, `
-				INSERT INTO stream_alerts (id, channel_id, platform, account, display_name, created_by, last_item)
-				VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
-				a.ID, ch.ID, a.Platform, a.Account, a.DisplayName, auth.Current(ctx).User.ID, last)
+				INSERT INTO stream_alerts (id, channel_id, platform, account, display_name, created_by, last_item, title_filter)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
+				a.ID, ch.ID, a.Platform, a.Account, a.DisplayName, auth.Current(ctx).User.ID, last, a.TitleFilter)
 			if err != nil {
 				return nil, err
 			}

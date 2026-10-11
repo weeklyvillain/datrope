@@ -1694,10 +1694,14 @@ export interface components {
             title: string;
         };
         CreateAlertRequest: {
-            /** @description Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID */
+            /** @description Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID. RSS: the feed URL */
             account: string;
+            /** @description RSS: the name messages are posted under (default: the feed's title) */
+            name?: string;
             /** @enum {string} */
-            platform: "twitch" | "youtube";
+            platform: "twitch" | "youtube" | "rss";
+            /** @description RSS: post only entries whose title contains this, in any case */
+            title_filter?: string;
         };
         CreateChannelRequest: {
             /** @description Snowflake ID as a decimal string */
@@ -2643,7 +2647,7 @@ export interface components {
             user_id: string;
         };
         StreamAlert: {
-            /** @description A Twitch login or a YouTube channel ID */
+            /** @description A Twitch login, a YouTube channel ID or a feed URL */
             account: string;
             /** @description Snowflake ID as a decimal string */
             channel_id: string;
@@ -2651,7 +2655,9 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             id: string;
             /** @enum {string} */
-            platform: "twitch" | "youtube";
+            platform: "twitch" | "youtube" | "rss";
+            /** @description RSS: only entries whose title contains this are posted (empty: all) */
+            title_filter: string;
             url: string;
         };
         SystemSample: {

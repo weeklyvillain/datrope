@@ -616,16 +616,27 @@
         "additionalProperties": false,
         "properties": {
           "account": {
-            "description": "Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID",
+            "description": "Twitch: a username or channel link. YouTube: a channel link, @handle or channel ID. RSS: the feed URL",
             "maxLength": 200,
             "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "description": "RSS: the name messages are posted under (default: the feed's title)",
+            "maxLength": 100,
             "type": "string"
           },
           "platform": {
             "enum": [
               "twitch",
-              "youtube"
+              "youtube",
+              "rss"
             ],
+            "type": "string"
+          },
+          "title_filter": {
+            "description": "RSS: post only entries whose title contains this, in any case",
+            "maxLength": 100,
             "type": "string"
           }
         },
@@ -3633,7 +3644,7 @@
         "additionalProperties": false,
         "properties": {
           "account": {
-            "description": "A Twitch login or a YouTube channel ID",
+            "description": "A Twitch login, a YouTube channel ID or a feed URL",
             "type": "string"
           },
           "channel_id": {
@@ -3652,8 +3663,13 @@
           "platform": {
             "enum": [
               "twitch",
-              "youtube"
+              "youtube",
+              "rss"
             ],
+            "type": "string"
+          },
+          "title_filter": {
+            "description": "RSS: only entries whose title contains this are posted (empty: all)",
             "type": "string"
           },
           "url": {
@@ -3666,7 +3682,8 @@
           "platform",
           "account",
           "display_name",
-          "url"
+          "url",
+          "title_filter"
         ],
         "type": "object"
       },

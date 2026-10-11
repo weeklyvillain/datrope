@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -19,17 +20,22 @@ import (
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/id"
+	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/perms"
 )
 
-// Endpoints are the services' base URLs; tests point them at fakes.
+// Endpoints are the services' base URLs, and which addresses feed URLs may
+// reach; tests point them at fakes.
 type Endpoints struct {
 	TwitchAuth  string
 	TwitchAPI   string
 	YouTube     string
 	SpotifyAuth string
 	SpotifyAPI  string
+	// FeedAllow decides which addresses a feed URL may dial. Nil means
+	// public addresses only; tests allow loopback.
+	FeedAllow func(net.IP) bool
 }
 
 // DefaultEndpoints are the real services.
@@ -87,7 +93,8 @@ type Service struct {
 	ep        Endpoints
 	publicURL string
 	http      *http.Client
-	app       appToken // Spotify's, for the music bot's catalog lookups
+	feeds     *http.Client // for feed URLs people supply: refuses private addresses
+	app       appToken     // Spotify's, for the music bot's catalog lookups
 
 	mu         sync.Mutex
 	activities map[id.ID]Activity
@@ -102,15 +109,20 @@ type Service struct {
 }
 
 func NewService(pool *pgxpool.Pool, bus *events.Bus, ch Channels, poster Poster, publicURL string, ep Endpoints) *Service {
+	allow := ep.FeedAllow
+	if allow == nil {
+		allow = linkpreview.Public
+	}
 	return &Service{
 		db: pool, bus: bus, channels: ch, poster: poster, ep: ep.withDefaults(), publicURL: publicURL,
 		http:       &http.Client{Timeout: 15 * time.Second},
+		feeds:      linkpreview.NewClient(allow, 15*time.Second),
 		activities: map[id.ID]Activity{}, states: map[string]oauthState{}, stop: make(chan struct{}),
 	}
 }
 
 // pollEvery is the base tick: Spotify every tick, Twitch every second,
-// YouTube every tenth.
+// YouTube every tenth, feeds every twentieth (10 minutes).
 const pollEvery = 30 * time.Second
 
 // Start runs the poll loop until Close.
@@ -158,6 +170,9 @@ func (s *Service) Poll(ctx context.Context) error {
 	}
 	if tick%10 == 0 {
 		note("youtube", s.pollYouTube(ctx))
+	}
+	if tick%20 == 0 {
+		note("feeds", s.pollFeeds(ctx))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
