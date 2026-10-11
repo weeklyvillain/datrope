@@ -483,6 +483,50 @@
         ],
         "type": "object"
       },
+      "ContainerInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "cpu_percent": {
+            "description": "100 = one core",
+            "format": "double",
+            "type": "number"
+          },
+          "mem_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mem_limit": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "state": {
+            "description": "running, exited, restarting, ...",
+            "type": "string"
+          },
+          "status": {
+            "description": "Docker's description, e.g. Up 3 hours (healthy)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "name",
+          "state",
+          "status",
+          "cpu_percent",
+          "mem_bytes",
+          "mem_limit"
+        ],
+        "type": "object"
+      },
       "Create-categoryRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1019,6 +1063,76 @@
         ],
         "type": "object"
       },
+      "GitCommit": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "date": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "subject",
+          "author",
+          "date"
+        ],
+        "type": "object"
+      },
+      "GitStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "behind": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "checked_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "commits": {
+            "description": "Newest first, at most 100",
+            "items": {
+              "$ref": "#/components/schemas/GitCommit"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "current": {
+            "description": "The commit the checkout is at",
+            "type": "string"
+          },
+          "deployed": {
+            "description": "The commit the running containers were built from, if known",
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "latest": {
+            "description": "origin/main at the last check",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "latest",
+          "behind",
+          "commits"
+        ],
+        "type": "object"
+      },
       "GuestJoinRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1058,6 +1172,49 @@
         },
         "required": [
           "heartbeat_interval"
+        ],
+        "type": "object"
+      },
+      "HostStats": {
+        "additionalProperties": false,
+        "properties": {
+          "database_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "files_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "host_uptime_seconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "latest": {
+            "$ref": "#/components/schemas/SystemSample"
+          },
+          "process_uptime_seconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "series": {
+            "description": "Oldest first, every 5 s, up to 10 minutes",
+            "items": {
+              "$ref": "#/components/schemas/SystemSample"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "latest",
+          "series",
+          "host_uptime_seconds",
+          "process_uptime_seconds",
+          "database_bytes",
+          "files_bytes"
         ],
         "type": "object"
       },
@@ -3143,6 +3300,25 @@
         ],
         "type": "object"
       },
+      "ServerUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "configured": {
+            "description": "DATROPE_UPDATER_TOKEN is set",
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GitStatus"
+          }
+        },
+        "required": [
+          "configured"
+        ],
+        "type": "object"
+      },
       "ServerWithRoles": {
         "additionalProperties": false,
         "properties": {
@@ -3494,6 +3670,105 @@
         ],
         "type": "object"
       },
+      "SystemSample": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "connections": {
+            "description": "Open gateway WebSockets",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cpu_percent": {
+            "format": "double",
+            "type": "number"
+          },
+          "disk_total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "disk_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "in_voice": {
+            "description": "People in voice channels",
+            "format": "int64",
+            "type": "integer"
+          },
+          "mem_total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mem_used": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at",
+          "cpu_percent",
+          "mem_used",
+          "mem_total",
+          "disk_used",
+          "disk_total",
+          "connections",
+          "in_voice"
+        ],
+        "type": "object"
+      },
+      "SystemStats": {
+        "additionalProperties": false,
+        "properties": {
+          "containers": {
+            "items": {
+              "$ref": "#/components/schemas/ContainerInfo"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "host": {
+            "$ref": "#/components/schemas/HostStats"
+          },
+          "updater_configured": {
+            "type": "boolean"
+          },
+          "updater_error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "containers",
+          "updater_configured"
+        ],
+        "type": "object"
+      },
+      "SystemUpdates": {
+        "additionalProperties": false,
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerUpdate"
+          },
+          "ytdlp": {
+            "$ref": "#/components/schemas/YtDlpStatus"
+          }
+        },
+        "required": [
+          "server",
+          "ytdlp"
+        ],
+        "type": "object"
+      },
       "ThreadListItem": {
         "additionalProperties": false,
         "properties": {
@@ -3673,6 +3948,67 @@
         ],
         "type": "object"
       },
+      "UpdateJob": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "started_at"
+        ],
+        "type": "object"
+      },
+      "UpdateJobLog": {
+        "additionalProperties": false,
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/UpdateJob"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next": {
+            "description": "Pass as after to get the lines that follow",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job",
+          "lines",
+          "next"
+        ],
+        "type": "object"
+      },
       "UpdateMeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3840,6 +4176,18 @@
             "description": "Twitch app credentials (stream alerts, Twitch connections)"
           }
         },
+        "type": "object"
+      },
+      "UpdateStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
         "type": "object"
       },
       "UpdateWelcomeRequest": {
@@ -4197,6 +4545,40 @@
           "rules_gate"
         ],
         "type": "object"
+      },
+      "YtDlpStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "description": "The server has a yt-dlp binary",
+            "type": "boolean"
+          },
+          "checked_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "error": {
+            "description": "The last check or update failure",
+            "type": "string"
+          },
+          "installed": {
+            "type": "string"
+          },
+          "latest": {
+            "type": "string"
+          },
+          "pinned": {
+            "description": "DATROPE_YTDLP names the binary; it is not updated here",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available",
+          "installed",
+          "latest",
+          "pinned"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -4265,6 +4647,276 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Settings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/containers/{service}/restart": {
+      "post": {
+        "operationId": "admin-system-restart",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{0,62}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/jobs/{id}": {
+      "get": {
+        "operationId": "admin-system-job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9]{1,20}$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateJobLog"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/stats": {
+      "get": {
+        "operationId": "admin-system-stats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/updates": {
+      "get": {
+        "operationId": "admin-system-updates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemUpdates"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/updates/check": {
+      "post": {
+        "operationId": "admin-system-check-updates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemUpdates"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/updates/server": {
+      "post": {
+        "operationId": "admin-system-update-server",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStarted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/system/updates/ytdlp": {
+      "post": {
+        "operationId": "admin-system-update-ytdlp",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YtDlpStatus"
                 }
               }
             },

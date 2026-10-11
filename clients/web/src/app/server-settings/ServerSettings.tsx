@@ -1,6 +1,6 @@
 import { Perm, hasPerm, type State, type User } from "@datrope/core";
 import {
-  ArrowLeft, Ban, BookOpen, Database, Hash, Palette, Plug, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
+  Activity, ArrowLeft, Ban, BookOpen, Database, Hash, Palette, Plug, RefreshCw, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
@@ -19,8 +19,12 @@ import { Overview } from "./Overview";
 import { Roles } from "./Roles";
 import { SignUps } from "./SignUps";
 import { Soundboard } from "./Soundboard";
+import { System } from "./System";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Updates } from "./Updates";
 import { Uploads } from "./Uploads";
+import { useUpdateCount } from "./use-update-count";
 
 type Group = "Server" | "People" | "Expressions" | "Instance";
 
@@ -62,6 +66,8 @@ export const sections: SettingsSection[] = [
   { id: "sign-ups", label: "Sign-ups", group: "Instance", icon: UserPlus, visible: admin, element: <SignUps /> },
   { id: "uploads", label: "Uploads and voice", group: "Instance", icon: Database, visible: admin, element: <Uploads /> },
   { id: "integrations", label: "Integrations", group: "Instance", icon: Plug, visible: admin, element: <Integrations /> },
+  { id: "system", label: "System", group: "Instance", icon: Activity, visible: admin, element: <System /> },
+  { id: "updates", label: "Updates", group: "Instance", icon: RefreshCw, visible: admin, element: <Updates /> },
 ];
 
 const GROUPS: Group[] = ["Server", "People", "Expressions", "Instance"];
@@ -72,6 +78,7 @@ export function ServerSettings() {
   const { section } = useParams();
   const perms = usePerms();
   const me = useApp((s) => s.me);
+  const updateCount = useUpdateCount(!!me?.is_admin);
   const name = useApp((s) => s.server?.server.name);
   const links = useApp(useShallow((s) => sections.map((x) => x.to?.(s))));
   const nav = useNavigate();
@@ -136,6 +143,7 @@ export function ServerSettings() {
                     <Link key={s.id} to={to} state={s.to ? { edit: true } : undefined} aria-current={active ? "page" : undefined}
                       className={cn(NAV, "hover:bg-accent hover:text-foreground max-md:flex-none max-md:whitespace-nowrap", active && "bg-accent text-foreground")}>
                       {body}
+                      {s.id === "updates" && updateCount > 0 && <Badge className="ml-auto">{updateCount}<span className="sr-only"> updates available</span></Badge>}
                     </Link>
                   );
                 })}

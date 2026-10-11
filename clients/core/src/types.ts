@@ -118,3 +118,13 @@ export interface EventMap {
   MUSIC_PLAYLIST_UPDATE: Schemas["MusicPlaylist"];
   MUSIC_PLAYLIST_DELETE: Schemas["PlaylistDeleted"];
 }
+
+export type SystemStats = Schemas["SystemStats"];
+export type SystemSample = Schemas["SystemSample"];
+export type HostStats = Schemas["HostStats"];
+export type ContainerInfo = Schemas["ContainerInfo"];
+export type SystemUpdates = Schemas["SystemUpdates"];
+export type YtDlpStatus = Schemas["YtDlpStatus"];
+export type GitStatus = Schemas["GitStatus"];
+export type GitCommit = Schemas["GitCommit"];
+export type UpdateJobLog = Schemas["UpdateJobLog"];

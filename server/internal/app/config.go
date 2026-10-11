@@ -30,6 +30,11 @@ type Config struct {
 	// Integrations are Twitch's, YouTube's and Spotify's base URLs; zero values are the real ones.
 	Integrations integrations.Endpoints
 	Music        music.Config // ffmpeg and yt-dlp; empty paths are looked up on PATH
+	// UpdaterURL and UpdaterToken reach the updater container (Server settings -> Updates).
+	// Without a token the dashboard cannot update or restart the server.
+	UpdaterURL   string
+	UpdaterToken string
+	GitHubAPI    string // GitHub's API base for yt-dlp releases; "" is the real one (tests point it at a fake)
 }
 
 // musicFromEnv reads the music bot's sources, cache and library size:
@@ -75,13 +80,18 @@ func ConfigFromEnv() (Config, error) {
 			APIKey:    os.Getenv("DATROPE_LIVEKIT_API_KEY"),
 			APISecret: os.Getenv("DATROPE_LIVEKIT_API_SECRET"),
 		},
-		Music: music.Config{FFmpeg: os.Getenv("DATROPE_FFMPEG"), YtDlp: os.Getenv("DATROPE_YTDLP")},
+		UpdaterURL:   strings.TrimSuffix(os.Getenv("DATROPE_UPDATER_URL"), "/"),
+		UpdaterToken: os.Getenv("DATROPE_UPDATER_TOKEN"),
+		Music:        music.Config{FFmpeg: os.Getenv("DATROPE_FFMPEG"), YtDlp: os.Getenv("DATROPE_YTDLP")},
 	}
 	if c.Addr == "" {
 		c.Addr = ":8080"
 	}
 	if c.DataDir == "" {
 		c.DataDir = "/data"
+	}
+	if c.UpdaterToken != "" && c.UpdaterURL == "" {
+		c.UpdaterURL = "http://updater:8090"
 	}
 	if err := c.musicFromEnv(); err != nil {
 		return c, err

@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -24,6 +26,7 @@ import (
 	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/system"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/webhooks"
 )
@@ -40,7 +43,8 @@ type App struct {
 	Communities *communities.Service
 	// Integrations polls Twitch, YouTube and Spotify; tests call Poll directly.
 	Integrations *integrations.Service
-	Music        *music.Service // nil when built without a database
+	Music        *music.Service   // nil when built without a database
+	Gateway      *gateway.Gateway // nil when built without a database
 	closers      []func()
 }
 
@@ -185,6 +189,9 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		a.Integrations = intSvc
 	}
 
+	ytPath, ytPinned := system.YtDlpBinary(cfg.Music.YtDlp, cfg.DataDir)
+	ytDlp := music.NewYtDlpPath(ytPath)
+	cfg.Music.YtDlpPath = ytDlp
 	musicSvc := music.NewService(pool, a.Bus, chanSvc, voiceSvc, cfg.LiveKit, cfg.Music)
 	musicSvc.SetCommunity(commSvc)
 	musicSvc.SetSpotify(intSvc)
@@ -198,8 +205,9 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	}
 
 	registerEventSchemas(api)
+	var gw *gateway.Gateway
 	if pool != nil { // nil only for `datrope openapi`
-		gw := gateway.New(gateway.Deps{
+		gw = gateway.New(gateway.Deps{
 			Auth:         authSvc,
 			Audience:     audience{communities: commSvc, channels: chanSvc},
 			Ready:        readyBuilder{communities: commSvc, channels: chanSvc, messages: msgSvc, voice: voiceSvc, expressions: exprSvc, integrations: intSvc},
@@ -208,7 +216,32 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		}, cfg.Gateway)
 		mux.Handle("GET /ws", gw)
 		commSvc.SetPresence(gw)
+		a.Gateway = gw
 		a.closers = append(a.closers, gw.Close)
+	}
+
+	sysDeps := system.Deps{
+		Sources: system.Sources{DataDir: cfg.DataDir, InVoice: voiceSvc.Participants},
+		YtDlp: system.YtDlpOptions{
+			Path: ytDlp, Managed: system.ManagedYtDlp(cfg.DataDir), Pinned: ytPinned, API: cfg.GitHubAPI,
+		},
+		UpdaterURL: cfg.UpdaterURL, UpdaterToken: cfg.UpdaterToken,
+	}
+	if runtime.GOOS == "linux" {
+		sysDeps.Sources.Proc = os.DirFS("/proc")
+	}
+	if pool != nil { // nil only for `datrope openapi`
+		sysDeps.Sources.Connections = gw.Connections
+		sysDeps.Sources.DatabaseSize = func(ctx context.Context) (n int64, err error) {
+			err = pool.QueryRow(ctx, "SELECT pg_database_size(current_database())").Scan(&n)
+			return n, err
+		}
+	}
+	sysSvc := system.NewService(sysDeps)
+	system.Register(api, sysSvc)
+	if pool != nil {
+		sysSvc.Start()
+		a.closers = append(a.closers, sysSvc.Close)
 	}
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

@@ -28,6 +28,8 @@ import (
 type Config struct {
 	FFmpeg string
 	YtDlp  string
+	// YtDlpPath, when set, is the yt-dlp to use (it may change at run time); YtDlp is then ignored.
+	YtDlpPath *YtDlpPath
 	// Sources are the yt-dlp extractors links may use; empty means DefaultSources.
 	Sources []string
 	// CacheDir keeps played links as Ogg Opus so they replay without yt-dlp;
@@ -139,8 +141,15 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus, ch Channels, v Voice, lk vo
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Service{db: pool, bus: bus, channels: ch, voice: v, lk: lk, players: map[id.ID]*player{}, ctx: ctx, cancel: cancel}
 	s.ffmpeg = lookPath(cfg.FFmpeg, "ffmpeg")
-	if yt := lookPath(cfg.YtDlp, "yt-dlp"); yt != "" {
-		s.resolver = ytDlp{path: yt, sources: cfg.Sources}
+	switch {
+	case cfg.YtDlpPath != nil:
+		if cfg.YtDlpPath.Get() != "" {
+			s.resolver = ytDlp{path: cfg.YtDlpPath, sources: cfg.Sources}
+		}
+	default:
+		if yt := lookPath(cfg.YtDlp, "yt-dlp"); yt != "" {
+			s.resolver = ytDlp{path: NewYtDlpPath(yt), sources: cfg.Sources}
+		}
 	}
 	if cfg.CacheDir != "" {
 		max := cfg.CacheBytes

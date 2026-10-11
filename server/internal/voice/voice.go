@@ -591,3 +591,10 @@ func (s *Service) States(channelIDs []id.ID) []VoiceState {
 	slices.SortFunc(out, func(a, b VoiceState) int { return cmp.Compare(a.UserID, b.UserID) })
 	return out
 }
+
+// Participants counts the people in voice channels.
+func (s *Service) Participants() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.users)
+}

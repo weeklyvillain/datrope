@@ -169,6 +169,19 @@ func (g *Gateway) StatusOf(userID id.ID) string {
 	return g.displayedLocked(userID)
 }
 
+// Connections counts sessions with an open WebSocket (not those waiting to be resumed).
+func (g *Gateway) Connections() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	n := 0
+	for _, s := range g.sessions {
+		if s.conn != nil {
+			n++
+		}
+	}
+	return n
+}
+
 var statusRank = map[string]int{StatusInvisible: 1, StatusIdle: 2, StatusOnline: 3}
 
 func (g *Gateway) displayedLocked(userID id.ID) string {

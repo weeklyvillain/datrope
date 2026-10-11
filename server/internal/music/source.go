@@ -79,7 +79,7 @@ func matchesGeneric(pattern string) bool {
 }
 
 type ytDlp struct {
-	path    string
+	path    *YtDlpPath
 	sources []string
 }
 
@@ -91,7 +91,7 @@ func (y ytDlp) args(extra ...string) []string {
 func (y ytDlp) run(ctx context.Context, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, y.path, y.args(args...)...)
+	cmd := exec.CommandContext(ctx, y.path.Get(), y.args(args...)...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

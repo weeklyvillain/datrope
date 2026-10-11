@@ -1,0 +1,11 @@
+# The root .dockerignore excludes server/ (the caddy image does not need it); this one needs it.
+.git
+.claude
+.serena
+.impeccable
+**/node_modules
+clients
+deploy/.env
+server/datrope
+server/datrope.exe
+**/*_test.go

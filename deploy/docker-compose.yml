@@ -28,6 +28,8 @@ services:
       DATROPE_LIVEKIT_API_KEY: datrope
       DATROPE_LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET in deploy/.env}
       DATROPE_IMGPROXY_URL: http://imgproxy:8080
+      DATROPE_UPDATER_URL: http://updater:8090
+      DATROPE_UPDATER_TOKEN: ${DATROPE_UPDATER_TOKEN:-}
     volumes:
       - files:/data
     depends_on:
@@ -80,8 +82,24 @@ services:
       server:
         condition: service_healthy
 
+  # Server settings → Updates: pulls this checkout, rebuilds and restarts the stack. It holds
+  # the Docker socket, which is root on this machine, so it publishes no ports and answers only
+  # requests with the token (only the server has it). Without DATROPE_UPDATER_TOKEN it idles.
+  updater:
+    build:
+      context: ..
+      dockerfile: deploy/updater.Dockerfile
+    restart: unless-stopped
+    environment:
+      DATROPE_UPDATER_TOKEN: ${DATROPE_UPDATER_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ..:/repo
+      - updater:/state
+
 volumes:
   postgres:
   files:
   caddy_data:
   caddy_config:
+  updater:

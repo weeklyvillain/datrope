@@ -907,3 +907,28 @@ test("members pick roles on the welcome page, which unlock channels and can be p
   await bob.getByRole("button", { name: "Inbox", exact: true }).click();
   await expect(bob.getByRole("dialog", { name: "Inbox" }).getByText("@Raiders")).toBeVisible();
 });
+
+// Runs after the first test: alice is the instance admin, bob a member.
+test("the instance admin sees the system dashboard and updates", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+  await openServerSettings(alice);
+  await alice.getByRole("link", { name: "System" }).click();
+  await expect(alice.getByRole("heading", { name: "Host" })).toBeVisible();
+  await expect(alice.getByRole("heading", { name: "Containers" })).toBeVisible();
+  await expect(alice.getByText("Uploaded files")).toBeVisible();
+  // The e2e stack leaves the updater out (profile "updater" in docker-compose.e2e.yml) and sets no token.
+  await expect(alice.getByText("DATROPE_UPDATER_TOKEN")).toBeVisible();
+
+  await alice.getByRole("link", { name: /^Updates/ }).click();
+  await expect(alice.getByRole("heading", { name: "Server" })).toBeVisible();
+  await expect(alice.getByRole("heading", { name: "yt-dlp" })).toBeVisible();
+
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+  await bob.goto("/server-settings/system");
+  // Wait for the settings shell to render for bob, so the negative checks cannot pass before it loads.
+  await expect(bob.getByRole("navigation", { name: "Server settings" })).toBeVisible();
+  await expect(bob.getByRole("link", { name: "System" })).toHaveCount(0);
+  await expect(bob.getByRole("heading", { name: "Host" })).toHaveCount(0);
+});

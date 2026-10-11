@@ -42,3 +42,19 @@ func TestConfigLiveKit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "wss://voice.example.com", c.LiveKit.PublicURL, "an explicit public URL wins")
 }
+
+func TestConfigUpdater(t *testing.T) {
+	t.Setenv("DATROPE_DATABASE_URL", "postgres://example")
+	t.Setenv("DATROPE_PUBLIC_URL", "https://chat.example.com")
+	t.Setenv("DATROPE_UPDATER_URL", "")
+	t.Setenv("DATROPE_UPDATER_TOKEN", "")
+	c, err := app.ConfigFromEnv()
+	require.NoError(t, err)
+	require.Empty(t, c.UpdaterURL)
+	require.Empty(t, c.UpdaterToken)
+
+	t.Setenv("DATROPE_UPDATER_TOKEN", "x")
+	c, err = app.ConfigFromEnv()
+	require.NoError(t, err)
+	require.Equal(t, "http://updater:8090", c.UpdaterURL, "the compose service name is the default")
+}

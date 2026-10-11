@@ -104,6 +104,36 @@ clients show them, as WebP when the browser supports it. The server keeps each r
 be made again, so backups may skip `variants/`. While imgproxy is down, the server serves the
 originals. To turn resizing off, remove `DATROPE_IMGPROXY_URL` from the server's environment.
 
+## System dashboard and updates
+
+Server settings → System shows the machine's CPU, memory and disk, the size of the database and
+files, and the containers, each with a restart button.
+
+Server settings → Updates shows how far the checkout is behind `main`. Updating runs
+`git pull --ff-only`, `docker compose build` and `docker compose up -d`, with a live log. The
+updater replaces itself last, through a short-lived helper container started from its own image
+(you may briefly see it in `docker ps`). Local changes or commits in the checkout make the pull
+fail, and then nothing changes. If the build fails, the old containers keep running; the page then
+shows the commit they run and offers to rebuild.
+
+The updater runs `docker compose` with the files and project directory the stack was started with
+(from compose's labels), so `docker-compose.override.yml` and extra `-f` files are used too, as long
+as they live inside the repo. Files outside it cannot be read from the updater's container: it logs
+a warning at startup and leaves them out.
+
+Updating from the browser needs a Linux host and an HTTPS git remote (the updater has no SSH
+keys). Docker Desktop on Windows or macOS is not supported for it.
+
+yt-dlp updates separately: it downloads the latest release to the data volume
+(`/data/bin/yt-dlp`), checked against its SHA2-256SUMS, and needs no restart. `DATROPE_YTDLP`
+pins a binary instead.
+
+Updates are off until `DATROPE_UPDATER_TOKEN` is set in `.env` (for example
+`openssl rand -hex 32`). The `updater` container holds the Docker socket, which is
+root-equivalent on this machine. It publishes no ports and accepts only requests carrying this token, which only the Datrope
+server has. Leave the token empty if you would rather update by hand; the System page and
+yt-dlp updates work either way.
+
 ## Backups
 
 Back up the database (this can run while the stack is up):

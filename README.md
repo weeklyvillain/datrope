@@ -82,6 +82,7 @@ so there is nothing to set up after installing.
 - Stream alerts: post a message when a YouTube channel uploads or a Twitch streamer goes live.
 - Twitch and Spotify connections: show when members are live or what they are listening to.
 - Works on phones: the web app adapts to small screens.
+- A system dashboard for the instance admin: CPU, memory, disk and container status, and one-click updates of the server and yt-dlp.
 
 ## Screenshots
 
@@ -120,6 +121,7 @@ You need a machine with **Docker** and **Docker Compose**, and a **domain** poin
    | `DATROPE_DOMAIN` | The domain people use, for example `chat.example.com`. Use `localhost` for a quick local try-out. |
    | `POSTGRES_PASSWORD` | A long random password, letters and digits only. |
    | `LIVEKIT_API_SECRET` | At least 32 letters and digits, for example the output of `openssl rand -hex 32`. |
+   | `DATROPE_UPDATER_TOKEN` | Optional. Turns on updates from the browser (see [deploy/README.md](deploy/README.md)). |
 
 3. Start everything:
 

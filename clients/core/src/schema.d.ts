@@ -20,6 +20,118 @@ export interface paths {
         patch: operations["admin-update-settings"];
         trace?: never;
     };
+    "/api/admin/system/containers/{service}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin-system-restart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin-system-job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin-system-stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin-system-updates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/updates/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin-system-check-updates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/updates/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin-system-update-server"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/system/updates/ytdlp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin-system-update-ytdlp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -1527,6 +1639,23 @@ export interface components {
             /** @description Others see when you are live or what you are listening to */
             show_activity: boolean;
         };
+        ContainerInfo: {
+            /**
+             * Format: double
+             * @description 100 = one core
+             */
+            cpu_percent: number;
+            /** Format: int64 */
+            mem_bytes: number;
+            /** Format: int64 */
+            mem_limit: number;
+            name: string;
+            service: string;
+            /** @description running, exited, restarting, ... */
+            state: string;
+            /** @description Docker's description, e.g. Up 3 hours (healthy) */
+            status: string;
+        };
         "Create-categoryRequest": {
             name: string;
         };
@@ -1685,6 +1814,28 @@ export interface components {
             /** @description Pass as pos to get the next page; absent on the last page */
             next?: string;
         };
+        GitCommit: {
+            author: string;
+            /** Format: date-time */
+            date: string;
+            sha: string;
+            subject: string;
+        };
+        GitStatus: {
+            /** Format: int64 */
+            behind: number;
+            /** Format: date-time */
+            checked_at?: string;
+            /** @description Newest first, at most 100 */
+            commits: components["schemas"]["GitCommit"][] | null;
+            /** @description The commit the checkout is at */
+            current: string;
+            /** @description The commit the running containers were built from, if known */
+            deployed?: string;
+            error?: string;
+            /** @description origin/main at the last check */
+            latest: string;
+        };
         GuestJoinRequest: {
             /** @enum {string} */
             client: "web" | "native";
@@ -1698,6 +1849,19 @@ export interface components {
              * @description Milliseconds between client HEARTBEATs
              */
             heartbeat_interval: number;
+        };
+        HostStats: {
+            /** Format: int64 */
+            database_bytes: number;
+            /** Format: int64 */
+            files_bytes: number;
+            /** Format: int64 */
+            host_uptime_seconds: number;
+            latest: components["schemas"]["SystemSample"];
+            /** Format: int64 */
+            process_uptime_seconds: number;
+            /** @description Oldest first, every 5 s, up to 10 minutes */
+            series: components["schemas"]["SystemSample"][] | null;
         };
         ImportSevenTVRequest: {
             /** @description A 7TV emote ID */
@@ -2374,6 +2538,12 @@ export interface components {
             /** @enum {string} */
             palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
         };
+        ServerUpdate: {
+            /** @description DATROPE_UPDATER_TOKEN is set */
+            configured: boolean;
+            error?: string;
+            status?: components["schemas"]["GitStatus"];
+        };
         ServerWithRoles: {
             banner_url?: string;
             /** Format: date-time */
@@ -2484,6 +2654,40 @@ export interface components {
             platform: "twitch" | "youtube";
             url: string;
         };
+        SystemSample: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * Format: int64
+             * @description Open gateway WebSockets
+             */
+            connections: number;
+            /** Format: double */
+            cpu_percent: number;
+            /** Format: int64 */
+            disk_total: number;
+            /** Format: int64 */
+            disk_used: number;
+            /**
+             * Format: int64
+             * @description People in voice channels
+             */
+            in_voice: number;
+            /** Format: int64 */
+            mem_total: number;
+            /** Format: int64 */
+            mem_used: number;
+        };
+        SystemStats: {
+            containers: components["schemas"]["ContainerInfo"][] | null;
+            host: components["schemas"]["HostStats"];
+            updater_configured: boolean;
+            updater_error?: string;
+        };
+        SystemUpdates: {
+            server: components["schemas"]["ServerUpdate"];
+            ytdlp: components["schemas"]["YtDlpStatus"];
+        };
         ThreadListItem: {
             author?: components["schemas"]["PublicUser"];
             channel: components["schemas"]["Channel"];
@@ -2543,6 +2747,25 @@ export interface components {
         UpdateConnectionRequest: {
             show_activity: boolean;
         };
+        UpdateJob: {
+            error?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            id: string;
+            /** Format: date-time */
+            started_at: string;
+            /** @enum {string} */
+            status: "running" | "succeeded" | "failed";
+        };
+        UpdateJobLog: {
+            job: components["schemas"]["UpdateJob"];
+            lines: string[] | null;
+            /**
+             * Format: int64
+             * @description Pass as after to get the lines that follow
+             */
+            next: number;
+        };
         UpdateMeRequest: {
             /** @description Empty clears it */
             about_me?: string;
@@ -2596,6 +2819,9 @@ export interface components {
             spotify?: components["schemas"]["AppCredentials"];
             /** @description Twitch app credentials (stream alerts, Twitch connections) */
             twitch?: components["schemas"]["AppCredentials"];
+        };
+        UpdateStarted: {
+            job_id: string;
         };
         UpdateWelcomeRequest: {
             markdown: string;
@@ -2715,6 +2941,18 @@ export interface components {
             /** @description New members see only this page until they accept the rules */
             rules_gate: boolean;
         };
+        YtDlpStatus: {
+            /** @description The server has a yt-dlp binary */
+            available: boolean;
+            /** Format: date-time */
+            checked_at?: string;
+            /** @description The last check or update failure */
+            error?: string;
+            installed: string;
+            latest: string;
+            /** @description DATROPE_YTDLP names the binary; it is not updated here */
+            pinned: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -2773,6 +3011,213 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Settings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                service: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-job": {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateJobLog"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStats"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemUpdates"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-check-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemUpdates"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-update-server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStarted"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "admin-system-update-ytdlp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YtDlpStatus"];
                 };
             };
             /** @description Error */
