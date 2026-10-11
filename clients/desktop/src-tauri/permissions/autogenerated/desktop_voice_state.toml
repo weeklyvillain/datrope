@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-voice-state"
+description = "Enables the desktop_voice_state command without any pre-configured scope."
+commands.allow = ["desktop_voice_state"]
+
+[[permission]]
+identifier = "deny-desktop-voice-state"
+description = "Denies the desktop_voice_state command without any pre-configured scope."
+commands.deny = ["desktop_voice_state"]

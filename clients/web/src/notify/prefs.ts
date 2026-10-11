@@ -1,4 +1,5 @@
 import { useStore } from "zustand";
+import { desktop } from "../desktop";
 import { createStore } from "zustand/vanilla";
 
 export type NotifyLevel = "all" | "mentions" | "nothing";
@@ -6,7 +7,7 @@ export type NotifyLevel = "all" | "mentions" | "nothing";
 export type NotifyPrefs = { enabled: boolean; level: NotifyLevel };
 
 const KEY = "datrope.notifyPrefs";
-const defaults: NotifyPrefs = { enabled: false, level: "mentions" };
+const defaults: NotifyPrefs = { enabled: desktop !== null, level: "mentions" };
 const levels: readonly unknown[] = ["all", "mentions", "nothing"];
 
 /** Keeps each valid stored field and falls back to the default for the rest. */

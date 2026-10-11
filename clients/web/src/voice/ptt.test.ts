@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { watchPtt } from "./ptt";
+import { combinePtt, watchPtt } from "./ptt";
 
 const key = (type: string, code: string, repeat = false) => Object.assign(new Event(type), { code, repeat });
 
@@ -54,5 +54,18 @@ describe("push to talk", () => {
     stop();
     target.dispatchEvent(key("keydown", "Backquote"));
     expect(changes).toEqual([]);
+  });
+});
+
+describe("combinePtt", () => {
+  it("is down while either source holds the key, and reports changes only", () => {
+    const seen: boolean[] = [];
+    const p = combinePtt((d) => seen.push(d));
+    p.set("local", true);
+    p.set("global", true);
+    p.set("local", false);
+    p.set("global", false);
+    p.set("global", false);
+    expect(seen).toEqual([true, false]);
   });
 });

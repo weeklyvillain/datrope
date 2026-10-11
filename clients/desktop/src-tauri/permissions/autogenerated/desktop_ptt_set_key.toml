@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-ptt-set-key"
+description = "Enables the desktop_ptt_set_key command without any pre-configured scope."
+commands.allow = ["desktop_ptt_set_key"]
+
+[[permission]]
+identifier = "deny-desktop-ptt-set-key"
+description = "Denies the desktop_ptt_set_key command without any pre-configured scope."
+commands.deny = ["desktop_ptt_set_key"]

@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "rail",
+  "description": "The bundled chrome: title bar and dialogs",
+  "webviews": ["rail"],
+  "permissions": [
+    "core:event:default",
+    "core:menu:default",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close",
+    "allow-servers-list", "allow-server-add", "allow-server-remove", "allow-servers-reorder",
+    "allow-server-select", "allow-chrome-mode", "allow-update-restart"
+  ]
+}

@@ -4,9 +4,11 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { desktop } from "../../desktop";
 import { setNotifyEnabled, setNotifyLevel, useNotifyPrefs, type NotifyLevel } from "../../notify/prefs";
 
-const currentPermission = (): NotificationPermission | "unsupported" => ("Notification" in window ? Notification.permission : "unsupported");
+const currentPermission = (): NotificationPermission | "unsupported" =>
+  desktop ? "granted" : "Notification" in window ? Notification.permission : "unsupported";
 
 const options: { value: NotifyLevel; title: string; hint?: string }[] = [
   { value: "all", title: "All messages", hint: "Every message in channels you can read, plus DMs." },

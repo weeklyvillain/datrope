@@ -1,8 +1,9 @@
 import { Track, createLocalAudioTrack, type LocalAudioTrack, type Room } from "livekit-client";
 import { audioPrefs, captureOptions, chainOptions, type AudioPrefs } from "./audio-prefs";
 import { MicProcessor } from "./mic-processor";
+import { desktop } from "../desktop";
 import { canPickOutput } from "./output";
-import { watchPtt } from "./ptt";
+import { combinePtt, watchPtt } from "./ptt";
 
 /** Applies this device's audio settings to one call: the mic processor, push to talk, and device or setting changes. */
 export class CallAudio {
@@ -12,7 +13,9 @@ export class CallAudio {
 
   constructor(private room: Room, private onError: (message: string) => void) {
     this.stops.push(audioPrefs.subscribe((p, old) => void this.changed(p, old)));
-    this.stops.push(watchPtt(window, () => audioPrefs.getState().pttKey.code, (down) => this.processor.setPtt(down)));
+    const ptt = combinePtt((down) => this.processor.setPtt(down));
+    this.stops.push(watchPtt(window, () => audioPrefs.getState().pttKey.code, (down) => ptt.set("local", down)));
+    if (desktop) this.stops.push(desktop.on<{ down: boolean }>("ptt", (p) => ptt.set("global", p.down)));
   }
 
   private mic(): LocalAudioTrack | undefined {

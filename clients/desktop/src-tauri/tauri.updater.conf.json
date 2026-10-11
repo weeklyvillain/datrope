@@ -1,0 +1,9 @@
+{
+  "bundle": { "createUpdaterArtifacts": true },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_THE_PUBLIC_KEY_FROM_tauri_signer_generate",
+      "endpoints": ["https://github.com/weeklyvillain/datrope/releases/latest/download/latest.json"]
+    }
+  }
+}

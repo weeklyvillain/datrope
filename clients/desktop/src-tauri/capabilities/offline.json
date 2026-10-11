@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "offline",
+  "description": "The bundled offline page shown in a server webview",
+  "webviews": ["server-*"],
+  "permissions": ["allow-server-retry"]
+}

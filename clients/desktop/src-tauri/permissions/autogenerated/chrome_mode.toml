@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-chrome-mode"
+description = "Enables the chrome_mode command without any pre-configured scope."
+commands.allow = ["chrome_mode"]
+
+[[permission]]
+identifier = "deny-chrome-mode"
+description = "Denies the chrome_mode command without any pre-configured scope."
+commands.deny = ["chrome_mode"]

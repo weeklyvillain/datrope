@@ -1,0 +1,6 @@
+@import "../../web/src/styles.css";
+@source "../../web/src/components/ui";
+@source "./";
+
+html, body, #root { height: 100%; }
+body { background: var(--sidebar); overflow: hidden; user-select: none; }

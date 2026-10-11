@@ -2,6 +2,7 @@ import { channelRef, findUser, myRoleIds } from "@datrope/core";
 import type { Message } from "@datrope/core";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { desktop } from "../desktop";
 import { claimMessage, notificationAuthor, notificationBody, notificationTitle, shouldNotify } from "../notify/notify";
 import { notifyPrefs } from "../notify/prefs";
 import { client, displayName } from "../session";
@@ -23,6 +24,13 @@ function claimForThisTab(id: string): boolean {
     // Storage unavailable: just notify.
   }
   return true;
+}
+
+/** Desktop app: what to open when the shell reports a notification click (by message id). Keeps the last 50. */
+const clickActions = new Map<string, () => void>();
+function remember(id: string, open: () => void) {
+  clickActions.set(id, open);
+  if (clickActions.size > 50) clickActions.delete(clickActions.keys().next().value!);
 }
 
 /** Shows system notifications for new messages (see notify/notify.ts for the rules). Renders nothing. */
@@ -56,8 +64,8 @@ export function NotificationListener() {
       myRoleIds: myRoleIds(s),
       isDM: s.channels[m.channel_id]?.type === "dm",
       prefs: notifyPrefs.getState(),
-      permission: "Notification" in window ? Notification.permission : "unsupported",
-      hidden: document.visibilityState === "hidden" || !document.hasFocus(),
+      permission: desktop ? "granted" : "Notification" in window ? Notification.permission : "unsupported",
+      hidden: document.visibilityState === "hidden" || !document.hasFocus() || (desktop !== null && !desktop.visible),
       openChannelIds,
     });
     if (!ok || !claimForThisTab(m.id)) return;
@@ -69,21 +77,27 @@ export function NotificationListener() {
     const where = channelRef(s, m.channel_id);
     const author = shownAuthor(m, m.author && findUser(s, m.author.id));
     const icon = author.avatar_url || s.server?.server.icon_url;
+    const title = notificationTitle(notificationAuthor(displayName(author), !m.author), where);
+    const body = notificationBody(m.content, m.attachments?.length ?? 0);
+    const goTo = () => openMessage(nav.current, where, m.id);
+    if (desktop) {
+      remember(m.id, goTo);
+      desktop.notify({ title, body, target: m.id });
+      return;
+    }
     try {
-      const n = new Notification(notificationTitle(notificationAuthor(displayName(author), !m.author), where), {
-        body: notificationBody(m.content, m.attachments?.length ?? 0),
-        icon: icon ? new URL(icon, window.location.origin).href : undefined,
-        tag: m.id,
-      });
+      const n = new Notification(title, { body, icon: icon ? new URL(icon, window.location.origin).href : undefined, tag: m.id });
       n.onclick = () => {
         window.focus();
-        openMessage(nav.current, where, m.id);
+        void goTo();
         n.close();
       };
     } catch {
       // Some mobile browsers only allow notifications from a service worker.
     }
   }), []);
+
+  useEffect(() => desktop?.on<{ target: string }>("open_notification", ({ target }) => clickActions.get(target)?.()), []);
 
   return null;
 }

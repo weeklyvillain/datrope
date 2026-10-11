@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-subscribe"
+description = "Enables the desktop_subscribe command without any pre-configured scope."
+commands.allow = ["desktop_subscribe"]
+
+[[permission]]
+identifier = "deny-desktop-subscribe"
+description = "Denies the desktop_subscribe command without any pre-configured scope."
+commands.deny = ["desktop_subscribe"]

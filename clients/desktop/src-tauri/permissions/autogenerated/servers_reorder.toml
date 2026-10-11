@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-servers-reorder"
+description = "Enables the servers_reorder command without any pre-configured scope."
+commands.allow = ["servers_reorder"]
+
+[[permission]]
+identifier = "deny-servers-reorder"
+description = "Denies the servers_reorder command without any pre-configured scope."
+commands.deny = ["servers_reorder"]

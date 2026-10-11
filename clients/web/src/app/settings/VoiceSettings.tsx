@@ -11,6 +11,8 @@ import {
   captureOptions, chainOptions, setInputDevice, setInputMode, setNoise, setOutputDevice, setPttKey, setVadAuto,
   setVadThreshold, useAudioPrefs, type InputMode, type NoiseMode, type PttKey,
 } from "../../voice/audio-prefs";
+import { desktop } from "../../desktop";
+import { useDesktopPttError } from "../desktop-sync";
 import { createMicTest, type Meter, type MicTest } from "../../voice/mic-processor";
 import { canPickOutput } from "../../voice/output";
 import { useVoice, voice } from "../../voice/voice";
@@ -19,7 +21,9 @@ type Reading = Meter & { enhancedFailed: boolean };
 
 const modes: { value: InputMode; title: string; hint: string }[] = [
   { value: "vad", title: "Voice activity", hint: "Your mic opens when you speak louder than the sensitivity." },
-  { value: "ptt", title: "Push to talk", hint: "Hold a key to talk. Works while Datrope is the active tab." },
+  { value: "ptt", title: "Push to talk", hint: desktop
+    ? "Hold a key to talk. While you're in a call it works in other apps too."
+    : "Hold a key to talk. Works while Datrope is the active tab." },
 ];
 const noises: { value: NoiseMode; title: string; hint: string }[] = [
   { value: "off", title: "Off", hint: "Send your mic as it is." },
@@ -73,6 +77,18 @@ function LevelMeter({ reading, thresholdDb }: { reading?: Reading; thresholdDb?:
 }
 
 const keyLabel = (e: KeyboardEvent) => (e.key === " " ? "Space" : e.key.length === 1 ? e.key.toUpperCase() : e.key);
+
+/** Desktop app: the key is taken system-wide during calls, or couldn't be (Wayland, macOS permission, taken). */
+function PttGlobalNote() {
+  const error = useDesktopPttError();
+  return error ? (
+    <p role="alert" className="m-0 text-sm text-destructive">
+      Couldn't use this key outside Datrope ({error}). It still works while Datrope is the active window.
+    </p>
+  ) : (
+    <p className="m-0 text-sm text-muted-foreground">While you're in a call, other apps won't receive this key.</p>
+  );
+}
 
 /** A button that records the next key press as the push-to-talk key; Escape cancels. */
 function KeyCapture({ value, onChange }: { value: PttKey; onChange: (k: PttKey) => void }) {
@@ -225,6 +241,7 @@ export function VoiceSettings() {
               <span className="grow font-medium">Push-to-talk key</span>
               <KeyCapture value={p.pttKey} onChange={setPttKey} />
             </div>
+            {desktop && <PttGlobalNote />}
             <LevelMeter reading={reading} />
           </div>
         )}

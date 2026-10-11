@@ -3,8 +3,10 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { usePalette } from "@/hooks/use-palette";
 import { useTheme } from "@/hooks/use-theme";
+import { desktop } from "../desktop";
 import { client, useApp } from "../session";
 import { GuestEnded } from "../pages/GuestEnded";
+import { DesktopBridge } from "./DesktopBridge";
 import { GuestBanner } from "./GuestBanner";
 import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
@@ -68,6 +70,7 @@ export function AppShell() {
         <Outlet />
         <SoundboardListener />
         <NotificationListener />
+        {desktop && <DesktopBridge />}
         <UserSettingsDialog />
         {!gated && <ProfileDrawer />}
         {!gated && <CommandPalette />}

@@ -192,12 +192,36 @@ pnpm typecheck && pnpm lint && pnpm test   # TypeScript
 go -C server test ./...                     # Go (needs Docker for the database tests)
 ```
 
+### Desktop app
+
+`clients/desktop` is a Tauri app: a rail of servers on the left, and each server's own web app in its own
+webview, all connected at once. Native notifications, global push-to-talk during calls, and a tray icon.
+
+Prerequisites: Rust (stable, MSVC on Windows), the "Desktop development with C++" build tools on Windows,
+WebView2 (built into Windows 11). See https://tauri.app/start/prerequisites/ for macOS and Linux.
+
+```bash
+pnpm --filter @datrope/desktop dev     # opens the app; add http://localhost:5173 as a server
+pnpm --filter @datrope/desktop build   # local installer in clients/desktop/src-tauri/target/release/bundle/
+```
+
+Dev builds accept http://localhost servers; release builds need https://. Linking Twitch/Spotify opens in
+your browser and does not come back to the app — link accounts from the web app. Links that open in a new
+window, including attachments on the server itself, open in your browser, which isn't signed in to the server.
+
+Releases are switched off. To turn them on: run `pnpm --filter @datrope/desktop tauri signer generate`,
+put the public key in `src-tauri/tauri.updater.conf.json`, add `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as repository secrets, and uncomment the tag trigger in
+`.github/workflows/desktop-release.yml`. Builds are not code-signed: Windows SmartScreen shows "More info →
+Run anyway", and on macOS right-click the app → Open the first time.
+
 ## Project layout
 
 ```
 server/         Go server: API, WebSocket gateway, permissions, voice tokens
 clients/core/   Shared TypeScript: API client (generated from the server's OpenAPI), state, gateway
 clients/web/    React web app (Vite, Tailwind CSS v4, shadcn/ui)
+clients/desktop/ Tauri desktop app: server rail, one webview per server, notifications, push-to-talk
 deploy/         Docker Compose, Caddy and LiveKit config
 docs/           Design specs and implementation plans
 ```

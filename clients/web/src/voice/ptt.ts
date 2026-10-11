@@ -43,3 +43,18 @@ export function watchPtt(target: EventTarget, getCode: () => string, onChange: (
     doc?.removeEventListener("visibilitychange", hidden);
   };
 }
+
+/** Push to talk from two places (keys in the window, the desktop app's global shortcut): down while either is. */
+export function combinePtt(onChange: (down: boolean) => void) {
+  const held = { local: false, global: false };
+  let down = false;
+  return {
+    set(source: "local" | "global", d: boolean) {
+      held[source] = d;
+      const next = held.local || held.global;
+      if (next === down) return;
+      down = next;
+      onChange(next);
+    },
+  };
+}

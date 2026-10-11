@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-add"
+description = "Enables the server_add command without any pre-configured scope."
+commands.allow = ["server_add"]
+
+[[permission]]
+identifier = "deny-server-add"
+description = "Denies the server_add command without any pre-configured scope."
+commands.deny = ["server_add"]

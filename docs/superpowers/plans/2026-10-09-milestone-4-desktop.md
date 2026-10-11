@@ -1,5 +1,7 @@
 # Milestone 4: Desktop App — Implementation Plan
 
+> **Superseded** by `docs/superpowers/specs/2026-10-11-desktop-app-design.md` (multi-server, webview per server). Kept for history; do not execute.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Tauri desktop app that wraps the web client, connects to any Datrope server the user names, keeps the session token in the OS keychain, shows native notifications for direct messages and mentions (respecting per-community and per-channel mutes stored on the server), and offers global push-to-talk.
