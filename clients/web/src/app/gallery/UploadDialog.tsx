@@ -10,6 +10,7 @@ import { useSubmit } from "@/hooks/use-submit";
 import { MAX_FILES, useUploads, type PendingFile } from "@/hooks/use-uploads";
 import { cn } from "@/lib/utils";
 import { isMediaFile } from "./items";
+import { attachmentImage } from "@/lib/sized-image";
 
 const MAX_LENGTH = 4000;
 const MEDIA_ONLY = { test: isMediaFile, message: "Only photos and videos can be posted here." };
@@ -78,7 +79,7 @@ function FileRow({ file: f, onRemove }: { file: PendingFile; onRemove: () => voi
     <li className={cn("flex items-center gap-3 rounded-md border bg-card p-2 text-sm", f.error && "border-destructive")}>
       <span className="grid size-12 flex-none place-items-center overflow-hidden rounded bg-muted text-muted-foreground" aria-hidden>
         {!a ? (f.error ? <X className="size-4" /> : <Loader2 className="size-4 animate-spin" />)
-          : a.content_type.startsWith("image/") ? <img src={client.url(a.thumbnail_url ?? a.url)} alt="" className="size-full object-cover" />
+          : a.content_type.startsWith("image/") ? <img {...attachmentImage(a, 48, { cover: true })} alt="" className="size-full object-cover" />
           : a.thumbnail_url ? <img src={client.url(a.thumbnail_url)} alt="" className="size-full object-cover" />
           : <Film className="size-4" />}
       </span>

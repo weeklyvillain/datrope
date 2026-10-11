@@ -7,12 +7,13 @@ import {
 import { BrandIcon, hasBrandIcon } from "@/lib/brand-icons";
 import { siteNames } from "@/lib/music";
 import { cn } from "@/lib/utils";
+import { sizedImage } from "@/lib/sized-image";
 
 /** A track's or playlist's cover image, or a note when it has none. */
 export function Cover({ src, className }: { src?: string; className?: string }) {
   return (
     <span className={cn("grid size-10 flex-none place-items-center overflow-hidden rounded-md bg-muted text-muted-foreground", className)}>
-      {src ? <img src={src} alt="" className="size-full object-cover" loading="lazy" /> : <Music className="size-1/2" aria-hidden />}
+      {src ? <img {...sizedImage(src, 48)} alt="" className="size-full object-cover" loading="lazy" /> : <Music className="size-1/2" aria-hidden />}
     </span>
   );
 }

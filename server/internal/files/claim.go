@@ -30,7 +30,7 @@ func (s *Service) Claim(ctx context.Context, tx pgx.Tx, messageID, channelID, up
 	}
 	defer rows.Close()
 	for rows.Next() {
-		a, err := scanAttachment(rows)
+		a, err := scanAttachment(rows, s.variantsOn())
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +59,7 @@ func (s *Service) ForMessages(ctx context.Context, messageIDs []id.ID) (map[id.I
 	}
 	defer rows.Close()
 	for rows.Next() {
-		a, err := scanAttachment(rows)
+		a, err := scanAttachment(rows, s.variantsOn())
 		if err != nil {
 			return nil, err
 		}

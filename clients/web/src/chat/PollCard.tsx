@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useBriefError } from "./Reactions";
 import { isEnded, nextVotes, percentages, pollFooter, winners } from "./poll";
+import { sizedImage } from "@/lib/sized-image";
 
 /** The current time, ticking every 30 s until `until` (ms) passes, so a countdown ends on time. null: no ticking. */
 function useNow(until: number | null): number {
@@ -28,7 +29,7 @@ function useNow(until: number | null): number {
 export function OptionEmoji({ emoji }: { emoji: string }) {
   const id = customEmojiId(emoji);
   const custom = useApp((s) => (id ? s.emoji[id] : undefined));
-  if (id) return custom ? <img src={client.url(custom.url)} alt={`:${custom.name}:`} className="size-5 object-contain" /> : null;
+  if (id) return custom ? <img {...sizedImage(custom.url, 20)} alt={`:${custom.name}:`} className="size-5 object-contain" /> : null;
   return <span className="text-lg leading-none">{emoji}</span>;
 }
 

@@ -7,6 +7,7 @@ import { RefButton } from "@/components/ref-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { EmojiPicker, reactionKey } from "./EmojiPicker";
+import { sizedImage } from "@/lib/sized-image";
 
 const PILL = "h-[26px] gap-1.5 rounded-full border bg-card px-2 text-[13px] font-normal text-foreground shadow-none hover:bg-accent";
 
@@ -65,7 +66,7 @@ function Pill({ reaction: r, mine, onToggle }: { reaction: Reaction; mine: boole
       <TooltipTrigger asChild>
         <RefButton variant="outline" aria-pressed={mine} aria-label={label} onClick={() => onToggle(r.emoji, !mine)}
           className={cn(PILL, mine && "border-primary bg-[color-mix(in_srgb,var(--primary)_14%,transparent)]")}>
-          {emoji ? <img src={client.url(emoji.url)} alt="" className="size-4 object-contain" /> : <span className="text-base leading-none">{r.emoji}</span>}
+          {emoji ? <img {...sizedImage(emoji.url, 16)} alt="" className="size-4 object-contain" /> : <span className="text-base leading-none">{r.emoji}</span>}
           {r.count}
         </RefButton>
       </TooltipTrigger>

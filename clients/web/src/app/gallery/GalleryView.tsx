@@ -21,6 +21,7 @@ import { galleryItems, itemTitle, sections, type GalleryFilter, type GalleryItem
 import { EmojiText } from "@/chat/EmojiText";
 import { EmptyView } from "../EmptyView";
 import { UploadDialog } from "./UploadDialog";
+import { attachmentImage } from "@/lib/sized-image";
 
 const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
 const note = "m-0 p-8 text-center text-sm text-muted-foreground";
@@ -151,7 +152,7 @@ function Tile({ item, selected, onOpen }: { item: GalleryItem; selected: boolean
       {item.kind === "video" && !a.thumbnail_url ? (
         <video src={client.url(a.url)} preload="metadata" muted playsInline className="pointer-events-none size-full object-cover" />
       ) : (
-        <img src={client.url(a.thumbnail_url ?? a.url)} alt="" loading="lazy" className="size-full object-cover" />
+        <img {...attachmentImage(a, 240, { cover: true })} alt="" loading="lazy" className="size-full object-cover" />
       )}
       <UserAvatar user={shownAuthor(m)} size="xs" className="absolute bottom-1.5 left-1.5" />
       {item.kind === "video" && (

@@ -88,7 +88,7 @@ func (s *Service) ServePrivateBlob(w http.ResponseWriter, r *http.Request, sum, 
 }
 
 func (s *Service) serveBlob(w http.ResponseWriter, r *http.Request, sum, contentType, cacheControl string) {
-	f, err := s.store.Open(sum)
+	f, ct, etag, failed, err := s.openImage(w, r, sum, contentType)
 	if errors.Is(err, os.ErrNotExist) {
 		httpx.WriteHTTPError(w, r, httpx.NotFound("image"))
 		return
@@ -98,12 +98,15 @@ func (s *Service) serveBlob(w http.ResponseWriter, r *http.Request, sum, content
 		return
 	}
 	defer f.Close()
+	if failed {
+		cacheControl = "no-cache" // a later request may get the small copy
+	}
 	h := w.Header()
-	h.Set("Content-Type", contentType)
+	h.Set("Content-Type", ct)
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	h.Set("Cache-Control", cacheControl)
-	h.Set("ETag", `"`+sum+`"`)
+	h.Set("ETag", etag)
 	http.ServeContent(w, r, "", time.Time{}, f)
 }
 

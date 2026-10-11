@@ -38,6 +38,7 @@ import { ImageViewer } from "./attachments/ImageViewer";
 import { VideoPlayer } from "./attachments/VideoPlayer";
 import { MemberRoleIcon } from "@/components/role-icon";
 import { fitBox, mediaKind, showable } from "./attachments/media";
+import { attachmentImage } from "@/lib/sized-image";
 
 /** A plain button that forwards its ref, for use as a popover trigger. */
 const NameButton = forwardRef<HTMLButtonElement, ComponentProps<"button">>((props, ref) => <button ref={ref} type="button" {...props} />);
@@ -556,8 +557,8 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
 const MAX_TILES = 4;
 
 /** An image thumbnail that opens the viewer; modified clicks still open the original in a new tab. */
-function ImageLink({ image: a, onOpen, className, more = 0, width, height }:
-  { image: Attachment; onOpen: () => void; className: string; more?: number; width?: number; height?: number }) {
+function ImageLink({ image: a, onOpen, className, more = 0, width, height, cover = false }:
+  { image: Attachment; onOpen: () => void; className: string; more?: number; width?: number; height?: number; cover?: boolean }) {
   return (
     <a href={client.url(a.url)} target="_blank" rel="noopener noreferrer"
       className="relative block overflow-hidden rounded-lg border bg-card"
@@ -567,7 +568,7 @@ function ImageLink({ image: a, onOpen, className, more = 0, width, height }:
         onOpen();
       }}>
       <img className={cn("block cursor-zoom-in transition-opacity hover:opacity-90", className)}
-        src={client.url(a.thumbnail_url || a.url)} alt={a.filename} loading="lazy" width={width} height={height} />
+        {...attachmentImage(a, Math.max(width ?? 240, height ?? 240), { cover })} alt={a.filename} loading="lazy" width={width} height={height} />
       {more > 0 && (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/70 text-2xl font-semibold text-foreground">
           +{more}
@@ -595,7 +596,7 @@ export function Attachments({ items }: { items: Attachment[] }) {
         <div className="grid w-[480px] max-w-full gap-1" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}>
           {tiles.map((a, i) => (
             <ImageLink key={a.id} image={a} onOpen={() => setViewing(i)} className="aspect-square size-full object-cover"
-              more={i === tiles.length - 1 ? hidden : 0} />
+              cover more={i === tiles.length - 1 ? hidden : 0} />
           ))}
         </div>
       )}

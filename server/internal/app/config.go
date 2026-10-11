@@ -19,13 +19,14 @@ type Config struct {
 	Addr        string
 	// PublicURL is the origin browsers load the web app from, e.g.
 	// https://chat.example.com. Cookie-authenticated WebSockets must come from it.
-	PublicURL  string
-	TrustProxy bool            // read the client IP from X-Forwarded-For (set behind Caddy)
-	Gateway    gateway.Options // zero value = production defaults
-	DataDir    string          // uploads live in DataDir/files
-	LiveKit    voice.Config    // voice is off when LiveKit.URL is empty
-	KlipyURL   string          // Klipy's API base; "" is the real one (tests point it at a fake)
-	SevenTVURL string          // 7TV's API base; "" is the real one (tests point it at a fake)
+	PublicURL   string
+	TrustProxy  bool            // read the client IP from X-Forwarded-For (set behind Caddy)
+	Gateway     gateway.Options // zero value = production defaults
+	DataDir     string          // uploads live in DataDir/files
+	LiveKit     voice.Config    // voice is off when LiveKit.URL is empty
+	KlipyURL    string          // Klipy's API base; "" is the real one (tests point it at a fake)
+	SevenTVURL  string          // 7TV's API base; "" is the real one (tests point it at a fake)
+	ImgproxyURL string          // imgproxy's base URL for resized images; "" serves originals only
 	// Integrations are Twitch's, YouTube's and Spotify's base URLs; zero values are the real ones.
 	Integrations integrations.Endpoints
 	Music        music.Config // ffmpeg and yt-dlp; empty paths are looked up on PATH
@@ -67,6 +68,7 @@ func ConfigFromEnv() (Config, error) {
 		PublicURL:   strings.TrimSuffix(os.Getenv("DATROPE_PUBLIC_URL"), "/"),
 		TrustProxy:  os.Getenv("DATROPE_TRUST_PROXY") == "true",
 		DataDir:     os.Getenv("DATROPE_DATA_DIR"),
+		ImgproxyURL: strings.TrimSuffix(os.Getenv("DATROPE_IMGPROXY_URL"), "/"),
 		LiveKit: voice.Config{
 			URL:       os.Getenv("DATROPE_LIVEKIT_URL"),
 			PublicURL: strings.TrimSuffix(os.Getenv("DATROPE_LIVEKIT_PUBLIC_URL"), "/"),

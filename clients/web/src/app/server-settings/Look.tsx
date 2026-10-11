@@ -9,6 +9,7 @@ import { RadioGroup } from "@/components/ui/radio-group";
 import { useSubmit } from "@/hooks/use-submit";
 import { PALETTES, type Palette } from "@/lib/palettes";
 import { client, useApp } from "@/session";
+import { sizedImage } from "@/lib/sized-image";
 
 /** Palette, icon and banner (MANAGE_SERVER). The palette saves as soon as it is picked. */
 export function Look() {
@@ -122,7 +123,7 @@ function ImageUpload({ kind }: { kind: "icon" | "banner" }) {
       {kind === "icon" ? (
         <ServerIcon size={96} className="rounded-2xl border" />
       ) : url ? (
-        <img src={client.url(url)} alt="Banner" className="h-24 w-full rounded-lg border object-cover" />
+        <img {...sizedImage(url, 512)} alt="Banner" className="h-24 w-full rounded-lg border object-cover" />
       ) : (
         <div className="grid h-24 place-items-center rounded-lg border border-dashed bg-primary/20 text-sm text-muted-foreground">No banner</div>
       )}

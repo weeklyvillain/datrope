@@ -7,6 +7,7 @@ import { client, useApp } from "../../session";
 import { useVoice } from "../../voice/voice";
 import { clock, usePosition } from "./MusicPanel";
 import type { TileSize } from "./Tile";
+import { sizedImage } from "@/lib/sized-image";
 
 const box: Record<TileSize, string> = {
   large: "size-full min-h-0",
@@ -38,13 +39,13 @@ export function MusicTile({ channelId, size, speaking = false, onOpen }: {
     )}>
       {cur?.cover && ( // the cover, blurred and dimmed behind everything
         <>
-          <img src={cur.cover} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />
+          <img {...sizedImage(cur.cover, 80)} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />
           <span className="absolute inset-0 bg-card/80" aria-hidden />
         </>
       )}
       <div className={cn("relative grid w-full justify-items-center gap-2 px-4 text-center", strip && "gap-1 px-2")}>
         {cur?.cover ? (
-          <img src={cur.cover} alt="" className={cn("rounded-md object-cover shadow-md", strip ? "size-8" : "size-20")} />
+          <img {...sizedImage(cur.cover, 80)} alt="" className={cn("rounded-md object-cover shadow-md", strip ? "size-8" : "size-20")} />
         ) : (
           <span className={cn("grid place-items-center rounded-full bg-primary text-primary-foreground", strip ? "size-8" : "size-16")}>
             <Music className={strip ? "size-4" : "size-7"} aria-hidden />

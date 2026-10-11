@@ -8,10 +8,9 @@ import (
 	"image"
 	_ "image/gif" // registers the GIF decoder
 	"image/jpeg"
-	"image/png"
+	_ "image/png" // registers the PNG decoder
 	"net/http"
 
-	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp" // registers the WebP decoder
 )
 
@@ -26,7 +25,6 @@ const (
 )
 
 const (
-	ThumbMax        = 400         // thumbnails fit in ThumbMax x ThumbMax
 	MaxDecodePixels = 40_000_000  // never fully decode larger images
 	maxGIFPixels    = 4096 * 4096 // larger GIFs are not shown in messages
 )
@@ -346,43 +344,4 @@ func showable(kind Kind, w, h int) bool {
 		return w*h <= maxGIFPixels
 	}
 	return w*h <= MaxDecodePixels
-}
-
-// Thumbnail returns a copy that fits in ThumbMax x ThumbMax, or nil when the
-// image is already that small or is a GIF (kept as-is so it stays animated).
-func Thumbnail(kind Kind, data []byte) ([]byte, error) {
-	if kind == KindGIF {
-		return nil, nil
-	}
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	if cfg.Width <= ThumbMax && cfg.Height <= ThumbMax {
-		return nil, nil
-	}
-	if cfg.Width*cfg.Height > MaxDecodePixels {
-		return nil, fmt.Errorf("image too large to thumbnail (%dx%d)", cfg.Width, cfg.Height)
-	}
-	src, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	tw, th := fit(cfg.Width, cfg.Height, ThumbMax)
-	dst := image.NewRGBA(image.Rect(0, 0, tw, th))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
-	var buf bytes.Buffer
-	if dst.Opaque() {
-		err = jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 82})
-	} else {
-		err = png.Encode(&buf, dst)
-	}
-	return buf.Bytes(), err
-}
-
-func fit(w, h, limit int) (int, int) {
-	if w >= h {
-		return limit, max(1, h*limit/w)
-	}
-	return max(1, w*limit/h), limit
 }

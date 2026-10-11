@@ -49,9 +49,14 @@ type Attachment struct {
 	thumbSum   string
 }
 
-func (a *Attachment) setURLs() {
+// setURLs fills the URLs. With variants on, inline images get a resized
+// thumbnail; otherwise only rows from before that keep their stored one.
+func (a *Attachment) setURLs(variants bool) {
 	a.URL = "/api/attachments/" + a.ID.String()
-	if a.thumbSum != "" {
+	switch {
+	case variants && a.Inline && !a.GIF && variantTypes[a.ContentType]:
+		a.ThumbnailURL = a.URL + "?w=512"
+	case a.thumbSum != "":
 		a.ThumbnailURL = a.URL + "/thumbnail"
 	}
 }
@@ -73,6 +78,7 @@ type Service struct {
 	// file plus a decoded copy (up to ~160 MB), so unbounded parallel uploads
 	// could exhaust memory.
 	imageSlots chan struct{}
+	variants   *variants // resized copies of images; nil until SetVariants
 	done       chan struct{}
 	stop       sync.Once
 }
@@ -108,7 +114,7 @@ func (s *Service) Close() { s.stop.Do(func() { close(s.done) }) }
 
 const attachmentCols = `id, channel_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif`
 
-func scanAttachment(row pgx.Row) (*Attachment, error) {
+func scanAttachment(row pgx.Row, variants bool) (*Attachment, error) {
 	var a Attachment
 	var msg *int64
 	var thumb *string
@@ -120,12 +126,12 @@ func scanAttachment(row pgx.Row) (*Attachment, error) {
 	if thumb != nil {
 		a.thumbSum = *thumb
 	}
-	a.setURLs()
+	a.setURLs(variants)
 	return &a, nil
 }
 
 func (s *Service) get(ctx context.Context, attachmentID id.ID) (*Attachment, error) {
-	a, err := scanAttachment(s.db.QueryRow(ctx, `SELECT `+attachmentCols+` FROM attachments WHERE id = $1`, attachmentID))
+	a, err := scanAttachment(s.db.QueryRow(ctx, `SELECT `+attachmentCols+` FROM attachments WHERE id = $1`, attachmentID), s.variantsOn())
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, httpx.NotFound("attachment")
 	}
@@ -161,13 +167,9 @@ func (s *Service) authorized(ctx context.Context, raw string) (*Attachment, erro
 }
 
 // save processes a staged upload and records it. Images get their metadata
-// stripped, their size measured, and a thumbnail when useful.
+// stripped and their size measured.
 func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filename string, staged *Staged, gif *gifSize) (*Attachment, error) {
-	var thumb *Staged
-	defer func() { // no-ops for files that were committed
-		s.store.Discard(staged)
-		s.store.Discard(thumb)
-	}()
+	defer func() { s.store.Discard(staged) }() // reads staged at return: processImage swaps it; a no-op once committed
 
 	f, err := staged.Open()
 	if err != nil {
@@ -187,7 +189,7 @@ func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filenam
 		}
 		err := func() error {
 			defer func() { <-s.imageSlots }() // released even if a decoder panics
-			return s.processImage(kind, a, &staged, &thumb)
+			return s.processImage(kind, a, &staged)
 		}()
 		if err != nil {
 			slog.InfoContext(ctx, "files: keeping image as a plain file", "attachment_id", a.ID, "err", err)
@@ -195,52 +197,39 @@ func (s *Service) save(ctx context.Context, channelID, uploaderID id.ID, filenam
 	}
 	if gif != nil {
 		a.GIF = true
-		s.store.Discard(thumb) // a still thumbnail would stop the animation
-		thumb = nil
 		if a.Width == nil && gif.width > 0 && gif.height > 0 {
 			a.Width, a.Height = &gif.width, &gif.height
 		}
 	}
 	a.Size, a.sum = staged.Size, staged.Sum
-	var thumbArg *string
-	if thumb != nil {
-		a.thumbSum = thumb.Sum
-		thumbArg = &a.thumbSum
-	}
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	if err := lockBlobs(ctx, tx, a.sum, a.thumbSum); err != nil {
+	if err := lockBlobs(ctx, tx, a.sum); err != nil {
 		return nil, err
 	}
 	if err := s.store.Commit(staged); err != nil {
 		return nil, err
 	}
-	if thumb != nil {
-		if err := s.store.Commit(thumb); err != nil {
-			return nil, err
-		}
-	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO attachments (id, channel_id, uploader_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		a.ID, a.ChannelID, uploaderID, a.Filename, a.ContentType, a.Size, a.sum, a.Width, a.Height, thumbArg, a.Inline, a.GIF); err != nil {
+		INSERT INTO attachments (id, channel_id, uploader_id, filename, content_type, size, sha256, width, height, inline, gif)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		a.ID, a.ChannelID, uploaderID, a.Filename, a.ContentType, a.Size, a.sum, a.Width, a.Height, a.Inline, a.GIF); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	a.setURLs()
+	a.setURLs(s.variantsOn())
 	return a, nil
 }
 
-// processImage swaps *staged for a metadata-free copy, records the image's
-// size, and stages a thumbnail when one is useful. On error nothing changes
-// and the upload is kept as a plain file.
-func (s *Service) processImage(kind Kind, a *Attachment, staged, thumb **Staged) error {
+// processImage swaps *staged for a metadata-free copy and records the
+// image's size. On error nothing changes and the upload is kept as a plain file.
+func (s *Service) processImage(kind Kind, a *Attachment, staged **Staged) error {
 	data, err := (*staged).Bytes()
 	if err != nil {
 		return err
@@ -253,22 +242,9 @@ func (s *Service) processImage(kind Kind, a *Attachment, staged, thumb **Staged)
 	if err != nil {
 		return err
 	}
-	tb, err := Thumbnail(kind, clean)
-	if err != nil {
-		slog.Info("files: no thumbnail", "err", err)
-		tb = nil // the image is still shown, just without a smaller copy
-	}
 	cleaned, err := s.store.Stage(bytes.NewReader(clean), int64(len(clean)))
 	if err != nil {
 		return err
-	}
-	if tb != nil {
-		t, err := s.store.Stage(bytes.NewReader(tb), int64(len(tb)))
-		if err != nil {
-			s.store.Discard(cleaned)
-			return err
-		}
-		*thumb = t
 	}
 	s.store.Discard(*staged)
 	*staged = cleaned
@@ -314,6 +290,9 @@ func (s *Service) Sweep(ctx context.Context, now time.Time) error {
 		return err
 	}
 	if err := s.removeUnreferenced(ctx, sums); err != nil {
+		return err
+	}
+	if err := s.variants.removeStaleTemp(now.Add(-time.Hour)); err != nil {
 		return err
 	}
 	return s.store.RemoveStaleTemp(now.Add(-time.Hour))
@@ -367,6 +346,9 @@ func (s *Service) removeIfUnused(ctx context.Context, sum string) error {
 	}
 	if !used {
 		if err := s.store.Remove(sum); err != nil {
+			return err
+		}
+		if err := s.variants.remove(sum); err != nil {
 			return err
 		}
 	}

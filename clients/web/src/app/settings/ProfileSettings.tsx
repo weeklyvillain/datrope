@@ -20,6 +20,7 @@ import { choosePresence, client, roleColor, useApp } from "../../session";
 import { ProfileCard } from "../people/ProfileCard";
 import { AvatarCropDialog } from "./AvatarCropDialog";
 import { checkAvatarFile, checkBannerFile } from "./avatar";
+import { sizedImage } from "@/lib/sized-image";
 
 const ABOUT_MAX = 190;
 const LINKS_MAX = 5;
@@ -68,7 +69,7 @@ export function ProfileSettings() {
         <h3>Profile</h3>
         <div className="grid gap-1">
           <div className="aspect-[3/1] w-full max-w-sm overflow-hidden rounded-md" style={{ background: roleColor(sv, me.id) ?? avatarColor(me.id) }}>
-            {me.banner_url && <img src={client.url(me.banner_url)} alt="" className="size-full object-cover" />}
+            {me.banner_url && <img {...sizedImage(me.banner_url, 512)} alt="" className="size-full object-cover" />}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => bannerInput.current?.click()}>Change banner</Button>

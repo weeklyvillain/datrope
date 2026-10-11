@@ -27,11 +27,26 @@ services:
       DATROPE_LIVEKIT_URL: http://livekit:7880
       DATROPE_LIVEKIT_API_KEY: datrope
       DATROPE_LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET in deploy/.env}
+      DATROPE_IMGPROXY_URL: http://imgproxy:8080
     volumes:
       - files:/data
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Resizes stored images for the server (avatars, emoji, attachments, ...). Not reachable from outside.
+  imgproxy:
+    image: ghcr.io/imgproxy/imgproxy:v4.0.17
+    restart: unless-stopped
+    user: "65532:65532" # the server's user: stored files are readable by it only
+    environment:
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /data/files
+      IMGPROXY_ALLOWED_SOURCES: local://
+      IMGPROXY_MAX_SRC_RESOLUTION: "40"
+      IMGPROXY_MAX_ANIMATION_FRAMES: "256" # the server sends no GIF with more (imgproxy would drop the rest)
+      IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION: "16.8" # megapixels per frame: GIFs up to 4096x4096 are shown inline
+    volumes:
+      - files:/data:ro
 
   livekit:
     image: livekit/livekit-server:v1.13.7

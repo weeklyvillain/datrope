@@ -18,7 +18,7 @@ its channels, voice channels, direct messages, roles and welcome page. Registeri
 so there is nothing to set up after installing.
 
 - **You own the data.** Postgres and a file volume on your own machine. No federation, no third-party cloud.
-- **Easy to run.** Docker Compose starts everything: the Go server, Postgres, [LiveKit](https://livekit.io) for calls, and Caddy for HTTPS.
+- **Easy to run.** Docker Compose starts everything: the Go server, Postgres, [LiveKit](https://livekit.io) for calls, imgproxy for resizing images, and Caddy for HTTPS.
 - **Built for 5–500 people.** A homelab box or a small VPS is enough.
 
 ## Contents

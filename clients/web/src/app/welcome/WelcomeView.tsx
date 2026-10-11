@@ -12,6 +12,7 @@ import { SearchPanel } from "../search/SearchPanel";
 import { usePanel } from "../side-panel/panel";
 import { WelcomeEditor } from "./WelcomeEditor";
 import { WelcomeMarkdown } from "./WelcomeMarkdown";
+import { sizedImage } from "@/lib/sized-image";
 
 /** The welcome channel: banner, server name and description, the page, and the rules gate. */
 export function WelcomeView({ channelId }: { channelId: string }) {
@@ -80,7 +81,7 @@ export function WelcomeView({ channelId }: { channelId: string }) {
 /** The server banner, or a muted gradient when none is uploaded. */
 function Banner() {
   const banner = useApp((s) => s.server?.server.banner_url);
-  if (banner) return <img src={client.url(banner)} alt="" className="h-[200px] w-full object-cover" />;
+  if (banner) return <img {...sizedImage(banner, 1024)} alt="" className="h-[200px] w-full object-cover" />;
   return <div className="h-[200px] bg-linear-to-br from-primary/25 via-muted to-background" aria-hidden />;
 }
 

@@ -13,7 +13,7 @@ const html = (text: string) => renderToStaticMarkup(<EmojiText text={text} />);
 describe("EmojiText", () => {
   it("shows custom emoji as images and shortcodes as Unicode", () => {
     const out = html("hi :parrot: and :smile: but :nope:");
-    expect(out).toContain('src="/api/emoji/7"');
+    expect(out).toContain('src="/api/emoji/7?w=32"');
     expect(out).toContain('alt=":parrot:"');
     expect(out).toContain("and 😄 but :nope:");
   });

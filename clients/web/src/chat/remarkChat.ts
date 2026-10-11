@@ -4,7 +4,7 @@
 import { splitHighlights } from "./highlight";
 
 export type ChatOptions = {
-  custom: Map<string, { id: string; url: string }>; // custom emoji by lower-cased name
+  custom: Map<string, { id: string; url: string; srcSet?: string }>; // custom emoji by lower-cased name
   shortcodes: Map<string, string> | null; // Unicode emoji by lower-cased shortcode; null while loading
   users: Map<string, { id: string; name: string }>; // mentionable users by lower-cased username
   meId?: string;
@@ -35,7 +35,7 @@ function tokenNodes(token: string, o: ChatOptions): Node[] {
     if (custom) {
       return [{
         type: "chatEmoji",
-        data: { hName: "img", hProperties: { src: custom.url, alt: token, className: ["emoji"], "data-emoji": "custom", draggable: false } },
+        data: { hName: "img", hProperties: { src: custom.url, ...(custom.srcSet && { srcSet: custom.srcSet }), alt: token, className: ["emoji"], "data-emoji": "custom", draggable: false } },
       }];
     }
     const unicode = o.shortcodes?.get(name);

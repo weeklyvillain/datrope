@@ -17,6 +17,7 @@ import { MessageList, type ReplyState } from "../MessageList";
 import { openPanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
 import { itemTitle, type GalleryItem } from "./items";
+import { attachmentImage } from "@/lib/sized-image";
 
 /** In comments nobody replies to a single message. */
 const NO_REPLY: ReplyState = { replyTo: null, setReplyTo: () => undefined };
@@ -78,7 +79,7 @@ export function GalleryItemPanel({ channelId, messageId, attachmentId, items, on
       <div className="max-h-[60%] flex-none overflow-y-auto border-b">
         <div className="mx-4 mt-4 overflow-hidden rounded-md bg-muted">
           {kind === "video" ? <VideoPlayer key={attachment.id} attachment={attachment} /> : (
-            <img src={client.url(attachment.thumbnail_url ?? attachment.url)} alt={attachment.filename}
+            <img {...attachmentImage(attachment, 512)} alt={attachment.filename}
               className="aspect-[4/3] w-full object-contain" />
           )}
         </div>

@@ -1,6 +1,7 @@
 import { Fragment } from "react";
-import { client, useApp } from "@/session";
+import { useApp } from "@/session";
 import { useEmojiData } from "./emoji-data";
+import { sizedImage } from "@/lib/sized-image";
 
 const SHORTCODE = /:[A-Za-z0-9_+-]{2,32}:/g;
 
@@ -19,7 +20,7 @@ export function EmojiText({ text }: { text: string }) {
     if (!custom && !unicode) continue;
     out.push(text.slice(last, m.index));
     out.push(custom
-      ? <img key={m.index} src={client.url(custom.url)} alt={m[0]} title={m[0]} className="emoji" loading="lazy" draggable={false} />
+      ? <img key={m.index} {...sizedImage(custom.url, 32)} alt={m[0]} title={m[0]} className="emoji" loading="lazy" draggable={false} />
       : unicode!);
     last = m.index + m[0].length;
   }

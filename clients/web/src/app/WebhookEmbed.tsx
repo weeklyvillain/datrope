@@ -1,7 +1,7 @@
 import type { EmbedField, WebhookEmbed } from "@datrope/core";
 import { Markdown } from "@/chat/Markdown";
 import { cn } from "@/lib/utils";
-import { client } from "@/session";
+import { sizedImage } from "@/lib/sized-image";
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
@@ -41,7 +41,7 @@ export function WebhookEmbedCard({ embed: e }: { embed: WebhookEmbed }) {
         <div className="grid min-w-0 content-start gap-1">
           {e.author && (
             <div className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-              {e.author.icon_url && <img src={client.url(e.author.icon_url)} alt="" className="size-6 flex-none rounded-full" />}
+              {e.author.icon_url && <img {...sizedImage(e.author.icon_url, 24)} alt="" className="size-6 flex-none rounded-full" />}
               {e.author.url
                 ? <a href={e.author.url} target="_blank" rel="noopener noreferrer" className="truncate text-foreground">{e.author.name}</a>
                 : <span className="truncate">{e.author.name}</span>}
@@ -62,11 +62,11 @@ export function WebhookEmbedCard({ embed: e }: { embed: WebhookEmbed }) {
             </div>
           ))}
         </div>
-        {e.thumbnail && <img src={client.url(e.thumbnail.url)} alt="" loading="lazy" className="size-20 rounded-md object-cover" />}
-        {e.image && <img src={client.url(e.image.url)} alt="" loading="lazy" className="col-span-full mt-2 max-h-[300px] max-w-full rounded-md object-contain" />}
+        {e.thumbnail && <img {...sizedImage(e.thumbnail.url, 80)} alt="" loading="lazy" className="size-20 rounded-md object-cover" />}
+        {e.image && <img {...sizedImage(e.image.url, 512)} alt="" loading="lazy" className="col-span-full mt-2 max-h-[300px] max-w-full rounded-md object-contain" />}
         {(e.footer || e.timestamp) && (
           <div className="col-span-full mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            {e.footer?.icon_url && <img src={client.url(e.footer.icon_url)} alt="" className="size-5 rounded-full" />}
+            {e.footer?.icon_url && <img {...sizedImage(e.footer.icon_url, 20)} alt="" className="size-5 rounded-full" />}
             {e.footer?.text && <span className="wrap-anywhere">{e.footer.text}</span>}
             {e.footer?.text && e.timestamp && <span aria-hidden>•</span>}
             {e.timestamp && <time dateTime={e.timestamp}>{when.format(new Date(e.timestamp))}</time>}

@@ -1,6 +1,7 @@
 import type { Role, ServerState } from "@datrope/core";
-import { client, useApp } from "@/session";
+import { useApp } from "@/session";
 import { cn } from "@/lib/utils";
+import { sizedImage } from "@/lib/sized-image";
 
 /** The icon a member shows: their highest role that has one. */
 export function topIconRole(sv: ServerState | null | undefined, userId: string): Role | undefined {
@@ -14,8 +15,8 @@ export function topIconRole(sv: ServerState | null | undefined, userId: string):
 export function RoleIcon({ role, className }: { role: Role; className?: string }) {
   const custom = useApp((s) => (role.icon_emoji?.startsWith("custom:") ? s.emoji[role.icon_emoji.slice(7)] : undefined));
   const box = cn("inline-block size-4 flex-none object-contain align-[-0.15em]", className);
-  if (role.icon_url) return <img src={client.url(role.icon_url)} alt={role.name} title={role.name} className={box} />;
-  if (custom) return <img src={client.url(custom.url)} alt={role.name} title={role.name} className={box} />;
+  if (role.icon_url) return <img {...sizedImage(role.icon_url, 24)} alt={role.name} title={role.name} className={box} />;
+  if (custom) return <img {...sizedImage(custom.url, 24)} alt={role.name} title={role.name} className={box} />;
   if (!role.icon_emoji || role.icon_emoji.startsWith("custom:")) return null;
   return <span role="img" aria-label={role.name} title={role.name} className={cn("inline-block flex-none text-sm leading-none", className)}>{role.icon_emoji}</span>;
 }

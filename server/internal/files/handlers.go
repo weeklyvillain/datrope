@@ -121,7 +121,13 @@ func (s *Service) download(w http.ResponseWriter, r *http.Request, thumbnail boo
 		}
 		sum = a.thumbSum
 	}
-	f, err := s.store.Open(sum)
+	var f io.ReadSeekCloser
+	etag, failed := `"`+sum+`"`, false
+	if thumbnail || !a.Inline {
+		f, err = s.store.Open(sum)
+	} else {
+		f, ct, etag, failed, err = s.openImage(w, r, sum, ct)
+	}
 	if errors.Is(err, os.ErrNotExist) {
 		return httpx.NotFound("attachment")
 	}
@@ -129,7 +135,7 @@ func (s *Service) download(w http.ResponseWriter, r *http.Request, thumbnail boo
 		return err
 	}
 	defer f.Close()
-	if thumbnail { // thumbnails are JPEG or PNG; tell them apart by content
+	if thumbnail { // legacy thumbnails are JPEG or PNG; tell them apart by content
 		head := make([]byte, 512)
 		n, _ := io.ReadFull(f, head)
 		ct = http.DetectContentType(head[:n])
@@ -137,9 +143,19 @@ func (s *Service) download(w http.ResponseWriter, r *http.Request, thumbnail boo
 			return err
 		}
 	}
+	cache := "private, max-age=86400"
+	if failed {
+		cache = "no-cache" // a later request may get the small copy
+	}
+	name := a.Filename
+	if !thumbnail && a.Inline && ct != a.ContentType { // a variant in another format, e.g. WebP
+		if exts, _ := mime.ExtensionsByType(ct); len(exts) > 0 {
+			name = strings.TrimSuffix(name, path.Ext(name)) + exts[0]
+		}
+	}
 	h := w.Header()
 	h.Set("Content-Type", ct)
-	if cd := mime.FormatMediaType(disposition, map[string]string{"filename": a.Filename}); cd != "" {
+	if cd := mime.FormatMediaType(disposition, map[string]string{"filename": name}); cd != "" {
 		h.Set("Content-Disposition", cd)
 	} else {
 		h.Set("Content-Disposition", disposition)
@@ -147,8 +163,8 @@ func (s *Service) download(w http.ResponseWriter, r *http.Request, thumbnail boo
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
-	h.Set("Cache-Control", "private, max-age=86400")
-	h.Set("ETag", `"`+sum+`"`)
+	h.Set("Cache-Control", cache)
+	h.Set("ETag", etag)
 	http.ServeContent(w, r, "", time.Time{}, f)
 	return nil
 }

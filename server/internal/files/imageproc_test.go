@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"image/jpeg"
-	"image/png"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -100,28 +99,4 @@ func TestInfo(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 30, w)
 	require.Equal(t, 12, h)
-}
-
-func TestThumbnail(t *testing.T) {
-	thumb, err := files.Thumbnail(files.KindPNG, pngImage(1000, 500, false))
-	require.NoError(t, err)
-	img, err := jpeg.Decode(bytes.NewReader(thumb))
-	require.NoError(t, err, "opaque images become JPEG thumbnails")
-	require.Equal(t, 400, img.Bounds().Dx())
-	require.Equal(t, 200, img.Bounds().Dy())
-
-	thumb, err = files.Thumbnail(files.KindPNG, pngImage(500, 1000, true))
-	require.NoError(t, err)
-	img, err = png.Decode(bytes.NewReader(thumb))
-	require.NoError(t, err, "transparent images become PNG thumbnails")
-	require.Equal(t, 200, img.Bounds().Dx())
-	require.Equal(t, 400, img.Bounds().Dy())
-
-	thumb, err = files.Thumbnail(files.KindPNG, pngImage(100, 100, false))
-	require.NoError(t, err)
-	require.Nil(t, thumb, "small images need no thumbnail")
-
-	thumb, err = files.Thumbnail(files.KindGIF, gifImage(1000, 1000))
-	require.NoError(t, err)
-	require.Nil(t, thumb, "GIFs keep their animation")
 }

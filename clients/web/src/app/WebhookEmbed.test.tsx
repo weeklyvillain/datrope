@@ -34,7 +34,7 @@ describe("WebhookEmbedCard", () => {
     expect(html).toContain('href="https://github.com"');
     expect(html).toContain('<span class="md">**green**</span>');
     expect(html).toContain("grid-template-columns:repeat(3, minmax(0, 1fr))");
-    for (const src of ["a", "b", "c", "d"]) expect(html).toContain(`src="/api/messages/1/images/${src}"`);
+    for (const [src, w] of [["a", 32], ["b", 128], ["c", 512], ["d", 32]]) expect(html).toContain(`src="/api/messages/1/images/${src}?w=${w}"`);
     expect(html).toMatch(/datetime="2026-10-10T12:00:00Z"/i);
     expect(html).toContain(">CI</span>");
   });

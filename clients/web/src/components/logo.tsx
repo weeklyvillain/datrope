@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
-import { client, useApp } from "@/session";
+import { sizedImage } from "@/lib/sized-image";
+import { useApp } from "@/session";
 
 // The Datrope mark (src/assets/datrope-logo.svg), inlined so it takes currentColor.
 const MARK =
@@ -20,13 +21,14 @@ export function Logo({ className, ...props }: ComponentProps<"svg">) {
 export function ServerIcon({ size = 32, className }: { size?: number; className?: string }) {
   const icon = useApp((s) => s.server?.server.icon_url);
   const name = useApp((s) => s.server?.server.name);
-  return <ServerIconImage src={icon ? client.url(icon) : undefined} name={name} size={size} className={className} />;
+  const img = icon ? sizedImage(icon, size) : undefined;
+  return <ServerIconImage src={img?.src} srcSet={img?.srcSet} name={name} size={size} className={className} />;
 }
 
 /** ServerIcon for a given image URL (used where the store has no server, e.g. the auth pages). */
-export function ServerIconImage({ src, name, size = 32, className }: { src?: string; name?: string; size?: number; className?: string }) {
+export function ServerIconImage({ src, srcSet, name, size = 32, className }: { src?: string; srcSet?: string; name?: string; size?: number; className?: string }) {
   const style = { width: size, height: size };
-  if (src) return <img src={src} alt={name ?? ""} style={style} className={cn("flex-none rounded-lg object-cover", className)} />;
+  if (src) return <img src={src} srcSet={srcSet} alt={name ?? ""} style={style} className={cn("flex-none rounded-lg object-cover", className)} />;
   return (
     <span style={style} className={cn("grid flex-none place-items-center rounded-lg bg-muted", className)}>
       <Logo className="size-[70%] text-primary" />

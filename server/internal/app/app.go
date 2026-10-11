@@ -86,6 +86,9 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			panic(fmt.Errorf("files: cannot use %s: %w", cfg.DataDir, err)) // startup misconfiguration
 		}
 		filesSvc = files.NewService(pool, store, chanSvc, authSvc)
+		if err := filesSvc.SetVariants(filepath.Join(cfg.DataDir, "variants"), cfg.ImgproxyURL); err != nil {
+			panic(fmt.Errorf("files: cannot use %s: %w", cfg.DataDir, err)) // startup misconfiguration
+		}
 		mux.Handle("POST /api/attachments", authSvc.RequireHTTP(filesSvc.UploadHandler()))
 		mux.Handle("GET /api/attachments/{id}", authSvc.RequireHTTP(filesSvc.DownloadHandler(false)))
 		mux.Handle("GET /api/attachments/{id}/thumbnail", authSvc.RequireHTTP(filesSvc.DownloadHandler(true)))

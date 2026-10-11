@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"image/jpeg"
-	"image/png"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -60,7 +58,7 @@ func TestUploadAndDownloadImage(t *testing.T) {
 	require.Equal(t, 10, *a.Height)
 	require.Equal(t, int64(len(img)), a.Size)
 	require.Equal(t, "/api/attachments/"+a.ID.String(), a.URL)
-	require.Empty(t, a.ThumbnailURL, "small images need no thumbnail")
+	require.Empty(t, a.ThumbnailURL, "no thumbnails without imgproxy")
 
 	resp, body := alice.Raw(http.MethodGet, a.URL, nil, "", http.StatusOK)
 	require.Equal(t, img, body)
@@ -77,26 +75,25 @@ func TestUnsentAttachmentIsPrivate(t *testing.T) {
 	require.Equal(t, "NOT_FOUND", errorCode(t, raw))
 }
 
-func TestThumbnails(t *testing.T) {
-	_, alice, _, _, ch := setup(t)
+func TestNoThumbnailsWithoutImgproxy(t *testing.T) {
+	env, alice, _, _, ch := setup(t)
 	a := alice.Upload(ch, "wide.png", pngImage(1000, 500, false), http.StatusCreated)
-	require.Equal(t, a.URL+"/thumbnail", a.ThumbnailURL)
-	resp, body := alice.Raw(http.MethodGet, a.ThumbnailURL, nil, "", http.StatusOK)
-	require.Equal(t, "image/jpeg", resp.Header.Get("Content-Type"))
-	img, err := jpeg.Decode(bytes.NewReader(body))
-	require.NoError(t, err)
-	require.Equal(t, 400, img.Bounds().Dx())
-	require.Equal(t, 200, img.Bounds().Dy())
-
-	b := alice.Upload(ch, "glass.png", pngImage(1000, 500, true), http.StatusCreated)
-	resp, body = alice.Raw(http.MethodGet, b.ThumbnailURL, nil, "", http.StatusOK)
-	require.Equal(t, "image/png", resp.Header.Get("Content-Type"))
-	_, err = png.Decode(bytes.NewReader(body))
-	require.NoError(t, err)
-
-	small := alice.Upload(ch, "small.png", pngImage(10, 10, false), http.StatusCreated)
-	_, raw := alice.Raw(http.MethodGet, small.URL+"/thumbnail", nil, "", http.StatusNotFound)
+	require.Empty(t, a.ThumbnailURL, "uploads no longer get thumbnails; clients show the original")
+	require.Equal(t, 1, blobCount(t, env))
+	_, raw := alice.Raw(http.MethodGet, a.URL+"/thumbnail", nil, "", http.StatusNotFound)
 	require.Equal(t, "NOT_FOUND", errorCode(t, raw))
+}
+
+func TestLegacyThumbnailStillServed(t *testing.T) {
+	env, alice, _, _, ch := setup(t)
+	img := pngImage(1000, 500, false)
+	a := alice.Upload(ch, "wide.png", img, http.StatusCreated)
+	// Rows from before on-demand variants have a thumbnail blob; point this one at its own file.
+	_, err := env.Pool.Exec(context.Background(), `UPDATE attachments SET thumb_sha256 = sha256 WHERE id = $1`, a.ID)
+	require.NoError(t, err)
+	resp, body := alice.Raw(http.MethodGet, a.URL+"/thumbnail", nil, "", http.StatusOK)
+	require.Equal(t, img, body)
+	require.Equal(t, "image/png", resp.Header.Get("Content-Type"))
 }
 
 func TestMetadataIsStripped(t *testing.T) {
@@ -184,8 +181,8 @@ func TestIdenticalUploadsShareStorage(t *testing.T) {
 
 func TestSweepRemovesUnsentUploads(t *testing.T) {
 	env, alice, _, _, ch := setup(t)
-	a := alice.Upload(ch, "draft.png", pngImage(1000, 500, false), http.StatusCreated) // file + thumbnail
-	require.Equal(t, 2, blobCount(t, env))
+	a := alice.Upload(ch, "draft.png", pngImage(1000, 500, false), http.StatusCreated) // one blob
+	require.Equal(t, 1, blobCount(t, env))
 
 	require.NoError(t, env.App.Files.Sweep(context.Background(), time.Now()))
 	alice.Raw(http.MethodGet, a.URL, nil, "", http.StatusOK) // still fresh
@@ -208,13 +205,12 @@ func backdateBlobs(t *testing.T, env *apptest.Env) {
 
 func TestSweepKeepsAgedBlobsStillReferenced(t *testing.T) {
 	env, alice, _, _, ch := setup(t)
-	a := alice.Upload(ch, "draft.png", pngImage(1000, 500, false), http.StatusCreated) // file + thumbnail
+	a := alice.Upload(ch, "draft.png", pngImage(1000, 500, false), http.StatusCreated) // one blob
 	backdateBlobs(t, env)
 
 	require.NoError(t, env.App.Files.Sweep(context.Background(), time.Now()))
-	require.Equal(t, 2, blobCount(t, env))
+	require.Equal(t, 1, blobCount(t, env))
 	alice.Raw(http.MethodGet, a.URL, nil, "", http.StatusOK)
-	alice.Raw(http.MethodGet, a.ThumbnailURL, nil, "", http.StatusOK)
 }
 
 func TestSweepRemovesAgedOrphanBlobs(t *testing.T) {
@@ -222,10 +218,10 @@ func TestSweepRemovesAgedOrphanBlobs(t *testing.T) {
 	alice.Upload(ch, "draft.png", pngImage(1000, 500, false), http.StatusCreated)
 	_, err := env.Pool.Exec(context.Background(), `DELETE FROM attachments`)
 	require.NoError(t, err)
-	require.Equal(t, 2, blobCount(t, env))
+	require.Equal(t, 1, blobCount(t, env))
 
 	require.NoError(t, env.App.Files.Sweep(context.Background(), time.Now()))
-	require.Equal(t, 2, blobCount(t, env), "fresh orphans are kept")
+	require.Equal(t, 1, blobCount(t, env), "fresh orphans are kept")
 	backdateBlobs(t, env)
 	require.NoError(t, env.App.Files.Sweep(context.Background(), time.Now()))
 	require.Equal(t, 0, blobCount(t, env))
@@ -253,7 +249,6 @@ func TestHugeImagesAreDownloads(t *testing.T) {
 func TestDownloadNeedsChannelAccess(t *testing.T) {
 	env, alice, bob, c, ch := setup(t)
 	a := alice.Upload(ch, "wide.png", pngImage(1000, 500, false), http.StatusCreated)
-	require.NotEmpty(t, a.ThumbnailURL)
 	alice.SendWith(ch, "", a.ID)
 	var dm struct {
 		ID id.ID `json:"id"`
@@ -262,7 +257,7 @@ func TestDownloadNeedsChannelAccess(t *testing.T) {
 	can := func(u *apptest.Client, want int) {
 		t.Helper()
 		u.Raw(http.MethodGet, a.URL, nil, "", want)
-		u.Raw(http.MethodGet, a.ThumbnailURL, nil, "", want)
+		u.Raw(http.MethodGet, a.URL+"?w=64", nil, "", want)
 	}
 	can(bob, http.StatusOK)
 	can(env.Outsider("eve"), http.StatusNotFound)

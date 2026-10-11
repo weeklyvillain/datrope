@@ -1,11 +1,12 @@
 import { Perm, emojiList, hasPerm, type PublicUser } from "@datrope/core";
 import { useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { client, displayName, useApp, usePerms } from "@/session";
+import { displayName, useApp, usePerms } from "@/session";
 import { cn } from "@/lib/utils";
 import { rank, type Trigger } from "./autocomplete";
 import type { Command } from "./commands";
 import { useEmojiData } from "./emoji-data";
+import { sizedImage } from "@/lib/sized-image";
 
 export type Suggestion = { id: string; insert: string; icon: ReactNode; text: string; hint?: string };
 
@@ -51,7 +52,7 @@ export function useSuggestions(channelId: string, trigger: Trigger | null, comma
     }
     const fromServer = rank(q, custom.map((e) => ({ key: e.name, e }))).map(({ e }): Suggestion => ({
       id: `custom-${e.id}`, insert: `:${e.name}: `, text: `:${e.name}:`,
-      icon: <img src={client.url(e.url)} alt="" className="size-6 object-contain" />,
+      icon: <img {...sizedImage(e.url, 24)} alt="" className="size-6 object-contain" />,
     }));
     const fromUnicode = rank(q, shortcodes).map((s): Suggestion => ({
       id: `unicode-${s.key}`, insert: s.emoji, text: `:${s.key}:`, icon: <span className="text-xl leading-none">{s.emoji}</span>,

@@ -4,9 +4,10 @@ import remarkGfm from "remark-gfm";
 import { useMemo, useState, type ReactNode } from "react";
 import { MentionTrigger } from "@/app/people/MentionTrigger";
 import { CodeBlock } from "@/components/code-block";
-import { client, useApp } from "@/session";
+import { useApp } from "@/session";
 import { remarkChat, type ChatOptions } from "./remarkChat";
 import { useEmojiData } from "./emoji-data";
+import { sizedImage } from "@/lib/sized-image";
 
 // Everything else (headings, images, tables, rules, raw HTML) renders as its text.
 const ALLOWED = ["p", "br", "strong", "em", "del", "code", "pre", "blockquote", "ul", "ol", "li", "a", "span", "img", "mark"];
@@ -103,7 +104,10 @@ export function Markdown({ text, mentions, everyone = false, inline, highlight }
   const options = useMemo<ChatOptions>(() => {
     const mentioned = mentionKey === undefined ? null : new Set(mentionKey.split(","));
     return {
-      custom: new Map(Object.values(emoji).map((e) => [e.name.toLowerCase(), { id: e.id, url: client.url(e.url) }])),
+      custom: new Map(Object.values(emoji).map((e) => {
+        const img = sizedImage(e.url, 32);
+        return [e.name.toLowerCase(), { id: e.id, url: img.src, srcSet: img.srcSet }] as const;
+      })),
       shortcodes: data?.byShortcode ?? null,
       users: new Map(Object.values(members ?? {})
         .filter((m) => !mentioned || mentioned.has(m.user.id))

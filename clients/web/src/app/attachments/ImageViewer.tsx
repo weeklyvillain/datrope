@@ -5,6 +5,7 @@ import { client } from "../../session";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { attachmentImage } from "@/lib/sized-image";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
@@ -122,7 +123,7 @@ export function ImageViewer({ images, index, onIndexChange }:
                   className={cn("size-14 shrink-0 overflow-hidden rounded-md border-2 outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     i === index ? "border-primary" : "border-transparent opacity-60 hover:opacity-100")}
                   onClick={() => go(i)}>
-                  <img src={client.url(img.thumbnail_url || img.url)} alt="" className="size-full object-cover" />
+                  <img {...attachmentImage(img, 56, { cover: true })} alt="" className="size-full object-cover" />
                 </button>
               ))}
             </div>

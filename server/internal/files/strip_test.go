@@ -233,18 +233,6 @@ func TestCleanWebPChunks(t *testing.T) {
 	require.Equal(t, uint32(len(clean)-8), binary.LittleEndian.Uint32(clean[4:8]))
 }
 
-func TestThumbnailRejectsDecompressionBomb(t *testing.T) {
-	p := pngImage(1, 1, false)
-	binary.BigEndian.PutUint32(p[16:], 20000)
-	binary.BigEndian.PutUint32(p[20:], 20000)
-	binary.BigEndian.PutUint32(p[29:], crc32.ChecksumIEEE(p[12:29]))
-	w, h, err := files.Info(p)
-	require.NoError(t, err)
-	require.Equal(t, [2]int{20000, 20000}, [2]int{w, h})
-	_, err = files.Thumbnail(files.KindPNG, p)
-	require.ErrorContains(t, err, "too large")
-}
-
 func TestHostileInputsDoNotPanic(t *testing.T) {
 	inputs := map[files.Kind][]byte{
 		files.KindJPEG: withSegments(jpegImage(16, 16), exifSegment(6, "SECRET"), comSegment("x")),
@@ -257,7 +245,6 @@ func TestHostileInputsDoNotPanic(t *testing.T) {
 			require.NotPanics(t, func() {
 				_, _ = files.Clean(kind, data[:n])
 				_, _, _ = files.Info(data[:n])
-				_, _ = files.Thumbnail(kind, data[:n])
 			}, "%s truncated to %d", kind, n)
 		}
 	}

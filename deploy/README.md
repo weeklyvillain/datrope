@@ -96,6 +96,14 @@ Twitch and Spotify need app credentials, which an instance admin enters under Se
 Integrations. Create an app at dev.twitch.tv/console or developer.spotify.com/dashboard and add
 the redirect URL that page shows.
 
+## Images
+
+The `imgproxy` container resizes stored images (avatars, emoji, banners, attachments) to the size
+clients show them, as WebP when the browser supports it. The server keeps each resized copy in
+`/data/variants` on the files volume and deletes it along with the original. The copies can always
+be made again, so backups may skip `variants/`. While imgproxy is down, the server serves the
+originals. To turn resizing off, remove `DATROPE_IMGPROXY_URL` from the server's environment.
+
 ## Backups
 
 Back up the database (this can run while the stack is up):
@@ -109,6 +117,8 @@ Uploaded files live in the `datrope_files` volume. Back them up with:
 ```bash
 docker run --rm -v datrope_files:/data:ro -v "$PWD":/backup alpine tar czf /backup/datrope-files-$(date +%F).tgz -C /data .
 ```
+
+Add `--exclude=./variants` to skip the resized copies.
 
 To restore, run this before starting the server (it keeps the files owned by the server's user):
 

@@ -2,7 +2,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PresenceDot } from "@/components/presence-dot";
 import { avatarColor } from "@/lib/avatar-color";
 import { cn } from "@/lib/utils";
-import { client, displayName, initials } from "@/session";
+import { sizedImage } from "@/lib/sized-image";
+import { displayName, initials } from "@/session";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -13,6 +14,7 @@ const sizes: Record<AvatarSize, string> = {
   lg: "size-10 text-sm",
   xl: "size-20 text-[26px]",
 };
+const px: Record<AvatarSize, number> = { xs: 20, sm: 24, md: 32, lg: 40, xl: 80 };
 const dots: Record<AvatarSize, string> = {
   xs: "-right-0.5 -bottom-0.5 size-2 ring-2",
   sm: "-right-0.5 -bottom-0.5 size-2.5 ring-2",
@@ -31,7 +33,7 @@ export function UserAvatar({ user, size = "md", status, ringClassName = "ring-ca
 }) {
   const avatar = (
     <Avatar className={cn(sizes[size], className)}>
-      {user.avatar_url && <AvatarImage src={client.url(user.avatar_url)} alt="" />}
+      {user.avatar_url && <AvatarImage {...sizedImage(user.avatar_url, px[size])} alt="" />}
       <AvatarFallback aria-hidden className="font-semibold text-foreground text-[length:inherit]" style={{ background: avatarColor(user.id) }}>
         {initials(displayName({ display_name: user.display_name ?? "", username: user.username }))}
       </AvatarFallback>

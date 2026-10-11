@@ -1,11 +1,12 @@
 import { emojiList, type Emoji } from "@datrope/core";
 import { memo, startTransition, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { client, useApp } from "@/session";
+import { useApp } from "@/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEmojiData } from "./emoji-data";
+import { sizedImage } from "@/lib/sized-image";
 
 export type EmojiValue = { unicode: string } | { custom: Emoji };
 
@@ -70,10 +71,10 @@ function PickerPanel({ onPick }: { onPick: (value: EmojiValue) => void }) {
     const server = custom.filter((e) => e.name.toLowerCase().includes(q));
     if (server.length > 0) {
       out.push({
-        id: "server", name: "Server", icon: <img src={client.url(server[0].url)} alt="" className="size-5 object-contain" />,
+        id: "server", name: "Server", icon: <img {...sizedImage(server[0].url, 20)} alt="" className="size-5 object-contain" />,
         cells: server.map((e) => ({
           label: `:${e.name}:`, value: { custom: e },
-          show: <img src={client.url(e.url)} alt="" loading="lazy" className="size-7 object-contain" />,
+          show: <img {...sizedImage(e.url, 28)} alt="" loading="lazy" className="size-7 object-contain" />,
         })),
       });
     }

@@ -17,6 +17,7 @@ import { ProfileLinks } from "./ProfileLinks";
 import { EmojiText } from "@/chat/EmojiText";
 import { ActivityCard, useActivity } from "@/components/activity";
 import { useAssignableRoles } from "./use-assignable-roles";
+import { sizedImage } from "@/lib/sized-image";
 
 const joined = new Intl.DateTimeFormat(undefined, { dateStyle: "long" });
 
@@ -68,7 +69,7 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
   return (
     <div>
       <div className={cn("overflow-hidden", panel ? "h-24" : "h-16")} style={{ background: roleColor(sv, userId) ?? avatarColor(userId) }}>
-        {user.banner_url && <img src={client.url(user.banner_url)} alt="" className="size-full object-cover" />}
+        {user.banner_url && <img {...sizedImage(user.banner_url, 512)} alt="" className="size-full object-cover" />}
       </div>
       <div className={cn("pb-4", panel ? "px-5" : "px-4")}>
         <div className="-mt-10 w-fit">

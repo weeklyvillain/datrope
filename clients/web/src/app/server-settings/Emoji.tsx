@@ -13,6 +13,7 @@ import { useSubmit } from "@/hooks/use-submit";
 import { client, displayName, errorText, useApp } from "@/session";
 import { nameFromEmote, nameFromFile, validateNames } from "./emojiNames";
 import { SevenTVDialog } from "./SevenTVDialog";
+import { sizedImage } from "@/lib/sized-image";
 
 const MAX_EMOJI = 200;
 const MAX_BYTES = 256 * 1024;
@@ -163,7 +164,7 @@ function ServerEmoji({ emoji }: { emoji: EmojiT[] }) {
             <TableBody>
               {shown.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell><img src={e.url} alt="" className="size-8 object-contain" /></TableCell>
+                  <TableCell><img {...sizedImage(e.url, 32)} alt="" className="size-8 object-contain" /></TableCell>
                   <TableCell><RenameField key={e.name} emoji={e} /></TableCell>
                   <TableCell className="text-muted-foreground">{creator(e)}</TableCell>
                   <TableCell className="text-right">
