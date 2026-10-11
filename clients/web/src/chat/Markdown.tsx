@@ -1,7 +1,9 @@
+import type { Element, ElementContent } from "hast";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useMemo, useState, type ReactNode } from "react";
 import { MentionTrigger } from "@/app/people/MentionTrigger";
+import { CodeBlock } from "@/components/code-block";
 import { client, useApp } from "@/session";
 import { remarkChat, type ChatOptions } from "./remarkChat";
 import { useEmojiData } from "./emoji-data";
@@ -26,7 +28,20 @@ export function Spoiler({ children }: { children?: ReactNode }) {
   );
 }
 
+// The text of a HAST subtree (a code block's content, whatever plugins wrapped it in).
+const textOf = (n: ElementContent): string =>
+  n.type === "text" ? n.value : n.type === "element" ? n.children.map(textOf).join("") : "";
+
+// ```lang blocks: the language is the code element's "language-x" class.
+function codeOf(pre: Element | undefined): { code: string; lang?: string } {
+  const code = pre?.children.find((c): c is Element => c.type === "element" && c.tagName === "code");
+  const cls = (code?.properties.className as string[] | undefined)?.find((c) => c.startsWith("language-"));
+  const text = code ? code.children.map(textOf).join("") : "";
+  return { code: text.endsWith("\n") ? text.slice(0, -1) : text, lang: cls?.slice("language-".length) };
+}
+
 const components: Components = {
+  pre: ({ node }) => <CodeBlock {...codeOf(node)} />,
   a: ({ node: _n, ...p }) => <a {...p} target="_blank" rel="noopener noreferrer" />,
   // Only our custom emoji are images; a Markdown image shows its alt text.
   img: ({ node: _n, ...p }) =>

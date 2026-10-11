@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { loadHighlighter } from "@/lib/highlighter";
 import { MarkdownView } from "./Markdown";
 
 // The session module creates the client from window.location, which Node lacks; MarkdownView needs neither.
@@ -24,7 +25,7 @@ describe("message Markdown", () => {
   it.each([
     ["**bold** *it* ~~gone~~", "<strong>bold</strong>", "<em>it</em>", "<del>gone</del>"],
     ["`x<y`", "<code>x&lt;y</code>"],
-    ["```\nconst a = 1;\n```", "<pre><code>const a = 1;\n</code></pre>"],
+    ["```\nconst a = 1;\n```", 'class="code-block', ">text<", "<code>const a = 1;</code>"],
     ["> quoted", "<blockquote>"],
     ["- a\n- b", "<ul>", "<li>a</li>"],
     ["[site](https://example.com)", 'href="https://example.com"', 'target="_blank"', 'rel="noopener noreferrer"'],
@@ -79,5 +80,27 @@ describe("search highlights", () => {
 
   it("marks terms in inline rendering", () => {
     expect(marked("try wingspan", true)).toContain("<mark>wingspan</mark>");
+  });
+});
+
+describe("code blocks", () => {
+  beforeAll(async () => {
+    await loadHighlighter();
+  });
+
+  it("highlights a fenced block with its language", () => {
+    const out = html("```ts\nconst a: number = 1;\n```");
+    expect(out).toContain('class="code-block');
+    expect(out).toContain(">ts<");
+    expect(out).toContain('class="hljs-keyword"');
+  });
+
+  it("leaves inline code alone", () => {
+    expect(html("use `npm i`")).toContain("<code>npm i</code>");
+    expect(html("use `npm i`")).not.toContain("code-block");
+  });
+
+  it("shows an unknown language as text", () => {
+    expect(html("```foo\nbar\n```")).toContain(">foo<");
   });
 });

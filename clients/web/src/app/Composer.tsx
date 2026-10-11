@@ -1,5 +1,5 @@
 import type { Attachment } from "@datrope/core";
-import { CirclePlus, Reply, Smile, X } from "lucide-react";
+import { CirclePlus, Code, Reply, Smile, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { client, displayName, errorText, formatBytes, useApp, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";
@@ -7,8 +7,10 @@ import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useUploads } from "@/hooks/use-uploads";
+import { MAX_FILES, useUploads } from "@/hooks/use-uploads";
 import { cn } from "@/lib/utils";
+import { extensionForLanguage, shouldSnippet, snippetName, wrapCodeBlock } from "@/lib/code";
+import { guessLanguage, loadHighlighter } from "@/lib/highlighter";
 import { Autocomplete, useSuggestions, type Suggestion } from "@/chat/AutocompleteList";
 import { findTrigger } from "@/chat/autocomplete";
 import { availableCommands, isCommand, runCommand, type CommandContext, type ModalKind } from "@/chat/commands";
@@ -31,6 +33,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   const running = useRef(false); // a command (/status) is in flight
   const { replyTo, setReplyTo } = reply;
   const box = () => form.current?.querySelector("textarea");
+  const selLen = () => { const el = box(); return el ? el.selectionEnd - el.selectionStart : 0; };
 
   // Autocomplete for the @mention or :emoji being typed at the caret.
   const listId = useId();
@@ -75,21 +78,41 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     if (replyTo) box()?.focus();
   }, [replyTo]);
 
+  // Guessing a pasted or wrapped snippet's language needs the highlighter ready.
+  useEffect(() => {
+    loadHighlighter().catch(() => undefined);
+  }, []);
+
   if (!canSend) return <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-muted-foreground">{readOnlyText}</div>;
 
   const add = (list: File[]) => {
     if (canAttach) uploads.add(list);
   };
 
-  const insert = (from: number, to: number, value: string) => {
+  // `at` is where the caret goes within `value` (default: after it).
+  const insert = (from: number, to: number, value: string, at = value.length) => {
     const next = (text.slice(0, from) + value + text.slice(to)).slice(0, MAX_LENGTH);
-    const at = Math.min(from + value.length, next.length);
+    const pos = Math.min(from + at, next.length);
     setText(next);
-    setCaret(at);
-    pendingCaret.current = at;
+    setCaret(pos);
+    pendingCaret.current = pos;
   };
   const pick = (s: Suggestion) => {
     if (trigger) insert(trigger.start, caret, s.insert);
+  };
+
+  // Wraps the selection (or nothing) in a ``` block, naming the language when the guess is sure.
+  const wrapSelection = () => {
+    const el = box();
+    const from = el?.selectionStart ?? text.length;
+    const to = el?.selectionEnd ?? text.length;
+    const selected = text.slice(from, to);
+    const guess = selected ? guessLanguage(selected) : null;
+    const atLineStart = from === 0 || text[from - 1] === "\n";
+    const atLineEnd = to === text.length || text[to] === "\n";
+    const { value, caret: at } = wrapCodeBlock(selected, guess?.confident ? guess.lang : "", atLineStart, atLineEnd);
+    if (text.length - selected.length + value.length > MAX_LENGTH) return;
+    insert(from, to, value, at);
   };
 
   // Sends in the background, as a reply if one is pending; a failure shows under the box.
@@ -158,8 +181,32 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
           <ul className="flex list-none flex-wrap gap-1.5 border-b bg-muted px-2.5 py-1.5" aria-label="Attachments">
             {files.map((f) => (
               <li key={f.key} className={cn("inline-flex items-center gap-1.5 rounded-full border bg-card py-0.5 pl-2.5 pr-1 text-sm", f.error && "border-destructive")}>
-                <span>{f.name}</span>
+                {f.text === undefined ? <span>{f.name}</span> : (
+                  <Input key={f.name} defaultValue={f.name} aria-label="Snippet file name"
+                    className="h-6 w-36 rounded-full border-0 bg-transparent px-1 py-0 text-sm shadow-none focus-visible:ring-1"
+                    onBlur={(e) => {
+                      const n = snippetName(e.target.value, f.name);
+                      e.target.value = n;
+                      uploads.rename(f.key, n);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault(); // not a send
+                        e.currentTarget.blur();
+                      }
+                    }} />
+                )}
                 <span className="text-muted-foreground">{f.error ?? (f.attachment ? formatBytes(f.size) : "Uploading…")}</span>
+                {f.text !== undefined && (
+                  <Button variant="ghost" size="xs" disabled={(text.length - selLen()) + f.text.length > MAX_LENGTH}
+                    onClick={() => {
+                      const el = box();
+                      uploads.remove(f.key);
+                      insert(el?.selectionStart ?? text.length, el?.selectionEnd ?? text.length, f.text!);
+                    }}>
+                    Paste as text
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon-xs" aria-label={`Remove ${f.name}`}
                   onClick={() => uploads.remove(f.key)}>×</Button>
               </li>
@@ -199,9 +246,24 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               if (canAttach && pasted.length > 0) {
                 e.preventDefault();
                 add(pasted);
+                return;
               }
+              const value = e.clipboardData.getData("text/plain");
+              const el = e.currentTarget;
+              const room = MAX_LENGTH - (text.length - (el.selectionEnd - el.selectionStart));
+              if (!shouldSnippet(value, room, canAttach)) return;
+              if (files.length >= MAX_FILES && value.length <= room) return; // fits: paste natively
+              e.preventDefault();
+              if (el.selectionEnd > el.selectionStart) insert(el.selectionStart, el.selectionEnd, "");
+              const guess = guessLanguage(value);
+              uploads.addText(value, `snippet.${extensionForLanguage(guess?.confident ? guess.lang : undefined)}`);
             }}
             onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "e") {
+                e.preventDefault();
+                wrapSelection();
+                return;
+              }
               if (listOpen) {
                 if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                   e.preventDefault();
@@ -228,6 +290,10 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
                 submit();
               }
             }} />
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Code block" title="Code block (Ctrl+E)"
+            onMouseDown={(e) => e.preventDefault()} onClick={wrapSelection}>
+            <Code />
+          </Button>
           <EmojiPicker
             onPick={(v) => {
               const el = box();

@@ -813,3 +813,58 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   await expect(comments.getByText("And the dice", { exact: true })).toBeVisible();
   await expect(comments.getByRole("heading", { name: "2 comments" })).toBeVisible();
 });
+
+// Runs after the first test: alice and bob exist and #general is there.
+test("code blocks, pasted snippets and code file previews", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+  await alice.getByRole("link", { name: "general" }).click();
+  await bob.getByRole("link", { name: "general" }).click();
+  const box = alice.getByLabel("Message", { exact: true });
+
+  // A fenced block is highlighted for bob.
+  await send(alice, "```ts\nconst answer: number = 42;\n```");
+  const block = bob.locator(".code-block").filter({ hasText: "const answer" });
+  await expect(block).toBeVisible();
+  await expect(block.locator(".hljs-keyword").first()).toHaveText("const");
+  await expect(block.getByRole("button", { name: "Copy code" })).toBeVisible();
+
+  // The code button wraps the selection.
+  await box.fill("let x = 1");
+  await box.selectText();
+  await alice.getByRole("button", { name: "Code block" }).click();
+  await expect(box).toHaveValue(/^```\w*\nlet x = 1\n```$/);
+  await box.fill("");
+
+  // A long paste becomes a snippet file: renamed, sent, previewed, opened in full.
+  const code = Array.from({ length: 60 }, (_, i) => `export const v${i}: number = ${i};`).join("\n");
+  await box.evaluate((el, t) => {
+    const dt = new DataTransfer();
+    dt.setData("text/plain", t);
+    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, code);
+  const name = alice.getByLabel("Snippet file name");
+  await expect(name).toHaveValue(/^snippet\.\w+$/);
+  await expect(box).toHaveValue("");
+  await name.fill("values.ts");
+  await name.press("Enter");
+  await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
+  await alice.getByRole("button", { name: "Send" }).click();
+
+  const preview = bob.locator(".code-block").filter({ hasText: "values.ts" });
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText("v14");
+  await expect(preview).not.toContainText("v15");
+  await bob.getByRole("button", { name: "Show all 60 lines" }).click();
+  await expect(bob.getByRole("dialog", { name: "values.ts" })).toContainText("v59");
+  await bob.keyboard.press("Escape");
+
+  // An uploaded .go file previews the same way.
+  await alice.locator('input[type="file"]').setInputFiles({
+    name: "main.go", mimeType: "text/plain", buffer: Buffer.from('package main\n\nfunc main() {\n\tprintln("hi")\n}\n'),
+  });
+  await alice.getByRole("button", { name: "Send" }).click();
+  await expect(bob.locator(".code-block").filter({ hasText: "main.go" }).locator(".hljs-keyword").first()).toHaveText("package");
+});

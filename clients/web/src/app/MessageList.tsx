@@ -1,7 +1,7 @@
 import { ApiError, compareIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Copy, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
-import { client, displayName, errorText, formatBytes, outranksUser, roleColor, useApp } from "../session";
+import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
 import { useMessageAuthor } from "@/hooks/use-message-author";
@@ -31,6 +31,8 @@ import { firstUnreadIndex, idTime } from "./unread";
 import { authorKey } from "./message-author";
 import { GuestBadge } from "@/components/guest-badge";
 import { AudioPlayer } from "./attachments/AudioPlayer";
+import { CodeFileAttachment, isCodeFile } from "./attachments/CodeFile";
+import { FileChip } from "./attachments/FileChip";
 import { GifMedia } from "./attachments/GifMedia";
 import { ImageViewer } from "./attachments/ImageViewer";
 import { VideoPlayer } from "./attachments/VideoPlayer";
@@ -603,13 +605,8 @@ export function Attachments({ items }: { items: Attachment[] }) {
         const kind = mediaKind(a);
         if (kind === "audio") return <AudioPlayer key={a.id} attachment={a} />;
         if (kind === "video") return <VideoPlayer key={a.id} attachment={a} />;
-        return (
-          <a key={a.id} className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-foreground no-underline" href={client.url(a.url)} download={a.filename}>
-            <span aria-hidden="true">📎</span>
-            <span>{a.filename}</span>
-            <span className="text-muted-foreground">{formatBytes(a.size)}</span>
-          </a>
-        );
+        if (isCodeFile(a)) return <CodeFileAttachment key={a.id} attachment={a} />;
+        return <FileChip key={a.id} attachment={a} />;
       })}
     </div>
   );

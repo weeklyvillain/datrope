@@ -658,6 +658,13 @@ export class DatropeClient {
     return (await this.multipart("POST", `/api/attachments?channel_id=${encodeURIComponent(channelId)}`, file, filename)) as Attachment;
   }
 
+  /** The body of a file the server serves (an attachment), as text. */
+  async fetchText(path: string): Promise<string> {
+    const res = await fetch(this.url(path), { headers: this.authHeaders(), credentials: "include" });
+    if (!res.ok) await this.throwApiError(res);
+    return res.text();
+  }
+
   private authHeaders(): Headers {
     const headers = new Headers();
     const token = this.o.token?.();

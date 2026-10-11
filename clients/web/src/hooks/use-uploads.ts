@@ -1,5 +1,5 @@
 import type { Attachment } from "@datrope/core";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { client, errorText, formatBytes, instanceInfo } from "@/session";
 
 export const MAX_FILES = 10; // the server's limit per message
@@ -9,6 +9,7 @@ export interface PendingFile {
   name: string;
   size: number;
   type: string;
+  text?: string; // a pasted snippet's text, so it can be renamed or pasted back
   attachment?: Attachment; // set once uploaded
   error?: string;
 }
@@ -20,11 +21,32 @@ export function useUploads(channelId: string, { onError, accept }: {
   accept?: { test: (file: File) => boolean; message: string };
 }) {
   const [files, setFiles] = useState<PendingFile[]>([]);
+  // The latest upload per file: a rename starts a new one, and the older result is dropped.
+  const runs = useRef(new Map<string, string>());
 
   const update = (key: string, patch: Partial<PendingFile>) =>
     setFiles((fs) => fs.map((f) => (f.key === key ? { ...f, ...patch } : f)));
 
-  const add = (list: File[]) => {
+  const upload = (key: string, file: File) => {
+    const run = crypto.randomUUID();
+    runs.current.set(key, run);
+    const current = () => runs.current.get(key) === run;
+    void (async () => {
+      try {
+        const { max_upload_bytes: max } = await instanceInfo();
+        if (file.size > max) {
+          if (current()) update(key, { error: `Over the ${formatBytes(max)} limit` });
+          return;
+        }
+        const attachment = await client.upload(channelId, file, file.name);
+        if (current()) update(key, { attachment });
+      } catch (e) {
+        if (current()) update(key, { error: errorText(e) });
+      }
+    })();
+  };
+
+  const add = (list: File[], text?: string) => {
     const refused = !!accept && list.some((f) => !accept.test(f));
     if (accept) list = list.filter((f) => accept.test(f));
     const room = MAX_FILES - files.length;
@@ -35,27 +57,31 @@ export function useUploads(channelId: string, { onError, accept }: {
     }
     for (const file of list.slice(0, Math.max(0, room))) {
       const key = crypto.randomUUID();
-      setFiles((fs) => [...fs, { key, name: file.name, size: file.size, type: file.type }]);
-      void (async () => {
-        try {
-          const { max_upload_bytes: max } = await instanceInfo();
-          if (file.size > max) {
-            update(key, { error: `Over the ${formatBytes(max)} limit` });
-            return;
-          }
-          update(key, { attachment: await client.upload(channelId, file, file.name) });
-        } catch (e) {
-          update(key, { error: errorText(e) });
-        }
-      })();
+      setFiles((fs) => [...fs, { key, name: file.name, size: file.size, type: file.type, text }]);
+      upload(key, file);
     }
   };
 
   return {
     files,
-    add,
-    remove: (key: string) => setFiles((fs) => fs.filter((f) => f.key !== key)),
-    clear: () => setFiles([]),
+    add: (list: File[]) => add(list),
+    /** Attaches pasted text as a file named `name`. */
+    addText: (text: string, name: string) => add([new File([text], name, { type: "text/plain" })], text),
+    /** Renames a pasted snippet by uploading its text again under the new name. */
+    rename: (key: string, name: string) => {
+      const f = files.find((x) => x.key === key);
+      if (f?.text === undefined || name === f.name) return;
+      update(key, { name, attachment: undefined, error: undefined });
+      upload(key, new File([f.text], name, { type: "text/plain" }));
+    },
+    remove: (key: string) => {
+      runs.current.delete(key);
+      setFiles((fs) => fs.filter((f) => f.key !== key));
+    },
+    clear: () => {
+      runs.current.clear();
+      setFiles([]);
+    },
     uploading: files.some((f) => !f.attachment && !f.error),
     ready: files.flatMap((f) => (f.attachment ? [f.attachment] : [])),
   };
