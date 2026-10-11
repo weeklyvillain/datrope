@@ -25,6 +25,7 @@ type Config struct {
 	DataDir    string          // uploads live in DataDir/files
 	LiveKit    voice.Config    // voice is off when LiveKit.URL is empty
 	KlipyURL   string          // Klipy's API base; "" is the real one (tests point it at a fake)
+	SevenTVURL string          // 7TV's API base; "" is the real one (tests point it at a fake)
 	// Integrations are Twitch's, YouTube's and Spotify's base URLs; zero values are the real ones.
 	Integrations integrations.Endpoints
 	Music        music.Config // ffmpeg and yt-dlp; empty paths are looked up on PATH

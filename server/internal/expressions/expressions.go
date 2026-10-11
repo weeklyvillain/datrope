@@ -1,4 +1,5 @@
-// Package expressions owns custom emoji (and, in M7, soundboard sounds).
+// Package expressions owns custom emoji, which can be uploaded or imported
+// from 7TV, and soundboard sounds.
 package expressions
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/id"
 	"github.com/datrope/datrope/server/internal/perms"
+	"github.com/datrope/datrope/server/internal/ratelimit"
 )
 
 const (
@@ -62,10 +64,15 @@ type Service struct {
 	server    Server
 	blobs     Blobs
 	reactions Reactions
+	sevenTV   *sevenTV
+	// sevenTVLimit bounds the 7TV lookups and imports one person makes.
+	sevenTVLimit *ratelimit.Limiter
 }
 
-func NewService(pool *pgxpool.Pool, bus *events.Bus, server Server, blobs Blobs, reactions Reactions) *Service {
-	return &Service{db: pool, bus: bus, server: server, blobs: blobs, reactions: reactions}
+// NewService talks to 7TV at sevenTVURL ("" for DefaultSevenTVURL).
+func NewService(pool *pgxpool.Pool, bus *events.Bus, server Server, blobs Blobs, reactions Reactions, sevenTVURL string) *Service {
+	return &Service{db: pool, bus: bus, server: server, blobs: blobs, reactions: reactions,
+		sevenTV: newSevenTV(sevenTVURL), sevenTVLimit: ratelimit.New(120, 60)}
 }
 
 func (s *Service) List(ctx context.Context) ([]Emoji, error) {

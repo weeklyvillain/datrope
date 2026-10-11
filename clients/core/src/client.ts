@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Attachment, Category, Channel, Emoji, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, Sound,
+  Attachment, Category, Channel, Emoji, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL,
 } from "./types";
 
@@ -586,6 +586,21 @@ export class DatropeClient {
     form.append("name", name);
     form.append("file", file, `${name}.img`);
     return (await this.multipartForm("POST", "/api/server/emoji", form)) as Emoji;
+  }
+
+  /** Searches 7TV's emotes (MANAGE_EXPRESSIONS); page starts at 1. */
+  async searchSevenTV(q: string, page = 1): Promise<SevenTVPage> {
+    return unwrap(this.api.GET("/api/server/emoji/7tv/search", { params: { query: { q, page } } }));
+  }
+
+  /** A 7TV emote set with its emotes (MANAGE_EXPRESSIONS). */
+  async sevenTVSet(setId: string): Promise<SevenTVSet> {
+    return unwrap(this.api.GET("/api/server/emoji/7tv/sets/{setID}", { params: { path: { setID: setId } } }));
+  }
+
+  /** Adds a 7TV emote as a custom emoji (MANAGE_EXPRESSIONS). */
+  async importSevenTVEmote(emoteId: string, name: string): Promise<Emoji> {
+    return unwrap(this.api.POST("/api/server/emoji/7tv", { body: { emote_id: emoteId, name } }));
   }
 
   async renameEmoji(id: string, name: string): Promise<Emoji> {

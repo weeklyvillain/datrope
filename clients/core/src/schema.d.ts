@@ -773,6 +773,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/emoji/7tv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["import-7tv-emote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/emoji/7tv/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["search-7tv-emotes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/emoji/7tv/sets/{setID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-7tv-emote-set"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/emoji/{emojiID}": {
         parameters: {
             query?: never;
@@ -1632,6 +1680,11 @@ export interface components {
              */
             heartbeat_interval: number;
         };
+        ImportSevenTVRequest: {
+            /** @description A 7TV emote ID */
+            emote_id: string;
+            name: string;
+        };
         InstanceInfo: {
             /** @description A Klipy key is set, so /gif is available */
             gifs_enabled: boolean;
@@ -2333,6 +2386,28 @@ export interface components {
             spotify_configured: boolean;
             /** @description Twitch app credentials are set (never returned) */
             twitch_configured: boolean;
+        };
+        SevenTVEmote: {
+            animated: boolean;
+            /** @description Pass to POST /api/server/emoji/7tv */
+            id: string;
+            /** @description Its name on 7TV (or its alias in the set); may not be a valid emoji name */
+            name: string;
+            /** @description A 1x (about 32 px tall) WebP on 7TV's CDN */
+            preview_url: string;
+        };
+        SevenTVPage: {
+            items: components["schemas"]["SevenTVEmote"][] | null;
+            /**
+             * Format: int64
+             * @description Pass as page to get the next page; absent on the last page
+             */
+            next_page?: number;
+        };
+        SevenTVSet: {
+            id: string;
+            items: components["schemas"]["SevenTVEmote"][] | null;
+            name: string;
         };
         Sound: {
             /** @description Snowflake ID as a decimal string */
@@ -4779,6 +4854,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Emoji"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "import-7tv-emote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportSevenTVRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Emoji"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "search-7tv-emotes": {
+        parameters: {
+            query?: {
+                /** @description Words in the emote's name */
+                q?: string;
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SevenTVPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-7tv-emote-set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A 7TV emote set ID */
+                setID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SevenTVSet"];
                 };
             };
             /** @description Error */

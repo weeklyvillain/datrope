@@ -1,4 +1,4 @@
-import { ApiError, emojiList, type Emoji as EmojiT } from "@datrope/core";
+import { ApiError, emojiList, type Emoji as EmojiT, type SevenTVEmote } from "@datrope/core";
 import { Trash2, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSubmit } from "@/hooks/use-submit";
 import { client, displayName, errorText, useApp } from "@/session";
-import { nameFromFile, validateNames } from "./emojiNames";
+import { nameFromEmote, nameFromFile, validateNames } from "./emojiNames";
+import { SevenTVDialog } from "./SevenTVDialog";
 
 const MAX_EMOJI = 200;
 const MAX_BYTES = 256 * 1024;
@@ -19,7 +20,8 @@ const TYPES = ["image/png", "image/gif", "image/webp"];
 
 interface Tile {
   key: number;
-  file: File;
+  file?: File; // an upload
+  emoteId?: string; // or a 7TV emote; url is its preview on 7TV's CDN
   url: string;
   name: string;
   fileError?: string; // the file itself is unusable
@@ -28,16 +30,17 @@ interface Tile {
 
 let nextKey = 1;
 
-/** Custom emoji (MANAGE_EXPRESSIONS): bulk upload with per-file names, plus the list of the server emoji with rename and delete. */
+/** Custom emoji (MANAGE_EXPRESSIONS): bulk upload (or 7TV import) with per-emoji names, plus the list of the server emoji with rename and delete. */
 export function Emoji() {
   const emoji = useApp(useShallow(emojiList));
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [sevenTV, setSevenTV] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const tilesRef = useRef(tiles);
   tilesRef.current = tiles;
 
-  useEffect(() => () => tilesRef.current.forEach((t) => URL.revokeObjectURL(t.url)), []);
+  useEffect(() => () => tilesRef.current.forEach((t) => t.file && URL.revokeObjectURL(t.url)), []);
 
   const errors = validateNames(tiles, emoji.map((e) => e.name));
   const tileError = (t: Tile, i: number) => t.fileError ?? t.serverError ?? errors[i];
@@ -56,8 +59,15 @@ export function Emoji() {
     setTiles((t) => [...t, ...added]);
   };
 
+  const addEmotes = (emotes: SevenTVEmote[]) => {
+    const staged = new Set(tilesRef.current.map((t) => t.emoteId));
+    const added: Tile[] = emotes.filter((e) => !staged.has(e.id))
+      .map((e) => ({ key: nextKey++, emoteId: e.id, url: e.preview_url, name: nameFromEmote(e.name) }));
+    setTiles((t) => [...t, ...added]);
+  };
+
   const drop = (keys: number[]) => {
-    tilesRef.current.filter((t) => keys.includes(t.key)).forEach((t) => URL.revokeObjectURL(t.url));
+    tilesRef.current.filter((t) => t.file && keys.includes(t.key)).forEach((t) => URL.revokeObjectURL(t.url));
     setTiles((ts) => ts.filter((t) => !keys.includes(t.key)));
   };
 
@@ -65,7 +75,7 @@ export function Emoji() {
     setUploading(true);
     for (const t of tilesRef.current.filter((x) => !x.fileError)) {
       try {
-        await client.uploadEmoji(t.name, t.file);
+        await (t.file ? client.uploadEmoji(t.name, t.file) : client.importSevenTVEmote(t.emoteId!, t.name));
         drop([t.key]);
       } catch (e) {
         const msg = errorText(e);
@@ -83,6 +93,7 @@ export function Emoji() {
           <p className="text-muted-foreground">Custom emoji everyone on the server can use in messages and reactions.</p>
           <p className="mt-1 text-xs text-muted-foreground">{emoji.length} of {MAX_EMOJI} used</p>
         </div>
+        <Button variant="outline" onClick={() => setSevenTV(true)}>Add from 7TV</Button>
         <Button onClick={() => picker.current?.click()}><Upload aria-hidden />Upload emoji</Button>
         <input ref={picker} type="file" multiple accept="image/png,image/gif,image/webp" aria-label="Choose emoji images" className="hidden"
           onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
@@ -119,6 +130,7 @@ export function Emoji() {
         </section>
       )}
 
+      {sevenTV && <SevenTVDialog onAdd={addEmotes} onClose={() => setSevenTV(false)} />}
       <ServerEmoji emoji={emoji} />
     </>
   );

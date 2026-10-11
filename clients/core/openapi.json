@@ -1051,6 +1051,24 @@
         ],
         "type": "object"
       },
+      "ImportSevenTVRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "emote_id": {
+            "description": "A 7TV emote ID",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9_]{2,32}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emote_id",
+          "name"
+        ],
+        "type": "object"
+      },
       "InstanceInfo": {
         "additionalProperties": false,
         "properties": {
@@ -3216,6 +3234,82 @@
           "klipy_configured",
           "twitch_configured",
           "spotify_configured"
+        ],
+        "type": "object"
+      },
+      "SevenTVEmote": {
+        "additionalProperties": false,
+        "properties": {
+          "animated": {
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Pass to POST /api/server/emoji/7tv",
+            "type": "string"
+          },
+          "name": {
+            "description": "Its name on 7TV (or its alias in the set); may not be a valid emoji name",
+            "type": "string"
+          },
+          "preview_url": {
+            "description": "A 1x (about 32 px tall) WebP on 7TV's CDN",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "animated",
+          "preview_url"
+        ],
+        "type": "object"
+      },
+      "SevenTVPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SevenTVEmote"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_page": {
+            "description": "Pass as page to get the next page; absent on the last page",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "SevenTVSet": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SevenTVEmote"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "items"
         ],
         "type": "object"
       },
@@ -7342,6 +7436,158 @@
                     "array",
                     "null"
                   ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/emoji/7tv": {
+      "post": {
+        "operationId": "import-7tv-emote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSevenTVRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Emoji"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/emoji/7tv/search": {
+      "get": {
+        "operationId": "search-7tv-emotes",
+        "parameters": [
+          {
+            "description": "Words in the emote's name",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words in the emote's name",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "format": "int64",
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SevenTVPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "expressions"
+        ]
+      }
+    },
+    "/api/server/emoji/7tv/sets/{setID}": {
+      "get": {
+        "operationId": "get-7tv-emote-set",
+        "parameters": [
+          {
+            "description": "A 7TV emote set ID",
+            "in": "path",
+            "name": "setID",
+            "required": true,
+            "schema": {
+              "description": "A 7TV emote set ID",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SevenTVSet"
                 }
               }
             },

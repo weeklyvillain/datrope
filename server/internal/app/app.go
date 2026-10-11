@@ -149,7 +149,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		a.Webhooks = hookSvc
 	}
 
-	exprSvc := expressions.NewService(pool, a.Bus, commSvc, filesSvc, msgSvc)
+	exprSvc := expressions.NewService(pool, a.Bus, commSvc, filesSvc, msgSvc, cfg.SevenTVURL)
 	msgSvc.SetCustomEmoji(exprSvc)
 	msgSvc.SetThreads(chanSvc)
 	expressions.Register(api, exprSvc)

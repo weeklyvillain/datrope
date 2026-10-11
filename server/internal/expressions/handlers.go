@@ -161,7 +161,59 @@ func Register(api huma.API, s *Service) {
 			return nil, nil
 		})
 
+	huma.Register(api, op("search-7tv-emotes", http.MethodGet, "/api/server/emoji/7tv/search", 0),
+		func(ctx context.Context, in *struct {
+			Q    string `query:"q" maxLength:"100" doc:"Words in the emote's name"`
+			Page int    `query:"page" minimum:"1" maximum:"50" default:"1"`
+		}) (*struct{ Body *SevenTVPage }, error) {
+			if err := s.requireSevenTV(ctx); err != nil {
+				return nil, err
+			}
+			p, err := s.searchSevenTV(ctx, strings.TrimSpace(in.Q), in.Page)
+			if err != nil {
+				return nil, err
+			}
+			return &struct{ Body *SevenTVPage }{p}, nil
+		})
+
+	huma.Register(api, op("get-7tv-emote-set", http.MethodGet, "/api/server/emoji/7tv/sets/{setID}", 0),
+		func(ctx context.Context, in *struct {
+			SetID string `path:"setID" doc:"A 7TV emote set ID"`
+		}) (*struct{ Body *SevenTVSet }, error) {
+			if err := s.requireSevenTV(ctx); err != nil {
+				return nil, err
+			}
+			set, err := s.sevenTVSet(ctx, in.SetID)
+			if err != nil {
+				return nil, err
+			}
+			return &struct{ Body *SevenTVSet }{set}, nil
+		})
+
+	huma.Register(api, op("import-7tv-emote", http.MethodPost, "/api/server/emoji/7tv", http.StatusCreated),
+		func(ctx context.Context, in *struct{ Body ImportSevenTVRequest }) (*struct{ Body *Emoji }, error) {
+			if err := s.requireSevenTV(ctx); err != nil {
+				return nil, err
+			}
+			e, err := s.importSevenTV(ctx, in.Body.EmoteID, in.Body.Name)
+			if err != nil {
+				return nil, err
+			}
+			return &struct{ Body *Emoji }{e}, nil
+		})
+
 	registerSounds(api, s, op)
+}
+
+// requireSevenTV allows MANAGE_EXPRESSIONS, within the 7TV rate limit.
+func (s *Service) requireSevenTV(ctx context.Context) error {
+	if err := s.require(ctx, perms.ManageExpressions); err != nil {
+		return err
+	}
+	if !s.sevenTVLimit.Allow(auth.Current(ctx).User.ID.String()) {
+		return httpx.RateLimited()
+	}
+	return nil
 }
 
 // UploadHandler serves POST /api/server/emoji (multipart: name, file). It
@@ -210,7 +262,11 @@ func (s *Service) upload(w http.ResponseWriter, r *http.Request) (*Emoji, error)
 	if len(data) > MaxEmojiBytes {
 		return nil, errTooLarge()
 	}
+	return s.insert(ctx, name, data)
+}
 
+// insert stores an image of at most MaxEmojiBytes as a new emoji named name.
+func (s *Service) insert(ctx context.Context, name string, data []byte) (*Emoji, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, err
