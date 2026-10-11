@@ -10,7 +10,10 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/datrope ./cmd/datr
 # Alpine rather than distroless: the music bot runs ffmpeg (decoding to Opus)
 # and yt-dlp (YouTube links and searches).
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates ffmpeg yt-dlp && adduser -D -H -u 65532 nonroot
+# yt-dlp comes from its latest release, not apk: Alpine pins an old version
+# that YouTube has already broken. ADD re-downloads it on every build.
+RUN apk add --no-cache ca-certificates ffmpeg python3 && adduser -D -H -u 65532 nonroot
+ADD --chmod=755 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp /usr/local/bin/yt-dlp
 USER 65532:65532
 COPY --from=build /out/datrope /datrope
 # A new named volume mounted at /data copies this directory, owner included,
