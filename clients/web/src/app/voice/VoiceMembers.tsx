@@ -58,9 +58,9 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
           </span>
         );
         // Everyone but me: right-click or "More" opens my local settings for them.
-        // Those I may move can also be dragged onto another voice channel in the sidebar.
+        // I, and those I may move, can also be dragged onto another voice channel in the sidebar.
         const item = (content: ReactNode) => (
-          <MemberItem key={v.user_id} userId={v.user_id} channelId={channelId} movable={v.user_id !== meId && above[i] && canMove}>
+          <MemberItem key={v.user_id} userId={v.user_id} channelId={channelId} movable={v.user_id === meId || (above[i] && canMove)}>
             <AvatarTrigger userId={v.user_id} name={names[i]} side="right">
               <VoiceAvatar userId={v.user_id} name={names[i]} speaking={speaking.includes(v.user_id)} />
             </AvatarTrigger>
@@ -99,10 +99,13 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
             speaking.includes(bot) && "ring-online")}>
             <Music className="size-3.5" aria-hidden />
           </span>
-          <span className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1 text-sm text-muted-foreground">
-            <span className="truncate">Music</span>
-            <Badge variant="secondary" className="px-1 py-0 text-[0.6rem]">BOT</Badge>
-          </span>
+          <PersonMenu userId={bot} name="Music" hasCamera={false} className="flex min-w-0 flex-1 items-center gap-0.5">
+            <span className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-sm text-muted-foreground hover:bg-accent">
+              <span className="truncate">Music</span>
+              <Badge variant="secondary" className="px-1 py-0 text-[0.6rem]">BOT</Badge>
+              <AdjustedBadge userId={bot} />
+            </span>
+          </PersonMenu>
         </li>
       )}
       {error && <li className="px-2 text-xs text-destructive" role="alert">{error}</li>}
@@ -110,7 +113,7 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
   );
 }
 
-/** A member's row; dragging it (pointer only) onto another voice channel moves them. Keyboard users have "Move to". */
+/** A member's row; dragging it (pointer only) onto another voice channel moves them (or joins it, for me). Keyboard users have "Move to". */
 function MemberItem({ userId, channelId, movable, children }: { userId: string; channelId: string; movable: boolean; children: ReactNode }) {
   const { setNodeRef, listeners, isDragging } = useDraggable({ id: `vm:${userId}`, data: { from: channelId }, disabled: !movable });
   return (

@@ -49,7 +49,7 @@ export function Tile({ userId, tile, size, speaking = false, watching = false, c
 
   const card = (
     <div ref={rootRef} className={cn(
-      "relative grid place-items-center overflow-hidden rounded-xl border bg-card",
+      "relative grid select-none place-items-center overflow-hidden rounded-xl border bg-card",
       wrapped ? "size-full" : box[size],
       speaking && !screen && "border-transparent ring-3 ring-primary",
     )}>

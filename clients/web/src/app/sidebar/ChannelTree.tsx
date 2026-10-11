@@ -62,7 +62,7 @@ interface Tree {
 const TreeContext = createContext<Tree | null>(null);
 const useTree = () => useContext(TreeContext)!;
 
-/** The sidebar's channel list: uncategorised channels, then categories; managers drag to reorder. */
+/** The sidebar's channel list: the welcome channel, categories, then uncategorised channels; managers drag to reorder. */
 export function ChannelTree({ activeId }: { activeId?: string }) {
   const channelIds = useApp((s) => s.server?.channelIds);
   const categories = useApp((s) => s.server?.categories);
@@ -87,6 +87,7 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
   const errorTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(errorTimer.current), []);
   const droppedAt = useRef(0);
+  const nav = useNavigate();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -145,7 +146,14 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     if (!d || !over) return;
     if (kindOf(active.id) === "vm") {
       const to = rawId(over.id);
-      if (kindOf(over.id) === "vc" && to !== active.data.current?.from) void client.moveVoice(rawId(active.id), to).catch(showError);
+      if (kindOf(over.id) !== "vc" || to === active.data.current?.from) return;
+      const s = client.store.getState();
+      if (rawId(active.id) !== s.me?.id) {
+        void client.moveVoice(rawId(active.id), to).catch(showError);
+      } else if (hasPerm(myChannelPerms(s, to), Perm.ConnectVoice)) {
+        nav(`/channels/${to}`); // dragging myself joins that channel, like "Join voice"
+        void voice.join(to);
+      }
       return;
     }
     if (kindOf(active.id) === "cat") {
@@ -186,10 +194,8 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     <TreeContext.Provider value={tree}>
       <DndContext sensors={sensors} collisionDetection={collision} accessibility={{ announcements }}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setDrag(undefined)}>
-        <div className="p-2">
-          <Group group={NONE} ids={view.groups[NONE] ?? []}>
-            {view.welcomeId && <ChannelRow id={view.welcomeId} />}
-          </Group>
+        <div className="select-none p-2">
+          {view.welcomeId && <ul className="list-none"><ChannelRow id={view.welcomeId} /></ul>}
           <SortableContext items={view.cats.map((c) => `cat:${c}`)} strategy={verticalListSortingStrategy}>
             {view.cats.map((catId) => {
               const category = categories?.[catId];
@@ -199,6 +205,8 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
               return <CategorySection key={catId} category={category} ids={ids} onAction={(action) => setDialog({ action, category })} />;
             })}
           </SortableContext>
+          {/* Below the categories, so a channel dragged out of the last one lands where it is dropped. */}
+          <Group group={NONE} ids={view.groups[NONE] ?? []} />
           <ErrorText error={error} />
         </div>
         <DragOverlay>
