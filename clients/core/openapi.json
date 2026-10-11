@@ -2272,6 +2272,10 @@
       "Preview": {
         "additionalProperties": false,
         "properties": {
+          "author": {
+            "description": "Who made it: a YouTube video's channel",
+            "type": "string"
+          },
           "description": {
             "type": "string"
           },

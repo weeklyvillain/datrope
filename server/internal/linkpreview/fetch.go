@@ -122,6 +122,12 @@ func fetchWith(ctx context.Context, rawURL string, allow func(net.IP) bool) (*Pr
 		return nil, fmt.Errorf("link preview: unsupported URL %q", rawURL)
 	}
 	u.User = nil // never send credentials from a message
+	if isYouTube(u) {
+		if p, err := fetchYouTube(ctx, u.String(), allow); err == nil {
+			return p, nil
+		}
+		// Not a video (a channel, a playlist) or oEmbed is down: read the page.
+	}
 	client := NewClient(allow, fetchTimeout)
 	defer client.CloseIdleConnections()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)

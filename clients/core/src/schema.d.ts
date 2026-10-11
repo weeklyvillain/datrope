@@ -2117,6 +2117,8 @@ export interface components {
             user_id: string;
         };
         Preview: {
+            /** @description Who made it: a YouTube video's channel */
+            author?: string;
             description: string;
             site: string;
             title: string;

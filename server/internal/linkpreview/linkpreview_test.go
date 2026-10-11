@@ -19,15 +19,16 @@ func TestGetCachesAndLimits(t *testing.T) {
 		if rawURL == "https://bad.example" {
 			return nil, errors.New("boom")
 		}
-		return &Preview{URL: rawURL, Site: "Ex", Title: "T", Description: "D"}, nil
+		return &Preview{URL: rawURL, Site: "Ex", Title: "T", Description: "D", Author: "A"}, nil
 	}
 	ctx := t.Context()
 
 	p, err := s.Get(ctx, "https://ok.example")
 	require.NoError(t, err)
-	require.Equal(t, &Preview{URL: "https://ok.example", Site: "Ex", Title: "T", Description: "D"}, p)
+	require.Equal(t, &Preview{URL: "https://ok.example", Site: "Ex", Title: "T", Description: "D", Author: "A"}, p)
 	p, err = s.Get(ctx, "https://ok.example")
 	require.NoError(t, err)
+	require.Equal(t, "A", p.Author) // from the cache row
 	require.Equal(t, "T", p.Title)
 	require.Equal(t, 1, calls) // cached
 

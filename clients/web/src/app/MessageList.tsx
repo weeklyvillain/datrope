@@ -492,7 +492,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
         {!m.deleted && m.poll && <PollCard message={m} poll={m.poll} canEnd={mine || canManage} />}
         {!m.deleted && <Attachments items={m.attachments ?? []} />}
         {!m.deleted && m.embeds && m.embeds.length > 0 && <WebhookEmbeds embeds={m.embeds} />}
-        {!m.deleted && !editing && playable && <InlinePlayer player={playable.player} url={playable.url} title={m.embed?.url === playable.url ? m.embed.title : undefined} />}
+        {!m.deleted && !editing && playable && <InlinePlayer player={playable.player} url={playable.url} embed={m.embed?.url === playable.url ? m.embed : undefined} />}
         {!m.deleted && !editing && m.embed && m.embed.url !== playable?.url && <LinkPreview embed={m.embed} />}
         {!m.deleted && <Reactions message={m} canAdd={canReact} />}
         {thread && openThread && <div><ThreadSummary summary={thread} onOpen={openThread} /></div>}

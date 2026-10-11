@@ -7,6 +7,8 @@ export type Player = {
   /** "video" is 16:9, "vertical" 9:16; a number is a fixed height in pixels (Spotify). */
   shape: "video" | "vertical" | number;
   label: string; // what it is, for the play button: "video", "live stream", "clip", "track", ...
+  /** A preview image shown before playing (YouTube only). */
+  thumbnail?: string;
 };
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -48,6 +50,7 @@ function youtube(u: URL, host: string): Player | undefined {
   return {
     site: "YouTube", icon: "youtube", shape: vertical ? "vertical" : "video", label: vertical ? "short" : "video",
     src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1${start ? `&start=${start}` : ""}`,
+    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
   };
 }
 

@@ -18,6 +18,11 @@ describe("playerFor", () => {
     expect(playerFor(url, host)).toMatchObject({ src, shape });
   });
 
+  it("has a thumbnail for YouTube only", () => {
+    expect(playerFor("https://youtu.be/dQw4w9WgXcQ", host)?.thumbnail).toBe("https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg");
+    expect(playerFor("https://www.twitch.tv/somestreamer", host)?.thumbnail).toBeUndefined();
+  });
+
   it.each([
     "http://www.youtube.com/watch?v=dQw4w9WgXcQ", // not https
     "https://www.youtube.com/watch?v=short",
