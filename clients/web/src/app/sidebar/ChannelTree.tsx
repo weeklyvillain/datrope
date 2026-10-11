@@ -53,6 +53,7 @@ interface Tree {
   activeId?: string;
   dragKind?: Kind;
   dragId?: string;
+  dropGroup?: string; // the group a dragged channel is in now
   canManage: boolean;
   manageable: string[];
   openSettings: (id: string) => void;
@@ -62,7 +63,7 @@ interface Tree {
 const TreeContext = createContext<Tree | null>(null);
 const useTree = () => useContext(TreeContext)!;
 
-/** The sidebar's channel list: the welcome channel, categories, then uncategorised channels; managers drag to reorder. */
+/** The sidebar's channel list: the welcome channel, uncategorised channels, then categories; managers drag to reorder. */
 export function ChannelTree({ activeId }: { activeId?: string }) {
   const channelIds = useApp((s) => s.server?.channelIds);
   const categories = useApp((s) => s.server?.categories);
@@ -179,14 +180,16 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     void moveChannel(id, groups, [...new Set([was, group])], group, position, welcome).catch(fail);
   };
 
+  const dragged = drag && kindOf(drag.id) === "ch" ? channels[rawId(drag.id)] : undefined;
+  const dropGroup = dragged && drag ? groupOf(drag.groups, dragged.id) : undefined;
+  const fromGroup = dragged ? groupOf(base.groups, dragged.id) : undefined;
   const tree: Tree = {
-    activeId, canManage, manageable,
+    activeId, canManage, manageable, dropGroup,
     dragKind: drag ? kindOf(drag.id) : undefined,
     dragId: drag ? rawId(drag.id) : undefined,
     openSettings: setSettingsFor,
     justDropped: () => Date.now() - droppedAt.current < 300,
   };
-  const dragged = drag && kindOf(drag.id) === "ch" ? channels[rawId(drag.id)] : undefined;
   const draggedCat = drag && kindOf(drag.id) === "cat" ? categories?.[rawId(drag.id)] : undefined;
   const draggedUser = drag && kindOf(drag.id) === "vm" ? userName(client.store.getState(), rawId(drag.id)) : undefined;
 
@@ -196,6 +199,7 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setDrag(undefined)}>
         <div className="select-none p-2">
           {view.welcomeId && <ul className="list-none"><ChannelRow id={view.welcomeId} /></ul>}
+          <Group group={NONE} ids={view.groups[NONE] ?? []} />
           <SortableContext items={view.cats.map((c) => `cat:${c}`)} strategy={verticalListSortingStrategy}>
             {view.cats.map((catId) => {
               const category = categories?.[catId];
@@ -205,15 +209,20 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
               return <CategorySection key={catId} category={category} ids={ids} onAction={(action) => setDialog({ action, category })} />;
             })}
           </SortableContext>
-          {/* Below the categories, so a channel dragged out of the last one lands where it is dropped. */}
-          <Group group={NONE} ids={view.groups[NONE] ?? []} />
           <ErrorText error={error} />
         </div>
         <DragOverlay>
           {dragged && (
-            <div className="flex items-center gap-2 rounded-md bg-accent px-2 py-1.5 text-foreground shadow-md">
-              <ChannelIcon ch={dragged} />
-              <span className="truncate">{dragged.name}</span>
+            <div className="rounded-md bg-accent px-2 py-1.5 text-foreground shadow-md">
+              <div className="flex items-center gap-2">
+                <ChannelIcon ch={dragged} />
+                <span className="truncate">{dragged.name}</span>
+              </div>
+              {dropGroup && dropGroup !== fromGroup && (
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {dropGroup === NONE ? "Out of category" : `Into ${categories?.[dropGroup]?.name ?? ""}`}
+                </div>
+              )}
             </div>
           )}
           {draggedCat && (
@@ -264,7 +273,7 @@ async function reload() {
 }
 
 function CategorySection({ category, ids, onAction }: { category: Category; ids: string[]; onAction: (a: CategoryAction) => void }) {
-  const { activeId, canManage, dragKind, dragId, justDropped } = useTree();
+  const { activeId, canManage, dragKind, dragId, dropGroup, justDropped } = useTree();
   const [collapsed, setCollapsed] = useCollapsed(category.id);
   const channels = useApp((s) => s.channels);
   const readStates = useApp((s) => s.readStates);
@@ -277,7 +286,8 @@ function CategorySection({ category, ids, onAction }: { category: Category; ids:
     ? ids.filter((id) => id === activeId || id === dragId || (isUnreadType(channels[id]?.type) && isUnread(readStates[id])))
     : ids;
   return (
-    <div ref={setNodeRef} role="group" aria-label={category.name} className={cn(isDragging && "opacity-40")}
+    <div ref={setNodeRef} role="group" aria-label={category.name}
+      className={cn("rounded-md", isDragging && "opacity-40", dropGroup === category.id && "bg-accent/40 ring-1 ring-primary/60")}
       style={{ transform: CSS.Translate.toString(transform), transition }}>
       <CategoryHeader category={category} collapsed={collapsed} canManage={canManage} onAction={onAction}
         onToggle={() => !dragKind && !justDropped() && setCollapsed(!collapsed)}
@@ -289,17 +299,19 @@ function CategorySection({ category, ids, onAction }: { category: Category; ids:
 
 /** A group's sortable channels, and a drop area while it shows none. */
 function Group({ group, ids, children }: { group: string; ids: string[]; children?: ReactNode }) {
-  const { canManage, dragKind } = useTree();
+  const { canManage, dragKind, dropGroup } = useTree();
   const empty = ids.length === 0;
   const { setNodeRef } = useDroppable({ id: `group:${group}`, disabled: !canManage || dragKind !== "ch" || !empty });
   return (
-    <ul ref={setNodeRef} className="list-none">
+    <ul ref={setNodeRef} className={cn("list-none rounded-md", group === NONE && dropGroup === NONE && "bg-accent/40 ring-1 ring-primary/60")}>
       {children}
       <SortableContext items={ids.map((id) => `ch:${id}`)} strategy={verticalListSortingStrategy}>
         {ids.map((id) => <SortableChannel key={id} id={id} />)}
       </SortableContext>
       {empty && dragKind === "ch" && (
-        <li className="mx-1 my-0.5 rounded-md border border-dashed px-2 py-1.5 text-sm text-muted-foreground">Drop channels here</li>
+        <li className="mx-1 my-0.5 rounded-md border border-dashed px-2 py-1.5 text-sm text-muted-foreground">
+          {group === NONE ? "Drop here to remove from category" : "Drop channels here"}
+        </li>
       )}
     </ul>
   );
