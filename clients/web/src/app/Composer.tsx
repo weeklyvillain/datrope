@@ -6,6 +6,7 @@ import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_FILES, useUploads } from "@/hooks/use-uploads";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,7 @@ import { extensionForLanguage, shouldSnippet, snippetName, wrapCodeBlock } from 
 import { guessLanguage, loadHighlighter } from "@/lib/highlighter";
 import { Autocomplete, useSuggestions, type Suggestion } from "@/chat/AutocompleteList";
 import { findTrigger } from "@/chat/autocomplete";
-import { availableCommands, isCommand, runCommand, type CommandContext, type ModalKind } from "@/chat/commands";
+import { availableCommands, commandPending, isCommand, runCommand, type CommandContext, type ModalKind } from "@/chat/commands";
 import { EmojiPicker, emojiText } from "@/chat/EmojiPicker";
 import type { ReplyState } from "./MessageList";
 import { PollDialog } from "@/chat/PollDialog";
@@ -31,6 +32,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   const picker = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const running = useRef(false); // a command (/status) is in flight
+  const [pending, setPending] = useState<string>(); // what a slow command (/play) is doing
   const { replyTo, setReplyTo } = reply;
   const box = () => form.current?.querySelector("textarea");
   const selLen = () => { const el = box(); return el ? el.selectionEnd - el.selectionStart : 0; };
@@ -142,6 +144,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     if (!isCommand(content)) return post(content);
     if (running.current) return;
     running.current = true;
+    setPending(commandPending(content, ctx));
     void runCommand(content, ctx)
       .then((result) => {
         if (!result) return post(content);
@@ -152,7 +155,10 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
         if ("open" in result) setModal({ open: result.open, query: result.query ?? "" });
       })
       .catch((e) => setError(errorText(e)))
-      .finally(() => { running.current = false; });
+      .finally(() => {
+        running.current = false;
+        setPending(undefined);
+      });
   };
 
   return (
@@ -306,11 +312,16 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
             trigger={
               <RefButton variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Emoji" title="Emoji"><Smile /></RefButton>
             } />
-          <Button type="submit" size="sm" disabled={uploading || (!text.trim() && ready.length === 0)}>{withTitle ? "Post" : "Send"}</Button>
+          <Button type="submit" size="sm" disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}>{withTitle ? "Post" : "Send"}</Button>
         </div>
       </div>
       </div>
       <ErrorText error={error} />
+      {pending && (
+        <p role="status" className="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <Spinner className="size-3.5 flex-none" aria-hidden /><span className="truncate">{pending}</span>
+        </p>
+      )}
     </form>
     {modal?.open === "gif" && (
       <GifDialog channelId={channelId} query={modal.query} onClose={() => setModal(null)}

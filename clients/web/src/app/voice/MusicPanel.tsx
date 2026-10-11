@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,7 +28,7 @@ export function clock(seconds: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
-/** Where the current track is now: the server's position plus the time since it was sent, while playing. */
+/** Where the current track is now: the server's position plus the time since it was sent, while playing (not loading). */
 export function usePosition(state: MusicState | undefined): number {
   const [now, setNow] = useState(() => Date.now());
   const [received, setReceived] = useState(() => Date.now());
@@ -36,7 +37,7 @@ export function usePosition(state: MusicState | undefined): number {
     setReceived(t);
     setNow(t);
   }, [state]);
-  const playing = !!state?.current && !state.paused;
+  const playing = !!state?.current && !state.paused && !state.loading;
   useEffect(() => {
     if (!playing) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -94,7 +95,10 @@ function NowPlaying({ channelId, state, here }: { channelId: string; state: Musi
   const cur = state.current;
   return (
     <section aria-label="Now playing" className="grid gap-2 rounded-lg border bg-card p-3">
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{cur ? (state.paused ? "Paused" : "Now playing") : "Nothing playing"}</span>
+      <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {cur && state.loading && <Spinner className="size-3" aria-hidden />}
+        {cur ? (state.loading ? "Loading…" : state.paused ? "Paused" : "Now playing") : "Nothing playing"}
+      </span>
       {cur ? (
         <>
           <div className="flex min-w-0 items-center gap-3">
@@ -122,7 +126,7 @@ function NowPlaying({ channelId, state, here }: { channelId: string; state: Musi
           <div className="flex items-center gap-1" role="toolbar" aria-label="Music controls">
             {state.paused
               ? <Button size="icon-sm" aria-label="Resume" disabled={!here || busy} onClick={() => act("resume")}><Play /></Button>
-              : <Button size="icon-sm" aria-label="Pause" disabled={!here || busy} onClick={() => act("pause")}><Pause /></Button>}
+              : <Button size="icon-sm" aria-label="Pause" disabled={!here || busy || state.loading} onClick={() => act("pause")}><Pause /></Button>}
             <Button size="icon-sm" variant="outline" aria-label="Skip" disabled={!here || busy} onClick={() => act("skip")}><SkipForward /></Button>
             <Button size="icon-sm" variant="outline" aria-label="Stop and clear the queue" disabled={!here || busy} onClick={() => act("stop")}><Square /></Button>
             {state.bot_id && (
@@ -178,7 +182,7 @@ function QueueTab({ channelId, state, here, onSaved }: { channelId: string; stat
         <div className="flex gap-2">
           <Input id={queryId} value={query} maxLength={300} disabled={!here || !state.youtube}
             placeholder={state.youtube ? "Link, playlist link or search" : "Links are not set up here"} onChange={(e) => setQuery(e.target.value)} />
-          <Button type="submit" disabled={!here || busy || !query.trim() || !state.youtube}>{busy ? "Adding…" : "Add"}</Button>
+          <Button type="submit" disabled={!here || busy || !query.trim() || !state.youtube}>{busy ? <><Spinner aria-hidden />Adding…</> : "Add"}</Button>
         </div>
         <Button variant="outline" size="sm" className="w-fit" onClick={() => setLibrary(true)}><ListMusic />Music library</Button>
       </form>

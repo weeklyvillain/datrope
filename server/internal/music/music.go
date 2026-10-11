@@ -105,6 +105,7 @@ type MusicState struct {
 	ChannelID id.ID        `json:"channel_id"`
 	Current   *MusicTrack  `json:"current,omitempty"`
 	Paused    bool         `json:"paused"`
+	Loading   bool         `json:"loading" doc:"The current track is being fetched and has not started playing yet"`
 	Position  float64      `json:"position" doc:"Seconds into the current track when the state was sent"`
 	Queue     []MusicTrack `json:"queue"`
 	Repeat    string       `json:"repeat" enum:"off,all,one" doc:"off; all: finished tracks go back to the end of the queue; one: the current track replays"`

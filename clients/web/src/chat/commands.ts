@@ -23,6 +23,8 @@ export type Command = {
   description: string;
   /** Hidden from the picker and treated as unknown when this returns false; always available when absent. */
   available?: (ctx: CommandContext) => boolean;
+  /** What the composer shows while a slow run is in flight. */
+  pending?: (args: string) => string | undefined;
   run: (args: string, ctx: CommandContext) => CommandResult | Promise<CommandResult>;
 };
 
@@ -63,6 +65,7 @@ export const COMMANDS: Command[] = [
   {
     name: "play", args: "<song>", description: "Queues a YouTube link or search on the music bot",
     available: (ctx) => !!ctx.music,
+    pending: (a) => (a ? `Looking up “${a}”…` : undefined),
     run: async (a, ctx) => {
       if (!a) return { error: "Usage: /play <link or search>" };
       await ctx.music!.queue(a);
@@ -96,6 +99,13 @@ export function parseCommand(text: string): { name: string; args: string } | nul
 export function isCommand(text: string): boolean {
   const t = text.trim();
   return t.startsWith("//") || parseCommand(t) !== null;
+}
+
+/** The in-flight text for `text` when it is a command that shows one. */
+export function commandPending(text: string, ctx: CommandContext): string | undefined {
+  const parsed = parseCommand(text);
+  if (!parsed) return undefined;
+  return availableCommands(ctx).find((c) => c.name === parsed.name)?.pending?.(parsed.args);
 }
 
 /** Runs `text` if it is a command. null: not a command, send it as typed. */

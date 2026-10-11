@@ -41,6 +41,7 @@ type player struct {
 	ended    *ended // how the last track ended, for repeat
 	repeat   string
 	paused   bool
+	loading  bool          // the current track is being fetched, not yet playing
 	played   time.Duration // of the current track, up to the last pause
 	resumed  time.Time     // when it last started or resumed playing
 	stopped  bool
@@ -90,7 +91,7 @@ func (p *player) snapshot() MusicState {
 }
 
 func (p *player) snapshotLocked() MusicState {
-	st := MusicState{ChannelID: p.channelID, Paused: p.paused, Queue: slices.Clone(p.queue), Repeat: p.repeat}
+	st := MusicState{ChannelID: p.channelID, Paused: p.paused, Loading: p.loading, Queue: slices.Clone(p.queue), Repeat: p.repeat}
 	if st.Queue == nil {
 		st.Queue = []MusicTrack{}
 	}
@@ -143,7 +144,7 @@ var errStopped = errors.New("music: player stopped")
 
 func (p *player) setPaused(paused bool) {
 	p.mu.Lock()
-	if p.current == nil || p.paused == paused {
+	if p.current == nil || p.loading || p.paused == paused {
 		p.mu.Unlock()
 		return
 	}
@@ -229,7 +230,7 @@ func (p *player) stop() {
 func (p *player) next() *MusicTrack {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.current, p.paused, p.played, p.resumed = nil, false, 0, time.Time{}
+	p.current, p.paused, p.loading, p.played, p.resumed = nil, false, false, 0, time.Time{}
 	last := p.ended
 	p.ended = nil
 	if p.stopped {
@@ -239,7 +240,7 @@ func (p *player) next() *MusicTrack {
 		switch {
 		case p.repeat == RepeatOne && last.natural:
 			t := last.track
-			p.current = &t
+			p.current, p.loading = &t, true
 			return &t
 		case p.repeat == RepeatAll && last.natural && len(p.queue) < maxQueue:
 			p.queue = append(p.queue, last.track)
@@ -250,7 +251,7 @@ func (p *player) next() *MusicTrack {
 	}
 	t := p.queue[0]
 	p.queue = p.queue[1:]
-	p.current = &t
+	p.current, p.loading = &t, true
 	return &t
 }
 
@@ -287,6 +288,7 @@ func (p *player) run(ctx context.Context) {
 		} else {
 			alone = time.Time{}
 		}
+		p.publish() // the new track, loading: clients show it while its stream is fetched
 		if err := p.connect(); err != nil {
 			logErr(ctx, "joining voice", err)
 			return
@@ -531,7 +533,7 @@ func (p *player) play(ctx context.Context, t *MusicTrack) (natural bool, err err
 	}
 
 	p.mu.Lock()
-	p.resumed = time.Now()
+	p.resumed, p.loading = time.Now(), false
 	p.mu.Unlock()
 	p.publish()
 	deadline := time.Now()

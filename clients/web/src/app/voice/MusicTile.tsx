@@ -1,5 +1,6 @@
 import { ListMusic, Music, Pause, Play, Repeat, Repeat1, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { useSubmit } from "@/hooks/use-submit";
 import { cn } from "@/lib/utils";
 import { client, useApp } from "../../session";
@@ -52,6 +53,11 @@ export function MusicTile({ channelId, size, speaking = false, onOpen }: {
         <div className="grid w-full">
           <p className={cn("w-full truncate font-semibold", strip ? "text-xs" : "text-sm")}>{cur ? cur.title : "Nothing playing"}</p>
           {cur?.artist && !strip && <p className="w-full truncate text-xs text-muted-foreground">{cur.artist}</p>}
+          {cur && state.loading && (
+            <p className={cn("flex w-full items-center justify-center gap-1.5 text-muted-foreground", strip ? "text-[10px]" : "text-xs")}>
+              <Spinner className="size-3" aria-hidden />Loading…
+            </p>
+          )}
         </div>
         {cur && !strip && (
           <div className="grid w-full max-w-64 gap-1">
@@ -68,14 +74,14 @@ export function MusicTile({ channelId, size, speaking = false, onOpen }: {
           <div className="flex items-center gap-1" role="toolbar" aria-label="Music bot controls">
             {cur && (state.paused
               ? <Button size="icon-sm" aria-label="Resume" disabled={!here || busy} onClick={() => act("resume")}><Play /></Button>
-              : <Button size="icon-sm" aria-label="Pause" disabled={!here || busy} onClick={() => act("pause")}><Pause /></Button>)}
+              : <Button size="icon-sm" aria-label="Pause" disabled={!here || busy || state.loading} onClick={() => act("pause")}><Pause /></Button>)}
             {cur && <Button size="icon-sm" variant="outline" aria-label="Skip" disabled={!here || busy} onClick={() => act("skip")}><SkipForward /></Button>}
             {onOpen && <Button size="sm" variant="outline" onClick={onOpen}><ListMusic />Queue{state.queue?.length ? ` · ${state.queue.length}` : ""}</Button>}
           </div>
         )}
       </div>
       <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-background/80 px-2 py-0.5 text-xs">
-        Music{cur && state.paused ? " · paused" : ""}
+        Music{cur && (state.loading ? " · loading" : state.paused ? " · paused" : "")}
         {state.repeat === "all" && <Repeat className="size-3" role="img" aria-label="Repeating the queue" />}
         {state.repeat === "one" && <Repeat1 className="size-3" role="img" aria-label="Repeating this song" />}
       </span>

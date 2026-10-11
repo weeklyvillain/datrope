@@ -1836,6 +1836,8 @@ export interface components {
             current?: components["schemas"]["MusicTrack"];
             /** @description The server can play music (voice and ffmpeg are set up) */
             enabled: boolean;
+            /** @description The current track is being fetched and has not started playing yet */
+            loading: boolean;
             paused: boolean;
             /**
              * Format: double

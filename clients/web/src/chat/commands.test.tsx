@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { COMMANDS, availableCommands, flip, isCommand, parseCommand, randomInt, roll, runCommand, type CommandContext } from "./commands";
+import { COMMANDS, availableCommands, commandPending, flip, isCommand, parseCommand, randomInt, roll, runCommand, type CommandContext } from "./commands";
 import { MarkdownView } from "./Markdown";
 
 // The session module creates the client from window.location, which Node lacks; MarkdownView needs neither.
@@ -104,6 +104,9 @@ describe("runCommand", () => {
     expect(availableCommands(voice).map((c) => c.name)).toEqual(expect.arrayContaining(["play", "skip", "pause", "resume", "stop"]));
     expect(await runCommand("/play never gonna", voice)).toEqual({ done: true });
     expect(await runCommand("/play", voice)).toEqual({ error: "Usage: /play <link or search>" });
+    expect(commandPending("/play never gonna", voice)).toBe("Looking up “never gonna”…");
+    expect(commandPending("/play", voice)).toBeUndefined();
+    expect(commandPending("/skip", voice)).toBeUndefined();
     expect(await runCommand("/skip", voice)).toEqual({ done: true });
     expect(calls).toEqual(["queue never gonna", "skip"]);
   });

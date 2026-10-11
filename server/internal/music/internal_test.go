@@ -106,6 +106,21 @@ func TestNextFollowsRepeat(t *testing.T) {
 	require.Nil(t, p.next(), "all: a failed or skipped track does not come back")
 }
 
+func TestNextTrackLoadsUntilPlaying(t *testing.T) {
+	p := newPlayer(nil, id.New())
+	p.queue = []MusicTrack{{ID: id.New(), Title: "a"}}
+
+	require.NotNil(t, p.next())
+	st := p.snapshotLocked()
+	require.True(t, st.Loading, "a picked track loads until its audio starts")
+	require.Zero(t, st.Position)
+	p.setPaused(true)
+	require.False(t, p.paused, "a loading track can't be paused")
+
+	require.Nil(t, p.next())
+	require.False(t, p.snapshotLocked().Loading, "nothing playing: nothing loading")
+}
+
 func TestShuffleKeepsEveryTrack(t *testing.T) {
 	var tracks []MusicTrack
 	for i := range 10 {
