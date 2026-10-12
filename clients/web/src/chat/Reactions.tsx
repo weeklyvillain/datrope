@@ -11,7 +11,7 @@ import { sizedImage } from "@/lib/sized-image";
 
 const PILL = "h-[26px] gap-1.5 rounded-full border bg-card px-2 text-[13px] font-normal text-foreground shadow-none hover:bg-accent";
 
-/** An error that clears itself after a few seconds. */
+/** An error (or an already-worded message) that clears itself after a few seconds. */
 export function useBriefError(): [string | undefined, (e: unknown) => void] {
   const [error, setError] = useState<string>();
   useEffect(() => {
@@ -19,7 +19,7 @@ export function useBriefError(): [string | undefined, (e: unknown) => void] {
     const t = setTimeout(() => setError(undefined), 4000);
     return () => clearTimeout(t);
   }, [error]);
-  return [error, useCallback((e: unknown) => setError(errorText(e)), [])];
+  return [error, useCallback((e: unknown) => setError(typeof e === "string" ? e : errorText(e)), [])];
 }
 
 /** The reactions row under a message, ending with an "Add a reaction" picker when I may add new ones. */

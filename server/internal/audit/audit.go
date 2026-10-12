@@ -65,6 +65,7 @@ const (
 	SoundCreate    Action = "sound.create"
 	SoundUpdate    Action = "sound.update"
 	SoundDelete    Action = "sound.delete"
+	AlbumDelete    Action = "album.delete"
 )
 
 // Actions lists every action, for the OpenAPI enum.
@@ -76,6 +77,7 @@ var Actions = []Action{
 	WebhookCreate, WebhookUpdate, WebhookDelete, MessageDelete, MessagePin, MessageUnpin,
 	RoleCreate, RoleUpdate, RoleDelete, ServerUpdate, WelcomeUpdate, InviteCreate, InviteDelete,
 	EmojiCreate, EmojiUpdate, EmojiDelete, SoundCreate, SoundUpdate, SoundDelete,
+	AlbumDelete,
 }
 
 // LogRef names a channel, role or other thing as it was when the entry was made.

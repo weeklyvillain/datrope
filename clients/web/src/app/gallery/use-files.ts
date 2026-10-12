@@ -4,7 +4,7 @@ import { client, errorText, useApp } from "../../session";
 import type { GalleryFilter } from "./filter";
 import type { GalleryItem } from "./items";
 
-export type GalleryScope = { kind: "global" } | { kind: "channel"; channelId: string };
+export type GalleryScope = { kind: "global" } | { kind: "channel"; channelId: string } | { kind: "album"; albumId: string };
 
 const PAGE = 50;
 
@@ -12,7 +12,7 @@ export function paramsFor(scope: GalleryScope, f: GalleryFilter): FilesParams {
   const q = f.q.trim();
   return {
     kinds: f.kind === "all" ? undefined : [f.kind],
-    channels: scope.kind === "channel" ? [scope.channelId] : f.channels.length ? f.channels : undefined,
+    channels: scope.kind === "channel" ? [scope.channelId] : scope.kind === "album" ? undefined : f.channels.length ? f.channels : undefined,
     q: q || undefined,
     uploader: f.uploader ?? undefined,
   };
@@ -25,12 +25,12 @@ export function mergeHead(current: GalleryItem[], head: GalleryItem[]): GalleryI
 }
 
 export function dropMessage(current: GalleryItem[], messageId: string): GalleryItem[] {
-  return current.filter((c) => c.message.id !== messageId);
+  return current.filter((c) => c.message?.id !== messageId);
 }
 
 /** A thread started or changed on a message: its files carry the new summary. */
 export function patchThread(current: GalleryItem[], d: ThreadUpdate): GalleryItem[] {
-  return current.map((c) => (c.message.id === d.message_id ? { ...c, message: { ...c.message, thread: d.thread } } : c));
+  return current.map((c) => (c.message?.id === d.message_id && c.message ? { ...c, message: { ...c.message, thread: d.thread } } : c));
 }
 
 /** Pages through /api/files for a scope and filter; a message with files sent, edited or deleted
@@ -52,26 +52,29 @@ export function useFiles(scope: GalleryScope, f: GalleryFilter) {
     return () => clearTimeout(t);
   }, [key]);
 
+  const fetchPage = useCallback((p: FilesParams) =>
+    scope.kind === "album" ? client.albumFiles(scope.albumId, p) : client.files(p), [scope]);
+
   useEffect(() => {
     const g = ++gen.current;
     setLoading(true);
     setError(undefined);
-    client.files({ ...JSON.parse(debouncedKey), limit: PAGE })
+    fetchPage({ ...JSON.parse(debouncedKey), limit: PAGE })
       .then((p) => { if (g === gen.current) { setItems(p.items ?? []); setCursor(p.next_cursor ?? undefined); } })
       .catch((e) => { if (g === gen.current) setError(errorText(e)); })
       .finally(() => { if (g === gen.current) setLoading(false); });
-  }, [debouncedKey]);
+  }, [debouncedKey, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (!cursor || loading) return;
     const g = gen.current;
     setLoading(true);
     setError(undefined);
-    client.files({ ...JSON.parse(debouncedKey), before: cursor, limit: PAGE })
+    fetchPage({ ...JSON.parse(debouncedKey), before: cursor, limit: PAGE })
       .then((p) => { if (g === gen.current) { setItems((cur) => [...cur, ...(p.items ?? [])]); setCursor(p.next_cursor ?? undefined); } })
       .catch((e) => { if (g === gen.current) setError(errorText(e)); })
       .finally(() => { if (g === gen.current) setLoading(false); });
-  }, [cursor, loading, debouncedKey]);
+  }, [cursor, loading, debouncedKey, fetchPage]);
 
   useEffect(() => client.onEvent((type, data) => {
     if (type === "MESSAGE_DELETE") {
@@ -82,6 +85,15 @@ export function useFiles(scope: GalleryScope, f: GalleryFilter) {
       setItems((cur) => patchThread(cur, data as ThreadUpdate));
       return;
     }
+    if (scope.kind === "album") {
+      if (type === "ALBUM_ITEMS_UPDATE" && (data as { album_id: string }).album_id === scope.albumId) {
+        const g = ++gen.current; // also drops any in-flight page that would append onto the replaced list
+        fetchPage({ ...JSON.parse(debouncedKey), limit: PAGE })
+          .then((p) => { if (g === gen.current) { setItems(p.items ?? []); setCursor(p.next_cursor ?? undefined); } })
+          .catch(() => undefined);
+      }
+      return;
+    }
     if (type !== "MESSAGE_CREATE" && type !== "MESSAGE_UPDATE") return;
     const m = data as Message;
     if (!m.attachments?.length) return;
@@ -90,10 +102,10 @@ export function useFiles(scope: GalleryScope, f: GalleryFilter) {
     if (scope.kind === "channel" && home !== scope.channelId && m.channel_id !== scope.channelId) return;
     if (ch?.type === "dm") return;
     const g = gen.current;
-    client.files({ ...JSON.parse(debouncedKey), limit: PAGE })
+    fetchPage({ ...JSON.parse(debouncedKey), limit: PAGE })
       .then((p) => { if (g === gen.current) setItems((cur) => mergeHead(cur, p.items ?? [])); })
       .catch(() => undefined);
-  }), [channels, scope, debouncedKey]);
+  }), [channels, scope, debouncedKey, fetchPage]);
 
   return { items, hasMore: !!cursor, loading, error, loadMore };
 }

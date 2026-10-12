@@ -28,7 +28,7 @@ export function ServerSidebar({ className }: { className?: string } = {}) {
   const channelId = useMatch("/channels/:channelId")?.params.channelId;
   const dmId = useMatch("/messages/:channelId")?.params.channelId;
   const inMessages = !!useMatch("/messages/*");
-  const onGallery = !!useMatch("/gallery");
+  const onGallery = !!useMatch("/gallery/*");
   const gated = useApp(isGated);
   const dmUnread = useApp((s) => s.dmIds.some((id) => isUnread(s.readStates[id])));
   const dmIds = useApp((s) => s.dmIds);

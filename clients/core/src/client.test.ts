@@ -673,3 +673,42 @@ it("manages webhooks", async () => {
   expect((await client.uploadWebhookAvatar("40", new Blob(["x"]))).avatar_url).toBe("/api/webhooks/40/avatar?v=abc");
   expect(avatarMethod).toBe("PUT");
 });
+
+it("lists albums, optionally with whether they contain a file", async () => {
+  let url: URL | undefined;
+  server.use(http.get(`${BASE}/api/albums`, ({ request }) => {
+    url = new URL(request.url);
+    return HttpResponse.json([]);
+  }));
+  await readyClient().albums("900");
+  expect(url?.searchParams.get("contains")).toBe("900");
+  await readyClient().albums();
+  expect(url?.searchParams.has("contains")).toBe(false);
+});
+
+it("lists an album's files with comma-joined kinds", async () => {
+  let url: URL | undefined;
+  server.use(http.get(`${BASE}/api/albums/7/files`, ({ request }) => {
+    url = new URL(request.url);
+    return HttpResponse.json({ items: [] });
+  }));
+  await readyClient().albumFiles("7", { kinds: ["image", "video"], q: "beach", before: "50", limit: 10 });
+  expect(url?.searchParams.get("kind")).toBe("image,video");
+  expect(url?.searchParams.get("q")).toBe("beach");
+  expect(url?.searchParams.get("before")).toBe("50");
+  expect(url?.searchParams.get("limit")).toBe("10");
+});
+
+it("adds a file to an album and uploads into one", async () => {
+  let put = "";
+  let upload = "";
+  server.use(
+    http.put(`${BASE}/api/albums/7/files/900`, ({ request }) => { put = request.url; return new HttpResponse(null, { status: 204 }); }),
+    http.post(`${BASE}/api/attachments`, ({ request }) => { upload = request.url; return HttpResponse.json({ id: "1", filename: "a.png" }, { status: 201 }); }),
+  );
+  await readyClient().addToAlbum("7", "900");
+  expect(put).toContain("/api/albums/7/files/900");
+  const a = await readyClient().uploadToAlbum("7", new Blob(["x"]), "a.png");
+  expect(new URL(upload).searchParams.get("album_id")).toBe("7");
+  expect(a.filename).toBe("a.png");
+});

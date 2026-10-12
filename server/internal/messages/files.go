@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -14,13 +15,22 @@ import (
 	"github.com/datrope/datrope/server/internal/id"
 )
 
-// FileItem is one file in the gallery: the attachment, its message, and where it was posted
-// (a thread's file carries the thread; clients tag it with parent_name).
+// FileItem is one file in a gallery or album: the attachment, its message and where it was posted
+// (a thread's file carries the thread; clients tag it with parent_name). An album upload has no
+// message or channel.
 type FileItem struct {
 	Attachment files.Attachment `json:"attachment"`
-	Message    Message          `json:"message"`
-	Channel    ChannelRef       `json:"channel"`
+	Message    *Message         `json:"message,omitempty"`
+	Channel    *ChannelRef      `json:"channel,omitempty"`
 	Kind       string           `json:"kind" enum:"image,video,audio,document,archive,other"`
+	UploaderID id.ID            `json:"uploader_id"`
+	CreatedAt  time.Time        `json:"created_at" doc:"When the file was uploaded"`
+}
+
+// FileHit is a file found by a listing: its attachment and kind (see KindSQL).
+type FileHit struct {
+	AttachmentID id.ID
+	Kind         string
 }
 
 type FilesPage struct {
@@ -28,9 +38,10 @@ type FilesPage struct {
 	NextCursor *id.ID     `json:"next_cursor,omitempty" doc:"Pass as before= for the next page"`
 }
 
-// kindSQL classifies attachment a by its sniffed type (without parameters). Mirrored in
-// clients/web/src/app/gallery/kinds.ts: change both together.
-const kindSQL = `(CASE
+// KindSQL classifies attachment a by its sniffed type (without parameters). Mirrored in
+// clients/web/src/app/gallery/kinds.ts: change both together. Exported for album listings, which
+// also alias attachments as a.
+const KindSQL = `(CASE
 	WHEN a.gif OR split_part(a.content_type, ';', 1) LIKE 'image/%' THEN 'image'
 	WHEN split_part(a.content_type, ';', 1) LIKE 'video/%' THEN 'video'
 	WHEN split_part(a.content_type, ';', 1) LIKE 'audio/%' THEN 'audio'
@@ -92,7 +103,7 @@ func (s *Service) Files(ctx context.Context, userID id.ID, fq FilesQuery) (*File
 		"(a.channel_id = ANY(" + sc + ") OR (c.type = 'thread' AND c.parent_channel_id = ANY(" + sc + ")))",
 	}
 	if len(fq.Kinds) > 0 {
-		conds = append(conds, kindSQL+" = ANY("+add(fq.Kinds)+")")
+		conds = append(conds, KindSQL+" = ANY("+add(fq.Kinds)+")")
 	}
 	if fq.Uploader != nil {
 		conds = append(conds, "a.uploader_id = "+add(*fq.Uploader))
@@ -105,20 +116,16 @@ func (s *Service) Files(ctx context.Context, userID id.ID, fq FilesQuery) (*File
 	if fq.Before != nil {
 		conds = append(conds, "a.id < "+add(*fq.Before))
 	}
-	rows, err := s.db.Query(ctx, `SELECT a.id, a.message_id, `+kindSQL+`
+	rows, err := s.db.Query(ctx, `SELECT a.id, `+KindSQL+`
 		FROM attachments a JOIN messages m ON m.id = a.message_id JOIN channels c ON c.id = a.channel_id
 		WHERE `+strings.Join(conds, " AND ")+` ORDER BY a.id DESC LIMIT `+add(fq.Limit+1), args...)
 	if err != nil {
 		return nil, err
 	}
-	type hit struct {
-		att, msg id.ID
-		kind     string
-	}
-	var hits []hit
+	var hits []FileHit
 	for rows.Next() {
-		var h hit
-		if err := rows.Scan(&h.att, &h.msg, &h.kind); err != nil {
+		var h FileHit
+		if err := rows.Scan(&h.AttachmentID, &h.Kind); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -130,54 +137,78 @@ func (s *Service) Files(ctx context.Context, userID id.ID, fq FilesQuery) (*File
 	}
 	if len(hits) > fq.Limit {
 		hits = hits[:fq.Limit]
-		next := hits[len(hits)-1].att
+		next := hits[len(hits)-1].AttachmentID
 		page.NextCursor = &next
 	}
+	items, err := s.FileItems(ctx, hits)
+	if err != nil {
+		return nil, err
+	}
+	page.Items = items
+	return page, nil
+}
+
+// FileItems hydrates listed files, in order: each with its message and channel, or (album uploads)
+// without. Files deleted since they were listed are left out.
+func (s *Service) FileItems(ctx context.Context, hits []FileHit) ([]FileItem, error) {
+	out := []FileItem{}
 	if len(hits) == 0 {
-		return page, nil
+		return out, nil
 	}
 	attIDs := make([]id.ID, len(hits))
-	msgIDs := make([]id.ID, 0, len(hits))
-	seen := map[id.ID]bool{}
 	for i, h := range hits {
-		attIDs[i] = h.att
-		if !seen[h.msg] {
-			seen[h.msg] = true
-			msgIDs = append(msgIDs, h.msg)
-		}
+		attIDs[i] = h.AttachmentID
 	}
 	atts, err := s.attachments.ForIDs(ctx, attIDs)
 	if err != nil {
 		return nil, err
 	}
-	mrows, err := s.db.Query(ctx, `SELECT `+messageCols+` FROM messages WHERE id = ANY($1)`, id.Int64s(msgIDs))
-	if err != nil {
-		return nil, err
+	msgIDs := []id.ID{}
+	seen := map[id.ID]bool{}
+	for _, a := range atts {
+		if m := a.MessageID(); m != nil && !seen[*m] {
+			seen[*m] = true
+			msgIDs = append(msgIDs, *m)
+		}
 	}
-	ms, err := collectMessages(mrows)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.hydrate(ctx, ms); err != nil {
-		return nil, err
-	}
-	byID := make(map[id.ID]Message, len(ms))
-	for _, m := range ms {
-		byID[m.ID] = m
-	}
-	refs, err := s.channelRefs(ctx, channelIDsOf(ms))
-	if err != nil {
-		return nil, err
+	byID := map[id.ID]Message{}
+	refs := map[id.ID]ChannelRef{}
+	if len(msgIDs) > 0 {
+		mrows, err := s.db.Query(ctx, `SELECT `+messageCols+` FROM messages WHERE id = ANY($1)`, id.Int64s(msgIDs))
+		if err != nil {
+			return nil, err
+		}
+		ms, err := collectMessages(mrows)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.hydrate(ctx, ms); err != nil {
+			return nil, err
+		}
+		for _, m := range ms {
+			byID[m.ID] = m
+		}
+		if refs, err = s.channelRefs(ctx, channelIDsOf(ms)); err != nil {
+			return nil, err
+		}
 	}
 	for _, h := range hits {
-		m, ok := byID[h.msg]
-		a, aok := atts[h.att]
-		if !ok || !aok {
+		a, ok := atts[h.AttachmentID]
+		if !ok {
 			continue // deleted between the two queries
 		}
-		page.Items = append(page.Items, FileItem{Attachment: a, Message: m, Channel: refs[m.ChannelID], Kind: h.kind})
+		it := FileItem{Attachment: a, Kind: h.Kind, UploaderID: a.UploaderID(), CreatedAt: a.ID.Time()}
+		if mid := a.MessageID(); mid != nil {
+			m, ok := byID[*mid]
+			if !ok || m.Deleted {
+				continue
+			}
+			ref := refs[m.ChannelID]
+			it.Message, it.Channel = &m, &ref
+		}
+		out = append(out, it)
 	}
-	return page, nil
+	return out, nil
 }
 
 func parseIDList(raw, what string) ([]id.ID, error) {

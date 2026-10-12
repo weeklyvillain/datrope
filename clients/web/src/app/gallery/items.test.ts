@@ -1,6 +1,6 @@
 import type { Attachment, Message } from "@datrope/core";
 import { describe, expect, it } from "vitest";
-import { audioOnly, audioRun, sections, type GalleryItem } from "./items";
+import { audioOnly, audioRun, itemTitle, sections, type GalleryItem } from "./items";
 
 let seq = 0;
 const file = (content_type: string, filename = `f${++seq}`): Attachment =>
@@ -12,7 +12,7 @@ const msg = (id: string, at: string, author: string, attachments: Attachment[], 
 describe("sections", () => {
   const now = new Date("2026-10-10T12:00:00");
   const at = (when: string) => ({
-    attachment: file("image/png", when), message: msg(when, when, "alice", []), channel: { id: "c", type: "text", name: "general" }, kind: "image",
+    attachment: file("image/png", when), message: msg(when, when, "alice", []), channel: { id: "c", type: "text", name: "general" }, kind: "image", created_at: when,
   }) as GalleryItem;
 
   it("puts the last 7 days under This week and older items under their month", () => {
@@ -49,5 +49,17 @@ describe("audioRun", () => {
   it("starts at the top when the chosen file is not audio", () => {
     const [a1, img] = [it_("audio"), it_("image")];
     expect(audioRun([a1, img], img)).toEqual({ run: [a1], at: 0 });
+  });
+});
+
+describe("album uploads", () => {
+  const upload = { attachment: file("image/png", "beach.png"), kind: "image", uploader_id: "u1", created_at: "2026-10-09T10:00:00" } as GalleryItem;
+
+  it("are sectioned by upload time", () => {
+    expect(sections([upload], new Date("2026-10-10T12:00:00")).map((s) => s.label)).toEqual(["This week"]);
+  });
+
+  it("are titled by file name", () => {
+    expect(itemTitle(upload)).toBe("beach.png");
   });
 });

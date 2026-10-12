@@ -180,6 +180,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-albums"];
+        put?: never;
+        post: operations["create-album"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/albums/{albumID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-album"];
+        put?: never;
+        post?: never;
+        delete: operations["delete-album"];
+        options?: never;
+        head?: never;
+        patch: operations["update-album"];
+        trace?: never;
+    };
+    "/api/albums/{albumID}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-album-files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/albums/{albumID}/files/{attachmentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["add-album-file"];
+        post?: never;
+        delete: operations["remove-album-file"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/albums/{albumID}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["add-album-member"];
+        post?: never;
+        delete: operations["remove-album-member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -1561,13 +1641,58 @@ export interface components {
         "Admin-set-disabledRequest": {
             disabled: boolean;
         };
+        Album: {
+            /** @description With contains=: whether the file is in it */
+            contains?: boolean;
+            /** @description The newest image you can see; absent in events */
+            cover?: components["schemas"]["Attachment"];
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /**
+             * Format: int64
+             * @description Every item, including files you cannot see
+             */
+            item_count: number;
+            /** @description Collaborators */
+            member_ids: string[] | null;
+            /** @description Snowflake ID as a decimal string */
+            owner_id: string;
+            /**
+             * @description Yours
+             * @enum {string}
+             */
+            role?: "owner" | "collaborator" | "viewer";
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @enum {string} */
+            visibility: "private" | "server";
+        };
+        AlbumCreate: {
+            title: string;
+            /** @enum {string} */
+            visibility: "private" | "server";
+        };
+        AlbumDeleted: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+        };
+        AlbumUpdate: {
+            title?: string;
+            /** @enum {string} */
+            visibility?: "private" | "server";
+        };
         AppCredentials: {
             client_id: string;
             client_secret: string;
         };
         Attachment: {
-            /** @description Snowflake ID as a decimal string */
-            channel_id: string;
+            /** @description The album it was uploaded into, for an album upload */
+            album_id?: string;
+            /** @description Where it was posted; absent for an album upload */
+            channel_id?: string;
             /** @description Detected from the contents, not the name */
             content_type: string;
             filename: string;
@@ -1841,10 +1966,17 @@ export interface components {
         };
         FileItem: {
             attachment: components["schemas"]["Attachment"];
-            channel: components["schemas"]["ChannelRef"];
+            channel?: components["schemas"]["ChannelRef"];
+            /**
+             * Format: date-time
+             * @description When the file was uploaded
+             */
+            created_at: string;
             /** @enum {string} */
             kind: "image" | "video" | "audio" | "document" | "archive" | "other";
-            message: components["schemas"]["Message"];
+            message?: components["schemas"]["Message"];
+            /** @description Snowflake ID as a decimal string */
+            uploader_id: string;
         };
         FilesPage: {
             items: components["schemas"]["FileItem"][] | null;
@@ -1967,6 +2099,10 @@ export interface components {
             member_count: number;
             server_name: string;
         };
+        ItemsChanged: {
+            /** @description Snowflake ID as a decimal string */
+            album_id: string;
+        };
         JoinRequest: {
             /** @description The client starts deafened */
             self_deaf?: boolean;
@@ -2029,7 +2165,7 @@ export interface components {
         };
         LogEntry: {
             /** @enum {string} */
-            action: "member.kick" | "member.ban" | "member.unban" | "member.role_add" | "member.role_remove" | "voice.move" | "voice.disconnect" | "voice.mute" | "voice.unmute" | "channel.create" | "channel.update" | "channel.delete" | "channel.override_update" | "channel.override_delete" | "category.create" | "category.update" | "category.delete" | "alert.create" | "alert.delete" | "webhook.create" | "webhook.update" | "webhook.delete" | "message.delete" | "message.pin" | "message.unpin" | "role.create" | "role.update" | "role.delete" | "server.update" | "welcome.update" | "invite.create" | "invite.delete" | "emoji.create" | "emoji.update" | "emoji.delete" | "sound.create" | "sound.update" | "sound.delete";
+            action: "member.kick" | "member.ban" | "member.unban" | "member.role_add" | "member.role_remove" | "voice.move" | "voice.disconnect" | "voice.mute" | "voice.unmute" | "channel.create" | "channel.update" | "channel.delete" | "channel.override_update" | "channel.override_delete" | "category.create" | "category.update" | "category.delete" | "alert.create" | "alert.delete" | "webhook.create" | "webhook.update" | "webhook.delete" | "message.delete" | "message.pin" | "message.unpin" | "role.create" | "role.update" | "role.delete" | "server.update" | "welcome.update" | "invite.create" | "invite.delete" | "emoji.create" | "emoji.update" | "emoji.delete" | "sound.create" | "sound.update" | "sound.delete" | "album.delete";
             /** @description Snowflake ID as a decimal string */
             actor_id: string;
             /** Format: date-time */
@@ -3457,6 +3593,326 @@ export interface operations {
                 "application/json": components["schemas"]["Admin-reset-passwordRequest"];
             };
         };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-albums": {
+        parameters: {
+            query?: {
+                /** @description An attachment ID: say whether each album holds it */
+                contains?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Album"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-album": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlbumCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Album"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-album": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Album"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-album": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-album": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlbumUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Album"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-album-files": {
+        parameters: {
+            query?: {
+                /** @description Comma-separated: image, video, audio, document, archive, other */
+                kind?: string;
+                uploader?: string;
+                /** @description Matches file names and captions */
+                q?: string;
+                /** @description next_cursor from the previous page */
+                before?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                albumID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilesPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "add-album-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+                attachmentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "remove-album-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+                attachmentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "add-album-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "remove-album-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                albumID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {

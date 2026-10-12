@@ -139,7 +139,7 @@ func TestForumPostAttachments(t *testing.T) {
 	require.Len(t, page, 1)
 	require.Len(t, page[0].Attachments, 1)
 	require.Equal(t, a.ID, page[0].Attachments[0].ID)
-	require.Equal(t, post.Channel.ID, page[0].Attachments[0].ChannelID, "the attachment moves to the post")
+	require.Equal(t, post.Channel.ID, *page[0].Attachments[0].ChannelID, "the attachment moves to the post")
 	_, raw := alice.Raw(http.MethodGet, page[0].Attachments[0].URL, nil, "", http.StatusOK)
 	require.Equal(t, "stack trace", string(raw))
 

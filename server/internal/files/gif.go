@@ -44,5 +44,5 @@ func (s *Service) SaveGIF(ctx context.Context, channelID, uploaderID id.ID, file
 	if err != nil {
 		return nil, err
 	}
-	return s.save(ctx, channelID, uploaderID, cleanFilename(filename), staged, &gifSize{width, height})
+	return s.save(ctx, home{channelID: &channelID}, uploaderID, cleanFilename(filename), staged, &gifSize{width, height})
 }

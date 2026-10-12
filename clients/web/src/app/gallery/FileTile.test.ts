@@ -1,9 +1,10 @@
 import type { FileItem } from "@datrope/core";
 import { describe, expect, it, vi } from "vitest";
-vi.mock("../../session", () => ({ client: {}, displayName: (u: { name: string }) => u.name, formatBytes: String }));
+vi.mock("../../session", () => ({ client: {}, useApp: () => undefined, displayName: (u: { name: string }) => u.name, formatBytes: String }));
 vi.mock("../message-author", () => ({ shownAuthor: (m: { author: unknown }) => m.author }));
 
 import { channelTag, discToken, tileLabel } from "./FileTile";
+import type { GalleryItem } from "./items";
 
 const item = (over: Partial<FileItem["channel"]> = {}, kind: FileItem["kind"] = "image") => ({
   kind,
@@ -30,9 +31,16 @@ describe("discToken", () => {
 
 describe("tileLabel", () => {
   it("names the kind, title and uploader", () => {
-    expect(tileLabel(item(), false)).toBe("Photo: cat.png, by Ada");
+    expect(tileLabel(item(), false, "Ada")).toBe("Photo: cat.png, by Ada");
   });
   it("adds the channel in the global gallery", () => {
-    expect(tileLabel(item({}, "audio"), true)).toBe("Track: cat.png, by Ada, in #art");
+    expect(tileLabel(item({}, "audio"), true, "Ada")).toBe("Track: cat.png, by Ada, in #art");
   });
+});
+
+it("labels an album upload without a channel", () => {
+  const it = { attachment: { id: "a1", filename: "beach.png", content_type: "image/png", size: 1, url: "/x", inline: true },
+    kind: "image", uploader_id: "u1", created_at: "2026-10-09T10:00:00" } as GalleryItem;
+  expect(channelTag(it)).toBeUndefined();
+  expect(tileLabel(it, true, "carol")).toBe("Photo: beach.png, by carol");
 });

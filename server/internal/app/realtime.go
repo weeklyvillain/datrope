@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/datrope/datrope/server/internal/albums"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/communities"
@@ -188,6 +189,7 @@ func registerEventSchemas(api huma.API) {
 		channels.Category{}, channels.CategoryDeleted{},
 		files.Attachment{}, voice.VoiceState{}, voice.VoiceMove{}, voice.SoundboardPlay{}, expressions.EmojiUpdate{}, expressions.SoundUpdate{},
 		integrations.ActivityUpdate{}, music.MusicState{}, music.MusicPlaylist{}, music.PlaylistDeleted{},
+		albums.Album{}, albums.AlbumDeleted{}, albums.ItemsChanged{},
 	} {
 		s := doc.Components.Schemas.Schema(reflect.TypeOf(v), true, "")
 		refs[strings.TrimPrefix(s.Ref, "#/components/schemas/")] = map[string]string{"$ref": s.Ref}

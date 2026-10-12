@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { useSubmit } from "@/hooks/use-submit";
-import { useMessageAuthor } from "@/hooks/use-message-author";
 import { AudioPlayer } from "../attachments/AudioPlayer";
 import { ImageViewer } from "../attachments/ImageViewer";
 import { Composer } from "../Composer";
@@ -19,7 +18,7 @@ import { MessageList, type ReplyState } from "../MessageList";
 import { openMessage } from "../jump";
 import { openPanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
-import { channelTag } from "./FileTile";
+import { channelTag, useItemAuthor } from "./FileTile";
 import { itemTitle, type GalleryItem } from "./items";
 import { extension, KIND_SINGULAR } from "./kinds";
 import { attachmentImage } from "@/lib/sized-image";
@@ -27,6 +26,11 @@ import { attachmentImage } from "@/lib/sized-image";
 /** In comments nobody replies to a single message. */
 const NO_REPLY: ReplyState = { replyTo: null, setReplyTo: () => undefined };
 const MAX_LENGTH = 4000;
+/** Stands in for the item while it is missing, so the author hook is called unconditionally. */
+const EMPTY_ITEM = {
+  attachment: { id: "", filename: "", content_type: "", size: 0, url: "", inline: false },
+  kind: "other", uploader_id: "", created_at: "",
+} as GalleryItem;
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
 /** A gallery item in the side panel: a large preview, stepping through `items` (the grid as shown),
@@ -37,12 +41,12 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
 }) {
   const nav = useNavigate();
   const item = items.find((it) => it.attachment.id === attachmentId);
-  const channelId = item?.message.channel_id ?? "";
+  const channelId = item?.message?.channel_id ?? "";
   // The store's copy is fresher (thread counts, edits) when the channel is loaded.
-  const stored = useApp((s) => s.messages[channelId]?.items.find((m) => m.id === item?.message.id));
+  const stored = useApp((s) => (item?.message ? s.messages[channelId]?.items.find((m) => m.id === item.message!.id) : undefined));
   const message = stored ?? item?.message;
   const attachment = item?.attachment;
-  const author = useMessageAuthor(message);
+  const author = useItemAuthor(item ?? EMPTY_ITEM);
   const color = useApp((s) => (message?.author ? roleColor(s.server, message.author.id) : undefined));
   const perms = usePerms(channelId || undefined);
   const [viewing, setViewing] = useState<number | null>(null);
@@ -53,7 +57,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
     if (gone) onClose();
   }, [gone, onClose]);
 
-  if (!item || !message || !attachment) {
+  if (!item || !attachment) {
     return (
       <SidePanel title="Item" icon={<Images />} closeLabel="Close details" onClose={onClose}>
         <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>
@@ -64,12 +68,12 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
   const i = items.findIndex((it) => it.attachment.id === attachmentId);
   const go = (to: number) => {
     const it = items[to];
-    if (it) openPanel({ kind: "media", channelId: it.message.channel_id, messageId: it.message.id, attachmentId: it.attachment.id });
+    if (it) openPanel({ kind: "media", attachmentId: it.attachment.id });
   };
   const url = client.url(attachment.url);
   const tabbed = kind === "video" || attachment.content_type.split(";")[0].trim() === "application/pdf";
   const where = item.channel;
-  const openWhere = () => void openMessage(nav, where, message.id);
+  const openWhere = () => { if (where && message) void openMessage(nav, where, message.id); };
   const extraActions = extra?.(item);
   const actions = (
     <>
@@ -122,11 +126,13 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
               <strong className="font-semibold" style={{ color }}>{displayName(author)}</strong>
-              <time className="text-xs text-muted-foreground" dateTime={message.created_at}>{timeFormat.format(new Date(message.created_at))}</time>
+              <time className="text-xs text-muted-foreground" dateTime={item.created_at}>{timeFormat.format(new Date(item.created_at))}</time>
             </div>
-            <Link to={`/channels/${where.parent_id || where.id}`} className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-              onClick={(e) => { e.preventDefault(); openWhere(); }}>in #{channelTag(item)}</Link>
-            {message.content && <div className="text-sm wrap-anywhere"><Markdown text={message.content} mentions={message.mentions ?? undefined} /></div>}
+            {message && where && (
+              <Link to={`/channels/${where.parent_id || where.id}`} className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                onClick={(e) => { e.preventDefault(); openWhere(); }}>in #{channelTag(item)}</Link>
+            )}
+            {message?.content && <div className="text-sm wrap-anywhere"><Markdown text={message.content} mentions={message.mentions ?? undefined} /></div>}
           </div>
         </div>
         <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-[13px]">
@@ -140,7 +146,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
           ) : null}
         </dl>
       </div>
-      {where.type === "thread" ? (
+      {message && where && (where.type === "thread" ? (
         // Threads can't hold threads of their own: a file posted in one is discussed there.
         <section aria-label="Comments" className="flex min-h-0 flex-1 flex-col">
           <p className="m-0 px-4 py-3 text-sm text-muted-foreground">
@@ -149,7 +155,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
               onClick={(e) => { e.preventDefault(); openWhere(); }}>#{channelTag(item)}</Link>
           </p>
         </section>
-      ) : <Comments channelId={channelId} message={message} perms={perms} />}
+      ) : <Comments channelId={channelId} message={message} perms={perms} />)}
     </SidePanel>
   );
 }

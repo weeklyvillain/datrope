@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
+  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL,
 } from "./types";
 
@@ -518,6 +518,58 @@ export class DatropeClient {
     if (p.before) query.before = p.before;
     if (p.limit) query.limit = p.limit;
     return unwrap(this.api.GET("/api/files", { params: { query } }));
+  }
+
+  /** Albums the caller can see, most recently changed first; with contains, each says whether it holds that file. */
+  async albums(contains?: string): Promise<Album[]> {
+    return unwrap(this.api.GET("/api/albums", { params: { query: contains ? { contains } : {} } })) as Promise<Album[]>;
+  }
+
+  async album(id: string): Promise<Album> {
+    return unwrap(this.api.GET("/api/albums/{albumID}", { params: { path: { albumID: id } } }));
+  }
+
+  async createAlbum(body: { title: string; visibility: AlbumVisibility }): Promise<Album> {
+    return unwrap(this.api.POST("/api/albums", { body }));
+  }
+
+  async updateAlbum(id: string, body: { title?: string; visibility?: AlbumVisibility }): Promise<Album> {
+    return unwrap(this.api.PATCH("/api/albums/{albumID}", { params: { path: { albumID: id } }, body }));
+  }
+
+  async deleteAlbum(id: string): Promise<void> {
+    await unwrap(this.api.DELETE("/api/albums/{albumID}", { params: { path: { albumID: id } } }));
+  }
+
+  async addAlbumMember(id: string, userId: string): Promise<void> {
+    await unwrap(this.api.PUT("/api/albums/{albumID}/members/{userID}", { params: { path: { albumID: id, userID: userId } } }));
+  }
+
+  async removeAlbumMember(id: string, userId: string): Promise<void> {
+    await unwrap(this.api.DELETE("/api/albums/{albumID}/members/{userID}", { params: { path: { albumID: id, userID: userId } } }));
+  }
+
+  /** An album's files the caller can see, newest upload first. */
+  async albumFiles(id: string, p: Omit<FilesParams, "channels"> = {}): Promise<FilesPage> {
+    const query: Record<string, string | number> = {};
+    if (p.kinds?.length) query.kind = p.kinds.join(",");
+    if (p.uploader) query.uploader = p.uploader;
+    if (p.q) query.q = p.q;
+    if (p.before) query.before = p.before;
+    if (p.limit) query.limit = p.limit;
+    return unwrap(this.api.GET("/api/albums/{albumID}/files", { params: { path: { albumID: id }, query } }));
+  }
+
+  async addToAlbum(id: string, attachmentId: string): Promise<void> {
+    await unwrap(this.api.PUT("/api/albums/{albumID}/files/{attachmentID}", { params: { path: { albumID: id, attachmentID: attachmentId } } }));
+  }
+
+  async removeFromAlbum(id: string, attachmentId: string): Promise<void> {
+    await unwrap(this.api.DELETE("/api/albums/{albumID}/files/{attachmentID}", { params: { path: { albumID: id, attachmentID: attachmentId } } }));
+  }
+
+  async uploadToAlbum(id: string, file: Blob, filename: string): Promise<Attachment> {
+    return (await this.multipart("POST", `/api/attachments?album_id=${encodeURIComponent(id)}`, file, filename)) as Attachment;
   }
 
   /** Where a library track's audio is served, for the browser's own player. */

@@ -2,7 +2,7 @@ import type { PlaylistItem } from "@datrope/core";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { client, displayName } from "../../session";
-import type { GalleryItem } from "../gallery/items";
+import { itemAuthor, type GalleryItem } from "../gallery/items";
 import { channelTag } from "../gallery/FileTile";
 import { shownAuthor } from "../message-author";
 import { advance, back, EMPTY, enqueue, moveTo, removeAt, shuffleUpcoming, start, type Queue, type Repeat, type Track } from "./queue";
@@ -72,11 +72,15 @@ export const player = {
   clear() { set({ queue: EMPTY, playing: false, notice: undefined }); },
 };
 
-export function trackFromItem(it: GalleryItem): Track {
+export function trackFromItem(it: GalleryItem, author?: string): Track {
+  const tag = channelTag(it);
+  // an album upload has no message: name its uploader from the server's members
+  const uploader = it.message ? undefined : itemAuthor(it, client.store.getState().server?.members);
+  const by = author ?? (it.message ? displayName(shownAuthor(it.message)) : uploader ? displayName(uploader) : "");
   return {
     key: `file:${it.attachment.id}`, title: it.attachment.filename,
-    subtitle: `#${channelTag(it)} · ${displayName(shownAuthor(it.message))}`,
-    src: client.url(it.attachment.url), channelId: it.message.channel_id, attachmentId: it.attachment.id,
+    subtitle: [tag && `#${tag}`, by].filter(Boolean).join(" · "),
+    src: client.url(it.attachment.url), channelId: it.message?.channel_id, attachmentId: it.attachment.id,
   };
 }
 

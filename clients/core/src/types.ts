@@ -67,6 +67,8 @@ export type MentionsPage = Schemas["MentionsPage"];
 export type FileItem = Schemas["FileItem"];
 export type FilesPage = Schemas["FilesPage"];
 export type FileKind = FileItem["kind"];
+export type Album = Schemas["Album"];
+export type AlbumVisibility = Album["visibility"];
 
 export type PresenceStatus = "online" | "idle" | "invisible";
 export type Activity = Schemas["Activity"];

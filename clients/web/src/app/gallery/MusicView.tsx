@@ -1,19 +1,18 @@
 import { LayoutGrid, List, Play, Shuffle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { displayName } from "../../session";
-import { shownAuthor } from "../message-author";
+import { displayName, useApp } from "../../session";
 import { openPanel } from "../side-panel/panel";
 import { player, trackFromItem, usePlayer } from "../player/player-store";
 import { channelTag, FileTile } from "./FileTile";
 import { FileMenu } from "./FileMenu";
 import type { GalleryFilter } from "./filter";
-import { audioOnly } from "./items";
+import { audioOnly, itemAuthor, type GalleryItem } from "./items";
 import { PlaylistsGrid } from "./PlaylistsGrid";
 import type { useFiles } from "./use-files";
 
@@ -22,9 +21,9 @@ const readLayout = (): "grid" | "list" => { try { return localStorage.getItem(LA
 const dateFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
 
 /** Music: the tracks as tiles or a list, with Play all and Shuffle; in the global gallery, the playlists too. */
-export function MusicView({ filter, setFilter, files, global }: {
+export function MusicView({ filter, setFilter, files, global, menuExtra }: {
   filter: GalleryFilter; setFilter: (p: Partial<GalleryFilter>) => void;
-  files: ReturnType<typeof useFiles>; global: boolean;
+  files: ReturnType<typeof useFiles>; global: boolean; menuExtra?: (item: GalleryItem) => ReactNode;
 }) {
   const [layout, setLayout] = useState(readLayout);
   useEffect(() => { try { localStorage.setItem(LAYOUT_KEY, layout); } catch { /* private mode */ } }, [layout]);
@@ -32,11 +31,15 @@ export function MusicView({ filter, setFilter, files, global }: {
   const playingKey = usePlayer((s) => s.queue.tracks[s.queue.index]?.key);
   // Until the Music page arrives, files can still hold the previous filter's files: show and play only audio.
   const items = useMemo(() => audioOnly(files.items), [files.items]);
-  const tracks = items.map(trackFromItem);
+  const members = useApp((s) => s.server?.members);
+  const tracks = items.map((it) => {
+    const author = itemAuthor(it, members);
+    return trackFromItem(it, author && displayName(author));
+  });
   const filtered = filter.q.trim() !== "" || filter.uploader !== null || filter.channels.length > 0;
   const open = (i: number) => {
     const it = items[i];
-    openPanel({ kind: "media", channelId: it.message.channel_id, messageId: it.message.id, attachmentId: it.attachment.id });
+    openPanel({ kind: "media", attachmentId: it.attachment.id });
   };
 
   return (
@@ -74,7 +77,7 @@ export function MusicView({ filter, setFilter, files, global }: {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
             {items.map((it, i) => (
               <FileTile key={it.attachment.id} item={it} global={global} selected={false} playing={playingKey === `file:${it.attachment.id}`}
-                onOpen={() => open(i)} onPlay={() => player.play(tracks, i)} menu={<FileMenu item={it} items={items} />} />
+                onOpen={() => open(i)} onPlay={() => player.play(tracks, i)} menu={<FileMenu item={it} items={items} extra={menuExtra?.(it)} />} />
             ))}
           </div>
         ) : (
@@ -94,10 +97,10 @@ export function MusicView({ filter, setFilter, files, global }: {
                       </Button>
                     </TableCell>
                     <TableCell><button type="button" className={cn("text-left", cur && "font-semibold text-primary")} onClick={() => open(i)}>{it.attachment.filename}</button></TableCell>
-                    {global && <TableCell><span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">#{channelTag(it)}</span></TableCell>}
-                    <TableCell>{displayName(shownAuthor(it.message))}</TableCell>
-                    <TableCell className="text-muted-foreground">{dateFmt.format(new Date(it.message.created_at))}</TableCell>
-                    <TableCell><FileMenu item={it} items={items} /></TableCell>
+                    {global && <TableCell>{channelTag(it) && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">#{channelTag(it)}</span>}</TableCell>}
+                    <TableCell>{displayName(itemAuthor(it, members) ?? { username: "unknown", display_name: "Unknown" })}</TableCell>
+                    <TableCell className="text-muted-foreground">{dateFmt.format(new Date(it.created_at))}</TableCell>
+                    <TableCell><FileMenu item={it} items={items} extra={menuExtra?.(it)} /></TableCell>
                   </TableRow>
                 );
               })}

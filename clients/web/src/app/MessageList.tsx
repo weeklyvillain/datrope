@@ -1,7 +1,7 @@
 import { ApiError, compareIds, mentionsMe, myRoleIds, unwrap, type Attachment, type ClientMessage, type ReplyRef } from "@datrope/core";
 import { useShallow } from "zustand/react/shallow";
 import { Fragment, forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Copy, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
+import { Copy, Images, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
 import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
@@ -9,7 +9,9 @@ import { useMessageAuthor } from "@/hooks/use-message-author";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
+import {
+  ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +19,9 @@ import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
 import { PollCard } from "@/chat/PollCard";
 import { cn } from "@/lib/utils";
+import { AddToAlbumContextItems } from "./gallery/AddToAlbum";
+import { addAll } from "./gallery/albums";
+import { AlbumDialog } from "./gallery/AlbumDialog";
 import { LinkPreview } from "./LinkPreview";
 import { InlinePlayer } from "./InlinePlayer";
 import { firstPlayer } from "@/lib/players";
@@ -359,8 +364,11 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const [draft, setDraft] = useState(m.content);
   const [titleDraft, setTitleDraft] = useState(m.title ?? "");
   const [confirming, setConfirming] = useState(false);
+  const [newAlbum, setNewAlbum] = useState(false);
+  const isDM = useApp((s) => s.channels[m.channel_id]?.type === "dm");
   const [error, setError] = useState<string>();
   const [reactError, showReactError] = useBriefError();
+  const [albumError, showAlbumError] = useBriefError();
   const path = { params: { path: { id: m.channel_id, messageID: m.id } } };
   const author = useMessageAuthor(m);
   const hook = m.author ? undefined : m.webhook; // posted by a webhook: no profile, a WEBHOOK badge
@@ -499,6 +507,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
         {m.failed && <ErrorText error="Not sent." />}
         <ErrorText error={error} />
         <ErrorText error={reactError} />
+        <ErrorText error={albumError} />
       </div>
       {actionable && (
         <MessageToolbar
@@ -534,6 +543,10 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {newAlbum && <AlbumDialog onClose={() => setNewAlbum(false)} onSaved={(a) => {
+        setNewAlbum(false);
+        void addAll(a.id, (m.attachments ?? []).map((x) => x.id)).then((e) => e && showAlbumError(e));
+      }} />}
     </article>
     </ContextMenuTrigger>
     <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
@@ -544,6 +557,14 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
       {onEdit && <ContextMenuItem onSelect={onEdit}><Pencil />Edit message</ContextMenuItem>}
       {onPin && <ContextMenuItem onSelect={onPin}>{m.pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</ContextMenuItem>}
       {m.content && <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}><Copy />Copy text</ContextMenuItem>}
+      {(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending && (
+        <ContextMenuSub>
+          <ContextMenuSubTrigger><Images />Add to album</ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-56">
+            <AddToAlbumContextItems attachmentIds={m.attachments!.map((a) => a.id)} onNew={() => setNewAlbum(true)} onError={showAlbumError} />
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      )}
       {onDelete && (
         <>
           <ContextMenuSeparator />

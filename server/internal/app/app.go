@@ -13,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/datrope/datrope/server/internal/albums"
 	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
@@ -214,6 +215,12 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		auditSvc.Start()
 		a.closers = append(a.closers, auditSvc.Close)
 		a.Audit = auditSvc
+	}
+
+	albumSvc := albums.NewService(pool, a.Bus, chanSvc, commSvc, filesSvc, msgSvc)
+	albums.Register(api, albumSvc)
+	if filesSvc != nil {
+		filesSvc.SetAlbums(albumSvc)
 	}
 
 	registerEventSchemas(api)

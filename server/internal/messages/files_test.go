@@ -59,6 +59,8 @@ func TestFilesScope(t *testing.T) {
 	alice.SendWith(d.ID, "", alice.Upload(d.ID, "dm.txt", []byte("psst"), http.StatusCreated).ID)
 
 	got := listFiles(t, bob, url.Values{})
+	require.Equal(t, alice.User.ID, got.Items[1].UploaderID)
+	require.False(t, got.Items[1].CreatedAt.IsZero())
 	require.Equal(t, []string{"in-thread.txt", "song.wav"}, fileNames(got))
 	require.Equal(t, "thread", got.Items[0].Channel.Type)
 	require.Equal(t, general, *got.Items[0].Channel.ParentID, "a thread's file is tagged with its parent")
@@ -127,4 +129,24 @@ func TestFilesPagination(t *testing.T) {
 	m := alice.SendWith(general, "", alice.Upload(general, "gone.txt", []byte("x"), http.StatusCreated).ID)
 	alice.Do(http.MethodDelete, "/api/channels/"+general.String()+"/messages/"+m.ID.String(), nil, http.StatusNoContent, nil)
 	require.NotContains(t, fileNames(listFiles(t, alice, url.Values{})), "gone.txt")
+}
+
+// Deleting a message deletes its files, which takes them out of any album.
+func TestDeletedMessageLeavesAlbums(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	general := alice.General()
+	a := alice.Upload(general, "pic.txt", []byte("x"), http.StatusCreated)
+	m := alice.SendWith(general, "", a.ID)
+	var album struct {
+		ID id.ID `json:"id"`
+	}
+	alice.Do(http.MethodPost, "/api/albums", map[string]any{"title": "T", "visibility": "private"}, http.StatusCreated, &album)
+	alice.Do(http.MethodPut, "/api/albums/"+album.ID.String()+"/files/"+a.ID.String(), nil, http.StatusNoContent, nil)
+
+	alice.Do(http.MethodDelete, "/api/channels/"+general.String()+"/messages/"+m.ID.String(), nil, http.StatusNoContent, nil)
+
+	var p messages.FilesPage
+	alice.Do(http.MethodGet, "/api/albums/"+album.ID.String()+"/files", nil, http.StatusOK, &p)
+	require.Empty(t, p.Items)
 }

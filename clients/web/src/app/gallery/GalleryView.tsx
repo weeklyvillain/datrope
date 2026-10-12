@@ -1,13 +1,14 @@
 import { Perm, canPost, hasPerm } from "@datrope/core";
 import { Images, Search, Upload, X } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { client, displayName, isUnread, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { EmojiText } from "@/chat/EmojiText";
 import { Topic } from "../ChannelView";
@@ -29,16 +30,25 @@ import { UploadDialog } from "./UploadDialog";
 import { useFiles, type GalleryScope } from "./use-files";
 
 const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
+export const viewChip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground";
+export const viewChipActive = "border-foreground font-semibold text-foreground";
 const note = "m-0 p-8 text-center text-sm text-muted-foreground";
 
 const openItem = (it: GalleryItem) =>
-  openPanel({ kind: "media", channelId: it.message.channel_id, messageId: it.message.id, attachmentId: it.attachment.id });
+  openPanel({ kind: "media", attachmentId: it.attachment.id });
 
 /** A gallery of files, newest first: one channel's, or (global) every channel the viewer can read. */
-export function GalleryView({ scope: given }: { scope: GalleryScope }) {
+export function GalleryView({ scope: given, header, menuExtra, canUploadHere, onUpload }: {
+  scope: GalleryScope;
+  header?: ReactNode; // replaces the title row (albums)
+  menuExtra?: (item: GalleryItem) => ReactNode; // more tile-menu items (Remove from album)
+  canUploadHere?: boolean; // albums decide upload rights themselves
+  onUpload?: () => void;
+}) {
   const channelId = given.kind === "channel" ? given.channelId : undefined;
+  const albumId = given.kind === "album" ? given.albumId : undefined;
   // useFiles resubscribes when the scope changes identity, so keep one object per channel.
-  const scope = useMemo<GalleryScope>(() => (channelId ? { kind: "channel", channelId } : { kind: "global" }), [channelId]);
+  const scope = useMemo<GalleryScope>(() => (channelId ? { kind: "channel", channelId } : albumId ? { kind: "album", albumId } : { kind: "global" }), [channelId, albumId]);
   const ch = useApp((s) => (channelId ? s.channels[channelId] : undefined));
   const perms = usePerms(channelId);
   const panel = usePanel((s) => s.panel);
@@ -53,6 +63,7 @@ export function GalleryView({ scope: given }: { scope: GalleryScope }) {
   const uploaderId = useId();
   const [uploading, setUploading] = useState(false);
   const global = scope.kind === "global";
+  const tags = scope.kind !== "channel"; // tiles name their channel outside a channel gallery
 
   useEffect(() => {
     // A thread, a post, a gallery item or the threads list belongs to its channel; a profile (and search) stays open.
@@ -89,17 +100,25 @@ export function GalleryView({ scope: given }: { scope: GalleryScope }) {
   const music = filter.kind === "audio";
   const playFrom = (it: GalleryItem) => {
     const { run, at } = audioRun(files.items, it);
-    player.play(run.map(trackFromItem), at);
+    player.play(run.map((it) => trackFromItem(it)), at);
   };
 
   return (
     <>
-      <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={global ? "Gallery" : ch!.name}>
-        <TopBar actions={canUpload && <Button size="sm" onClick={() => setUploading(true)}><Upload /> Upload</Button>}>
+      <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={global ? "Gallery" : scope.kind === "album" ? "Album" : ch!.name}>
+        <TopBar actions={header ? canUploadHere && <Button size="sm" onClick={onUpload}><Upload /> Upload</Button>
+          : canUpload && <Button size="sm" onClick={() => setUploading(true)}><Upload /> Upload</Button>}>
+          {header ? header : (<>
           <Images className="size-4 flex-none text-muted-foreground" aria-hidden />
           {global ? (
             <>
               <h2 className="flex-none">Gallery</h2>
+              <div role="group" aria-label="Gallery view" className="ml-2 flex gap-1.5">
+                <Button variant="outline" size="sm" asChild className={cn(viewChip, viewChipActive)}>
+                  <Link to="/gallery" aria-current="page">All files</Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild className={viewChip}><Link to="/gallery/albums">Albums</Link></Button>
+              </div>
               <span className="truncate text-sm text-muted-foreground">Files from every channel</span>
             </>
           ) : (
@@ -108,6 +127,7 @@ export function GalleryView({ scope: given }: { scope: GalleryScope }) {
               {ch!.topic && <Topic channelId={ch!.id} name={ch!.name} topic={ch!.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
             </>
           )}
+          </>)}
         </TopBar>
 
         <div className="flex flex-none flex-wrap items-center gap-2 border-b px-4 py-3">
@@ -138,7 +158,7 @@ export function GalleryView({ scope: given }: { scope: GalleryScope }) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {music ? <MusicView filter={filter} setFilter={setFilter} files={files} global={global} />
+          {music ? <MusicView filter={filter} setFilter={setFilter} files={files} global={global} menuExtra={menuExtra} />
             : files.error && files.items.length === 0 ? <div className="p-4"><ErrorText error={files.error} /></div>
             : files.loading && files.items.length === 0 ? <p className={note}>Loading…</p>
             : files.items.length === 0 ? (
@@ -155,9 +175,9 @@ export function GalleryView({ scope: given }: { scope: GalleryScope }) {
                     <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.label}</h3>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
                       {g.items.map((it) => (
-                        <FileTile key={it.attachment.id} item={it} global={global} playing={false}
+                        <FileTile key={it.attachment.id} item={it} global={tags} playing={false}
                           selected={selected?.attachmentId === it.attachment.id} onOpen={() => openItem(it)}
-                          onPlay={it.kind === "audio" ? () => playFrom(it) : undefined} menu={<FileMenu item={it} items={files.items} />} />
+                          onPlay={it.kind === "audio" ? () => playFrom(it) : undefined} menu={<FileMenu item={it} items={files.items} extra={menuExtra?.(it)} />} />
                       ))}
                     </div>
                   </section>
@@ -180,7 +200,7 @@ export function GalleryView({ scope: given }: { scope: GalleryScope }) {
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : null}
-      {uploading && channelId && <UploadDialog channelId={channelId} onClose={() => setUploading(false)} />}
+      {uploading && channelId && <UploadDialog target={{ channelId }} onClose={() => setUploading(false)} />}
     </>
   );
 }

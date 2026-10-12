@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 import { UserAvatar } from "@/components/user-avatar";
 import { attachmentImage } from "@/lib/sized-image";
 import { cn } from "@/lib/utils";
-import { client, displayName, formatBytes } from "../../session";
-import { shownAuthor } from "../message-author";
+import { client, displayName, formatBytes, useApp } from "../../session";
+import { shownAuthor, type ShownAuthor } from "../message-author";
 import { extension, KIND_SINGULAR } from "./kinds";
-import { itemTitle, type GalleryItem } from "./items";
+import { itemAuthor, itemTitle, type GalleryItem } from "./items";
 
-/** Where a file was posted, as tagged: a thread's file shows its parent channel. */
-export function channelTag(item: GalleryItem): string {
-  return item.channel.parent_name || item.channel.name;
+/** Where a file was posted, as tagged: a thread's file shows its parent channel; undefined for album uploads. */
+export function channelTag(item: GalleryItem): string | undefined {
+  return item.channel ? item.channel.parent_name || item.channel.name : undefined;
 }
 
 /** A stable colour per file from the avatar palette tokens. */
@@ -20,21 +20,30 @@ export function discToken(id: string): string {
   return `var(--avatar-${(Math.abs(h) % 8) + 1})`;
 }
 
-export function tileLabel(item: GalleryItem, global: boolean): string {
-  const base = `${KIND_SINGULAR[item.kind]}: ${itemTitle(item)}, by ${displayName(shownAuthor(item.message))}`;
-  return global ? `${base}, in #${channelTag(item)}` : base;
+export function tileLabel(item: GalleryItem, global: boolean, author: string): string {
+  const base = `${KIND_SINGULAR[item.kind]}: ${itemTitle(item)}, by ${author}`;
+  const tag = channelTag(item);
+  return global && tag ? `${base}, in #${tag}` : base;
+}
+
+/** Who shared a file: the message's shown author, or for an album upload the member who uploaded it. */
+export function useItemAuthor(item: GalleryItem): ShownAuthor {
+  const members = useApp((s) => s.server?.members);
+  return itemAuthor(item, members) ?? shownAuthor(undefined);
 }
 
 export function FileTile({ item, global, selected, playing, onOpen, onPlay, menu }: {
   item: GalleryItem; global: boolean; selected: boolean; playing: boolean;
   onOpen: () => void; onPlay?: () => void; menu?: ReactNode;
 }) {
-  const { attachment: a, message: m, kind } = item;
+  const { attachment: a, kind } = item;
+  const author = useItemAuthor(item);
+  const tag = channelTag(item);
   const media = kind === "image" || kind === "video";
   return (
     <div className={cn("group relative aspect-square overflow-hidden rounded-md", media ? "bg-muted" : "border bg-card",
       (selected || playing) && "ring-2 ring-primary")}>
-      <button type="button" onClick={onOpen} aria-label={tileLabel(item, global)}
+      <button type="button" onClick={onOpen} aria-label={tileLabel(item, global, displayName(author))}
         className="absolute inset-0 grid outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring">
         {media ? (
           kind === "video" && !a.thumbnail_url
@@ -56,18 +65,18 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, menu
             </span>
             <span className="line-clamp-2 text-[13px] leading-tight font-semibold wrap-anywhere text-foreground">{a.filename}</span>
             <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {playing ? "Playing · " : ""}{formatBytes(a.size)} · {displayName(shownAuthor(m))}
+              {playing ? "Playing · " : ""}{formatBytes(a.size)} · {displayName(author)}
             </span>
           </span>
         )}
       </button>
-      {global && (
+      {global && tag && (
         <span className={cn("pointer-events-none absolute top-1.5 left-1.5 inline-flex h-5 max-w-[calc(100%-2.5rem)] items-center gap-0.5 rounded-full pr-2 pl-1 text-[11px] font-semibold text-foreground",
           media ? "bg-background/85" : "bg-muted")} aria-hidden>
-          <Hash className="size-3 flex-none" /><span className="truncate">{channelTag(item)}</span>
+          <Hash className="size-3 flex-none" /><span className="truncate">{tag}</span>
         </span>
       )}
-      {media && <UserAvatar user={shownAuthor(m)} size="xs" className="pointer-events-none absolute bottom-1.5 left-1.5" />}
+      {media && <UserAvatar user={author} size="xs" className="pointer-events-none absolute bottom-1.5 left-1.5" />}
       {kind === "video" && (
         <span className="pointer-events-none absolute right-1.5 bottom-1.5 inline-flex h-5 items-center rounded bg-background/85 px-1.5 text-foreground" aria-hidden>
           <Play className="size-2.5 fill-current" />

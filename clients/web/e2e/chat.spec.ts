@@ -677,7 +677,13 @@ async function signIn(page: Page, username: string) {
   await page.goto("/login");
   await page.getByLabel("Username or email", { exact: true }).fill(username);
   await page.getByLabel("Password", { exact: true }).fill("password123");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  // Logins are limited to 5 a minute per account (refilling): wait out a 429 and try again.
+  for (let attempt = 0; ; attempt++) {
+    const response = page.waitForResponse((r) => r.url().endsWith("/api/auth/login"));
+    await page.getByRole("button", { name: "Sign in" }).click();
+    if ((await response).status() !== 429 || attempt >= 5) break;
+    await page.waitForTimeout(13_000);
+  }
   await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
 }
 
@@ -984,4 +990,58 @@ test("the instance admin sees the system dashboard and updates", async ({ browse
   await expect(bob.getByRole("navigation", { name: "Server settings" })).toBeVisible();
   await expect(bob.getByRole("link", { name: "System" })).toHaveCount(0);
   await expect(bob.getByRole("heading", { name: "Host" })).toHaveCount(0);
+});
+
+// Runs after the first tests: alice and bob exist; #general is shared.
+test("albums: collect a channel file, upload into the album, share it with the server", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+
+  // alice posts a picture in #general.
+  await alice.getByRole("link", { name: "general" }).click();
+  await alice.locator('input[type="file"]').setInputFiles({ name: "harbour.png", mimeType: "image/png", buffer: solidPng(8, 8) });
+  await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
+  await alice.getByRole("button", { name: "Send" }).click();
+
+  // She makes a private album.
+  await alice.getByRole("link", { name: "Gallery" }).click();
+  await alice.getByRole("link", { name: "Albums" }).click();
+  await alice.getByRole("main", { name: "Albums" }).getByRole("button", { name: "New album" }).first().click();
+  await alice.getByLabel("Name").fill("Lofoten");
+  await alice.getByRole("button", { name: "Create" }).click();
+  await expect(alice.getByRole("heading", { name: "Lofoten" })).toBeVisible();
+
+  // Adds the #general picture from the global gallery.
+  await alice.getByRole("link", { name: "Gallery" }).click();
+  const gallery = alice.getByRole("main", { name: "Gallery" });
+  await gallery.getByRole("button", { name: /harbour\.png/ }).first().hover();
+  await gallery.getByRole("button", { name: "More for harbour.png" }).click();
+  await alice.getByRole("menuitem", { name: "Add to album" }).click();
+  await alice.getByRole("menuitemcheckbox", { name: "Lofoten" }).click();
+  await alice.keyboard.press("Escape");
+
+  // And uploads one straight into the album.
+  await alice.getByRole("link", { name: "Albums" }).click();
+  await alice.getByRole("link", { name: /Lofoten/ }).click();
+  const album = alice.getByRole("main", { name: "Album" });
+  await expect(album.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
+  await album.getByRole("button", { name: "Upload" }).click();
+  await alice.locator('input[type="file"]').setInputFiles({ name: "fjord.png", mimeType: "image/png", buffer: solidPng(8, 8) });
+  await expect(alice.getByRole("list", { name: "Files" })).not.toContainText("Uploading");
+  await alice.getByRole("button", { name: "Done" }).click();
+  await expect(album.getByRole("button", { name: /^Photo: fjord.png/ })).toBeVisible();
+
+  // bob doesn't see the private album; once shared with the server he sees both files.
+  await bob.goto("/gallery/albums");
+  await expect(bob.getByRole("link", { name: /Lofoten/ })).toHaveCount(0);
+  await alice.getByRole("button", { name: "Album settings" }).click();
+  await alice.getByRole("radio", { name: "Everyone on the server" }).click();
+  await alice.getByRole("button", { name: "Save" }).click();
+  await bob.getByRole("link", { name: /Lofoten/ }).click();
+  const bobAlbum = bob.getByRole("main", { name: "Album" });
+  await expect(bobAlbum.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
+  await expect(bobAlbum.getByRole("button", { name: /^Photo: fjord.png/ })).toBeVisible();
+  await expect(bobAlbum.getByRole("button", { name: "Upload" })).toHaveCount(0);
 });

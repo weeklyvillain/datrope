@@ -1,7 +1,7 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./app/AppShell";
 import { DMView } from "./app/DMView";
-import { ChannelRoute, GlobalGalleryRoute, Home } from "./app/Home";
+import { AlbumRoute, AlbumsRoute, ChannelRoute, GlobalGalleryRoute, Home } from "./app/Home";
 import { RequireSession } from "./app/RequireSession";
 import { ServerSettings } from "./app/server-settings/ServerSettings";
 import { SettingsRedirect } from "./app/settings/SettingsRedirect";
@@ -24,6 +24,8 @@ export const router = createBrowserRouter([
         { index: true, element: <Home /> },
         { path: "channels/:channelId", element: <ChannelRoute /> },
         { path: "gallery", element: <GlobalGalleryRoute /> },
+        { path: "gallery/albums", element: <AlbumsRoute /> },
+        { path: "gallery/albums/:albumId", element: <AlbumRoute /> },
         { path: "messages/:channelId?", element: <DMView /> },
         { path: "settings", element: <SettingsRedirect /> },
         { path: "server-settings/:section?", element: <ServerSettings /> },

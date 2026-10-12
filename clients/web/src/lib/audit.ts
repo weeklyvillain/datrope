@@ -58,6 +58,7 @@ export function describe(e: AuditEntry, users: Record<string, PublicUser>): Part
     case "sound.create": return ["added the sound ", s(name)];
     case "sound.update": return ["updated the sound ", s(name)];
     case "sound.delete": return ["deleted the sound ", s(name)];
+    case "album.delete": return ["deleted the album ", s(name)];
   }
   return [e.action];
 }

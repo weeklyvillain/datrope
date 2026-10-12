@@ -132,7 +132,8 @@ All under `/api`, registered with huma like `messages/files.go`.
 - `item_count` counts every item; `cover` is the newest image item the caller can see.
 - Album files are ordered by attachment ID, newest first (upload time), so the gallery's date
   sections still work. `FileItem.message` and `FileItem.channel` become optional in the OpenAPI
-  schema; `/api/files` still always fills them.
+  schema; `/api/files` still always fills them. `FileItem` gains `uploader_id` and `created_at`
+  (the upload time), which clients use for authors and date sections instead of the message.
 - `q` matches file names, and captions for channel files.
 - Rate limits: album files use the `searchLimit` bucket like `/api/files`; uploads use the
   existing upload limits.
@@ -170,7 +171,8 @@ new audience. A removed collaborator gets `ALBUM_DELETE` unless the album is ser
   **Remove from album** (owner and collaborators) and keeps **Jump to message** for channel
   files only. Album uploads have no message, so the side panel shows file, uploader and date
   without thread or reply actions.
-- **Message attachments.** The attachment menu in chat gets the same **Add to album** item.
+- **Messages.** Chat has no per-attachment menu, so a message with files gets **Add to album** in
+  its right-click menu: a submenu of my albums, adding all of the message's files to the one picked.
 - **AlbumDialog** (create and settings). Name; **Who can see it**: "Only collaborators" or
   "Everyone on the server" (shadcn RadioGroup); collaborators, picked from server members; and,
   in settings, **Delete album** with a confirmation that says the album's direct uploads are
@@ -183,8 +185,10 @@ new audience. A removed collaborator gets `ALBUM_DELETE` unless the album is ser
 
 ## Errors
 
-- Unknown album, or one you can't see: `404 album`. Editing without rights: `403 FORBIDDEN`.
-- Over a limit: `400 LIMIT_REACHED` naming the limit ("You can have up to 100 albums").
+- Unknown album, or one you can't see: `404 album`. Editing without rights: `403 MISSING_PERMISSION`
+  (the codebase's existing code).
+- Over a limit, following `PLAYLISTS_FULL`: `400 ALBUMS_FULL` ("you have the most albums you can
+  have (100)"), `400 ALBUM_FULL` (5,000 items) or `400 COLLABORATORS_FULL` (25).
 - Adding a file you can't read, an unsent file or a DM file: `404 attachment`.
 - Adding a file already in the album: 204 (no change, no event).
 - The web client shows these with `ErrorText`; a failed upload in a batch is listed and the rest
