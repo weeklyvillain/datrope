@@ -19,6 +19,7 @@ export const PERM_LABELS: { flag: number; label: string; description: string; ch
   { flag: Perm.MoveMembers, label: "Move members", description: "Move people between voice channels or disconnect them.", channel: true },
   { flag: Perm.Kick, label: "Kick members", description: "Remove people from the server. They can come back with a new invite.", channel: false },
   { flag: Perm.Ban, label: "Ban members", description: "Remove people from the server for good. They cannot come back until unbanned.", channel: false },
+  { flag: Perm.ViewAuditLog, label: "View audit log", description: "See who changed what on the server: bans, kicks, moves, channels, roles and settings.", channel: false },
   { flag: Perm.CreateInvite, label: "Create invites", description: "Make invite links to bring people in.", channel: false },
   { flag: Perm.ManageRoles, label: "Manage roles and permissions", description: "Create, edit and hand out roles below their own.", channel: true },
   { flag: Perm.ManageChannels, label: "Manage channels", description: "Create, rename, reorder and delete channels.", channel: true },
@@ -39,6 +40,6 @@ export const PERM_GROUPS: { title: string; flags: number[] }[] = [
     flags: [Perm.SendMessages, Perm.AttachFiles, Perm.ReadHistory, Perm.AddReactions, Perm.CreateThreads, Perm.MentionEveryone, Perm.MentionRoles, Perm.ManageMessages],
   },
   { title: "Voice", flags: [Perm.ConnectVoice, Perm.Speak, Perm.Stream, Perm.UseSoundboard, Perm.MuteMembers, Perm.MoveMembers] },
-  { title: "Moderation", flags: [Perm.Kick, Perm.Ban] },
+  { title: "Moderation", flags: [Perm.Kick, Perm.Ban, Perm.ViewAuditLog] },
   { title: "Server", flags: [Perm.ManageChannels, Perm.ManageRoles, Perm.ManageWebhooks, Perm.ManageExpressions, Perm.ManageServer, Perm.Admin] },
 ];

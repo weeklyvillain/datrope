@@ -5,11 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -117,6 +119,26 @@ func (s *Service) publishMemberUpdate(ctx context.Context, communityID, userID i
 	return nil
 }
 
+// roleChanges lists what an update changed, for the audit log. Permissions
+// are decimal masks; the client names the flags.
+func roleChanges(old, new *Role) []audit.LogChange {
+	color := func(c *string) string {
+		if c == nil {
+			return ""
+		}
+		return *c
+	}
+	cs := audit.Diff(nil, "name", old.Name, new.Name)
+	cs = audit.Diff(cs, "permissions", strconv.FormatUint(uint64(old.Permissions), 10), strconv.FormatUint(uint64(new.Permissions), 10))
+	cs = audit.Diff(cs, "position", strconv.Itoa(old.Position), strconv.Itoa(new.Position))
+	cs = audit.Diff(cs, "color", color(old.Color), color(new.Color))
+	cs = audit.Diff(cs, "hoist", strconv.FormatBool(old.Hoist), strconv.FormatBool(new.Hoist))
+	cs = audit.Diff(cs, "icon", old.IconEmoji+old.IconURL, new.IconEmoji+new.IconURL)
+	cs = audit.Diff(cs, "self_assignable", strconv.FormatBool(old.SelfAssignable), strconv.FormatBool(new.SelfAssignable))
+	cs = audit.Diff(cs, "mentionable", strconv.FormatBool(old.Mentionable), strconv.FormatBool(new.Mentionable))
+	return audit.Diff(cs, "description", old.Description, new.Description)
+}
+
 func registerRoles(api huma.API, s *Service, op func(string, string, string, int) huma.Operation) {
 	huma.Register(api, op("create-role", http.MethodPost, "/api/server/roles", http.StatusCreated),
 		func(ctx context.Context, in *struct{ Body CreateRoleRequest }) (*struct{ Body *Role }, error) {
@@ -160,6 +182,9 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 				id.New(), a.CommunityID, strings.TrimSpace(in.Body.Name), int64(in.Body.Permissions), pos, in.Body.Color, in.Body.Hoist,
 				in.Body.SelfAssignable, in.Body.Mentionable, strings.TrimSpace(in.Body.Description)))
 			if err != nil {
+				return nil, err
+			}
+			if err := audit.Record(ctx, tx, audit.RoleCreate, r.ID, audit.LogDetails{Name: r.Name}); err != nil {
 				return nil, err
 			}
 			if err := tx.Commit(ctx); err != nil {
@@ -267,6 +292,11 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if err != nil {
 				return nil, err
 			}
+			if cs := roleChanges(r, updated); len(cs) > 0 {
+				if err := audit.Record(ctx, tx, audit.RoleUpdate, r.ID, audit.LogDetails{Name: updated.Name, Changes: cs}); err != nil {
+					return nil, err
+				}
+			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
 			}
@@ -319,6 +349,9 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			}
 			if _, err := tx.Exec(ctx, `UPDATE roles SET position = position - 1 WHERE community_id = $1 AND position > $2`,
 				a.CommunityID, r.Position); err != nil {
+				return nil, err
+			}
+			if err := audit.Record(ctx, tx, audit.RoleDelete, r.ID, audit.LogDetails{Name: r.Name}); err != nil {
 				return nil, err
 			}
 			if err := tx.Commit(ctx); err != nil {
@@ -379,8 +412,18 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if add {
 				sql = `INSERT INTO member_roles (community_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`
 			}
-			if _, err := tx.Exec(ctx, sql, a.CommunityID, target, r.ID); err != nil {
+			tag, err := tx.Exec(ctx, sql, a.CommunityID, target, r.ID)
+			if err != nil {
 				return nil, err
+			}
+			if tag.RowsAffected() > 0 {
+				action := audit.MemberRoleRemove
+				if add {
+					action = audit.MemberRoleAdd
+				}
+				if err := audit.Record(ctx, tx, action, target, audit.LogDetails{Role: &audit.LogRef{ID: r.ID, Name: r.Name}}); err != nil {
+					return nil, err
+				}
 			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
@@ -439,6 +482,9 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if err := s.ban(ctx, a.CommunityID, target, in.Body.Reason); err != nil {
 				return nil, err
 			}
+			if err := audit.Record(ctx, s.db, audit.MemberBan, target, audit.LogDetails{Reason: in.Body.Reason}); err != nil {
+				return nil, err
+			}
 			signOut := s.users.RevokeSessions
 			if users[target].GuestExpiresAt != nil {
 				signOut = s.users.RetireUser // a banned guest is retired for good
@@ -466,7 +512,7 @@ func registerRoles(api huma.API, s *Service, op func(string, string, string, int
 			if tag.RowsAffected() == 0 {
 				return nil, httpx.NotFound("ban")
 			}
-			return nil, nil
+			return nil, audit.Record(ctx, s.db, audit.MemberUnban, target, audit.LogDetails{})
 		})
 }
 

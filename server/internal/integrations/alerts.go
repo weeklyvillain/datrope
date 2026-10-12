@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -96,6 +97,16 @@ func (s *Service) alertChannel(ctx context.Context, raw string) (*channels.Chann
 		return nil, httpx.BadRequest("NOT_ALLOWED_HERE", "stream alerts go to text and announcement channels")
 	}
 	return ch, nil
+}
+
+// recordAlert adds an audit log entry about an alert in ch. Its name is the
+// feed URL for RSS, else the platform and the followed account's name.
+func recordAlert(ctx context.Context, q audit.Execer, action audit.Action, ch *channels.Channel, alertID id.ID, platform, account, displayName string) error {
+	name := platform + ": " + displayName
+	if platform == "rss" {
+		name = account
+	}
+	return audit.Record(ctx, q, action, alertID, audit.LogDetails{Name: name, Channel: &audit.LogRef{ID: ch.ID, Name: ch.Name}})
 }
 
 func (s *Service) listAlerts(ctx context.Context, channelID id.ID) ([]StreamAlert, error) {
@@ -198,6 +209,9 @@ func registerAlerts(api huma.API, s *Service, op func(string, string, string, in
 			if tag.RowsAffected() == 0 {
 				return nil, httpx.E(http.StatusConflict, "ALREADY_FOLLOWED", "this channel already follows them")
 			}
+			if err := recordAlert(ctx, s.db, audit.AlertCreate, ch, a.ID, a.Platform, a.Account, a.DisplayName); err != nil {
+				return nil, err
+			}
 			return &struct{ Body *StreamAlert }{a}, nil
 		})
 
@@ -214,14 +228,16 @@ func registerAlerts(api huma.API, s *Service, op func(string, string, string, in
 			if err != nil {
 				return nil, err
 			}
-			tag, err := s.db.Exec(ctx, `DELETE FROM stream_alerts WHERE id = $1 AND channel_id = $2`, aid, ch.ID)
+			var platform, account, displayName string
+			err = s.db.QueryRow(ctx, `DELETE FROM stream_alerts WHERE id = $1 AND channel_id = $2 RETURNING platform, account, display_name`,
+				aid, ch.ID).Scan(&platform, &account, &displayName)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, httpx.NotFound("alert")
+			}
 			if err != nil {
 				return nil, err
 			}
-			if tag.RowsAffected() == 0 {
-				return nil, httpx.NotFound("alert")
-			}
-			return nil, nil
+			return nil, recordAlert(ctx, s.db, audit.AlertDelete, ch, aid, platform, account, displayName)
 		})
 }
 

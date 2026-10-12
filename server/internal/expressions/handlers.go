@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/communities"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -110,15 +111,17 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
-			tag, err := s.db.Exec(ctx, `UPDATE emoji SET name = $2 WHERE id = $1`, eid, in.Body.Name)
+			var oldName string
+			err = s.db.QueryRow(ctx, `UPDATE emoji e SET name = $2 FROM emoji old WHERE e.id = $1 AND old.id = e.id RETURNING old.name`,
+				eid, in.Body.Name).Scan(&oldName)
 			if isUniqueViolation(err) {
 				return nil, errNameTaken()
 			}
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, httpx.NotFound("emoji")
+			}
 			if err != nil {
 				return nil, err
-			}
-			if tag.RowsAffected() == 0 {
-				return nil, httpx.NotFound("emoji")
 			}
 			e, _, _, err := s.get(ctx, eid)
 			if errors.Is(err, errNotFound) {
@@ -126,6 +129,11 @@ func Register(api huma.API, s *Service) {
 			}
 			if err != nil {
 				return nil, err
+			}
+			if cs := audit.Diff(nil, "name", oldName, e.Name); len(cs) > 0 {
+				if err := audit.Record(ctx, s.db, audit.EmojiUpdate, eid, audit.LogDetails{Name: e.Name, Changes: cs}); err != nil {
+					return nil, err
+				}
 			}
 			if err := s.publish(ctx); err != nil {
 				slog.WarnContext(ctx, "expressions: publishing EMOJI_UPDATE", "err", err)
@@ -142,14 +150,17 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
-			var sum string
-			if err := s.db.QueryRow(ctx, `DELETE FROM emoji WHERE id = $1 RETURNING sha256`, eid).Scan(&sum); err != nil {
+			var sum, name string
+			if err := s.db.QueryRow(ctx, `DELETE FROM emoji WHERE id = $1 RETURNING sha256, name`, eid).Scan(&sum, &name); err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					return nil, httpx.NotFound("emoji")
 				}
 				return nil, err
 			}
 			if err := s.reactions.RemoveReactions(ctx, "custom:"+eid.String()); err != nil {
+				return nil, err
+			}
+			if err := audit.Record(ctx, s.db, audit.EmojiDelete, eid, audit.LogDetails{Name: name}); err != nil {
 				return nil, err
 			}
 			if err := s.blobs.RemoveBlobs(ctx, []string{sum}); err != nil {
@@ -298,6 +309,9 @@ func (s *Service) insert(ctx context.Context, name string, data []byte) (*Emoji,
 		if isUniqueViolation(err) {
 			return nil, errNameTaken()
 		}
+		return nil, err
+	}
+	if err := audit.Record(ctx, tx, audit.EmojiCreate, eid, audit.LogDetails{Name: name}); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

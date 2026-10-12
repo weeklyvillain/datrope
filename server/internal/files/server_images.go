@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
@@ -167,6 +168,11 @@ func (s *Service) saveServerImage(ctx context.Context, kind string, staged *Stag
 		imgID, kind, cleaned.Sum, ct); err != nil {
 		return 0, "", err
 	}
+	if kind != "page" {
+		if err := audit.Record(ctx, tx, audit.ServerUpdate, 0, audit.LogDetails{Changes: []audit.LogChange{{Field: kind}}}); err != nil {
+			return 0, "", err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, "", err
 	}
@@ -194,6 +200,10 @@ func (s *Service) ServerImageDelete(kind string) http.Handler {
 			return
 		}
 		if err != nil {
+			httpx.WriteHTTPError(w, r, err)
+			return
+		}
+		if err := audit.Record(ctx, s.db, audit.ServerUpdate, 0, audit.LogDetails{Changes: []audit.LogChange{{Field: kind}}}); err != nil {
 			httpx.WriteHTTPError(w, r, err)
 			return
 		}

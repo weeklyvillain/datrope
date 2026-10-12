@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
@@ -204,6 +205,11 @@ func (s *Service) setRoleIcon(ctx context.Context, rawRoleID string, data []byte
 		UPDATE roles SET icon_emoji = '', icon_sha256 = $2, icon_content_type = $3 WHERE id = $1 RETURNING `+roleCols, role.ID, sum, ct))
 	if err != nil {
 		return nil, err
+	}
+	if cs := roleChanges(role, updated); len(cs) > 0 {
+		if err := audit.Record(ctx, tx, audit.RoleUpdate, role.ID, audit.LogDetails{Name: role.Name, Changes: cs}); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

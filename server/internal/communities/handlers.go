@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
@@ -110,6 +111,10 @@ func Register(api huma.API, s *Service) {
 				}
 				name = &n
 			}
+			old, err := s.Server(ctx)
+			if err != nil {
+				return nil, err
+			}
 			if _, err := s.db.Exec(ctx, `
 				UPDATE communities SET name = COALESCE($2, name), description = COALESCE($3, description), palette = COALESCE($4, palette)
 				WHERE id = $1`, a.CommunityID, name, in.Body.Description, in.Body.Palette); err != nil {
@@ -121,6 +126,14 @@ func Register(api huma.API, s *Service) {
 			}
 			if err := s.PublishServerUpdate(ctx); err != nil {
 				return nil, err
+			}
+			cs := audit.Diff(nil, "name", old.Name, sv.Name)
+			cs = audit.Diff(cs, "description", old.Description, sv.Description)
+			cs = audit.Diff(cs, "palette", old.Palette, sv.Palette)
+			if len(cs) > 0 {
+				if err := audit.Record(ctx, s.db, audit.ServerUpdate, 0, audit.LogDetails{Changes: cs}); err != nil {
+					return nil, err
+				}
 			}
 			return &struct{ Body *Server }{sv}, nil
 		})
@@ -166,7 +179,10 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			if u, ok := users[target]; ok && u.GuestExpiresAt != nil {
-				return nil, s.retire(ctx, a.CommunityID, target)
+				if err := s.retire(ctx, a.CommunityID, target); err != nil {
+					return nil, err
+				}
+				return nil, audit.Record(ctx, s.db, audit.MemberKick, target, audit.LogDetails{})
 			}
 			ok, err := s.removeMember(ctx, a.CommunityID, target)
 			if err != nil {
@@ -175,7 +191,7 @@ func Register(api huma.API, s *Service) {
 			if !ok {
 				return nil, httpx.NotFound("member")
 			}
-			return nil, nil
+			return nil, audit.Record(ctx, s.db, audit.MemberKick, target, audit.LogDetails{})
 		})
 
 	huma.Register(api, op("create-invite", http.MethodPost, "/api/server/invites", http.StatusCreated),
@@ -188,7 +204,10 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			inv, err := s.createInvite(ctx, a.CommunityID, a.Member.UserID, in.Body.MaxUses, in.Body.ExpiresInSeconds, in.Body.GuestTTLSeconds)
-			return &struct{ Body *Invite }{inv}, err
+			if err != nil {
+				return nil, err
+			}
+			return &struct{ Body *Invite }{inv}, audit.Record(ctx, s.db, audit.InviteCreate, 0, audit.LogDetails{Name: inv.Code})
 		})
 
 	huma.Register(api, op("list-invites", http.MethodGet, "/api/server/invites", 0),
@@ -223,7 +242,10 @@ func Register(api huma.API, s *Service) {
 					return nil, err
 				}
 			}
-			return nil, s.deleteInvite(ctx, in.Code)
+			if err := s.deleteInvite(ctx, in.Code); err != nil {
+				return nil, err
+			}
+			return nil, audit.Record(ctx, s.db, audit.InviteDelete, 0, audit.LogDetails{Name: in.Code})
 		})
 
 	registerRoles(api, s, op)

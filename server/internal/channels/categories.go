@@ -5,11 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/communities"
 	"github.com/datrope/datrope/server/internal/events"
@@ -144,6 +146,9 @@ func registerCategories(api huma.API, s *Service, op func(string, string, string
 				RETURNING position`, c.ID, sid, c.Name).Scan(&c.Position); err != nil {
 				return nil, err
 			}
+			if err := audit.Record(ctx, tx, audit.CategoryCreate, c.ID, audit.LogDetails{Name: c.Name}); err != nil {
+				return nil, err
+			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
 			}
@@ -172,6 +177,7 @@ func registerCategories(api huma.API, s *Service, op func(string, string, string
 			if err != nil {
 				return nil, err
 			}
+			old := *c
 			if in.Body.Name != nil {
 				c.Name = strings.TrimSpace(*in.Body.Name)
 				if c.Name == "" {
@@ -213,6 +219,13 @@ func registerCategories(api huma.API, s *Service, op func(string, string, string
 					s.publishCategory("CATEGORY_UPDATE", sid, x)
 				}
 			}
+			cs := audit.Diff(nil, "name", old.Name, c.Name)
+			cs = audit.Diff(cs, "position", strconv.Itoa(old.Position), strconv.Itoa(c.Position))
+			if len(cs) > 0 {
+				if err := audit.Record(ctx, s.db, audit.CategoryUpdate, c.ID, audit.LogDetails{Name: c.Name, Changes: cs}); err != nil {
+					return nil, err
+				}
+			}
 			return &struct{ Body *Category }{c}, nil
 		})
 
@@ -251,6 +264,9 @@ func registerCategories(api huma.API, s *Service, op func(string, string, string
 				}
 			}
 			if _, err := tx.Exec(ctx, `DELETE FROM categories WHERE id = $1`, c.ID); err != nil {
+				return nil, err
+			}
+			if err := audit.Record(ctx, tx, audit.CategoryDelete, c.ID, audit.LogDetails{Name: c.Name}); err != nil {
 				return nil, err
 			}
 			if _, err := tx.Exec(ctx, `

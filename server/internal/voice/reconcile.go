@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -204,7 +205,8 @@ func (s *Service) disconnect(ctx context.Context, userID, channelID id.ID, sid s
 
 // inVoice returns the channel and connection a user is in, after checking
 // the caller holds need there and, acting on someone else, outranks them.
-func (s *Service) inVoice(ctx context.Context, callerID, userID id.ID, need perms.Perms) (channelID id.ID, sid string, err error) {
+func (s *Service) inVoice(ctx context.Context, callerID, userID id.ID, need perms.Perms) (ch *channels.Channel, sid string, err error) {
+	var channelID id.ID
 	s.mu.Lock()
 	p := s.users[userID]
 	if p != nil {
@@ -212,41 +214,63 @@ func (s *Service) inVoice(ctx context.Context, callerID, userID id.ID, need perm
 	}
 	s.mu.Unlock()
 	if p == nil {
-		return 0, "", httpx.NotFound("voice member")
+		return nil, "", httpx.NotFound("voice member")
 	}
-	if _, _, err := s.channels.Access(ctx, callerID, channelID, need); err != nil {
-		return 0, "", err
+	ch, _, err = s.channels.Access(ctx, callerID, channelID, need)
+	if err != nil {
+		return nil, "", err
 	}
 	if callerID != userID && s.ranks != nil {
 		ok, err := s.ranks.Outranks(ctx, callerID, userID)
 		if err != nil {
-			return 0, "", err
+			return nil, "", err
 		}
 		if !ok {
-			return 0, "", httpx.MissingPermission()
+			return nil, "", httpx.MissingPermission()
 		}
 	}
-	return channelID, sid, nil
+	return ch, sid, nil
+}
+
+// record adds an audit log entry about a member in voice.
+func (s *Service) record(ctx context.Context, action audit.Action, userID id.ID, d audit.LogDetails) error {
+	if s.audit == nil {
+		return nil
+	}
+	return audit.Record(ctx, s.audit, action, userID, d)
 }
 
 // SetServerMute mutes or unmutes a member's microphone for as long as they
 // stay in their channel (MUTE_MEMBERS).
 func (s *Service) SetServerMute(ctx context.Context, callerID, userID id.ID, muted bool) error {
-	channelID, sid, err := s.inVoice(ctx, callerID, userID, perms.MuteMembers)
+	ch, sid, err := s.inVoice(ctx, callerID, userID, perms.MuteMembers)
 	if err != nil {
 		return err
 	}
+	channelID := ch.ID
+	changed := false
 	s.mu.Lock()
 	if p := s.users[userID]; p != nil && p.channelID == channelID && p.sid == sid && p.serverMute != muted {
 		p.serverMute = muted
 		s.publishLocked(userID, p)
+		changed = true
 	}
 	if pj, ok := s.pending[userID]; ok && pj.channelID == channelID { // a rejoin under way keeps this
 		pj.serverMute = muted
 		s.pending[userID] = pj
 	}
 	s.mu.Unlock()
-	return s.reconcileUser(ctx, userID, time.Time{}, nil, map[id.ID]bool{})
+	if err := s.reconcileUser(ctx, userID, time.Time{}, nil, map[id.ID]bool{}); err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	action := audit.VoiceUnmute
+	if muted {
+		action = audit.VoiceMute
+	}
+	return s.record(ctx, action, userID, audit.LogDetails{Channel: &audit.LogRef{ID: ch.ID, Name: ch.Name}})
 }
 
 // Disconnect takes a member out of voice (MOVE_MEMBERS); anyone may
@@ -256,11 +280,17 @@ func (s *Service) Disconnect(ctx context.Context, callerID, userID id.ID) error 
 	if callerID == userID {
 		need = 0
 	}
-	channelID, sid, err := s.inVoice(ctx, callerID, userID, need)
+	ch, sid, err := s.inVoice(ctx, callerID, userID, need)
 	if err != nil {
 		return err
 	}
-	return s.disconnect(ctx, userID, channelID, sid)
+	if err := s.disconnect(ctx, userID, ch.ID, sid); err != nil {
+		return err
+	}
+	if callerID == userID {
+		return nil
+	}
+	return s.record(ctx, audit.VoiceDisconnect, userID, audit.LogDetails{Channel: &audit.LogRef{ID: ch.ID, Name: ch.Name}})
 }
 
 // Move sends a member to another voice channel (MOVE_MEMBERS in both).
@@ -269,10 +299,11 @@ func (s *Service) Disconnect(ctx context.Context, callerID, userID id.ID) error 
 // channel but not to connect to it: the move lets them in and they may stay
 // until they leave.
 func (s *Service) Move(ctx context.Context, callerID, userID, to id.ID) error {
-	from, _, err := s.inVoice(ctx, callerID, userID, perms.MoveMembers)
+	fromCh, _, err := s.inVoice(ctx, callerID, userID, perms.MoveMembers)
 	if err != nil {
 		return err
 	}
+	from := fromCh.ID
 	c, _, err := s.channels.Access(ctx, callerID, to, perms.MoveMembers)
 	if err != nil {
 		return err
@@ -297,5 +328,7 @@ func (s *Service) Move(ctx context.Context, callerID, userID, to id.ID) error {
 	s.moves[userID] = movePass{channelID: to, until: time.Now().Add(movePassTTL)}
 	s.mu.Unlock()
 	s.bus.Publish(events.Event{Type: "VOICE_MOVE", Data: VoiceMove{ChannelID: to}, Scope: events.Scope{UserIDs: []id.ID{userID}}})
-	return nil
+	return s.record(ctx, audit.VoiceMove, userID, audit.LogDetails{
+		From: &audit.LogRef{ID: fromCh.ID, Name: fromCh.Name}, To: &audit.LogRef{ID: c.ID, Name: c.Name},
+	})
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -163,14 +164,16 @@ func registerSounds(api huma.API, s *Service, op func(oid, method, path string, 
 				return nil, errInvalidEmoji()
 			}
 			changed := name != nil || in.Body.Emoji != nil
+			var oldName, oldEmoji string
 			if changed {
-				tag, err := s.db.Exec(ctx, `UPDATE sounds SET name = coalesce($2, name), emoji = coalesce($3, emoji) WHERE id = $1`,
-					sid, name, in.Body.Emoji)
+				err := s.db.QueryRow(ctx, `UPDATE sounds s SET name = coalesce($2, s.name), emoji = coalesce($3, s.emoji)
+					FROM sounds old WHERE s.id = $1 AND old.id = s.id RETURNING old.name, old.emoji`,
+					sid, name, in.Body.Emoji).Scan(&oldName, &oldEmoji)
+				if errors.Is(err, pgx.ErrNoRows) {
+					return nil, httpx.NotFound("sound")
+				}
 				if err != nil {
 					return nil, err
-				}
-				if tag.RowsAffected() == 0 {
-					return nil, httpx.NotFound("sound")
 				}
 			}
 			snd, _, _, err := s.getSound(ctx, sid)
@@ -181,6 +184,12 @@ func registerSounds(api huma.API, s *Service, op func(oid, method, path string, 
 				return nil, err
 			}
 			if changed {
+				cs := audit.Diff(nil, "name", oldName, snd.Name)
+				if cs = audit.Diff(cs, "emoji", oldEmoji, snd.Emoji); len(cs) > 0 {
+					if err := audit.Record(ctx, s.db, audit.SoundUpdate, sid, audit.LogDetails{Name: snd.Name, Changes: cs}); err != nil {
+						return nil, err
+					}
+				}
 				s.publishSounds(ctx)
 			}
 			return &struct{ Body *Sound }{snd}, nil
@@ -197,11 +206,14 @@ func registerSounds(api huma.API, s *Service, op func(oid, method, path string, 
 			if err != nil {
 				return nil, err
 			}
-			var sum string
-			if err := s.db.QueryRow(ctx, `DELETE FROM sounds WHERE id = $1 RETURNING sha256`, sid).Scan(&sum); err != nil {
+			var sum, name string
+			if err := s.db.QueryRow(ctx, `DELETE FROM sounds WHERE id = $1 RETURNING sha256, name`, sid).Scan(&sum, &name); err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
 					return nil, httpx.NotFound("sound")
 				}
+				return nil, err
+			}
+			if err := audit.Record(ctx, s.db, audit.SoundDelete, sid, audit.LogDetails{Name: name}); err != nil {
 				return nil, err
 			}
 			if err := s.blobs.RemoveBlobs(ctx, []string{sum}); err != nil {
@@ -293,6 +305,9 @@ func (s *Service) uploadSound(w http.ResponseWriter, r *http.Request) (*Sound, e
 	sid := id.New()
 	if _, err := tx.Exec(ctx, `INSERT INTO sounds (id, name, emoji, sha256, content_type, duration_ms, creator_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		sid, name, emoji, sum, ct, int(d.Milliseconds()), auth.Current(ctx).User.ID); err != nil {
+		return nil, err
+	}
+	if err := audit.Record(ctx, tx, audit.SoundCreate, sid, audit.LogDetails{Name: name}); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

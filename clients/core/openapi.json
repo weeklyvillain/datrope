@@ -1525,6 +1525,186 @@
         ],
         "type": "object"
       },
+      "LogChange": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "new": {
+            "type": "string"
+          },
+          "old": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "old",
+          "new"
+        ],
+        "type": "object"
+      },
+      "LogDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/LogChange"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "channel": {
+            "$ref": "#/components/schemas/LogRef",
+            "description": "Where it happened: the channel of a message, override, webhook or alert, or a member's voice channel"
+          },
+          "from": {
+            "$ref": "#/components/schemas/LogRef",
+            "description": "voice.move: the channel the member left"
+          },
+          "name": {
+            "description": "The target's name when it is not a user: channel, category, role, emoji, sound, webhook, invite code",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/LogRef",
+            "description": "The role given or taken, or whose override changed"
+          },
+          "to": {
+            "$ref": "#/components/schemas/LogRef",
+            "description": "voice.move: the channel the member was sent to"
+          }
+        },
+        "type": "object"
+      },
+      "LogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "member.kick",
+              "member.ban",
+              "member.unban",
+              "member.role_add",
+              "member.role_remove",
+              "voice.move",
+              "voice.disconnect",
+              "voice.mute",
+              "voice.unmute",
+              "channel.create",
+              "channel.update",
+              "channel.delete",
+              "channel.override_update",
+              "channel.override_delete",
+              "category.create",
+              "category.update",
+              "category.delete",
+              "alert.create",
+              "alert.delete",
+              "webhook.create",
+              "webhook.update",
+              "webhook.delete",
+              "message.delete",
+              "message.pin",
+              "message.unpin",
+              "role.create",
+              "role.update",
+              "role.delete",
+              "server.update",
+              "welcome.update",
+              "invite.create",
+              "invite.delete",
+              "emoji.create",
+              "emoji.update",
+              "emoji.delete",
+              "sound.create",
+              "sound.update",
+              "sound.delete"
+            ],
+            "type": "string"
+          },
+          "actor_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "details": {
+            "$ref": "#/components/schemas/LogDetails"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "target_id": {
+            "description": "The user, channel, category, role or other thing acted on",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "actor_id",
+          "details",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "LogPage": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "description": "Newest first",
+            "items": {
+              "$ref": "#/components/schemas/LogEntry"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "users": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PublicUser"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "entries",
+          "users"
+        ],
+        "type": "object"
+      },
+      "LogRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "LoginRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7920,6 +8100,65 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Server"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "server"
+        ]
+      }
+    },
+    "/api/server/audit-log": {
+      "get": {
+        "operationId": "list-audit-log",
+        "parameters": [
+          {
+            "description": "Only entries older than this ID",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Only entries older than this ID",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogPage"
                 }
               }
             },

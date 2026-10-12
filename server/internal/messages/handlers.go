@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -334,6 +335,12 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			sums = append(sums, images...)
+			// A moderator removing someone else's message is logged; webhook messages have no author to name.
+			if !mine && m.Author != nil && ch.CommunityID != nil {
+				if err := audit.Record(ctx, tx, audit.MessageDelete, m.Author.ID, audit.LogDetails{Channel: &audit.LogRef{ID: ch.ID, Name: ch.Name}}); err != nil {
+					return nil, err
+				}
+			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
 			}

@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/communities"
 	"github.com/datrope/datrope/server/internal/events"
@@ -128,6 +130,9 @@ func Register(api huma.API, s *Service) {
 				newID, cid, in.Body.Type, strings.TrimSpace(in.Body.Name), len(group), in.Body.CategoryID, tags, in.Body.RequireTag); err != nil {
 				return nil, err
 			}
+			if err := audit.Record(ctx, tx, audit.ChannelCreate, newID, audit.LogDetails{Name: strings.TrimSpace(in.Body.Name)}); err != nil {
+				return nil, err
+			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
 			}
@@ -213,11 +218,21 @@ func Register(api huma.API, s *Service) {
 					return nil, err
 				}
 			}
+			old := c
 			c, err = s.get(ctx, chID)
 			if err != nil {
 				return nil, err
 			}
 			s.bus.Publish(events.Event{Type: "CHANNEL_UPDATE", Data: c, Scope: events.Scope{ChannelID: c.ID}})
+			cs, err := s.channelChanges(ctx, old, c)
+			if err != nil {
+				return nil, err
+			}
+			if len(cs) > 0 {
+				if err := audit.Record(ctx, s.db, audit.ChannelUpdate, c.ID, audit.LogDetails{Name: c.Name, Changes: cs}); err != nil {
+					return nil, err
+				}
+			}
 			return &struct{ Body *Channel }{c}, nil
 		})
 
@@ -252,6 +267,9 @@ func Register(api huma.API, s *Service) {
 			if err := tx.QueryRow(ctx, `DELETE FROM channels WHERE id = $1 RETURNING category_id`, chID).Scan(&cat); err != nil {
 				return nil, err
 			}
+			if err := audit.Record(ctx, tx, audit.ChannelDelete, c.ID, audit.LogDetails{Name: c.Name}); err != nil {
+				return nil, err
+			}
 			var shifted []id.ID
 			if c.CommunityID != nil {
 				if shifted, err = renumberGroup(ctx, tx, *c.CommunityID, id.FromNullable(cat)); err != nil {
@@ -278,11 +296,24 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
+			var oldAllow, oldDeny perms.Perms
+			err = s.db.QueryRow(ctx, `SELECT allow, deny FROM channel_overrides WHERE channel_id = $1 AND target_type = $2 AND target_id = $3`,
+				c.ID, in.TargetType, target).Scan(&oldAllow, &oldDeny)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
 			if _, err := s.db.Exec(ctx, `
 				INSERT INTO channel_overrides (channel_id, target_type, target_id, allow, deny) VALUES ($1, $2, $3, $4, $5)
 				ON CONFLICT (channel_id, target_type, target_id) DO UPDATE SET allow = EXCLUDED.allow, deny = EXCLUDED.deny`,
 				c.ID, in.TargetType, target, int64(in.Body.Allow), int64(in.Body.Deny)); err != nil {
 				return nil, err
+			}
+			cs := audit.Diff(nil, "allow", permsText(oldAllow), permsText(in.Body.Allow))
+			cs = audit.Diff(cs, "deny", permsText(oldDeny), permsText(in.Body.Deny))
+			if len(cs) > 0 {
+				if err := s.auditOverride(ctx, audit.OverrideUpdate, c, in.TargetType, target, cs); err != nil {
+					return nil, err
+				}
 			}
 			if err := s.publishVisibility(ctx, c.ID, before); err != nil {
 				return nil, err
@@ -297,9 +328,15 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
-			if _, err := s.db.Exec(ctx, `DELETE FROM channel_overrides WHERE channel_id = $1 AND target_type = $2 AND target_id = $3`,
-				c.ID, in.TargetType, target); err != nil {
+			tag, err := s.db.Exec(ctx, `DELETE FROM channel_overrides WHERE channel_id = $1 AND target_type = $2 AND target_id = $3`,
+				c.ID, in.TargetType, target)
+			if err != nil {
 				return nil, err
+			}
+			if tag.RowsAffected() > 0 {
+				if err := s.auditOverride(ctx, audit.OverrideDelete, c, in.TargetType, target, nil); err != nil {
+					return nil, err
+				}
 			}
 			return nil, s.publishVisibility(ctx, c.ID, before)
 		})

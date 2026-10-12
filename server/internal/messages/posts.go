@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -167,7 +168,23 @@ func registerPosts(api huma.API, s *Service, op func(string, string, string, int
 			if err := s.threads.DeletePost(ctx, post); err != nil {
 				return nil, err
 			}
+			if err := s.auditPostDelete(ctx, post); err != nil {
+				return nil, err
+			}
 			s.publish("POST_DELETE", *post.ParentChannelID, PostDeleted{ChannelID: *post.ParentChannelID, ID: post.ID})
 			return nil, nil
 		})
+}
+
+// auditPostDelete logs a moderator removing someone else's forum post: the
+// target is its author, Name its title and Channel the forum it was in.
+func (s *Service) auditPostDelete(ctx context.Context, post *channels.Channel) error {
+	if post.CreatedBy == nil || *post.CreatedBy == auth.Current(ctx).User.ID {
+		return nil
+	}
+	forum, err := s.channels.Get(ctx, *post.ParentChannelID)
+	if err != nil {
+		return err
+	}
+	return audit.Record(ctx, s.db, audit.MessageDelete, *post.CreatedBy, audit.LogDetails{Name: post.Name, Channel: &audit.LogRef{ID: forum.ID, Name: forum.Name}})
 }

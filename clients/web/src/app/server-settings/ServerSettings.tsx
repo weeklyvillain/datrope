@@ -1,6 +1,6 @@
 import { Perm, hasPerm, type State, type User } from "@datrope/core";
 import {
-  Activity, ArrowLeft, Ban, BookOpen, Database, Hash, Palette, Plug, RefreshCw, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
+  Activity, ArrowLeft, Ban, BookOpen, Database, Hash, Palette, Plug, RefreshCw, ScrollText, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
@@ -9,6 +9,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ServerIcon } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import { client, lastVisited, useApp, usePerms } from "@/session";
+import { AuditLog } from "./AuditLog";
 import { Bans } from "./Bans";
 import { Emoji } from "./Emoji";
 import { Integrations } from "./Integrations";
@@ -61,6 +62,7 @@ export const sections: SettingsSection[] = [
   { id: "roles", label: "Roles", group: "People", icon: Shield, visible: can(Perm.ManageRoles), element: <Roles /> },
   { id: "invites", label: "Invites", group: "People", icon: Ticket, visible: can(Perm.ManageServer, Perm.CreateInvite), element: <Invites /> },
   { id: "bans", label: "Bans", group: "People", icon: Ban, visible: can(Perm.Ban), element: <Bans /> },
+  { id: "audit-log", label: "Audit log", group: "People", icon: ScrollText, visible: can(Perm.ViewAuditLog), element: <AuditLog /> },
   { id: "emoji", label: "Emoji", group: "Expressions", icon: Smile, visible: can(Perm.ManageExpressions), element: <Emoji /> },
   { id: "soundboard", label: "Soundboard", group: "Expressions", icon: Volume2, visible: can(Perm.ManageExpressions), element: <Soundboard /> },
   { id: "sign-ups", label: "Sign-ups", group: "Instance", icon: UserPlus, visible: admin, element: <SignUps /> },

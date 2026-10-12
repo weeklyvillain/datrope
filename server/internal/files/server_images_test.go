@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/datrope/datrope/server/internal/apptest"
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/communities"
 )
 
@@ -50,4 +51,32 @@ func TestServerPageImages(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &out))
 	require.Equal(t, "/api/server/images/"+out.ID, out.URL)
 	env.Anon().Raw(http.MethodGet, out.URL, nil, "", http.StatusOK)
+}
+
+func TestServerImageAuditLog(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	alice.UploadTo(http.MethodPut, "/api/server/icon", "icon.png", pngImage(16, 16, false), http.StatusOK)
+	alice.UploadTo(http.MethodPost, "/api/server/images", "pic.png", pngImage(16, 16, false), http.StatusCreated) // page image: not logged
+	alice.UploadTo(http.MethodPut, "/api/server/banner", "banner.png", []byte("not an image"), http.StatusBadRequest)
+	alice.Raw(http.MethodDelete, "/api/server/icon", nil, "", http.StatusNoContent)
+
+	rows, err := env.Pool.Query(t.Context(), `SELECT action, target_id IS NULL, details FROM audit_log ORDER BY id`)
+	require.NoError(t, err)
+	defer rows.Close()
+	var got []audit.LogDetails
+	for rows.Next() {
+		var action audit.Action
+		var noTarget bool
+		var raw []byte
+		require.NoError(t, rows.Scan(&action, &noTarget, &raw))
+		require.Equal(t, audit.ServerUpdate, action)
+		require.True(t, noTarget)
+		var d audit.LogDetails
+		require.NoError(t, json.Unmarshal(raw, &d))
+		got = append(got, d)
+	}
+	require.NoError(t, rows.Err())
+	icon := audit.LogDetails{Changes: []audit.LogChange{{Field: "icon"}}}
+	require.Equal(t, []audit.LogDetails{icon, icon}, got)
 }
