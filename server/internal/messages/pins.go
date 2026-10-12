@@ -6,9 +6,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
+	"github.com/datrope/datrope/server/internal/id"
 	"github.com/datrope/datrope/server/internal/perms"
 )
 
@@ -59,6 +61,9 @@ func registerPins(api huma.API, s *Service, op func(string, string, string, int)
 			if count >= maxPins {
 				return nil, httpx.BadRequest("PIN_LIMIT", "a channel can have at most 50 pinned messages")
 			}
+			if err := auditPin(ctx, tx, audit.MessagePin, ch, m); err != nil {
+				return nil, err
+			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
 			}
@@ -82,6 +87,9 @@ func registerPins(api huma.API, s *Service, op func(string, string, string, int)
 			}
 			if tag.RowsAffected() > 0 {
 				s.publishUpdated(ctx, ch.ID, m.ID)
+				if err := auditPin(ctx, s.db, audit.MessageUnpin, ch, m); err != nil {
+					return nil, err
+				}
 			}
 			return nil, nil
 		})
@@ -111,4 +119,16 @@ func registerPins(api huma.API, s *Service, op func(string, string, string, int)
 			}
 			return &struct{ Body []Message }{out}, s.hydrate(ctx, out)
 		})
+}
+
+// auditPin logs a pin change in a server channel; DM pins are not moderation.
+func auditPin(ctx context.Context, q audit.Execer, action audit.Action, ch *channels.Channel, m *Message) error {
+	if ch.CommunityID == nil {
+		return nil
+	}
+	var target id.ID
+	if m.Author != nil {
+		target = m.Author.ID
+	}
+	return audit.Record(ctx, q, action, target, audit.LogDetails{Channel: &audit.LogRef{ID: ch.ID, Name: ch.Name}})
 }

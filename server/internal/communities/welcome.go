@@ -3,10 +3,12 @@ package communities
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/events"
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
@@ -59,11 +61,22 @@ func registerWelcome(api huma.API, s *Service, op func(string, string, string, i
 				return nil, httpx.BadRequest("WELCOME_EMPTY", "write the welcome page before turning on the rules gate")
 			}
 			var wasGated bool
+			var oldMarkdown string
 			if err := s.db.QueryRow(ctx, `
 				UPDATE communities c SET welcome_markdown = $2, rules_gate = $3
 				FROM communities old WHERE c.id = $1 AND old.id = c.id
-				RETURNING old.rules_gate`, a.CommunityID, in.Body.Markdown, in.Body.RulesGate).Scan(&wasGated); err != nil {
+				RETURNING old.rules_gate, old.welcome_markdown`, a.CommunityID, in.Body.Markdown, in.Body.RulesGate).Scan(&wasGated, &oldMarkdown); err != nil {
 				return nil, err
+			}
+			var cs []audit.LogChange
+			if oldMarkdown != in.Body.Markdown {
+				cs = append(cs, audit.LogChange{Field: "welcome_page"}) // too long to show; the page itself has the new text
+			}
+			cs = audit.Diff(cs, "rules_gate", strconv.FormatBool(wasGated), strconv.FormatBool(in.Body.RulesGate))
+			if len(cs) > 0 {
+				if err := audit.Record(ctx, s.db, audit.WelcomeUpdate, 0, audit.LogDetails{Changes: cs}); err != nil {
+					return nil, err
+				}
 			}
 			w, err := s.welcome(ctx, a.CommunityID)
 			if err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/communities"
@@ -45,6 +46,7 @@ type App struct {
 	Integrations *integrations.Service
 	Music        *music.Service   // nil when built without a database
 	Gateway      *gateway.Gateway // nil when built without a database
+	Audit        *audit.Service   // nil when built without a database
 	closers      []func()
 }
 
@@ -175,6 +177,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			// LiveKit signs its webhooks; there is no session to check.
 			mux.Handle("POST /api/voice/webhook", voiceSvc.WebhookHandler())
 		}
+		voiceSvc.SetAudit(pool)
 		voiceSvc.Start()
 		a.closers = append(a.closers, voiceSvc.Close)
 		a.Voice = voiceSvc
@@ -202,6 +205,14 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		mux.Handle("GET /api/music/covers/{sum}", musicSvc.CoverHandler())
 		a.closers = append(a.closers, musicSvc.Close)
 		a.Music = musicSvc
+	}
+
+	auditSvc := audit.NewService(pool, commSvc, authSvc)
+	audit.Register(api, auditSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		auditSvc.Start()
+		a.closers = append(a.closers, auditSvc.Close)
+		a.Audit = auditSvc
 	}
 
 	registerEventSchemas(api)

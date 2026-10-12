@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -132,6 +133,15 @@ func (s *Service) manageable(ctx context.Context, raw string) (*Webhook, error) 
 		return nil, err
 	}
 	return w, nil
+}
+
+// record adds an audit log entry about w, naming its channel as it is now.
+func (s *Service) record(ctx context.Context, q audit.Execer, action audit.Action, w *Webhook, cs []audit.LogChange) error {
+	var chName string
+	if err := s.db.QueryRow(ctx, `SELECT name FROM channels WHERE id = $1`, w.ChannelID).Scan(&chName); err != nil {
+		return err
+	}
+	return audit.Record(ctx, q, action, w.ID, audit.LogDetails{Name: w.Name, Channel: &audit.LogRef{ID: w.ChannelID, Name: chName}, Changes: cs})
 }
 
 // removeBlob drops an avatar blob nothing uses any more; the sweep retries failures.

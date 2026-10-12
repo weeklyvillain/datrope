@@ -789,6 +789,22 @@ export interface paths {
         patch: operations["update-server"];
         trace?: never;
     };
+    "/api/server/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-audit-log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/bans": {
         parameters: {
             query?: never;
@@ -1958,6 +1974,50 @@ export interface components {
             title: string;
             /** @description Snowflake ID as a decimal string */
             uploaded_by?: string;
+        };
+        LogChange: {
+            field: string;
+            new: string;
+            old: string;
+        };
+        LogDetails: {
+            changes?: components["schemas"]["LogChange"][] | null;
+            /** @description Where it happened: the channel of a message, override, webhook or alert, or a member's voice channel */
+            channel?: components["schemas"]["LogRef"];
+            /** @description voice.move: the channel the member left */
+            from?: components["schemas"]["LogRef"];
+            /** @description The target's name when it is not a user: channel, category, role, emoji, sound, webhook, invite code */
+            name?: string;
+            reason?: string;
+            /** @description The role given or taken, or whose override changed */
+            role?: components["schemas"]["LogRef"];
+            /** @description voice.move: the channel the member was sent to */
+            to?: components["schemas"]["LogRef"];
+        };
+        LogEntry: {
+            /** @enum {string} */
+            action: "member.kick" | "member.ban" | "member.unban" | "member.role_add" | "member.role_remove" | "voice.move" | "voice.disconnect" | "voice.mute" | "voice.unmute" | "channel.create" | "channel.update" | "channel.delete" | "channel.override_update" | "channel.override_delete" | "category.create" | "category.update" | "category.delete" | "alert.create" | "alert.delete" | "webhook.create" | "webhook.update" | "webhook.delete" | "message.delete" | "message.pin" | "message.unpin" | "role.create" | "role.update" | "role.delete" | "server.update" | "welcome.update" | "invite.create" | "invite.delete" | "emoji.create" | "emoji.update" | "emoji.delete" | "sound.create" | "sound.update" | "sound.delete";
+            /** @description Snowflake ID as a decimal string */
+            actor_id: string;
+            /** Format: date-time */
+            created_at: string;
+            details: components["schemas"]["LogDetails"];
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description The user, channel, category, role or other thing acted on */
+            target_id?: string;
+        };
+        LogPage: {
+            /** @description Newest first */
+            entries: components["schemas"]["LogEntry"][] | null;
+            users: {
+                [key: string]: components["schemas"]["PublicUser"];
+            };
+        };
+        LogRef: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            name: string;
         };
         LoginRequest: {
             /** @enum {string} */
@@ -5029,6 +5089,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Server"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-audit-log": {
+        parameters: {
+            query?: {
+                /** @description Only entries older than this ID */
+                before?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogPage"];
                 };
             };
             /** @description Error */

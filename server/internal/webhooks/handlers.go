@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/httpx"
@@ -86,6 +87,9 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
+			if err := s.record(ctx, s.db, audit.WebhookCreate, w, nil); err != nil {
+				return nil, err
+			}
 			return &struct{ Body *WebhookWithURL }{s.withSecret(w, token)}, nil
 		})
 
@@ -106,7 +110,15 @@ func Register(api huma.API, s *Service) {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, httpx.NotFound("webhook")
 			}
-			return &struct{ Body *Webhook }{updated}, err
+			if err != nil {
+				return nil, err
+			}
+			if cs := audit.Diff(nil, "name", w.Name, updated.Name); len(cs) > 0 {
+				if err := s.record(ctx, s.db, audit.WebhookUpdate, updated, cs); err != nil {
+					return nil, err
+				}
+			}
+			return &struct{ Body *Webhook }{updated}, nil
 		})
 
 	huma.Register(api, op("delete-webhook", http.MethodDelete, "/api/webhooks/{id}", http.StatusNoContent),
@@ -121,6 +133,9 @@ func Register(api huma.API, s *Service) {
 				return nil, httpx.NotFound("webhook")
 			}
 			if err != nil {
+				return nil, err
+			}
+			if err := s.record(ctx, s.db, audit.WebhookDelete, w, nil); err != nil {
 				return nil, err
 			}
 			if avatar != nil {
@@ -144,6 +159,10 @@ func Register(api huma.API, s *Service) {
 				return nil, httpx.NotFound("webhook")
 			}
 			if err != nil {
+				return nil, err
+			}
+			// Never the token itself: only that it changed.
+			if err := s.record(ctx, s.db, audit.WebhookUpdate, updated, []audit.LogChange{{Field: "token"}}); err != nil {
 				return nil, err
 			}
 			return &struct{ Body *WebhookWithURL }{s.withSecret(updated, token)}, nil

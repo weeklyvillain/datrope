@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
@@ -101,6 +102,11 @@ func (s *Service) uploadAvatar(w http.ResponseWriter, r *http.Request) (*Webhook
 	if err != nil {
 		return nil, err
 	}
+	if old == nil || *old != sum {
+		if err := s.record(ctx, tx, audit.WebhookUpdate, updated, []audit.LogChange{{Field: "avatar"}}); err != nil {
+			return nil, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -141,6 +147,11 @@ func (s *Service) clearAvatar(r *http.Request) (*Webhook, error) {
 		`UPDATE webhooks SET avatar_sha256 = NULL, avatar_content_type = NULL WHERE id = $1 RETURNING `+webhookCols, hook.ID))
 	if err != nil {
 		return nil, err
+	}
+	if old != nil {
+		if err := s.record(ctx, tx, audit.WebhookUpdate, updated, []audit.LogChange{{Field: "avatar"}}); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err

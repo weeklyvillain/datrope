@@ -15,6 +15,7 @@ import (
 	"github.com/livekit/protocol/livekit"
 	"github.com/livekit/protocol/webhook"
 
+	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
 	"github.com/datrope/datrope/server/internal/channels"
 	"github.com/datrope/datrope/server/internal/events"
@@ -128,6 +129,8 @@ type Service struct {
 	ranks    Ranks  // nil: no hierarchy checks
 	sounds   Sounds // nil until SetSounds
 
+	audit audit.Execer // nil: moderation goes unrecorded (no database)
+
 	soundLimit *ratelimit.Limiter // one soundboard play per 2 s per user
 
 	// mu guards users, pending, moves and changed. It is held while publishing
@@ -163,6 +166,9 @@ func NewService(cfg Config, bus *events.Bus, ch Channels, ranks Ranks) *Service 
 	}
 	return s
 }
+
+// SetAudit records moderation (moves, disconnects, server mutes) in q's audit log.
+func (s *Service) SetAudit(q audit.Execer) { s.audit = q }
 
 // Start follows LiveKit in the background until Close.
 func (s *Service) Start() {

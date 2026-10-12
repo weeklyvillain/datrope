@@ -72,6 +72,7 @@ so there is nothing to set up after installing.
 - A member list with presence, grouped by role.
 - Ordered roles with colours, icons and permissions. You can only manage people below your highest role.
 - Kick, ban, server mute, and moving people between voice channels.
+- An audit log of who banned, kicked, moved or muted whom and who changed channels, roles and settings, kept for 90 days.
 - Invite links, plus guest links: guests join with a nickname and are removed automatically after a set time.
 - Sign-ups can be open, invite-only or admin-only.
 
