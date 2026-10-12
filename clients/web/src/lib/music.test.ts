@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedSummary, formatBytes, linkKind, totalLength } from "./music";
+import { addedSummary, fileChannelLabel, formatBytes, hiddenNote, linkKind, totalLength, trackCount } from "./music";
 
 describe("linkKind", () => {
   it.each([
@@ -31,11 +31,25 @@ describe("formatting", () => {
     expect(totalLength(45)).toBe("45 s");
     expect(totalLength(12 * 60 + 20)).toBe("12 min");
     expect(totalLength(3900)).toBe("1 h 5 min");
+    expect(trackCount(1)).toBe("1 track");
+    expect(trackCount(0)).toBe("0 tracks");
   });
 
   it("summarises only several tracks or problems", () => {
     expect(addedSummary("Queued", { count: 1, skipped: 0, dropped: 0 })).toBeUndefined();
     expect(addedSummary("Queued", { count: 412, skipped: 88, dropped: 0 })).toBe("Queued 412 tracks, 88 didn't fit.");
     expect(addedSummary("Added", { count: 3, skipped: 0, dropped: 1 })).toBe("Added 3 tracks, 1 unavailable track was left out.");
+  });
+
+  it("mentions files left out for permissions", () => {
+    expect(addedSummary("Queued", { count: 4, skipped: 0, dropped: 0, unreadable: 1 }))
+      .toBe("Queued 4 tracks, 1 skipped (from a channel you can't read).");
+  });
+
+  it("labels file items and hidden counts", () => {
+    expect(fileChannelLabel("general")).toBe("#general");
+    expect(fileChannelLabel(undefined)).toBe("#channel");
+    expect(hiddenNote(0)).toBeUndefined();
+    expect(hiddenNote(3)).toBe("3 hidden (from channels you can't read)");
   });
 });

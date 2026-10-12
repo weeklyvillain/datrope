@@ -7,7 +7,7 @@ export type Panel =
   | { kind: "threads" }
   | { kind: "thread"; threadId: string; parentId?: string } // parentId: kept open when that channel opens
   | { kind: "post"; postId: string; forumId: string } // forumId: kept open when that forum opens
-  | { kind: "media"; messageId: string; attachmentId: string }
+  | { kind: "media"; channelId: string; messageId: string; attachmentId: string }
   | { kind: "search" };
 
 type PanelState = { panel: Panel; query: string; profile: string | null }; // profile: whose full profile is in the drawer

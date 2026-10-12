@@ -62,6 +62,9 @@ export type SearchResult = Schemas["SearchResult"];
 export type SearchFilters = Schemas["SearchFilters"];
 export type MentionItem = Schemas["MentionItem"];
 export type MentionsPage = Schemas["MentionsPage"];
+export type FileItem = Schemas["FileItem"];
+export type FilesPage = Schemas["FilesPage"];
+export type FileKind = FileItem["kind"];
 
 export type PresenceStatus = "online" | "idle" | "invisible";
 export type Activity = Schemas["Activity"];

@@ -29,6 +29,8 @@ type QueueResult struct {
 	Tracks  []MusicTrack `json:"tracks" doc:"What was queued"`
 	Skipped int          `json:"skipped" doc:"Tracks that did not fit in the queue"`
 	Dropped int          `json:"dropped" doc:"Playlist entries that are private, deleted or cannot be played"`
+
+	SkippedUnreadable int `json:"skipped_unreadable" doc:"Playlist files left out because you cannot read their channel"`
 }
 
 type RepeatRequest struct {
@@ -126,15 +128,16 @@ func Register(api huma.API, s *Service) {
 				if _, err := s.member(ctx); err != nil {
 					return nil, err
 				}
-				items, err := s.playlistItems(ctx, *in.Body.PlaylistID)
+				items, hidden, err := s.playlistItems(ctx, *in.Body.PlaylistID)
 				if err != nil {
 					return nil, err
 				}
+				res.SkippedUnreadable = hidden
 				for _, it := range items {
 					tracks = append(tracks, it.track())
 				}
 				if len(tracks) == 0 {
-					return nil, httpx.BadRequest("PLAYLIST_EMPTY", "the playlist has no tracks")
+					return nil, httpx.BadRequest("PLAYLIST_EMPTY", "the playlist has no tracks you can play")
 				}
 			case query != "":
 				tracks, _, res.Dropped, err = s.lookup(ctx, query, in.Body.Playlist)

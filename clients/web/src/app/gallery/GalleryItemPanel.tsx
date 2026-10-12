@@ -1,6 +1,7 @@
 import { Perm, hasPerm, type Message } from "@datrope/core";
 import { ChevronLeft, ChevronRight, Download, Images, Maximize2, SendHorizontal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { client, displayName, formatBytes, roleColor, useApp, usePerms } from "../../session";
 import { Markdown } from "@/chat/Markdown";
 import { ErrorText } from "@/components/error-text";
@@ -10,13 +11,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { useSubmit } from "@/hooks/use-submit";
 import { useMessageAuthor } from "@/hooks/use-message-author";
+import { AudioPlayer } from "../attachments/AudioPlayer";
 import { ImageViewer } from "../attachments/ImageViewer";
 import { Composer } from "../Composer";
 import { VideoPlayer } from "../attachments/VideoPlayer";
 import { MessageList, type ReplyState } from "../MessageList";
+import { openMessage } from "../jump";
 import { openPanel } from "../side-panel/panel";
 import { SidePanel } from "../side-panel/SidePanel";
+import { channelTag } from "./FileTile";
 import { itemTitle, type GalleryItem } from "./items";
+import { extension, KIND_SINGULAR } from "./kinds";
 import { attachmentImage } from "@/lib/sized-image";
 
 /** In comments nobody replies to a single message. */
@@ -25,44 +30,53 @@ const MAX_LENGTH = 4000;
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
 /** A gallery item in the side panel: a large preview, stepping through `items` (the grid as shown),
- *  its uploader, caption and file details, and its comments (the message's thread, started by the first comment). */
-export function GalleryItemPanel({ channelId, messageId, attachmentId, items, onClose }: {
-  channelId: string; messageId: string; attachmentId: string; items: GalleryItem[]; onClose: () => void;
+ *  its uploader, caption and file details, and its comments (the message's thread, started by the first comment).
+ *  `actions` adds buttons under the preview (the music player's, for a track). */
+export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra }: {
+  attachmentId: string; items: GalleryItem[]; onClose: () => void; actions?: (item: GalleryItem) => ReactNode;
 }) {
-  const message = useApp((s) => s.messages[channelId]?.items.find((m) => m.id === messageId));
-  const loaded = useApp((s) => !!s.messages[channelId]);
-  const attachment = message?.attachments?.find((a) => a.id === attachmentId);
+  const nav = useNavigate();
+  const item = items.find((it) => it.attachment.id === attachmentId);
+  const channelId = item?.message.channel_id ?? "";
+  // The store's copy is fresher (thread counts, edits) when the channel is loaded.
+  const stored = useApp((s) => s.messages[channelId]?.items.find((m) => m.id === item?.message.id));
+  const message = stored ?? item?.message;
+  const attachment = item?.attachment;
   const author = useMessageAuthor(message);
   const color = useApp((s) => (message?.author ? roleColor(s.server, message.author.id) : undefined));
-  const perms = usePerms(channelId);
+  const perms = usePerms(channelId || undefined);
   const [viewing, setViewing] = useState<number | null>(null);
-  const gone = loaded && (!message || message.deleted || !attachment);
+  const gone = !item || !!message?.deleted;
 
   // A deleted item closes its panel.
   useEffect(() => {
     if (gone) onClose();
   }, [gone, onClose]);
 
-  if (!message || !attachment) {
+  if (!item || !message || !attachment) {
     return (
       <SidePanel title="Item" icon={<Images />} closeLabel="Close details" onClose={onClose}>
         <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>
       </SidePanel>
     );
   }
-  const kind = attachment.content_type.startsWith("video/") ? "video" : "photo";
+  const kind = item.kind;
   const i = items.findIndex((it) => it.attachment.id === attachmentId);
   const go = (to: number) => {
     const it = items[to];
-    if (it) openPanel({ kind: "media", messageId: it.message.id, attachmentId: it.attachment.id });
+    if (it) openPanel({ kind: "media", channelId: it.message.channel_id, messageId: it.message.id, attachmentId: it.attachment.id });
   };
   const url = client.url(attachment.url);
+  const tabbed = kind === "video" || attachment.content_type.split(";")[0].trim() === "application/pdf";
+  const where = item.channel;
+  const openWhere = () => void openMessage(nav, where, message.id);
+  const extraActions = extra?.(item);
   const actions = (
     <>
-      {kind === "photo" ? (
+      {kind === "image" ? (
         <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Open full size" title="Open full size"
           onClick={() => setViewing(0)}><Maximize2 /></Button>
-      ) : (
+      ) : tabbed && (
         <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground">
           <a href={url} target="_blank" rel="noreferrer" aria-label="Open full size" title="Open full size"><Maximize2 /></a>
         </Button>
@@ -74,16 +88,26 @@ export function GalleryItemPanel({ channelId, messageId, attachmentId, items, on
   );
 
   return (
-    <SidePanel title={itemTitle({ message, attachment, kind })} label={kind === "video" ? "Video details" : "Photo details"}
+    <SidePanel title={itemTitle({ message, attachment })} label={`${KIND_SINGULAR[kind]} details`}
       closeLabel="Close details" icon={<Images />} actions={actions} onClose={onClose}>
       <div className="max-h-[60%] flex-none overflow-y-auto border-b">
         <div className="mx-4 mt-4 overflow-hidden rounded-md bg-muted">
-          {kind === "video" ? <VideoPlayer key={attachment.id} attachment={attachment} /> : (
-            <img {...attachmentImage(attachment, 512)} alt={attachment.filename}
-              className="aspect-[4/3] w-full object-contain" />
-          )}
+          {kind === "video" ? <VideoPlayer key={attachment.id} attachment={attachment} />
+            : kind === "image" ? (
+              <img {...attachmentImage(attachment, 512)} alt={attachment.filename}
+                className="aspect-[4/3] w-full object-contain" />
+            ) : kind === "audio" ? <AudioPlayer key={attachment.id} attachment={attachment} />
+            : (
+              <div className="grid justify-items-center gap-2 p-6">
+                <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-[11px] font-bold text-foreground" aria-hidden>
+                  {extension(attachment.filename)}
+                </span>
+                <span className="text-center text-sm font-semibold wrap-anywhere">{attachment.filename}</span>
+              </div>
+            )}
         </div>
-        {kind === "photo" && <ImageViewer images={[attachment]} index={viewing} onIndexChange={setViewing} />}
+        {kind === "image" && <ImageViewer images={[attachment]} index={viewing} onIndexChange={setViewing} />}
+        {extraActions && <div className="mx-4 mt-2 flex flex-wrap gap-2">{extraActions}</div>}
         {i >= 0 && (
           <div className="mx-4 mt-2 flex items-center justify-between">
             <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Previous item" disabled={i === 0}
@@ -100,6 +124,8 @@ export function GalleryItemPanel({ channelId, messageId, attachmentId, items, on
               <strong className="font-semibold" style={{ color }}>{displayName(author)}</strong>
               <time className="text-xs text-muted-foreground" dateTime={message.created_at}>{timeFormat.format(new Date(message.created_at))}</time>
             </div>
+            <Link to={`/channels/${where.parent_id || where.id}`} className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+              onClick={(e) => { e.preventDefault(); openWhere(); }}>in #{channelTag(item)}</Link>
             {message.content && <div className="text-sm wrap-anywhere"><Markdown text={message.content} mentions={message.mentions ?? undefined} /></div>}
           </div>
         </div>
@@ -114,7 +140,16 @@ export function GalleryItemPanel({ channelId, messageId, attachmentId, items, on
           ) : null}
         </dl>
       </div>
-      <Comments channelId={channelId} message={message} perms={perms} />
+      {where.type === "thread" ? (
+        // Threads can't hold threads of their own: a file posted in one is discussed there.
+        <section aria-label="Comments" className="flex min-h-0 flex-1 flex-col">
+          <p className="m-0 px-4 py-3 text-sm text-muted-foreground">
+            Comments are in the thread:{" "}
+            <Link to={`/channels/${where.parent_id || where.id}`} className="hover:text-foreground hover:underline"
+              onClick={(e) => { e.preventDefault(); openWhere(); }}>#{channelTag(item)}</Link>
+          </p>
+        </section>
+      ) : <Comments channelId={channelId} message={message} perms={perms} />}
     </SidePanel>
   );
 }

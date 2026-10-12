@@ -644,6 +644,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/gifs/search": {
         parameters: {
             query?: never;
@@ -1683,6 +1699,11 @@ export interface components {
              * @description Total seconds of the tracks of known length
              */
             duration: number;
+            /**
+             * Format: int64
+             * @description Files left out because you cannot read their channel
+             */
+            hidden: number;
             /** @description Snowflake ID as a decimal string */
             id: string;
             items: components["schemas"]["PlaylistItem"][] | null;
@@ -1801,6 +1822,18 @@ export interface components {
                 [key: string]: unknown;
             };
             message: string;
+        };
+        FileItem: {
+            attachment: components["schemas"]["Attachment"];
+            channel: components["schemas"]["ChannelRef"];
+            /** @enum {string} */
+            kind: "image" | "video" | "audio" | "document" | "archive" | "other";
+            message: components["schemas"]["Message"];
+        };
+        FilesPage: {
+            items: components["schemas"]["FileItem"][] | null;
+            /** @description Pass as before= for the next page */
+            next_cursor?: string;
         };
         GIF: {
             /** Format: int64 */
@@ -2111,7 +2144,7 @@ export interface components {
             /** @description A link's site: youtube, soundcloud, bandcamp, vimeo or spotify */
             site?: string;
             /** @enum {string} */
-            source: "link" | "upload";
+            source: "link" | "upload" | "file";
             title: string;
             /** @description The page it came from; absent for uploads and for Spotify tracks not yet found */
             url?: string;
@@ -2137,6 +2170,8 @@ export interface components {
             sound_id: string;
         };
         PlaylistAdd: {
+            /** @description An audio file posted in a channel you can read */
+            attachment_id?: string;
             /** @description A voice channel: add what plays there and its queue */
             from_channel?: string;
             /** @description With a link: add every track of the playlist it is in */
@@ -2187,6 +2222,11 @@ export interface components {
              * @description Total seconds of the tracks of known length
              */
             duration: number;
+            /**
+             * Format: int64
+             * @description Files left out because you cannot read their channel
+             */
+            hidden: number;
             /** @description Snowflake ID as a decimal string */
             id: string;
             items: components["schemas"]["PlaylistItem"][] | null;
@@ -2196,6 +2236,10 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             added_by?: string;
             artist?: string;
+            /** @description The channel file, for files */
+            attachment_id?: string;
+            /** @description Where the file was posted (a thread's parent) */
+            channel_id?: string;
             cover?: string;
             /**
              * Format: int64
@@ -2206,7 +2250,7 @@ export interface components {
             id: string;
             site?: string;
             /** @enum {string} */
-            source: "link" | "upload";
+            source: "link" | "upload" | "file";
             title: string;
             /** @description The library track, for uploads */
             track_id?: string;
@@ -2339,6 +2383,11 @@ export interface components {
              * @description Tracks that did not fit in the queue
              */
             skipped: number;
+            /**
+             * Format: int64
+             * @description Playlist files left out because you cannot read their channel
+             */
+            skipped_unreadable: number;
             /** @description What was queued */
             tracks: components["schemas"]["MusicTrack"][] | null;
         };
@@ -4676,6 +4725,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-files": {
+        parameters: {
+            query?: {
+                /** @description Comma-separated: image, video, audio, document, archive, other */
+                kind?: string;
+                /** @description Comma-separated channel IDs; a channel includes its threads */
+                channel?: string;
+                uploader?: string;
+                /** @description Matches file names and captions */
+                q?: string;
+                /** @description next_cursor from the previous page */
+                before?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilesPage"];
+                };
             };
             /** @description Error */
             default: {

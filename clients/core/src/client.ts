@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Attachment, Category, Channel, Emoji, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
+  Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL,
 } from "./types";
 
@@ -20,6 +20,8 @@ export interface ClientOptions {
 /** API + gateway + store: everything a Datrope UI needs. */
 /** A crop in source pixels, sent with an uncropped GIF avatar or banner. */
 export type ImageCrop = { x: number; y: number; w: number; h: number };
+
+export type FilesParams = { kinds?: FileKind[]; channels?: string[]; uploader?: string; q?: string; before?: string; limit?: number };
 
 function imageForm(image: Blob, name: string, crop?: ImageCrop): FormData {
   const form = new FormData();
@@ -504,6 +506,23 @@ export class DatropeClient {
     return unwrap(this.api.GET("/api/search", {
       params: { query: { q, utc_offset: -new Date().getTimezoneOffset(), ...(cursor ? { cursor } : {}) } },
     }));
+  }
+
+  /** Files in channels the caller can read (not DMs), newest first. */
+  async files(p: FilesParams = {}): Promise<FilesPage> {
+    const query: Record<string, string | number> = {};
+    if (p.kinds?.length) query.kind = p.kinds.join(",");
+    if (p.channels?.length) query.channel = p.channels.join(",");
+    if (p.uploader) query.uploader = p.uploader;
+    if (p.q) query.q = p.q;
+    if (p.before) query.before = p.before;
+    if (p.limit) query.limit = p.limit;
+    return unwrap(this.api.GET("/api/files", { params: { query } }));
+  }
+
+  /** Where a library track's audio is served, for the browser's own player. */
+  libraryAudioUrl(trackId: string): string {
+    return this.url(`/api/music/tracks/${trackId}/audio`);
   }
 
   async loadMentions() {

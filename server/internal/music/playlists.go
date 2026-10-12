@@ -33,16 +33,18 @@ type MusicPlaylist struct {
 
 // PlaylistItem is one track of a saved playlist.
 type PlaylistItem struct {
-	ID       id.ID  `json:"id"`
-	Title    string `json:"title"`
-	Artist   string `json:"artist,omitempty"`
-	Duration int    `json:"duration" doc:"Seconds; 0 when unknown"`
-	Source   string `json:"source" enum:"link,upload"`
-	Site     string `json:"site,omitempty"`
-	URL      string `json:"url,omitempty"`
-	Cover    string `json:"cover,omitempty"`
-	TrackID  *id.ID `json:"track_id,omitempty" doc:"The library track, for uploads"`
-	AddedBy  *id.ID `json:"added_by,omitempty"`
+	ID           id.ID  `json:"id"`
+	Title        string `json:"title"`
+	Artist       string `json:"artist,omitempty"`
+	Duration     int    `json:"duration" doc:"Seconds; 0 when unknown"`
+	Source       string `json:"source" enum:"link,upload,file"`
+	Site         string `json:"site,omitempty"`
+	URL          string `json:"url,omitempty"`
+	Cover        string `json:"cover,omitempty"`
+	TrackID      *id.ID `json:"track_id,omitempty" doc:"The library track, for uploads"`
+	AttachmentID *id.ID `json:"attachment_id,omitempty" doc:"The channel file, for files"`
+	ChannelID    *id.ID `json:"channel_id,omitempty" doc:"Where the file was posted (a thread's parent)"`
+	AddedBy      *id.ID `json:"added_by,omitempty"`
 
 	search   string
 	blob     string
@@ -53,7 +55,8 @@ type PlaylistItem struct {
 // PlaylistDetail is a playlist with its tracks, in order.
 type PlaylistDetail struct {
 	MusicPlaylist
-	Items []PlaylistItem `json:"items"`
+	Items  []PlaylistItem `json:"items"`
+	Hidden int            `json:"hidden" doc:"Files left out because you cannot read their channel"`
 }
 
 // PlaylistDeleted is the MUSIC_PLAYLIST_DELETE event.
@@ -71,10 +74,11 @@ type PlaylistRename struct {
 }
 
 type PlaylistAdd struct {
-	Query       string `json:"query,omitempty" maxLength:"500" doc:"A link or YouTube search words"`
-	Playlist    bool   `json:"playlist,omitempty" doc:"With a link: add every track of the playlist it is in"`
-	TrackID     *id.ID `json:"track_id,omitempty" doc:"A library track"`
-	FromChannel *id.ID `json:"from_channel,omitempty" doc:"A voice channel: add what plays there and its queue"`
+	Query        string `json:"query,omitempty" maxLength:"500" doc:"A link or YouTube search words"`
+	Playlist     bool   `json:"playlist,omitempty" doc:"With a link: add every track of the playlist it is in"`
+	TrackID      *id.ID `json:"track_id,omitempty" doc:"A library track"`
+	AttachmentID *id.ID `json:"attachment_id,omitempty" doc:"An audio file posted in a channel you can read"`
+	FromChannel  *id.ID `json:"from_channel,omitempty" doc:"A voice channel: add what plays there and its queue"`
 }
 
 type PlaylistAddResult struct {
@@ -97,6 +101,9 @@ func (it PlaylistItem) track() MusicTrack {
 		Cover: it.Cover, blob: it.blob, opus: it.opus, search: it.search, coverSum: it.coverSum}
 	if it.TrackID != nil {
 		t.libraryID = *it.TrackID
+	}
+	if it.AttachmentID != nil {
+		t.attachmentID = *it.AttachmentID
 	}
 	return t
 }
@@ -127,35 +134,62 @@ func (s *Service) playlist(ctx context.Context, pid id.ID) (MusicPlaylist, error
 }
 
 const itemCols = `i.id, i.title, coalesce(nullif(i.artist, ''), t.artist, ''), i.duration, i.site, coalesce(i.url, ''),
-	coalesce(i.search, ''), i.track_id, i.added_by, coalesce(t.sha256, ''), coalesce(t.format, ''), coalesce(i.cover, t.cover, '')`
+	coalesce(i.search, ''), i.track_id, i.attachment_id, i.added_by, coalesce(t.sha256, a.sha256, ''), coalesce(t.format, ''),
+	coalesce(i.cover, t.cover, ''), CASE WHEN ac.type = 'thread' THEN ac.parent_channel_id ELSE a.channel_id END`
 
-func (s *Service) playlistItems(ctx context.Context, pid id.ID) ([]PlaylistItem, error) {
+const itemJoins = ` FROM music_playlist_items i LEFT JOIN music_tracks t ON t.id = i.track_id
+	LEFT JOIN attachments a ON a.id = i.attachment_id LEFT JOIN channels ac ON ac.id = a.channel_id`
+
+// playlistItems lists a playlist's tracks in order, leaving out the channel files the
+// signed-in user cannot read (hidden counts them).
+func (s *Service) playlistItems(ctx context.Context, pid id.ID) ([]PlaylistItem, int, error) {
 	if _, err := s.playlist(ctx, pid); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT `+itemCols+` FROM music_playlist_items i LEFT JOIN music_tracks t ON t.id = i.track_id
-		WHERE i.playlist_id = $1 ORDER BY i.position`, pid)
+	readable, err := s.channels.Readable(ctx, auth.Current(ctx).User.ID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlaylistItem, error) {
+	canRead := make(map[id.ID]bool, len(readable))
+	for _, c := range readable {
+		canRead[c] = true
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+itemCols+itemJoins+` WHERE i.playlist_id = $1 ORDER BY i.position`, pid)
+	if err != nil {
+		return nil, 0, err
+	}
+	all, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (PlaylistItem, error) {
 		var it PlaylistItem
-		var track, by *int64
+		var track, att, by, ch *int64
 		var format string
-		err := r.Scan(&it.ID, &it.Title, &it.Artist, &it.Duration, &it.Site, &it.URL, &it.search, &track, &by, &it.blob, &format, &it.coverSum)
-		it.TrackID, it.AddedBy = id.FromNullable(track), id.FromNullable(by)
+		err := r.Scan(&it.ID, &it.Title, &it.Artist, &it.Duration, &it.Site, &it.URL, &it.search, &track, &att, &by,
+			&it.blob, &format, &it.coverSum, &ch)
+		it.TrackID, it.AttachmentID, it.AddedBy, it.ChannelID = id.FromNullable(track), id.FromNullable(att), id.FromNullable(by), id.FromNullable(ch)
 		it.opus = format == "opus"
-		it.Source = "link"
-		if it.TrackID != nil {
+		switch {
+		case it.AttachmentID != nil:
+			it.Source = "file"
+		case it.TrackID != nil:
 			it.Source = "upload"
+		default:
+			it.Source = "link"
 		}
 		it.Cover = coverPath(it.coverSum)
 		return it, err
 	})
-	if items == nil {
-		items = []PlaylistItem{}
+	if err != nil {
+		return nil, 0, err
 	}
-	return items, err
+	items := []PlaylistItem{}
+	hidden := 0
+	for _, it := range all {
+		if it.AttachmentID != nil && (it.ChannelID == nil || !canRead[*it.ChannelID]) {
+			hidden++
+			continue
+		}
+		items = append(items, it)
+	}
+	return items, hidden, nil
 }
 
 // publishPlaylist tells the server's members a playlist changed.
@@ -216,8 +250,10 @@ func (s *Service) insertItems(ctx context.Context, pid id.ID, tracks []MusicTrac
 	for _, t := range tracks {
 		iid := id.New()
 		var link, search *string
-		var trackID *id.ID
+		var trackID, attID *id.ID
 		switch {
+		case t.attachmentID != 0:
+			attID = &t.attachmentID
 		case t.blob != "":
 			trackID = &t.libraryID
 		case t.URL != "":
@@ -229,10 +265,10 @@ func (s *Service) insertItems(ctx context.Context, pid id.ID, tracks []MusicTrac
 		if t.coverSum != "" && t.blob == "" {
 			cover = &t.coverSum
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO music_playlist_items (id, playlist_id, position, track_id, url, search, title, artist, duration, site, cover, cover_type, added_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text,
-				(SELECT cover_type FROM music_playlist_items WHERE cover = $11::text AND cover_type IS NOT NULL LIMIT 1), $12)`,
-			iid, pid, next, trackID, link, search, t.Title, t.Artist, t.Duration, t.Site, cover, me); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO music_playlist_items (id, playlist_id, position, track_id, attachment_id, url, search, title, artist, duration, site, cover, cover_type, added_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text,
+				(SELECT cover_type FROM music_playlist_items WHERE cover = $12::text AND cover_type IS NOT NULL LIMIT 1), $13)`,
+			iid, pid, next, trackID, attID, link, search, t.Title, t.Artist, t.Duration, t.Site, cover, me); err != nil {
 			return 0, err
 		}
 		next++
@@ -364,8 +400,8 @@ func registerPlaylists(api huma.API, s *Service, op func(string, string, string,
 			if err != nil {
 				return nil, err
 			}
-			items, err := s.playlistItems(ctx, pid)
-			return &struct{ Body PlaylistDetail }{PlaylistDetail{pl, items}}, err
+			items, hidden, err := s.playlistItems(ctx, pid)
+			return &struct{ Body PlaylistDetail }{PlaylistDetail{MusicPlaylist: pl, Items: items, Hidden: hidden}}, err
 		})
 
 	huma.Register(api, op("create-music-playlist", http.MethodPost, "/api/server/music/playlists", http.StatusCreated),
@@ -421,7 +457,7 @@ func registerPlaylists(api huma.API, s *Service, op func(string, string, string,
 			if err != nil {
 				return nil, err
 			}
-			items, err := s.playlistItems(ctx, pid)
+			items, _, err := s.playlistItems(ctx, pid)
 			if err != nil {
 				return nil, err
 			}
@@ -432,7 +468,7 @@ func registerPlaylists(api huma.API, s *Service, op func(string, string, string,
 					PlaylistAddResult
 				}
 			}{}
-			out.Body.PlaylistDetail, out.Body.PlaylistAddResult = PlaylistDetail{pl, items}, res
+			out.Body.PlaylistDetail, out.Body.PlaylistAddResult = PlaylistDetail{MusicPlaylist: pl, Items: items}, res
 			return out, nil
 		})
 
@@ -493,6 +529,12 @@ func registerPlaylists(api huma.API, s *Service, op func(string, string, string,
 					return nil, err
 				}
 				tracks = []MusicTrack{libraryTrackOf(lt)}
+			case in.Body.AttachmentID != nil:
+				t, err := s.attachmentTrack(ctx, *in.Body.AttachmentID)
+				if err != nil {
+					return nil, err
+				}
+				tracks = []MusicTrack{t}
 			case in.Body.FromChannel != nil:
 				ch, err := voiceChannel(ctx, in.Body.FromChannel.String())
 				if err != nil {
@@ -512,7 +554,7 @@ func registerPlaylists(api huma.API, s *Service, op func(string, string, string,
 					return nil, err
 				}
 			default:
-				return nil, httpx.BadRequest("VALIDATION_FAILED", "give a query, a track_id or from_channel")
+				return nil, httpx.BadRequest("VALIDATION_FAILED", "give a query, a track_id, an attachment_id or from_channel")
 			}
 			if res.Added, err = s.insertItems(ctx, pl.ID, tracks); err != nil {
 				return nil, err

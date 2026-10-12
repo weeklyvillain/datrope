@@ -783,9 +783,9 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   await createChannel(alice, "Gallery", "photos");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
   const alicePhotos = alice.getByRole("main", { name: "photos" });
-  await expect(alicePhotos.getByText("No photos or videos yet.")).toBeVisible();
+  await expect(alicePhotos.getByText("No files yet.")).toBeVisible();
   await alicePhotos.getByRole("button", { name: "Upload" }).click();
-  const upload = alice.getByRole("dialog", { name: "Upload photos and videos" });
+  const upload = alice.getByRole("dialog", { name: "Upload files" });
   const chooser = alice.waitForEvent("filechooser");
   await upload.getByRole("button", { name: "Choose files" }).click();
   await (await chooser).setFiles(PARROT_PNG);
@@ -812,6 +812,59 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   await comments.getByLabel("Comment", { exact: true }).press("Enter");
   await expect(comments.getByText("And the dice", { exact: true })).toBeVisible();
   await expect(comments.getByRole("heading", { name: "2 comments" })).toBeVisible();
+});
+
+// Runs after the first tests: alice and bob exist; #general is shared.
+test("global gallery: files from readable channels, music player and playlists", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+
+  // State-changing API calls with the session cookie need the CSRF header.
+  const CSRF = { "X-Datrope-CSRF": "1" };
+  const put = (path: string, data: object) => alice.request.put(path, { headers: CSRF, data });
+
+  // alice shares a song in #general and a picture in a channel only she can see.
+  await alice.getByRole("link", { name: "general" }).click();
+  await alice.locator('input[type="file"]').setInputFiles({ name: "riff-idea.wav", mimeType: "audio/wav", buffer: silentWav() });
+  await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
+  await alice.getByRole("button", { name: "Send" }).click();
+
+  const server = await (await alice.request.get("/api/server")).json() as { id: string };
+  const priv = await (await alice.request.post("/api/server/channels", { headers: CSRF, data: { name: "alice-only", type: "text" } })).json() as { id: string };
+  expect((await put(`/api/channels/${priv.id}/overrides/role/${server.id}`, { allow: 0, deny: 1 })).ok()).toBe(true);
+  await alice.getByRole("link", { name: "alice-only" }).click();
+  await alice.locator('input[type="file"]').setInputFiles({ name: "secret.png", mimeType: "image/png", buffer: solidPng(8, 8) });
+  await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
+  await alice.getByRole("button", { name: "Send" }).click();
+  await expect(alice.getByRole("main").getByRole("img", { name: "secret.png" })).toBeVisible();
+
+  // bob opens Gallery: the song is there, tagged #general; the private picture is not.
+  await bob.getByRole("link", { name: "Gallery" }).click();
+  const gallery = bob.getByRole("main", { name: "Gallery" });
+  await expect(gallery.getByRole("button", { name: "Track: riff-idea.wav, by alice, in #general" })).toBeVisible();
+  await expect(gallery.getByRole("button", { name: /secret\.png/ })).toHaveCount(0);
+
+  // Search and the Music filter.
+  await gallery.getByLabel("Search files").fill("riff");
+  await expect(gallery.getByRole("button", { name: /riff-idea\.wav/ }).first()).toBeVisible();
+  await gallery.getByRole("group", { name: "Show" }).getByRole("button", { name: "Music" }).click();
+
+  // Play it: the player bar shows the track.
+  await gallery.getByRole("button", { name: "Play all" }).click();
+  await expect(bob.getByRole("region", { name: "Music player" })).toContainText("riff-idea.wav");
+
+  // Add it to a new playlist; the playlist lists it.
+  await gallery.getByRole("button", { name: "More for riff-idea.wav" }).click();
+  await bob.getByRole("menuitem", { name: "Add to playlist" }).click();
+  await bob.getByRole("menuitem", { name: "New playlist…" }).click();
+  await bob.getByLabel("Name", { exact: true }).fill("Bob's riffs");
+  await bob.getByRole("button", { name: "Create" }).click();
+  await gallery.getByRole("tab", { name: "Playlists" }).click();
+  await gallery.getByRole("button", { name: "Open Bob's riffs" }).click();
+  await expect(gallery.getByRole("table", { name: "Tracks" })).toContainText("riff-idea");
+  await expect(gallery.getByRole("table", { name: "Tracks" })).toContainText("#general");
 });
 
 // Runs after the first test: alice and bob exist and #general is there.

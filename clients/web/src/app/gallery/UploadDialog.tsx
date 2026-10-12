@@ -1,4 +1,4 @@
-import { Film, ImagePlus, Loader2, X } from "lucide-react";
+import { File as FileIcon, Film, ImagePlus, Loader2, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { client, formatBytes } from "../../session";
 import { ErrorText } from "@/components/error-text";
@@ -9,19 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSubmit } from "@/hooks/use-submit";
 import { MAX_FILES, useUploads, type PendingFile } from "@/hooks/use-uploads";
 import { cn } from "@/lib/utils";
-import { isMediaFile } from "./items";
 import { attachmentImage } from "@/lib/sized-image";
 
 const MAX_LENGTH = 4000;
-const MEDIA_ONLY = { test: isMediaFile, message: "Only photos and videos can be posted here." };
 
-/** Uploads photos and videos to a gallery as one message, with an optional caption. */
+/** Uploads files to a gallery as one message, with an optional caption. */
 export function UploadDialog({ channelId, onClose }: { channelId: string; onClose: () => void }) {
   const id = useId();
   const [caption, setCaption] = useState("");
   const [invalid, setInvalid] = useState<string>();
   const picker = useRef<HTMLInputElement>(null);
-  const uploads = useUploads(channelId, { onError: setInvalid, accept: MEDIA_ONLY });
+  const uploads = useUploads(channelId, { onError: setInvalid });
   const { files, uploading, ready } = uploads;
   const failed = files.some((f) => f.error);
   const { busy, error, run } = useSubmit();
@@ -30,7 +28,7 @@ export function UploadDialog({ channelId, onClose }: { channelId: string; onClos
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Upload photos and videos</DialogTitle>
+          <DialogTitle>Upload files</DialogTitle>
         </DialogHeader>
         <form className="grid gap-3" onSubmit={(e) => {
           e.preventDefault();
@@ -40,7 +38,7 @@ export function UploadDialog({ channelId, onClose }: { channelId: string; onClos
           });
         }}>
           <Field>
-            <input ref={picker} type="file" accept="image/*,video/*,.mkv,.webm" multiple hidden
+            <input ref={picker} type="file" multiple hidden
               onChange={(e) => {
                 setInvalid(undefined);
                 if (e.target.files) uploads.add(Array.from(e.target.files));
@@ -49,7 +47,7 @@ export function UploadDialog({ channelId, onClose }: { channelId: string; onClos
             <Button variant="outline" className="w-fit" disabled={files.length >= MAX_FILES} onClick={() => picker.current?.click()}>
               <ImagePlus /> Choose files
             </Button>
-            <FieldDescription>Up to {MAX_FILES} photos or videos.</FieldDescription>
+            <FieldDescription>Up to {MAX_FILES} files.</FieldDescription>
           </Field>
           {files.length > 0 && (
             <ul className="m-0 grid list-none gap-2 p-0" aria-label="Files">
@@ -81,7 +79,8 @@ function FileRow({ file: f, onRemove }: { file: PendingFile; onRemove: () => voi
         {!a ? (f.error ? <X className="size-4" /> : <Loader2 className="size-4 animate-spin" />)
           : a.content_type.startsWith("image/") ? <img {...attachmentImage(a, 48, { cover: true })} alt="" className="size-full object-cover" />
           : a.thumbnail_url ? <img src={client.url(a.thumbnail_url)} alt="" className="size-full object-cover" />
-          : <Film className="size-4" />}
+          : a.content_type.startsWith("video/") ? <Film className="size-4" />
+          : <FileIcon className="size-4" />}
       </span>
       <span className="grid min-w-0 flex-1">
         <span className="truncate">{f.name}</span>

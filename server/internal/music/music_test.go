@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/datrope/datrope/server/internal/id"
 	"github.com/datrope/datrope/server/internal/lktest"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/perms"
 	"github.com/datrope/datrope/server/internal/voice"
 )
 
@@ -212,6 +214,25 @@ func TestMusicBot(t *testing.T) {
 	alice.Do(http.MethodPost, "/api/server/music/playlists/"+saved.ID.String()+"/items", map[string]any{"from_channel": ch.ID}, http.StatusCreated, &fromQueue)
 	require.GreaterOrEqual(t, fromQueue.Added, 3) // the queue, and the current track unless it is between tracks
 	alice.Do(http.MethodDelete, base+"/queue", nil, http.StatusNoContent, nil)
+	// A playlist file the queuer cannot read is left out and counted (carol: an owner can't be denied).
+	var carolJoin voice.JoinResponse
+	carol.Do(http.MethodPost, "/api/voice/"+ch.ID.String()+"/join", map[string]any{}, http.StatusOK, &carolJoin)
+	lktest.Connect(t, cfg, carolJoin.Token)
+	require.NoError(t, env.App.Voice.Sync(context.Background()))
+	locked := alice.CreateTextChannel("locked")
+	song := alice.Upload(locked, "locked.mp3", tone(t, "2", "mp3"), http.StatusCreated)
+	alice.SendWith(locked, "", song.ID)
+	var mix struct{ music.PlaylistDetail }
+	alice.Do(http.MethodPost, "/api/server/music/playlists", map[string]any{"title": "Locked mix"}, http.StatusCreated, &mix)
+	alice.Do(http.MethodPost, "/api/server/music/playlists/"+mix.ID.String()+"/items", map[string]any{"attachment_id": song.ID}, http.StatusCreated, nil)
+	alice.Do(http.MethodPost, "/api/server/music/playlists/"+mix.ID.String()+"/items", map[string]any{"track_id": lt.ID}, http.StatusCreated, nil)
+	alice.Do(http.MethodPut, "/api/channels/"+locked.String()+"/overrides/role/"+alice.Server().ID.String(),
+		map[string]any{"allow": 0, "deny": perms.ViewChannel}, http.StatusOK, nil)
+	var q music.QueueResult
+	carol.Do(http.MethodPost, base, map[string]any{"playlist_id": mix.ID, "replace": true}, http.StatusCreated, &q)
+	require.Equal(t, 1, q.SkippedUnreadable)
+	require.Len(t, q.Tracks, 1)
+	alice.Do(http.MethodDelete, base+"/queue", nil, http.StatusNoContent, nil)
 
 	alice.Do(http.MethodPost, base, map[string]any{"query": "never gonna"}, http.StatusCreated, nil)
 	alice.Do(http.MethodPost, base, map[string]any{"query": "third"}, http.StatusCreated, nil)
@@ -232,4 +253,26 @@ func titles(ts []music.MusicTrack) []string {
 		out = append(out, t.Title)
 	}
 	return out
+}
+
+func TestLibraryAudio(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	outsider := env.Outsider("eve")
+	raw := alice.UploadForm(http.MethodPost, "/api/server/music", "tone.mp3", tone(t, "2", "mp3"), map[string]string{"title": "Beep"}, http.StatusCreated)
+	var lt music.LibraryTrack
+	require.NoError(t, json.Unmarshal(raw, &lt))
+	res, body := alice.Raw(http.MethodGet, "/api/music/tracks/"+lt.ID.String()+"/audio", nil, "", http.StatusOK)
+	require.Equal(t, "audio/ogg", res.Header.Get("Content-Type"))
+	require.Contains(t, res.Header.Get("Cache-Control"), "private", "members-only audio must not sit in shared caches")
+	require.NotEmpty(t, body)
+	alice.Header = http.Header{"Range": {"bytes=0-9"}}
+	ranged, _ := alice.Raw(http.MethodGet, "/api/music/tracks/"+lt.ID.String()+"/audio", nil, "", http.StatusPartialContent)
+	alice.Header = nil
+	require.Equal(t, "bytes 0-9/"+strconv.Itoa(len(body)), ranged.Header.Get("Content-Range"))
+	outsider.Raw(http.MethodGet, "/api/music/tracks/"+lt.ID.String()+"/audio", nil, "", http.StatusForbidden)
+	alice.Raw(http.MethodGet, "/api/music/tracks/1/audio", nil, "", http.StatusNotFound)
 }

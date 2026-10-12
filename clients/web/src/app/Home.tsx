@@ -40,6 +40,11 @@ export function Home() {
   );
 }
 
+/** /gallery — files from every channel the viewer can read. */
+export function GlobalGalleryRoute() {
+  return <GalleryView scope={{ kind: "global" }} />;
+}
+
 /** /channels/:channelId — a text, webhook, announcement, forum, gallery, voice or welcome channel. */
 export function ChannelRoute() {
   const { channelId = "" } = useParams();
@@ -49,7 +54,7 @@ export function ChannelRoute() {
     case "webhook":
       return <ChannelView key={channelId} channelId={channelId} members />;
     case "gallery":
-      return <GalleryView key={channelId} channelId={channelId} />;
+      return <GalleryView key={channelId} scope={{ kind: "channel", channelId }} />;
     case "forum":
       return <ForumView key={channelId} channelId={channelId} />;
     case "announcement":

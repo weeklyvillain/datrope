@@ -10,6 +10,7 @@ import (
 
 	"github.com/datrope/datrope/server/internal/apptest"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/perms"
 )
 
 func TestPlaylists(t *testing.T) {
@@ -102,4 +103,55 @@ func itemTitles(items []music.PlaylistItem) []string {
 		out = append(out, it.Title)
 	}
 	return out
+}
+
+func TestPlaylistFiles(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	general := alice.General()
+	srv := alice.Server()
+	secret := alice.CreateTextChannel("secret")
+	alice.Do(http.MethodPut, "/api/channels/"+secret.String()+"/overrides/role/"+srv.ID.String(),
+		map[string]any{"allow": 0, "deny": perms.ViewChannel}, http.StatusOK, nil)
+
+	open := alice.Upload(general, "open-song.mp3", tone(t, "2", "mp3"), http.StatusCreated)
+	alice.SendWith(general, "", open.ID)
+	hidden := alice.Upload(secret, "secret-song.mp3", tone(t, "2", "mp3"), http.StatusCreated)
+	hm := alice.SendWith(secret, "", hidden.ID)
+	notes := alice.Upload(general, "notes.txt", []byte("words"), http.StatusCreated)
+	alice.SendWith(general, "", notes.ID)
+
+	var created struct{ music.PlaylistDetail }
+	alice.Do(http.MethodPost, "/api/server/music/playlists", map[string]any{"title": "Mix"}, http.StatusCreated, &created)
+	pl := "/api/server/music/playlists/" + created.ID.String()
+	alice.Do(http.MethodPost, pl+"/items", map[string]any{"attachment_id": open.ID}, http.StatusCreated, nil)
+	alice.Do(http.MethodPost, pl+"/items", map[string]any{"attachment_id": hidden.ID}, http.StatusCreated, nil)
+	alice.Fail(http.MethodPost, pl+"/items", map[string]any{"attachment_id": notes.ID}, http.StatusBadRequest, "NOT_AUDIO")
+	// bob may not add a file he cannot read, even to his own playlist.
+	var bobs struct{ music.PlaylistDetail }
+	bob.Do(http.MethodPost, "/api/server/music/playlists", map[string]any{"title": "Bob's"}, http.StatusCreated, &bobs)
+	bob.Fail(http.MethodPost, "/api/server/music/playlists/"+bobs.ID.String()+"/items",
+		map[string]any{"attachment_id": hidden.ID}, http.StatusNotFound, "NOT_FOUND")
+
+	var mine, his music.PlaylistDetail
+	alice.Do(http.MethodGet, pl, nil, http.StatusOK, &mine)
+	require.Equal(t, []string{"open-song", "secret-song"}, itemTitles(mine.Items))
+	require.Equal(t, "file", mine.Items[0].Source)
+	require.Equal(t, general, *mine.Items[0].ChannelID)
+	require.Equal(t, open.ID, *mine.Items[0].AttachmentID)
+	require.Greater(t, mine.Items[0].Duration, 0)
+	require.Zero(t, mine.Hidden)
+
+	bob.Do(http.MethodGet, pl, nil, http.StatusOK, &his)
+	require.Equal(t, []string{"open-song"}, itemTitles(his.Items))
+	require.Equal(t, 1, his.Hidden)
+
+	// Deleting the message deletes its attachment, which removes the item.
+	alice.Do(http.MethodDelete, "/api/channels/"+secret.String()+"/messages/"+hm.ID.String(), nil, http.StatusNoContent, nil)
+	alice.Do(http.MethodGet, pl, nil, http.StatusOK, &mine)
+	require.Equal(t, []string{"open-song"}, itemTitles(mine.Items))
 }
