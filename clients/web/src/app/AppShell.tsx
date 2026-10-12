@@ -8,6 +8,7 @@ import { client, useApp } from "../session";
 import { GuestEnded } from "../pages/GuestEnded";
 import { DesktopBridge } from "./DesktopBridge";
 import { GuestBanner } from "./GuestBanner";
+import { PlayerBar } from "./player/PlayerBar";
 import { NotAMember } from "./NotAMember";
 import { NotificationListener } from "./NotificationListener";
 import { CommandPalette } from "./palette/CommandPalette";
@@ -76,6 +77,7 @@ export function AppShell() {
         {!gated && <CommandPalette />}
         {connection === "reconnecting" && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
       </div>
+      {!gated && <PlayerBar />}
     </div>
   );
 }

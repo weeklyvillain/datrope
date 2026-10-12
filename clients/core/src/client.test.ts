@@ -489,6 +489,25 @@ it("searches with the local UTC offset", async () => {
   expect(r.total).toBe(0);
 });
 
+it("lists files with comma-joined filters", async () => {
+  let url: URL | undefined;
+  server.use(http.get(`${BASE}/api/files`, ({ request }) => {
+    url = new URL(request.url);
+    return HttpResponse.json({ items: [] });
+  }));
+  const r = await readyClient().files({ kinds: ["image", "video"], channels: ["300", "301"], q: "cat", limit: 20 });
+  expect(url?.searchParams.get("kind")).toBe("image,video");
+  expect(url?.searchParams.get("channel")).toBe("300,301");
+  expect(url?.searchParams.get("q")).toBe("cat");
+  expect(url?.searchParams.get("limit")).toBe("20");
+  expect(url?.searchParams.has("before")).toBe(false);
+  expect(r.items).toEqual([]);
+});
+
+it("builds the library audio url", () => {
+  expect(readyClient().libraryAudioUrl("55")).toBe(`${BASE}/api/music/tracks/55/audio`);
+});
+
 it("loads a window around a message", async () => {
   let around: string | null = null;
   server.use(http.get(`${BASE}/api/channels/:id/messages`, ({ request }) => {

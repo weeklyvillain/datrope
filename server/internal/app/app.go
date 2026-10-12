@@ -200,6 +200,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		musicSvc.SetBlobs(filesSvc)
 		mux.Handle("POST /api/server/music", authSvc.RequireHTTP(musicSvc.UploadHandler()))
 		mux.Handle("GET /api/music/covers/{sum}", musicSvc.CoverHandler())
+		mux.Handle("GET /api/music/tracks/{trackID}/audio", authSvc.RequireHTTP(musicSvc.AudioHandler()))
 		a.closers = append(a.closers, musicSvc.Close)
 		a.Music = musicSvc
 	}

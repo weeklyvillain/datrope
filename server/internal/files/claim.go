@@ -68,6 +68,27 @@ func (s *Service) ForMessages(ctx context.Context, messageIDs []id.ID) (map[id.I
 	return out, rows.Err()
 }
 
+// ForIDs loads attachments by ID (for the gallery, which lists files, not messages).
+func (s *Service) ForIDs(ctx context.Context, ids []id.ID) (map[id.ID]Attachment, error) {
+	out := map[id.ID]Attachment{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+attachmentCols+` FROM attachments WHERE id = ANY($1)`, id.Int64s(ids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		a, err := scanAttachment(rows, s.variantsOn())
+		if err != nil {
+			return nil, err
+		}
+		out[a.ID] = *a
+	}
+	return out, rows.Err()
+}
+
 // DeleteForMessage removes a deleted message's attachment rows inside tx and
 // returns the blob sums to pass to RemoveBlobs after the commit.
 func (s *Service) DeleteForMessage(ctx context.Context, tx pgx.Tx, messageID id.ID) ([]string, error) {

@@ -576,6 +576,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "hidden": {
+            "description": "Files left out because you cannot read their channel",
+            "format": "int64",
+            "type": "integer"
+          },
           "id": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -601,6 +606,7 @@
         },
         "required": [
           "items",
+          "hidden",
           "id",
           "title",
           "created_at",
@@ -1017,6 +1023,61 @@
         "required": [
           "code",
           "message"
+        ],
+        "type": "object"
+      },
+      "FileItem": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment": {
+            "$ref": "#/components/schemas/Attachment"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/ChannelRef"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "document",
+              "archive",
+              "other"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        },
+        "required": [
+          "attachment",
+          "message",
+          "channel",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "FilesPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FileItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "description": "Pass as before= for the next page",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
         ],
         "type": "object"
       },
@@ -1913,7 +1974,8 @@
           "source": {
             "enum": [
               "link",
-              "upload"
+              "upload",
+              "file"
             ],
             "type": "string"
           },
@@ -2005,6 +2067,11 @@
       "PlaylistAdd": {
         "additionalProperties": false,
         "properties": {
+          "attachment_id": {
+            "description": "An audio file posted in a channel you can read",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
           "from_channel": {
             "description": "A voice channel: add what plays there and its queue",
             "pattern": "^[0-9]+$",
@@ -2108,6 +2175,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "hidden": {
+            "description": "Files left out because you cannot read their channel",
+            "format": "int64",
+            "type": "integer"
+          },
           "id": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -2128,6 +2200,7 @@
         },
         "required": [
           "items",
+          "hidden",
           "id",
           "title",
           "created_at",
@@ -2145,6 +2218,16 @@
             "type": "string"
           },
           "artist": {
+            "type": "string"
+          },
+          "attachment_id": {
+            "description": "The channel file, for files",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Where the file was posted (a thread's parent)",
+            "pattern": "^[0-9]+$",
             "type": "string"
           },
           "cover": {
@@ -2166,7 +2249,8 @@
           "source": {
             "enum": [
               "link",
-              "upload"
+              "upload",
+              "file"
             ],
             "type": "string"
           },
@@ -2568,6 +2652,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "skipped_unreadable": {
+            "description": "Playlist files left out because you cannot read their channel",
+            "format": "int64",
+            "type": "integer"
+          },
           "tracks": {
             "description": "What was queued",
             "items": {
@@ -2582,7 +2671,8 @@
         "required": [
           "tracks",
           "skipped",
-          "dropped"
+          "dropped",
+          "skipped_unreadable"
         ],
         "type": "object"
       },
@@ -7207,6 +7297,104 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/files": {
+      "get": {
+        "operationId": "list-files",
+        "parameters": [
+          {
+            "description": "Comma-separated: image, video, audio, document, archive, other",
+            "explode": false,
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "description": "Comma-separated: image, video, audio, document, archive, other",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Comma-separated channel IDs; a channel includes its threads",
+            "explode": false,
+            "in": "query",
+            "name": "channel",
+            "schema": {
+              "description": "Comma-separated channel IDs; a channel includes its threads",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "uploader",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Matches file names and captions",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Matches file names and captions",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "description": "next_cursor from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "next_cursor from the previous page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesPage"
+                }
+              }
+            },
+            "description": "OK"
           },
           "default": {
             "content": {

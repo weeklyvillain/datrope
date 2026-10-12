@@ -33,6 +33,9 @@ export function formatBytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+/** "1 track", "12 tracks". */
+export const trackCount = (n: number) => `${n} ${n === 1 ? "track" : "tracks"}`;
+
 /** "1 h 5 min", "12 min", "45 s": a playlist's total length. */
 export function totalLength(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -48,10 +51,17 @@ export const siteNames: Record<string, string> = {
 };
 
 /** The summary after queueing or adding several tracks. */
-export function addedSummary(verb: "Queued" | "Added", r: { count: number; skipped: number; dropped: number }): string | undefined {
-  if (r.count <= 1 && !r.skipped && !r.dropped) return undefined;
+export function addedSummary(verb: "Queued" | "Added", r: { count: number; skipped: number; dropped: number; unreadable?: number }): string | undefined {
+  if (r.count <= 1 && !r.skipped && !r.dropped && !r.unreadable) return undefined;
   const parts = [`${verb} ${r.count} ${r.count === 1 ? "track" : "tracks"}`];
   if (r.skipped) parts.push(`${r.skipped} didn't fit`);
   if (r.dropped) parts.push(`${r.dropped} unavailable ${r.dropped === 1 ? "track was" : "tracks were"} left out`);
+  if (r.unreadable) parts.push(`${r.unreadable} skipped (from a channel you can't read)`);
   return `${parts.join(", ")}.`;
 }
+
+/** The subtitle of a file item in a playlist: the channel it was shared in. */
+export const fileChannelLabel = (name?: string) => `#${name ?? "channel"}`;
+
+/** The note under a playlist's header when some items are from channels the viewer can't read. */
+export const hiddenNote = (n: number): string | undefined => (n > 0 ? `${n} hidden (from channels you can't read)` : undefined);

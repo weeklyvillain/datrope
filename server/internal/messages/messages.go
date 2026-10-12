@@ -42,6 +42,7 @@ type Ranks interface {
 type Attachments interface {
 	Claim(ctx context.Context, tx pgx.Tx, messageID, channelID, uploaderID id.ID, ids []id.ID) ([]files.Attachment, error)
 	ForMessages(ctx context.Context, messageIDs []id.ID) (map[id.ID][]files.Attachment, error)
+	ForIDs(ctx context.Context, ids []id.ID) (map[id.ID]files.Attachment, error)
 	DeleteForMessage(ctx context.Context, tx pgx.Tx, messageID id.ID) ([]string, error)
 	RemoveBlobs(ctx context.Context, sums []string) error
 }

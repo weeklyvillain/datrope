@@ -125,6 +125,38 @@ func (s *Service) CoverHandler() http.Handler {
 	})
 }
 
+// AudioHandler serves a library track's file to members, for the gallery's player.
+// It must run behind RequireHTTP.
+func (s *Service) AudioHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := s.member(r.Context()); err != nil {
+			httpx.WriteHTTPError(w, r, err)
+			return
+		}
+		tid, err := httpx.ParseID(r.PathValue("trackID"), "track")
+		if err != nil {
+			httpx.WriteHTTPError(w, r, err)
+			return
+		}
+		lt, err := s.libraryTrack(r.Context(), tid)
+		if err != nil {
+			httpx.WriteHTTPError(w, r, err)
+			return
+		}
+		ct := "audio/ogg"
+		if lt.format != "opus" {
+			ct = "application/octet-stream"
+			if f, err := s.blobs.OpenBlob(lt.sum); err == nil {
+				head := make([]byte, 512)
+				n, _ := io.ReadFull(f, head)
+				f.Close()
+				ct = http.DetectContentType(head[:n])
+			}
+		}
+		s.blobs.ServePrivateBlob(w, r, lt.sum, ct) // members only: browsers may cache it, shared caches may not
+	})
+}
+
 // thumbHosts are the CDNs whose thumbnails the server downloads for saved
 // playlist items (so browsers never load them from the sites themselves).
 var thumbHosts = []string{".ytimg.com", ".sndcdn.com", ".bcbits.com", ".vimeocdn.com", ".scdn.co"}

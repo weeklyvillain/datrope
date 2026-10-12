@@ -1,7 +1,7 @@
 import { Perm, canCreateInvites, hasPerm, isGated } from "@datrope/core";
-import { ChevronDown, FolderPlus, Plus, Settings, UserPlus } from "lucide-react";
+import { ChevronDown, FolderPlus, Images, Plus, Settings, UserPlus } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { useMatch, useNavigate } from "react-router-dom";
+import { Link, useMatch, useNavigate } from "react-router-dom";
 import { ServerIcon } from "@/components/logo";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
@@ -28,6 +28,7 @@ export function ServerSidebar({ className }: { className?: string } = {}) {
   const channelId = useMatch("/channels/:channelId")?.params.channelId;
   const dmId = useMatch("/messages/:channelId")?.params.channelId;
   const inMessages = !!useMatch("/messages/*");
+  const onGallery = !!useMatch("/gallery");
   const gated = useApp(isGated);
   const dmUnread = useApp((s) => s.dmIds.some((id) => isUnread(s.readStates[id])));
   const dmIds = useApp((s) => s.dmIds);
@@ -70,6 +71,11 @@ export function ServerSidebar({ className }: { className?: string } = {}) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="channels" className="min-h-0 overflow-y-auto">
+          <Link to="/gallery" aria-current={onGallery ? "page" : undefined}
+            className={cn("mx-2 mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground no-underline hover:bg-accent hover:text-foreground",
+              onGallery && "bg-accent text-foreground")}>
+            <Images className="size-4" aria-hidden />Gallery
+          </Link>
           <CreateMenu>
             <ChannelTree activeId={channelId} />
           </CreateMenu>

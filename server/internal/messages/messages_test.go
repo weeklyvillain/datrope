@@ -313,7 +313,7 @@ func TestAnnouncementChannel(t *testing.T) {
 }
 
 func TestGalleryChannel(t *testing.T) {
-	env, alice, bob, _, general := setup(t)
+	_, alice, bob, _, general := setup(t)
 	art := createChannel(t, alice, map[string]any{"name": "art", "type": "gallery"})
 	path := "/api/channels/" + art.ID.String() + "/messages"
 
@@ -324,12 +324,10 @@ func TestGalleryChannel(t *testing.T) {
 	bob.Do(http.MethodPost, path, map[string]any{"content": "my cat", "attachment_ids": []string{img.ID.String()}}, http.StatusCreated, &m)
 	require.Len(t, m.Attachments, 1)
 
-	txt := bob.Upload(art.ID, "notes.txt", []byte("not media"), http.StatusCreated)
-	bob.Fail(http.MethodPost, path, map[string]any{"content": "", "attachment_ids": []string{txt.ID.String()}}, http.StatusBadRequest, "MEDIA_ONLY")
-	var count int
-	require.NoError(t, env.Pool.QueryRow(context.Background(),
-		`SELECT count(*) FROM attachments WHERE id = $1 AND message_id IS NULL`, txt.ID).Scan(&count))
-	require.Equal(t, 1, count, "a rejected upload stays unclaimed")
+	txt := bob.Upload(art.ID, "notes.txt", []byte("any file is fine"), http.StatusCreated)
+	bob.Do(http.MethodPost, path, map[string]any{"content": "", "attachment_ids": []string{txt.ID.String()}}, http.StatusCreated, nil)
+	song := bob.Upload(art.ID, "song.wav", wav(), http.StatusCreated)
+	bob.Do(http.MethodPost, path, map[string]any{"content": "", "attachment_ids": []string{song.ID.String()}}, http.StatusCreated, nil)
 
 	// Uploads are bound to their channel, so a text channel takes its own copy.
 	other := bob.Upload(general, "notes.txt", []byte("not media"), http.StatusCreated)

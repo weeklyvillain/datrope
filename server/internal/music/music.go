@@ -65,6 +65,7 @@ var ErrSpotifyOff = errors.New("music: spotify is not set up")
 // Channels is what this package needs from channels.
 type Channels interface {
 	Access(ctx context.Context, userID, channelID id.ID, need perms.Perms) (*channels.Channel, perms.Perms, error)
+	Readable(ctx context.Context, userID id.ID) ([]id.ID, error)
 }
 
 // Voice is what this package needs from voice: who is in which channel.
@@ -78,6 +79,7 @@ type Blobs interface {
 	StoreImageBlob(ctx context.Context, tx pgx.Tx, data []byte) (sum, contentType string, err error)
 	OpenBlob(sum string) (io.ReadSeekCloser, error)
 	ServeBlob(w http.ResponseWriter, r *http.Request, sum, contentType string, immutable bool)
+	ServePrivateBlob(w http.ResponseWriter, r *http.Request, sum, contentType string)
 	RemoveBlobs(ctx context.Context, sums []string) error
 }
 
@@ -88,18 +90,19 @@ type MusicTrack struct {
 	Artist      string `json:"artist,omitempty"`
 	URL         string `json:"url,omitempty" doc:"The page it came from; absent for uploads and for Spotify tracks not yet found"`
 	Duration    int    `json:"duration" doc:"Seconds; 0 when unknown"`
-	Source      string `json:"source" enum:"link,upload"`
+	Source      string `json:"source" enum:"link,upload,file"`
 	Site        string `json:"site,omitempty" doc:"A link's site: youtube, soundcloud, bandcamp, vimeo or spotify"`
 	Cover       string `json:"cover,omitempty" doc:"The cover image's path, when there is one"`
 	RequestedBy id.ID  `json:"requested_by"`
 
-	blob      string // uploads: the stored file
-	opus      bool   // the blob is Ogg Opus already
-	libraryID id.ID  // uploads: the library track
-	search    string // played by searching YouTube for this when it comes up (Spotify)
-	thumb     string // a link's thumbnail on its site, for saving it to a playlist
-	coverSum  string
-	live      bool
+	blob         string // uploads: the stored file
+	opus         bool   // the blob is Ogg Opus already
+	libraryID    id.ID  // uploads: the library track
+	attachmentID id.ID  // channel files: the attachment
+	search       string // played by searching YouTube for this when it comes up (Spotify)
+	thumb        string // a link's thumbnail on its site, for saving it to a playlist
+	coverSum     string
+	live         bool
 }
 
 // State is a channel's music: what plays, whether it is paused, what comes next.

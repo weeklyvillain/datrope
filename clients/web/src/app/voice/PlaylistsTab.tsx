@@ -2,7 +2,7 @@ import { Perm, hasPerm, type MusicPlaylist, type PlaylistDetail, type PlaylistIt
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowLeft, GripVertical, ListMusic, MoreHorizontal, Play, Plus, Shuffle } from "lucide-react";
+import { ArrowLeft, GripVertical, ListMusic, MoreHorizontal, Music, Play, Plus, Shuffle } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
@@ -12,13 +12,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useSubmit } from "@/hooks/use-submit";
-import { addedSummary, linkKind, totalLength } from "@/lib/music";
+import { addedSummary, fileChannelLabel, hiddenNote, linkKind, totalLength, trackCount } from "@/lib/music";
 import { cn } from "@/lib/utils";
 import { client, useApp, usePerms } from "../../session";
 import { ConfirmAction, Cover, SiteIcon } from "./MusicBits";
 import { LibraryDialog, Who, clock } from "./MusicPanel";
-
-const count = (n: number) => `${n} ${n === 1 ? "track" : "tracks"}`;
 
 /** May I change this playlist: I made it, or I manage expressions. */
 function useCanEdit(pl?: MusicPlaylist) {
@@ -73,12 +71,12 @@ function usePlay(channelId: string, playlist: MusicPlaylist, queueLength: number
   const [confirmReplace, setConfirmReplace] = useState(false);
   const play = (opts: { shuffle?: boolean; replace?: boolean }) => void run(async () => {
     const r = await client.queueMusic(channelId, { playlist_id: playlist.id, ...opts });
-    setNotice(addedSummary("Queued", { count: r.tracks?.length ?? 0, skipped: r.skipped, dropped: r.dropped }));
+    setNotice(addedSummary("Queued", { count: r.tracks?.length ?? 0, skipped: r.skipped, dropped: r.dropped, unreadable: r.skipped_unreadable }));
   });
   const replace = () => (queueLength > 0 ? setConfirmReplace(true) : play({ replace: true }));
   const confirm = (
     <ConfirmAction open={confirmReplace} onOpenChange={setConfirmReplace} title="Replace the queue?" action="Replace queue"
-      description={`The ${count(queueLength)} waiting to play are removed and “${playlist.title}” takes their place. The current song keeps playing.`}
+      description={`The ${trackCount(queueLength)} waiting to play are removed and “${playlist.title}” takes their place. The current song keeps playing.`}
       onConfirm={() => play({ replace: true })} />
   );
   return { busy, error, notice, play, replace, confirm };
@@ -104,7 +102,7 @@ function PlaylistRow({ playlist, channelId, here, queueLength, onOpen }: {
           <Cover src={playlist.cover} />
           <span className="grid min-w-0">
             <span className="truncate text-sm font-medium">{playlist.title}</span>
-            <span className="truncate text-xs text-muted-foreground">{count(playlist.count)}{playlist.duration ? ` · ${totalLength(playlist.duration)}` : ""}</span>
+            <span className="truncate text-xs text-muted-foreground">{trackCount(playlist.count)}{playlist.duration ? ` · ${totalLength(playlist.duration)}` : ""}</span>
           </span>
         </button>
         <Button size="icon-sm" aria-label={`Play ${playlist.title}`} disabled={!canPlay} onClick={() => play({})}><Play /></Button>
@@ -148,6 +146,7 @@ function PlaylistView({ playlist, channelId, here, queueLength, onBack }: {
   const [items, setItems] = useState<PlaylistItem[]>([]);
   const canEdit = useCanEdit(playlist);
   const youtube = useApp((s) => !!s.music[channelId]?.youtube);
+  const channels = useApp((s) => s.channels);
   const { error, run } = useSubmit();
   const { busy, error: playError, notice, play, replace, confirm } = usePlay(channelId, playlist, queueLength);
   const reload = () => run(async () => {
@@ -192,7 +191,7 @@ function PlaylistView({ playlist, channelId, here, queueLength, onBack }: {
         <span className="grid min-w-0 flex-1">
           <h3 className="truncate text-sm normal-case tracking-normal text-foreground">{playlist.title}</h3>
           <span className="truncate text-xs text-muted-foreground">
-            {count(playlist.count)}{playlist.duration ? ` · ${totalLength(playlist.duration)}` : ""}
+            {trackCount(playlist.count)}{playlist.duration ? ` · ${totalLength(playlist.duration)}` : ""}
             {playlist.created_by && <> · by <Who userId={playlist.created_by} /></>}
           </span>
         </span>
@@ -206,13 +205,14 @@ function PlaylistView({ playlist, channelId, here, queueLength, onBack }: {
       {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
       <ErrorText error={playError} />
       {confirm}
+      {hiddenNote(detail?.hidden ?? 0) && <p className="m-0 text-xs text-muted-foreground">{hiddenNote(detail?.hidden ?? 0)}</p>}
       {canEdit && <AddToPlaylist playlistId={playlist.id} youtube={youtube} />}
       <ErrorText error={error} />
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={items.map((x) => x.id)} strategy={verticalListSortingStrategy}>
           <ol className="grid list-none gap-1" aria-label="Tracks">
             {items.map((it, i) => (
-              <SortableItem key={it.id} item={it} index={i} last={i === items.length - 1} canEdit={canEdit}
+              <SortableItem key={it.id} item={it} channelName={it.channel_id ? channels[it.channel_id]?.name : undefined} index={i} last={i === items.length - 1} canEdit={canEdit}
                 onMove={(to) => move(i, to)}
                 onRemove={() => {
                   setItems((l) => l.filter((x) => x.id !== it.id));
@@ -227,8 +227,9 @@ function PlaylistView({ playlist, channelId, here, queueLength, onBack }: {
   );
 }
 
-function SortableItem({ item, index, last, canEdit, onMove, onRemove }: {
+function SortableItem({ item, channelName, index, last, canEdit, onMove, onRemove }: {
   item: PlaylistItem;
+  channelName?: string;
   index: number;
   last: boolean;
   canEdit: boolean;
@@ -247,8 +248,8 @@ function SortableItem({ item, index, last, canEdit, onMove, onRemove }: {
       ) : <span className="w-4 flex-none text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>}
       <Cover src={item.cover} className="size-8" />
       <span className="grid min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5"><SiteIcon site={item.site} className="text-muted-foreground" /><span className="truncate text-sm">{item.title}</span></span>
-        <span className="truncate text-xs text-muted-foreground">{[item.artist, item.duration ? clock(item.duration) : ""].filter(Boolean).join(" · ")}</span>
+        <span className="flex min-w-0 items-center gap-1.5">{item.source === "file" ? <Music className="size-3.5 flex-none text-muted-foreground" aria-hidden /> : <SiteIcon site={item.site} className="text-muted-foreground" />}<span className="truncate text-sm">{item.title}</span></span>
+        <span className="truncate text-xs text-muted-foreground">{[item.source === "file" ? fileChannelLabel(channelName) : item.artist, item.duration ? clock(item.duration) : ""].filter(Boolean).join(" · ")}</span>
       </span>
       {canEdit && (
         <DropdownMenu>
@@ -309,7 +310,7 @@ function AddToPlaylist({ playlistId, youtube }: { playlistId: string; youtube: b
 }
 
 /** A new playlist: empty, or imported from a playlist link. */
-function NewPlaylistDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function NewPlaylistDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const [title, setTitle] = useState("");
   const [link, setLink] = useState("");
   const titleId = useId();

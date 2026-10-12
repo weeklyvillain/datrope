@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope — Global gallery and music player</title>
+<style>
+/* Tokens copied from clients/web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --popover: #1c1c1c;
+  --primary: #2ecc71; --primary-foreground: #131313; --secondary: #424242;
+  --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a;
+  --destructive: #e74c3c; --border: #424242; --sidebar: #0d0d0d;
+  --online: #2ecc71; --idle: #d39b14; --offline: #6b7075;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1.frame { margin: 0; padding: 14px 16px 4px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); background: var(--sidebar); }
+p.note { margin: 0; padding: 4px 16px 14px; font-size: 13px; color: var(--muted-foreground); background: var(--sidebar); max-width: 1100px; }
+p.note b { color: var(--foreground); }
+.app { display: flex; height: 700px; border-bottom: 1px solid var(--border); overflow: hidden; position: relative; }
+.side { width: 240px; flex: none; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.side .srv { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 12px; border-bottom: 1px solid var(--border); font-weight: 600; flex: none; }
+.side .tree { flex: 1; min-height: 0; padding: 8px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; }
+.chan.on { background: var(--accent); color: var(--foreground); }
+.label { padding: 14px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.profile { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 10px; border-top: 1px solid var(--border); background: var(--sidebar); flex: none; font-size: 14px; }
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+header.bar { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); background: var(--card); flex: none; }
+header.bar h2 { margin: 0; font-size: 1.05rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.grow { flex: 1; min-width: 0; }
+.muted { color: var(--muted-foreground); }
+.small { font-size: 13px; } .xs { font-size: 12px; }
+.trunc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico.fill { fill: currentColor; stroke: none; }
+.ico.s14 { width: 14px; height: 14px; } .ico.s20 { width: 20px; height: 20px; } .ico.s28 { width: 28px; height: 28px; }
+.iconbtn { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); flex: none; }
+.iconbtn.sm { width: 28px; height: 28px; }
+.iconbtn.on { color: var(--primary); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 14px; white-space: nowrap; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; }
+.input { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); font-size: 14px; }
+.input.focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent); }
+.select { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); font-size: 13px; white-space: nowrap; }
+.select.set { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.chip { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip.on { border-color: var(--foreground); background: var(--accent); color: var(--foreground); font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex: none; }
+.scroll { flex: 1; min-height: 0; overflow: hidden; padding: 16px; }
+.section { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 20px; }
+.tile { position: relative; aspect-ratio: 1 / 1; border-radius: 6px; overflow: hidden; display: block; color: var(--foreground); font-size: 12px; }
+.tile .tag { position: absolute; left: 6px; top: 6px; display: inline-flex; align-items: center; gap: 2px; height: 20px; padding: 0 7px 0 5px; border-radius: 999px; background: rgba(13, 13, 13, .85); color: var(--foreground); font-size: 11px; font-weight: 600; max-width: calc(100% - 12px); }
+.tile .badge { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 4px; background: rgba(13, 13, 13, .85); font-size: 11px; font-weight: 600; }
+.tile .by { position: absolute; left: 6px; bottom: 6px; }
+.tile.card { background: var(--card); border: 1px solid var(--border); display: flex; flex-direction: column; padding: 34px 10px 10px; }
+.tile.card .art { flex: 1; display: grid; place-items: center; }
+.tile.card .name { font-size: 13px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.tile.card .meta { font-size: 11px; color: var(--muted-foreground); margin-top: 2px; }
+.tile.card .tag { background: var(--muted); }
+.disc { width: 64px; height: 64px; border-radius: 999px; display: grid; place-items: center; color: #fff; position: relative; }
+.playfab { position: absolute; right: 8px; bottom: 8px; width: 34px; height: 34px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.tile.playing { box-shadow: 0 0 0 2px var(--primary); }
+.eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.eq i { width: 3px; background: var(--primary); border-radius: 1px; display: block; }
+.ext { width: 52px; height: 64px; border-radius: 6px; position: relative; display: grid; place-items: end center; padding-bottom: 8px; font-size: 11px; font-weight: 700; color: #fff; }
+.ext::before { content: ""; position: absolute; right: 0; top: 0; width: 14px; height: 14px; background: linear-gradient(225deg, var(--card) 50%, rgba(255,255,255,.35) 50%); border-top-right-radius: 6px; }
+.av { display: inline-grid; place-items: center; flex: none; border-radius: 999px; background: var(--muted); color: var(--foreground); font-weight: 600; background-size: cover; }
+.av.s20 { width: 20px; height: 20px; font-size: 9px; } .av.s24 { width: 24px; height: 24px; font-size: 10px; } .av.s32 { width: 32px; height: 32px; font-size: 12px; }
+.img1 { background-image: linear-gradient(135deg, #e67e22, #8e44ad); }
+.img2 { background-image: linear-gradient(135deg, #16a085, #2c3e50); }
+.img3 { background-image: linear-gradient(135deg, #f1c40f, #e74c3c); }
+.img4 { background-image: linear-gradient(160deg, #2980b9, #1abc9c); }
+.img5 { background-image: linear-gradient(200deg, #34495e, #95a5a6); }
+.img6 { background-image: linear-gradient(120deg, #c0392b, #2c3e50); }
+.m1 { background: linear-gradient(135deg, #8e44ad, #3498db); } .m2 { background: linear-gradient(135deg, #e67e22, #c0392b); }
+.m3 { background: linear-gradient(135deg, #16a085, #27ae60); } .m4 { background: linear-gradient(135deg, #2c3e50, #e84393); }
+.pdf { background: #c0392b; } .zip { background: #7f6a2e; } .txt { background: #4b5a6e; } .doc { background: #2a5d9f; } .oth { background: #555; }
+.c1 { background: #34495e; } .c2 { background: #5b3a6e; } .c3 { background: #2d5a46; }
+.panel { width: 380px; flex: none; background: var(--card); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.panel > header { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--border); flex: none; }
+.panel > header h3 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; }
+.pop { position: absolute; border-radius: 8px; background: var(--popover); border: 1px solid var(--border); box-shadow: 0 12px 32px rgba(0,0,0,.5); z-index: 5; overflow: hidden; }
+.opt { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 14px; border-radius: 4px; margin: 0 4px; }
+.opt.hl { background: var(--accent); }
+.cb { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border); display: grid; place-items: center; flex: none; }
+.cb.on { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.player { flex: none; border-top: 1px solid var(--border); padding: 10px 10px 8px; background: var(--card); }
+.player .row { display: flex; align-items: center; gap: 8px; }
+.cover { width: 40px; height: 40px; border-radius: 6px; display: grid; place-items: center; color: #fff; flex: none; }
+.bar { height: 4px; border-radius: 999px; background: var(--secondary); position: relative; }
+.bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--primary); }
+.bar > b { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 999px; background: var(--foreground); }
+.ctrl { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.bigplay { width: 34px; height: 34px; border-radius: 999px; border: 0; background: var(--foreground); color: var(--background); display: grid; place-items: center; }
+table.tracks { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.tracks th { text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+table.tracks td { padding: 7px 8px; vertical-align: middle; }
+table.tracks tr.cur td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+table.tracks tr.cur td:first-child { box-shadow: inset 2px 0 var(--primary); }
+table.tracks tr.hov td { background: var(--accent); }
+.ctag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; background: var(--muted); font-size: 12px; color: var(--muted-foreground); }
+.variant { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px; background: var(--muted); color: var(--foreground); font-size: 11px; letter-spacing: 0; }
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+dl.facts dt { color: var(--muted-foreground); } dl.facts dd { margin: 0; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-hash" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+  <symbol id="i-images" viewBox="0 0 24 24"><path d="M18 22H4a2 2 0 0 1-2-2V6"/><path d="m22 13-1.3-1.3a2.4 2.4 0 0 0-3.4 0L11 18"/><circle cx="12" cy="8" r="2"/><rect width="16" height="16" x="6" y="2" rx="2"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 4.5v15a1 1 0 0 0 1.5.86L17 13.7V19a1 1 0 0 0 2 0V5a1 1 0 0 0-2 0v5.3L6.5 3.64A1 1 0 0 0 5 4.5Z"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M19 4.5v15a1 1 0 0 1-1.5.86L7 13.7V19a1 1 0 0 1-2 0V5a1 1 0 0 1 2 0v5.3l10.5-6.66A1 1 0 0 1 19 4.5Z"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24"><path d="M21 15V6"/><circle cx="18.5" cy="15.5" r="2.5"/><path d="M12 12H3M16 6H3M12 18H3"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13"/></symbol>
+</svg>
+
+<!-- ============================================================ 1 -->
+<h1 class="frame">1 · Global gallery — All</h1>
+<p class="note">New <b>Gallery</b> link at the top of the channel sidebar opens <code>/gallery</code>: every file from every channel you can read (no DMs), newest first, in date sections. Each tile carries a <b>#channel tag</b> (top-left). Kind chips now include Music, Documents, Archives and Other. Music, docs and other files get <b>card tiles</b> (title, size/duration). A track is playing, so the <b>mini-player is docked above the profile strip</b> and keeps playing while you browse channels; the playing tile gets a green ring.</p>
+<div class="app">
+  <nav class="side">
+    <div class="srv"><span class="av s24 img2"></span>The Basement</div>
+    <div class="tree">
+      <a class="chan on"><svg class="ico"><use href="#i-images"/></svg>Gallery</a>
+      <div class="label">Text channels</div>
+      <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>general</a>
+      <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>games</a>
+      <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>music</a>
+      <a class="chan"><svg class="ico"><use href="#i-images"/></svg>photos</a>
+      <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>dev</a>
+    </div>
+    <div class="player" aria-label="Music player">
+      <div class="row">
+        <span class="cover m1"><svg class="ico s20"><use href="#i-music"/></svg></span>
+        <div class="grow"><div class="small trunc" style="font-weight:600">late-night-loop-v3.mp3</div><div class="xs muted trunc">#music · Alice</div></div>
+        <button class="iconbtn sm" aria-label="Queue"><svg class="ico"><use href="#i-queue"/></svg></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px" class="xs muted"><span>1:12</span><div class="bar grow"><i style="width:38%"></i></div><span>3:08</span></div>
+      <div class="ctrl">
+        <button class="iconbtn sm on" aria-label="Shuffle"><svg class="ico s14"><use href="#i-shuffle"/></svg></button>
+        <button class="iconbtn sm" aria-label="Previous"><svg class="ico fill"><use href="#i-prev"/></svg></button>
+        <button class="bigplay" aria-label="Pause"><svg class="ico fill"><use href="#i-pause"/></svg></button>
+        <button class="iconbtn sm" aria-label="Next"><svg class="ico fill"><use href="#i-next"/></svg></button>
+        <button class="iconbtn sm" aria-label="Repeat"><svg class="ico s14"><use href="#i-repeat"/></svg></button>
+      </div>
+    </div>
+    <div class="profile"><span class="av s32 img1"></span><span class="grow">alice</span></div>
+  </nav>
+  <main>
+    <header class="bar"><h2><svg class="ico"><use href="#i-images"/></svg>Gallery</h2><span class="muted small">Files from every channel</span><span class="grow"></span></header>
+    <div class="filters">
+      <label class="input" style="width:240px"><svg class="ico muted"><use href="#i-search"/></svg><span class="muted grow">Search files</span></label>
+      <div role="group" aria-label="Show" style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="chip on">All</button><button class="chip">Photos</button><button class="chip">Videos</button><button class="chip">Music</button><button class="chip">Documents</button><button class="chip">Archives</button><button class="chip">Other</button>
+      </div>
+      <span class="grow"></span>
+      <span class="select">In channel: All<svg class="ico s14 muted"><use href="#i-down"/></svg></span>
+      <span class="select">Uploaded by: Anyone<svg class="ico s14 muted"><use href="#i-down"/></svg></span>
+      <span class="xs muted">50+ items</span>
+    </div>
+    <div class="scroll">
+      <p class="section">This week</p>
+      <div class="grid">
+        <a class="tile img1"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>photos</span><span class="by av s20 c2">BO</span></a>
+        <a class="tile card playing"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>music</span>
+          <div class="art"><span class="disc m1"><svg class="ico s28"><use href="#i-music"/></svg></span></div>
+          <div class="name">late-night-loop-v3.mp3</div><div class="meta" style="display:flex;align-items:center;gap:6px"><span class="eq"><i style="height:6px"></i><i style="height:12px"></i><i style="height:8px"></i></span>Playing · 3:08</div></a>
+        <a class="tile img4"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>general</span><span class="by av s20 img3"></span><span class="badge"><svg class="ico s14 fill"><use href="#i-play"/></svg>0:42</span></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>dev</span>
+          <div class="art"><span class="ext pdf">PDF</span></div>
+          <div class="name">architecture-notes-v2.pdf</div><div class="meta">1.4 MB · Dan</div></a>
+        <a class="tile img3"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>games</span><span class="by av s20 img1"></span></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>general</span>
+          <div class="art"><span class="disc m2"><svg class="ico s28"><use href="#i-music"/></svg></span></div>
+          <div class="name">voice memo - riff idea.m4a</div><div class="meta">0:58 · Bob</div>
+          <span class="playfab"><svg class="ico fill"><use href="#i-play"/></svg></span></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>games</span>
+          <div class="art"><span class="ext zip">ZIP</span></div>
+          <div class="name">wingspan-house-rules.zip</div><div class="meta">12.8 MB · Alice</div></a>
+      </div>
+      <p class="section">September</p>
+      <div class="grid">
+        <a class="tile img5"><span class="tag"><svg class="ico s14"><use href="#i-images"/></svg>photos</span><span class="by av s20 c3">DA</span></a>
+        <a class="tile img6"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>general</span><span class="by av s20 c2">BO</span></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>dev</span>
+          <div class="art"><span class="ext txt">TXT</span></div>
+          <div class="name">server.log</div><div class="meta">88 KB · Dan</div></a>
+        <a class="tile img2"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>games</span><span class="by av s20 img1"></span></a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 2a -->
+<h1 class="frame">2a · Music filter — tiles <span class="variant">Option A</span></h1>
+<p class="note">Same grid, filtered to audio. A toolbar appears above it: <b>Play all</b> queues every track in the current filter (newest first), <b>Shuffle</b> does the same shuffled. Hovering a track shows a play button; clicking the tile body opens details. Album-style "disc" colour is derived from the file hash, so the same track always looks the same.</p>
+<div class="app" style="height:460px">
+  <main>
+    <header class="bar"><h2><svg class="ico"><use href="#i-images"/></svg>Gallery</h2><span class="grow"></span></header>
+    <div class="filters">
+      <label class="input" style="width:240px"><svg class="ico muted"><use href="#i-search"/></svg><span class="muted grow">Search files</span></label>
+      <div style="display:flex;gap:6px"><button class="chip">All</button><button class="chip">Photos</button><button class="chip">Videos</button><button class="chip on">Music</button><button class="chip">Documents</button><button class="chip">Archives</button><button class="chip">Other</button></div>
+      <span class="grow"></span><span class="xs muted">14 tracks</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px 0">
+      <button class="btn primary sm"><svg class="ico fill s14"><use href="#i-play"/></svg>Play all</button>
+      <button class="btn sm"><svg class="ico s14"><use href="#i-shuffle"/></svg>Shuffle</button>
+      <span class="grow"></span>
+      <div style="display:inline-flex;border:1px solid var(--border);border-radius:6px"><button class="iconbtn sm" style="color:var(--foreground);background:var(--accent)" aria-label="Grid"><svg class="ico"><use href="#i-grid"/></svg></button><button class="iconbtn sm" aria-label="List"><svg class="ico"><use href="#i-list"/></svg></button></div>
+    </div>
+    <div class="scroll">
+      <div class="grid">
+        <a class="tile card playing"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>music</span><div class="art"><span class="disc m1"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">late-night-loop-v3.mp3</div><div class="meta" style="display:flex;align-items:center;gap:6px"><span class="eq"><i style="height:6px"></i><i style="height:12px"></i><i style="height:8px"></i></span>Playing · 3:08</div></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>general</span><div class="art"><span class="disc m2"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">voice memo - riff idea.m4a</div><div class="meta">0:58 · Bob</div><span class="playfab"><svg class="ico fill"><use href="#i-play"/></svg></span></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>music</span><div class="art"><span class="disc m3"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">Basement Sessions 04 - Jam.flac</div><div class="meta">7:41 · Dan</div></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>music</span><div class="art"><span class="disc m4"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">synthwave_draft.ogg</div><div class="meta">2:30 · Alice</div></a>
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>games</span><div class="art"><span class="disc m2"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">victory-fanfare.wav</div><div class="meta">0:07 · Bob</div></a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 2b -->
+<h1 class="frame">2b · Music filter — track list <span class="variant">Option B</span></h1>
+<p class="note">Alternative for Music only: a <b>Grid / List toggle</b> (remembered per browser). The list reads like a playlist — dense, sortable by date, shows channel, uploader and duration in columns. Double-click or the row's play button plays from that track onward; "+" adds to the queue. Could ship both (A as default, B via toggle) or pick one.</p>
+<div class="app" style="height:400px">
+  <main>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px 8px">
+      <button class="btn primary sm"><svg class="ico fill s14"><use href="#i-play"/></svg>Play all</button>
+      <button class="btn sm"><svg class="ico s14"><use href="#i-shuffle"/></svg>Shuffle</button>
+      <span class="grow"></span>
+      <div style="display:inline-flex;border:1px solid var(--border);border-radius:6px"><button class="iconbtn sm" aria-label="Grid"><svg class="ico"><use href="#i-grid"/></svg></button><button class="iconbtn sm" style="color:var(--foreground);background:var(--accent)" aria-label="List"><svg class="ico"><use href="#i-list"/></svg></button></div>
+    </div>
+    <div style="padding:0 16px">
+      <table class="tracks">
+        <thead><tr><th style="width:40px">#</th><th>Title</th><th>Channel</th><th>Uploaded by</th><th>Added</th><th style="text-align:right">Length</th><th style="width:40px"></th></tr></thead>
+        <tbody>
+          <tr class="cur"><td><span class="eq"><i style="height:6px"></i><i style="height:12px"></i><i style="height:8px"></i></span></td><td style="display:flex;align-items:center;gap:10px"><span class="cover m1" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span><span style="color:var(--primary);font-weight:600">late-night-loop-v3.mp3</span></td><td><span class="ctag"># music</span></td><td>Alice</td><td class="muted">Today</td><td class="muted" style="text-align:right">3:08</td><td></td></tr>
+          <tr class="hov"><td><svg class="ico fill"><use href="#i-play"/></svg></td><td style="display:flex;align-items:center;gap:10px"><span class="cover m2" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>voice memo - riff idea.m4a</td><td><span class="ctag"># general</span></td><td>Bob</td><td class="muted">Mon</td><td class="muted" style="text-align:right">0:58</td><td><button class="iconbtn sm" aria-label="Add to queue"><svg class="ico"><use href="#i-plus"/></svg></button></td></tr>
+          <tr><td class="muted">3</td><td style="display:flex;align-items:center;gap:10px"><span class="cover m3" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>Basement Sessions 04 - Jam.flac</td><td><span class="ctag"># music</span></td><td>Dan</td><td class="muted">3 Oct</td><td class="muted" style="text-align:right">7:41</td><td></td></tr>
+          <tr><td class="muted">4</td><td style="display:flex;align-items:center;gap:10px"><span class="cover m4" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>synthwave_draft.ogg</td><td><span class="ctag"># music</span></td><td>Alice</td><td class="muted">28 Sep</td><td class="muted" style="text-align:right">2:30</td><td></td></tr>
+          <tr><td class="muted">5</td><td style="display:flex;align-items:center;gap:10px"><span class="cover m2" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>victory-fanfare.wav</td><td><span class="ctag"># games</span></td><td>Bob</td><td class="muted">12 Sep</td><td class="muted" style="text-align:right">0:07</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 3 -->
+<h1 class="frame">3 · Search + channel filter</h1>
+<p class="note">Typing searches <b>file names and captions</b> (server-side, debounced). <b>In channel</b> is a searchable multi-select (shadcn Popover + Command); with channels picked the trigger turns green and reads "2 channels". Filters live in the URL, so a filtered gallery can be linked. Count says "N+ items" while more pages exist.</p>
+<div class="app" style="height:480px">
+  <main>
+    <header class="bar"><h2><svg class="ico"><use href="#i-images"/></svg>Gallery</h2><span class="grow"></span></header>
+    <div class="filters" style="position:relative">
+      <label class="input focus" style="width:240px"><svg class="ico muted"><use href="#i-search"/></svg><span class="grow">notes</span><svg class="ico s14 muted"><use href="#i-x"/></svg></label>
+      <div style="display:flex;gap:6px"><button class="chip on">All</button><button class="chip">Photos</button><button class="chip">Videos</button><button class="chip">Music</button><button class="chip">Documents</button><button class="chip">Archives</button><button class="chip">Other</button></div>
+      <span class="grow"></span>
+      <span class="select set">In channel: 2 channels<svg class="ico s14"><use href="#i-down"/></svg></span>
+      <span class="select">Uploaded by: Anyone<svg class="ico s14 muted"><use href="#i-down"/></svg></span>
+      <span class="xs muted">3 items</span>
+      <div class="pop" style="right:150px;top:52px;width:240px;padding:4px 0 6px" role="listbox" aria-label="In channel">
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><svg class="ico s14 muted"><use href="#i-search"/></svg><span class="small muted">Find a channel</span></div>
+        <div class="opt"><span class="cb on"><svg class="ico s14"><use href="#i-check"/></svg></span><svg class="ico s14 muted"><use href="#i-hash"/></svg>dev</div>
+        <div class="opt hl"><span class="cb on"><svg class="ico s14"><use href="#i-check"/></svg></span><svg class="ico s14 muted"><use href="#i-hash"/></svg>general</div>
+        <div class="opt"><span class="cb"></span><svg class="ico s14 muted"><use href="#i-hash"/></svg>games</div>
+        <div class="opt"><span class="cb"></span><svg class="ico s14 muted"><use href="#i-hash"/></svg>music</div>
+        <div class="opt"><span class="cb"></span><svg class="ico s14 muted"><use href="#i-images"/></svg>photos</div>
+        <div style="border-top:1px solid var(--border);margin-top:4px;padding:6px 10px 0" class="small muted">Clear selection</div>
+      </div>
+    </div>
+    <div class="scroll">
+      <p class="section">This week</p>
+      <div class="grid">
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>dev</span><div class="art"><span class="ext pdf">PDF</span></div><div class="name">architecture-<mark style="background:color-mix(in srgb,var(--idle) 35%,transparent);color:inherit">notes</mark>-v2.pdf</div><div class="meta">1.4 MB · Dan</div></a>
+        <a class="tile img4"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>general</span><span class="by av s20 img3"></span><span class="badge"><svg class="ico s14 fill"><use href="#i-play"/></svg>0:42</span></a>
+      </div>
+      <p class="section">August</p>
+      <div class="grid">
+        <a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>dev</span><div class="art"><span class="ext doc">DOCX</span></div><div class="name">meeting <mark style="background:color-mix(in srgb,var(--idle) 35%,transparent);color:inherit">notes</mark> 2026-08-14.docx</div><div class="meta">24 KB · Alice</div></a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 4 -->
+<h1 class="frame">4 · Track details + queue</h1>
+<p class="note">Clicking a track opens the existing details side panel (now "Track details"), with the waveform player, <b>Play</b> / <b>Add to queue</b>, a link to the original message in its channel, file facts and comments (thread) as today. The queue button in the mini-player opens a popover: now playing, up next (reorderable by drag, removable), Clear queue.</p>
+<div class="app" style="height:600px">
+  <nav class="side">
+    <div class="srv"><span class="av s24 img2"></span>The Basement</div>
+    <div class="tree">
+      <a class="chan on"><svg class="ico"><use href="#i-images"/></svg>Gallery</a>
+      <div class="label">Text channels</div>
+      <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>general</a>
+      <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>music</a>
+    </div>
+    <div class="player">
+      <div class="row">
+        <span class="cover m1"><svg class="ico s20"><use href="#i-music"/></svg></span>
+        <div class="grow"><div class="small trunc" style="font-weight:600">late-night-loop-v3.mp3</div><div class="xs muted trunc">#music · Alice</div></div>
+        <button class="iconbtn sm on" aria-label="Queue" style="background:var(--accent)"><svg class="ico"><use href="#i-queue"/></svg></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin:8px 0 4px" class="xs muted"><span>1:12</span><div class="bar grow"><i style="width:38%"></i></div><span>3:08</span></div>
+      <div class="ctrl"><button class="iconbtn sm on"><svg class="ico s14"><use href="#i-shuffle"/></svg></button><button class="iconbtn sm"><svg class="ico fill"><use href="#i-prev"/></svg></button><button class="bigplay"><svg class="ico fill"><use href="#i-pause"/></svg></button><button class="iconbtn sm"><svg class="ico fill"><use href="#i-next"/></svg></button><button class="iconbtn sm"><svg class="ico s14"><use href="#i-repeat"/></svg></button></div>
+    </div>
+    <div class="profile"><span class="av s32 img1"></span><span class="grow">alice</span></div>
+  </nav>
+  <div class="pop" style="left:248px;bottom:60px;width:300px" role="dialog" aria-label="Queue">
+    <div style="display:flex;align-items:center;padding:10px 12px 6px"><span class="small" style="font-weight:600;flex:1">Queue</span><span class="xs muted">Clear queue</span></div>
+    <p class="section" style="margin:4px 12px">Now playing</p>
+    <div class="opt hl"><span class="cover m1" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc" style="color:var(--primary);font-weight:600">late-night-loop-v3.mp3</div><div class="xs muted">#music · 3:08</div></div></div>
+    <p class="section" style="margin:10px 12px 4px">Up next · 4</p>
+    <div class="opt"><span class="cover m3" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc">Basement Sessions 04 - Jam.flac</div><div class="xs muted">#music · 7:41</div></div><svg class="ico s14 muted"><use href="#i-x"/></svg></div>
+    <div class="opt"><span class="cover m4" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc">synthwave_draft.ogg</div><div class="xs muted">#music · 2:30</div></div><svg class="ico s14 muted"><use href="#i-x"/></svg></div>
+    <div class="opt"><span class="cover m2" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc">voice memo - riff idea.m4a</div><div class="xs muted">#general · 0:58</div></div><svg class="ico s14 muted"><use href="#i-x"/></svg></div>
+    <div class="opt" style="margin-bottom:6px"><span class="cover m2" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc">victory-fanfare.wav</div><div class="xs muted">#games · 0:07</div></div><svg class="ico s14 muted"><use href="#i-x"/></svg></div>
+  </div>
+  <main style="background:var(--background)"></main>
+  <aside class="panel" aria-label="Track details">
+    <header><h3>Track details</h3><button class="iconbtn sm" aria-label="Previous item">‹</button><span class="xs muted">2 of 14</span><button class="iconbtn sm" aria-label="Next item">›</button><button class="iconbtn sm" aria-label="Close"><svg class="ico"><use href="#i-x"/></svg></button></header>
+    <div style="padding:16px;display:grid;gap:14px;overflow:hidden">
+      <div style="display:grid;place-items:center;padding:18px;border-radius:8px;background:var(--background)"><span class="disc m2" style="width:96px;height:96px"><svg class="ico" style="width:40px;height:40px"><use href="#i-music"/></svg></span></div>
+      <div><div style="font-weight:600">voice memo - riff idea.m4a</div><div class="xs muted">Bob · Mon at 22:10 · <a style="color:var(--primary)">in #general</a></div></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px">
+        <button class="bigplay" style="width:30px;height:30px"><svg class="ico fill s14"><use href="#i-play"/></svg></button>
+        <svg viewBox="0 0 200 24" style="flex:1;height:24px" aria-hidden="true">
+          <g fill="var(--muted-foreground)">
+            <rect x="0" y="9" width="3" height="6" rx="1"/><rect x="6" y="6" width="3" height="12" rx="1"/><rect x="12" y="3" width="3" height="18" rx="1"/><rect x="18" y="7" width="3" height="10" rx="1"/><rect x="24" y="2" width="3" height="20" rx="1"/><rect x="30" y="8" width="3" height="8" rx="1"/><rect x="36" y="5" width="3" height="14" rx="1"/><rect x="42" y="9" width="3" height="6" rx="1"/><rect x="48" y="4" width="3" height="16" rx="1"/><rect x="54" y="7" width="3" height="10" rx="1"/><rect x="60" y="3" width="3" height="18" rx="1"/><rect x="66" y="8" width="3" height="8" rx="1"/><rect x="72" y="6" width="3" height="12" rx="1"/><rect x="78" y="9" width="3" height="6" rx="1"/><rect x="84" y="2" width="3" height="20" rx="1"/><rect x="90" y="5" width="3" height="14" rx="1"/><rect x="96" y="8" width="3" height="8" rx="1"/><rect x="102" y="4" width="3" height="16" rx="1"/><rect x="108" y="7" width="3" height="10" rx="1"/><rect x="114" y="9" width="3" height="6" rx="1"/><rect x="120" y="3" width="3" height="18" rx="1"/><rect x="126" y="6" width="3" height="12" rx="1"/><rect x="132" y="8" width="3" height="8" rx="1"/><rect x="138" y="5" width="3" height="14" rx="1"/><rect x="144" y="9" width="3" height="6" rx="1"/><rect x="150" y="4" width="3" height="16" rx="1"/><rect x="156" y="7" width="3" height="10" rx="1"/><rect x="162" y="3" width="3" height="18" rx="1"/><rect x="168" y="8" width="3" height="8" rx="1"/><rect x="174" y="6" width="3" height="12" rx="1"/><rect x="180" y="9" width="3" height="6" rx="1"/><rect x="186" y="5" width="3" height="14" rx="1"/><rect x="192" y="8" width="3" height="8" rx="1"/>
+          </g>
+        </svg>
+        <span class="xs muted">0:58</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary sm"><svg class="ico fill s14"><use href="#i-play"/></svg>Play</button><button class="btn sm"><svg class="ico s14"><use href="#i-plus"/></svg>Add to queue</button><button class="btn sm"><svg class="ico s14"><use href="#i-download"/></svg>Download</button></div>
+      <dl class="facts"><dt>File</dt><dd>voice memo - riff idea.m4a</dd><dt>Size</dt><dd>912 KB</dd><dt>Type</dt><dd>audio/mp4</dd></dl>
+      <div style="border-top:1px solid var(--border);padding-top:12px"><p class="section" style="display:flex;align-items:center;gap:6px"><svg class="ico s14"><use href="#i-msg"/></svg>Comments · 2</p>
+        <div style="display:flex;gap:8px;margin-top:8px"><span class="av s24 img1"></span><div class="small"><b>Alice</b> <span class="xs muted">22:31</span><br>this could be the intro for the jam</div></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============================================================ 5 -->
+<h1 class="frame">5 · Per-channel gallery (#photos) — any file type</h1>
+<p class="note">A gallery channel keeps its own view, now powered by the same endpoint with the channel pinned. Same kind chips and search, <b>no channel tags</b> and no "In channel" filter. Upload now takes any file ("Upload files"). Mini-player bar shown here as the <b>alternative placement: a full-width bar under the content</b> instead of the sidebar dock in frame 1 — pick one.</p>
+<div class="app" style="height:560px;flex-direction:column">
+  <div style="display:flex;flex:1;min-height:0">
+    <nav class="side">
+      <div class="srv"><span class="av s24 img2"></span>The Basement</div>
+      <div class="tree">
+        <a class="chan"><svg class="ico"><use href="#i-images"/></svg>Gallery</a>
+        <div class="label">Text channels</div>
+        <a class="chan"><svg class="ico"><use href="#i-hash"/></svg>general</a>
+        <a class="chan on"><svg class="ico"><use href="#i-images"/></svg>photos</a>
+      </div>
+      <div class="profile"><span class="av s32 img1"></span><span class="grow">alice</span></div>
+    </nav>
+    <main>
+      <header class="bar"><h2><svg class="ico"><use href="#i-images"/></svg>photos</h2><span class="muted small">Board nights and trips</span><span class="grow"></span><button class="btn primary sm"><svg class="ico s14"><use href="#i-upload"/></svg>Upload files</button></header>
+      <div class="filters">
+        <label class="input" style="width:220px"><svg class="ico muted"><use href="#i-search"/></svg><span class="muted grow">Search files</span></label>
+        <div style="display:flex;gap:6px"><button class="chip on">All</button><button class="chip">Photos</button><button class="chip">Videos</button><button class="chip">Music</button><button class="chip">Documents</button><button class="chip">Archives</button><button class="chip">Other</button></div>
+        <span class="grow"></span>
+        <span class="select">Uploaded by: Anyone<svg class="ico s14 muted"><use href="#i-down"/></svg></span>
+        <span class="xs muted">23 items</span>
+      </div>
+      <div class="scroll">
+        <p class="section">This week</p>
+        <div class="grid">
+          <a class="tile img1"><span class="by av s20 c2">BO</span></a>
+          <a class="tile img5"><span class="by av s20 c3">DA</span></a>
+          <a class="tile card" style="padding-top:14px"><div class="art"><span class="ext pdf">PDF</span></div><div class="name">trip-itinerary.pdf</div><div class="meta">220 KB · Alice</div></a>
+          <a class="tile img2"><span class="by av s20 img1"></span><span class="badge"><svg class="ico s14 fill"><use href="#i-play"/></svg>1:15</span></a>
+          <a class="tile card" style="padding-top:14px"><div class="art"><span class="disc m3"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">campfire-singalong.mp3</div><div class="meta">4:02 · Bob</div></a>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;height:64px;padding:0 16px;border-top:1px solid var(--border);background:var(--card);flex:none" aria-label="Music player">
+    <div style="display:flex;align-items:center;gap:10px;width:260px"><span class="cover m1"><svg class="ico s20"><use href="#i-music"/></svg></span><div style="min-width:0"><div class="small trunc" style="font-weight:600">late-night-loop-v3.mp3</div><div class="xs muted">#music · Alice</div></div></div>
+    <div style="flex:1;display:grid;gap:4px;justify-items:center;max-width:560px;margin:0 auto">
+      <div class="ctrl"><button class="iconbtn sm on"><svg class="ico s14"><use href="#i-shuffle"/></svg></button><button class="iconbtn sm"><svg class="ico fill"><use href="#i-prev"/></svg></button><button class="bigplay" style="width:30px;height:30px"><svg class="ico fill s14"><use href="#i-pause"/></svg></button><button class="iconbtn sm"><svg class="ico fill"><use href="#i-next"/></svg></button><button class="iconbtn sm"><svg class="ico s14"><use href="#i-repeat"/></svg></button></div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%" class="xs muted"><span>1:12</span><div class="bar grow"><i style="width:38%"></i></div><span>3:08</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;width:260px;justify-content:flex-end"><button class="iconbtn sm"><svg class="ico"><use href="#i-queue"/></svg></button><svg class="ico muted"><use href="#i-vol"/></svg><div class="bar" style="width:90px"><i style="width:70%"></i></div><button class="iconbtn sm" aria-label="Close player"><svg class="ico"><use href="#i-x"/></svg></button></div>
+  </div>
+</div>
+
+<!-- ============================================================ 6 -->
+<h1 class="frame">6 · Empty and no-results states</h1>
+<p class="note">Nothing shared yet vs. filters that match nothing (offers Clear filters). A file you lose access to simply disappears from results; a queued track whose channel you can no longer read is skipped.</p>
+<div class="app" style="height:260px">
+  <main style="display:grid;place-items:center;border-right:1px solid var(--border)"><div style="text-align:center;max-width:280px"><svg class="ico muted" style="width:40px;height:40px"><use href="#i-images"/></svg><p style="margin:8px 0 4px;font-weight:600">No files yet</p><p class="small muted" style="margin:0">Photos, music and files shared in any channel you can read will show up here.</p></div></main>
+  <main style="display:grid;place-items:center"><div style="text-align:center;max-width:300px"><svg class="ico muted" style="width:40px;height:40px"><use href="#i-search"/></svg><p style="margin:8px 0 4px;font-weight:600">No matches</p><p class="small muted" style="margin:0 0 12px">Nothing matches "wingspam" in Music.</p><button class="btn sm">Clear filters</button></div></main>
+</div>
+
+<!-- ============================================================ 7 -->
+<h1 class="frame">7 · Music → Playlists</h1>
+<p class="note">The Music filter gets a <b>Tracks / Playlists</b> switch. Playlists are the <b>same server playlists the music bot uses</b> (one list, shared). "Mine" narrows to the ones you created. Each card: play on hover, track count, length, creator. <b>New playlist</b> here creates the same kind of playlist as the voice panel's.</p>
+<div class="app" style="height:440px">
+  <main>
+    <header class="bar"><h2><svg class="ico"><use href="#i-images"/></svg>Gallery</h2><span class="grow"></span></header>
+    <div class="filters">
+      <div style="display:flex;gap:6px"><button class="chip">All</button><button class="chip">Photos</button><button class="chip">Videos</button><button class="chip on">Music</button><button class="chip">Documents</button><button class="chip">Archives</button><button class="chip">Other</button></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px 0">
+      <div class="tabs" style="display:inline-grid;grid-auto-flow:column;gap:4px;padding:4px;border-radius:8px;background:var(--card)"><button class="chip" style="border:0;border-radius:6px">Tracks</button><button class="chip on" style="border:0;border-radius:6px">Playlists</button></div>
+      <button class="chip on">All</button><button class="chip">Mine</button>
+      <span class="grow"></span>
+      <button class="btn sm"><svg class="ico s14"><use href="#i-plus"/></svg>New playlist</button>
+    </div>
+    <div class="scroll">
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+        <a class="tile card" style="padding:10px;aspect-ratio:auto"><div class="m1" style="aspect-ratio:1;border-radius:6px;display:grid;place-items:center;color:#fff;margin-bottom:8px;position:relative"><svg class="ico" style="width:40px;height:40px"><use href="#i-queue"/></svg><span class="playfab"><svg class="ico fill"><use href="#i-play"/></svg></span></div><div class="name">Basement jams</div><div class="meta">12 tracks · 48 min · you</div></a>
+        <a class="tile card" style="padding:10px;aspect-ratio:auto"><div class="m3" style="aspect-ratio:1;border-radius:6px;display:grid;place-items:center;color:#fff;margin-bottom:8px"><svg class="ico" style="width:40px;height:40px"><use href="#i-queue"/></svg></div><div class="name">Board night background</div><div class="meta">31 tracks · 1 h 52 min · Dan</div></a>
+        <a class="tile card" style="padding:10px;aspect-ratio:auto"><div class="m4" style="aspect-ratio:1;border-radius:6px;display:grid;place-items:center;color:#fff;margin-bottom:8px"><svg class="ico" style="width:40px;height:40px"><use href="#i-queue"/></svg></div><div class="name">Demos &amp; voice memos</div><div class="meta">6 tracks · 14 min · you</div></a>
+        <a class="tile card" style="padding:10px;aspect-ratio:auto"><div class="m2" style="aspect-ratio:1;border-radius:6px;display:grid;place-items:center;color:#fff;margin-bottom:8px"><svg class="ico" style="width:40px;height:40px"><use href="#i-queue"/></svg></div><div class="name">Lofi (YouTube import)</div><div class="meta">50 tracks · voice only · Bob</div></a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 8 -->
+<h1 class="frame">8 · Add to playlist</h1>
+<p class="note">From a track tile's "…" menu, the track list's row menu, or the Track details panel: <b>Add to playlist</b> opens a searchable list of playlists <b>you can edit</b> (yours, or all with Manage Expressions). Checked = already in it (click toggles). "New playlist…" creates one and adds the track. The file stays a reference to the original message: if it's deleted, it leaves the playlist.</p>
+<div class="app" style="height:360px">
+  <main style="padding:16px;position:relative">
+    <div style="width:180px"><a class="tile card"><span class="tag"><svg class="ico s14"><use href="#i-hash"/></svg>general</span><div class="art"><span class="disc m2"><svg class="ico s28"><use href="#i-music"/></svg></span></div><div class="name">voice memo - riff idea.m4a</div><div class="meta">0:58 · Bob</div><span style="position:absolute;right:6px;top:6px;width:24px;height:24px;border-radius:6px;background:var(--accent);display:grid;place-items:center">⋯</span></a></div>
+    <div class="pop" style="left:200px;top:16px;width:210px;padding:4px 0" role="menu">
+      <div class="opt"><svg class="ico s14"><use href="#i-play"/></svg>Play</div>
+      <div class="opt"><svg class="ico s14"><use href="#i-queue"/></svg>Add to queue</div>
+      <div class="opt hl"><svg class="ico s14"><use href="#i-plus"/></svg><span class="grow">Add to playlist</span>›</div>
+      <div class="opt"><svg class="ico s14"><use href="#i-ext"/></svg>Go to message</div>
+      <div class="opt"><svg class="ico s14"><use href="#i-download"/></svg>Download</div>
+    </div>
+    <div class="pop" style="left:416px;top:70px;width:250px;padding:4px 0 6px" role="listbox" aria-label="Add to playlist">
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><svg class="ico s14 muted"><use href="#i-search"/></svg><span class="small muted">Find a playlist</span></div>
+      <div class="opt hl"><span class="cb on"><svg class="ico s14"><use href="#i-check"/></svg></span><span class="grow">Demos &amp; voice memos</span><span class="xs muted">6</span></div>
+      <div class="opt"><span class="cb"></span><span class="grow">Basement jams</span><span class="xs muted">12</span></div>
+      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><div class="opt"><svg class="ico s14"><use href="#i-plus"/></svg>New playlist…</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 9 -->
+<h1 class="frame">9 · Playlist detail — play yourself or in voice</h1>
+<p class="note"><b>Play</b> / <b>Shuffle</b> play it in <b>your</b> player. <b>Play in voice</b> sends it to the music bot in the voice channel you're in (disabled with a tooltip "Join a voice channel first" when you aren't); it's the same as Play in the voice panel's Playlists tab. Items: library uploads and gallery files play everywhere (gallery files show their #channel). <b>Link items (YouTube, SoundCloud, Spotify) are greyed with "Voice only"</b> and skipped by your player. Items from channels you can't read are hidden: "1 track hidden". In voice, only tracks the person who queues can read are played.</p>
+<div class="app" style="height:560px">
+  <main>
+    <div style="display:flex;gap:16px;align-items:flex-end;padding:20px 16px 16px;border-bottom:1px solid var(--border)">
+      <div class="m4" style="width:120px;height:120px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none"><svg class="ico" style="width:48px;height:48px"><use href="#i-queue"/></svg></div>
+      <div class="grow">
+        <a class="xs muted">‹ Playlists</a>
+        <h2 style="margin:4px 0 2px;font-size:1.6rem;font-weight:700;color:var(--foreground)">Demos &amp; voice memos</h2>
+        <p class="small muted" style="margin:0 0 12px">Alice · 6 tracks · 14 min · <span>1 track hidden</span></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary sm"><svg class="ico fill s14"><use href="#i-play"/></svg>Play</button><button class="btn sm"><svg class="ico s14"><use href="#i-shuffle"/></svg>Shuffle</button><button class="btn sm"><svg class="ico s14"><use href="#i-vol"/></svg>Play in voice · Hangout</button><button class="iconbtn sm" aria-label="More">⋯</button></div>
+      </div>
+    </div>
+    <div style="padding:8px 16px">
+      <table class="tracks">
+        <thead><tr><th style="width:40px">#</th><th>Title</th><th>From</th><th>Added by</th><th style="text-align:right">Length</th></tr></thead>
+        <tbody>
+          <tr class="cur"><td><span class="eq"><i style="height:6px"></i><i style="height:12px"></i><i style="height:8px"></i></span></td><td><span style="display:flex;align-items:center;gap:10px"><span class="cover m2" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span><span style="color:var(--primary);font-weight:600">voice memo - riff idea.m4a</span></span></td><td><span class="ctag"># general</span></td><td>Bob</td><td class="muted" style="text-align:right">0:58</td></tr>
+          <tr><td class="muted">2</td><td><span style="display:flex;align-items:center;gap:10px"><span class="cover m3" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>Jam take 2<span class="xs muted">· Basement Band</span></span></td><td><span class="ctag">Library</span></td><td>Alice</td><td class="muted" style="text-align:right">4:12</td></tr>
+          <tr style="opacity:.45"><td class="muted">3</td><td><span style="display:flex;align-items:center;gap:10px"><span class="cover img6" style="width:32px;height:32px"></span>Reference track — Tame Impala (YouTube)</span></td><td><span class="ctag">Voice only</span></td><td>Alice</td><td class="muted" style="text-align:right">4:35</td></tr>
+          <tr><td class="muted">4</td><td><span style="display:flex;align-items:center;gap:10px"><span class="cover m1" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>late-night-loop-v3.mp3</span></td><td><span class="ctag"># music</span></td><td>Alice</td><td class="muted" style="text-align:right">3:08</td></tr>
+          <tr><td class="muted">5</td><td><span style="display:flex;align-items:center;gap:10px"><span class="cover m2" style="width:32px;height:32px"><svg class="ico s14"><use href="#i-music"/></svg></span>victory-fanfare.wav</span></td><td><span class="ctag"># games</span></td><td>Bob</td><td class="muted" style="text-align:right">0:07</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================ 10 -->
+<h1 class="frame">10 · Voice panel → Playlists (existing, extended)</h1>
+<p class="note">The music bot's existing playlist view shows gallery-file items too, tagged with their #channel. Playing queues them on the bot. If the person queueing can't read some of them, a toast says "Queued 4 tracks · 1 skipped (from a channel you can't read)".</p>
+<div class="app" style="height:380px">
+  <main style="background:var(--background)"></main>
+  <aside class="panel" aria-label="Music">
+    <header><h3>Music</h3><button class="iconbtn sm"><svg class="ico"><use href="#i-x"/></svg></button></header>
+    <div style="padding:12px 16px;display:grid;gap:10px">
+      <div style="display:flex;align-items:center;gap:6px"><button class="iconbtn sm">‹</button><span class="small" style="font-weight:600;flex:1">Demos &amp; voice memos</span></div>
+      <div style="display:flex;gap:6px"><button class="btn primary sm"><svg class="ico fill s14"><use href="#i-play"/></svg>Play</button><button class="btn sm"><svg class="ico s14"><use href="#i-shuffle"/></svg>Shuffle</button><button class="btn sm">Replace queue</button></div>
+      <div class="opt" style="margin:0"><span class="cover m2" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc">voice memo - riff idea.m4a</div><div class="xs muted"># general · 0:58</div></div></div>
+      <div class="opt" style="margin:0"><span class="cover m3" style="width:28px;height:28px"><svg class="ico s14"><use href="#i-music"/></svg></span><div class="grow"><div class="small trunc">Jam take 2</div><div class="xs muted">Basement Band · 4:12</div></div></div>
+      <div class="opt" style="margin:0"><span class="cover img6" style="width:28px;height:28px"></span><div class="grow"><div class="small trunc">Reference track — Tame Impala</div><div class="xs muted">YouTube · 4:35</div></div></div>
+    </div>
+    <div class="toast" style="position:absolute;right:16px;bottom:16px;top:auto;width:340px;padding:10px 12px;border-radius:10px;background:#2b2b2b;border:1px solid #555;font-size:13px">Queued 4 tracks · 1 skipped (from a channel you can't read)</div>
+  </aside>
+</div>
+
+</body>
+</html>

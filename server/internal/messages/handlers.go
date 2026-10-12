@@ -69,6 +69,7 @@ func Register(api huma.API, s *Service) {
 	registerThreads(api, s, op, access)
 	registerPosts(api, s, op, access)
 	registerSearch(api, s, op)
+	registerFiles(api, s, op)
 	registerInbox(api, s, op)
 	registerLeaveDM(api, s, op)
 
@@ -191,13 +192,6 @@ func Register(api huma.API, s *Service) {
 			}
 			if err := markRead(ctx, tx, u.ID, m.ID, read...); err != nil {
 				return nil, err
-			}
-			if ch.Type == channels.TypeGallery {
-				for _, a := range m.Attachments {
-					if !strings.HasPrefix(a.ContentType, "image/") && !strings.HasPrefix(a.ContentType, "video/") {
-						return nil, errMediaOnly() // the deferred rollback releases the claim
-					}
-				}
 			}
 			if err := tx.Commit(ctx); err != nil {
 				return nil, err
@@ -380,7 +374,7 @@ func Register(api huma.API, s *Service) {
 }
 
 func errMediaOnly() error {
-	return httpx.BadRequest("MEDIA_ONLY", "a gallery takes images and videos")
+	return httpx.BadRequest("MEDIA_ONLY", "gallery posts need a file")
 }
 
 // checkTitle allows a title only on announcements.
