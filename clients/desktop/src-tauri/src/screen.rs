@@ -10,6 +10,7 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 /// Frames in flight: the shell writes one slot while the page copies the previous one.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub const SLOTS: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -183,6 +184,7 @@ pub fn sources() -> Vec<Source> {
 
 /// The largest size with `w`:`h`'s aspect ratio that fits in `max_w` x `max_h` (never bigger than the original,
 /// never zero).
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn fit(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
     if w == 0 || h == 0 {
         return (1, 1);
@@ -195,6 +197,7 @@ pub fn fit(w: u32, h: u32, max_w: u32, max_h: u32) -> (u32, u32) {
 }
 
 /// Copies a `width` x `height` BGRA frame whose rows are `pitch` bytes apart into `dst` with tight rows.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn copy_rows(src: &[u8], pitch: usize, width: usize, height: usize, dst: &mut [u8]) {
     let row = width * 4;
     for y in 0..height {

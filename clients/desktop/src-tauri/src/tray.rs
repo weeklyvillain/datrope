@@ -28,6 +28,7 @@ pub fn with_dot(rgba: &mut [u8], width: u32, height: u32) {
 }
 
 /// A round dot filling a `size`x`size` image (the Windows taskbar overlay).
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn dot_icon(size: u32) -> Vec<u8> {
     let mut rgba = vec![0u8; (size * size * 4) as usize];
     let r = size as f32 / 2.0;

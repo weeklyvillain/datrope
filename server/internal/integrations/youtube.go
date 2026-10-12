@@ -16,7 +16,6 @@ var (
 	ytHandle    = regexp.MustCompile(`^@[A-Za-z0-9._-]{3,30}$`)
 	ytCanonical = regexp.MustCompile(`<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[A-Za-z0-9_-]{22})"`)
 	ytExternal  = regexp.MustCompile(`"externalId":"(UC[A-Za-z0-9_-]{22})"`)
-	ytTitle     = regexp.MustCompile(`<meta property="og:title" content="([^"]*)"`)
 )
 
 type ytFeed struct {
