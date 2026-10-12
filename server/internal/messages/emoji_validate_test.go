@@ -9,10 +9,10 @@ import (
 )
 
 func TestValidUnicodeEmoji(t *testing.T) {
-	for _, ok := range []string{"👍", "👍🏽", "❤️", "🇸🇪", "1️⃣", "#️⃣", "👩‍👩‍👧", "🏳️‍🌈", "😀", "✅", "☕", "▶️", "⤴️", "◼️"} {
+	for _, ok := range []string{"👍", "👍🏽", "❤️", "🇸🇪", "1️⃣", "#️⃣", "👩\u200d👩\u200d👧", "🏳️\u200d🌈", "😀", "✅", "☕", "▶️", "⤴️", "◼️"} {
 		require.True(t, ValidUnicodeEmoji(ok), ok)
 	}
-	for _, bad := range []string{"", "a", "ab", "👍 ", " 👍", "1", "👍a", "<script>", "‍", "️",
+	for _, bad := range []string{"", "a", "ab", "👍 ", " 👍", "1", "👍a", "<script>", "\u200d", "️",
 		"😀😀😀😀😀😀😀😀😀😀😀", "custom:1"} {
 		require.False(t, ValidUnicodeEmoji(bad), bad)
 	}
