@@ -1,8 +1,11 @@
 //! Commands the chrome, the drawer, the offline page and the server pages call. Each checks who is calling, on
 //! top of the capability that already limits which webview may call it.
 
+use crate::screen::{PickRequest, Picked, StreamSettings};
 use crate::servers::{host_of, normalize_address, probe, AddError};
-use crate::shell::{self, server_id, server_label, ChromeMode, RailState, Shell, DRAWER, RAIL};
+use crate::shell::{
+    self, server_id, server_label, ChromeMode, RailState, Shell, DRAWER, PICKER, RAIL,
+};
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Webview};
@@ -441,8 +444,9 @@ pub fn desktop_server_info(
     Ok(())
 }
 
-/// A server page wants to share its screen. The shell's own picker, in the chrome over the whole window, chooses
-/// what (the page never sees the list). Resolves to the capture's generation, or none if the user cancelled; the
+/// A server page wants to share its screen. The shell's own picker, in its own webview over the whole window, chooses
+/// what (the page never sees the list) and, given `settings`, the stream quality too, starting from those. Resolves
+/// to the capture's generation (with the chosen quality if it was offered), or none if the user cancelled; the
 /// frames then arrive on `frames` and in the shared buffer posted to the page.
 #[tauri::command]
 pub async fn desktop_screen_pick(
@@ -450,12 +454,14 @@ pub async fn desktop_screen_pick(
     webview: Webview,
     fps: u32,
     frames: Channel<serde_json::Value>,
-) -> Result<Option<u64>, String> {
+    settings: Option<StreamSettings>,
+) -> Result<Option<Picked>, String> {
     let id = caller(&webview)?;
     if !cfg!(windows) {
         return Err("Screen share from the app is only on Windows so far.".into());
     }
     let label = webview.label().to_string();
+    let settings = settings.filter(StreamSettings::valid);
     let sources = tauri::async_runtime::spawn_blocking(crate::screen::sources)
         .await
         .map_err(|e| e.to_string())?;
@@ -471,38 +477,62 @@ pub async fn desktop_screen_pick(
         .get(&id)
         .map(|s| s.name.clone())
         .unwrap_or_default();
-    let mut answer =
-        crate::screen::open_pick(&app, &label, sources.iter().map(|s| s.id.clone()).collect());
-    shell::set_mode(&app, ChromeMode::Full, false).map_err(|e| e.to_string())?;
-    if let Some(rail) = app.get_webview(RAIL) {
-        let _ = rail.set_focus();
+    let request = crate::screen::PickRequest {
+        server,
+        sources,
+        settings,
+    };
+    let mut answer = crate::screen::open_pick(&app, &label, request);
+    // The picker webview fetches the request once it has loaded (`screen_pick_request`).
+    if let Err(e) = shell::open_picker_webview(&app) {
+        crate::screen::answer_pick(&app, None, None);
+        return Err(e.to_string());
     }
-    let _ = app.emit_to(
-        EventTarget::webview(RAIL),
-        "screen_pick",
-        crate::screen::PickRequest { server, sources },
-    );
     let chosen = answer.recv().await.flatten();
     // Back to the page, unless a newer request has the picker open.
     if !crate::screen::picking(&app) {
-        let _ = app.emit_to(EventTarget::webview(RAIL), "screen_pick_closed", ());
-        let _ = shell::set_mode(&app, ChromeMode::Closed, false);
+        shell::close_picker_webview(&app);
+        shell::focus_shown(&app);
     }
-    let Some(source) = chosen else {
+    let Some((source, chosen)) = chosen else {
         return Ok(None);
     };
-    crate::screen::start(&app, &label, &source, fps, frames).map(Some)
+    let fps = chosen.map_or(fps, |s| s.fps);
+    let gen = crate::screen::start(&app, &label, &source, fps, frames)?;
+    Ok(Some(match chosen {
+        Some(settings) => Picked::WithSettings { gen, settings },
+        None => Picked::Source(gen),
+    }))
 }
 
-/// The picker's answer: a source id it was offered, or none for cancel.
+fn only_picker(webview: &Webview) -> Result<(), String> {
+    if webview.label() == PICKER {
+        Ok(())
+    } else {
+        Err("not allowed".into())
+    }
+}
+
+/// What the open picker shows; none once it was answered or replaced.
+#[tauri::command]
+pub fn screen_pick_request(
+    app: AppHandle,
+    webview: Webview,
+) -> Result<Option<PickRequest>, String> {
+    only_picker(&webview)?;
+    Ok(crate::screen::request(&app))
+}
+
+/// The picker's answer: a source id it was offered, or none for cancel, and the quality if it offered one.
 #[tauri::command]
 pub fn screen_pick_done(
     app: AppHandle,
     webview: Webview,
     id: Option<String>,
+    settings: Option<StreamSettings>,
 ) -> Result<(), String> {
-    only_rail(&webview)?;
-    crate::screen::answer_pick(&app, id);
+    only_picker(&webview)?;
+    crate::screen::answer_pick(&app, id, settings);
     Ok(())
 }
 

@@ -13,6 +13,8 @@ import { ConnectionQuality } from "./ConnectionQuality";
 import { GoLiveDialog } from "./GoLiveDialog";
 import { SoundboardButton } from "./SoundboardPanel";
 import { StreamMenuContent } from "./StreamMenu";
+import { nativeScreenAvailable } from "../../voice/native-screen";
+import { streamPrefs } from "../../voice/stream-prefs";
 import { useVoice, voice } from "../../voice/voice";
 
 const STATUS = { connecting: "Connecting…", connected: "Voice connected", reconnecting: "Reconnecting…" } as const;
@@ -117,7 +119,12 @@ export function ShareScreenControl({ variant = "outline", size = "sm", ...style 
           <div ref={anchor} className="flex">
             <Control label="Share screen" tip={v.screen ? "Stream settings" : "Share your screen"} variant={variant} size={size} {...style}
               pressed={v.screen} aria-haspopup="dialog" aria-expanded={v.screen ? menu : goLive}
-              disabled={!canStream} onPressedChange={() => (v.screen ? setMenu((m) => !m) : setGoLive(true))}>
+              disabled={!canStream} onPressedChange={() => {
+                if (v.screen) setMenu((m) => !m);
+                // The desktop app's picker chooses the quality along with the source.
+                else if (nativeScreenAvailable()) void voice.startScreen(streamPrefs.getState());
+                else setGoLive(true);
+              }}>
               {v.screen ? <ScreenShareOff /> : <ScreenShare />}
             </Control>
           </div>

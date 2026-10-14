@@ -1,3 +1,5 @@
+import type { StreamSettings } from "./voice/stream-prefs";
+
 /**
  * The desktop app's bridge (clients/desktop). In a browser `desktop` is null and everything behaves as before.
  * Inside the desktop app this page runs in its own webview, and the shell shows notifications, keeps the rail's
@@ -58,12 +60,20 @@ export class Desktop {
   }
 
   /**
-   * Opens the app's screen picker and, once the user picks, starts capturing at up to `fps`. Resolves to the
-   * capture's generation (frame messages and the shared buffer carry it), or null if the user cancelled.
+   * Opens the app's screen picker and, once the user picks, starts capturing at up to `fps`. With `settings` the
+   * picker also offers the stream quality, starting from these, and the capture runs at the fps chosen there.
+   * Resolves to the capture's generation (frame messages and the shared buffer carry it) and the chosen settings,
+   * or null if the user cancelled.
    */
-  async pickScreen<T>(fps: number, onFrame: (message: T) => void): Promise<number | null> {
+  async pickScreen<T>(
+    fps: number, onFrame: (message: T) => void, settings?: StreamSettings,
+  ): Promise<{ gen: number; settings?: StreamSettings } | null> {
     const frames = await this.t.channel(onFrame);
-    return this.t.invoke<number | null>("desktop_screen_pick", { fps, frames });
+    const picked = await this.t.invoke<number | { gen: number; settings: StreamSettings } | null>(
+      "desktop_screen_pick", { fps, frames, settings: settings ?? null },
+    );
+    // A shell from before the picker offered quality answers with just the generation.
+    return typeof picked === "number" ? { gen: picked } : picked;
   }
 
   stopScreen() {

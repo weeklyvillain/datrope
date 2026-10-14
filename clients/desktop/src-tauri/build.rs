@@ -9,6 +9,8 @@ fn main() {
         "chrome_mode",
         "chrome_request",
         "update_restart",
+        // screen picker
+        "screen_pick_request",
         "screen_pick_done",
         // offline page
         "server_retry",
