@@ -27,6 +27,7 @@ import (
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
 	"github.com/datrope/datrope/server/internal/messages"
+	"github.com/datrope/datrope/server/internal/perms"
 	"github.com/datrope/datrope/server/internal/pgtest"
 )
 
@@ -472,5 +473,30 @@ func (c *Client) CreateTextChannel(name string) id.ID {
 	c.env.T.Helper()
 	var ch channels.Channel
 	c.Do(http.MethodPost, "/api/server/channels", map[string]any{"name": name, "type": "text"}, http.StatusCreated, &ch)
+	return ch.ID
+}
+
+// CreatePrivateChannel creates a text channel that @everyone cannot see.
+func (c *Client) CreatePrivateChannel(name string) id.ID {
+	c.env.T.Helper()
+	ch := c.CreateTextChannel(name)
+	c.Do(http.MethodPut, "/api/channels/"+ch.String()+"/overrides/role/"+c.Server().ID.String(),
+		map[string]any{"allow": 0, "deny": uint64(perms.ViewChannel)}, http.StatusOK, nil)
+	return ch
+}
+
+// OpenDM opens (or finds) the direct message with another user.
+func (c *Client) OpenDM(other id.ID) id.ID {
+	c.env.T.Helper()
+	var ch channels.Channel
+	c.Do(http.MethodPost, "/api/dms", map[string]any{"recipient_ids": []string{other.String()}}, http.StatusOK, &ch)
+	return ch.ID
+}
+
+// CreateThread starts a named thread on a message and returns its channel ID.
+func (c *Client) CreateThread(channelID, messageID id.ID, name string) id.ID {
+	c.env.T.Helper()
+	var ch channels.Channel
+	c.Do(http.MethodPost, "/api/channels/"+channelID.String()+"/messages/"+messageID.String()+"/thread", map[string]any{"name": name}, http.StatusCreated, &ch)
 	return ch.ID
 }

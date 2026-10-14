@@ -5,6 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { router } from "./router";
 import "./sounds";
 import "./styles.css";
+import { registerServiceWorker } from "./sw-register";
+
+registerServiceWorker();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

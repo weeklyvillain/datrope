@@ -3,7 +3,7 @@ import { audioPrefs, captureOptions, chainOptions, type AudioPrefs } from "./aud
 import { MicProcessor } from "./mic-processor";
 import { desktop } from "../desktop";
 import { canPickOutput } from "./output";
-import { combinePtt, watchPtt } from "./ptt";
+import { bindUiPtt, combinePtt, watchPtt } from "./ptt";
 
 /** Applies this device's audio settings to one call: the mic processor, push to talk, and device or setting changes. */
 export class CallAudio {
@@ -15,6 +15,8 @@ export class CallAudio {
     this.stops.push(audioPrefs.subscribe((p, old) => void this.changed(p, old)));
     const ptt = combinePtt((down) => this.processor.setPtt(down));
     this.stops.push(watchPtt(window, () => audioPrefs.getState().pttKey.code, (down) => ptt.set("local", down)));
+    bindUiPtt((down) => ptt.set("ui", down));
+    this.stops.push(() => bindUiPtt(null));
     if (desktop) this.stops.push(desktop.on<{ down: boolean }>("ptt", (p) => ptt.set("global", p.down)));
   }
 

@@ -22,6 +22,7 @@ import { VoiceStage, useVoiceLayout } from "./VoiceStage";
 import { EmptyView } from "../EmptyView";
 import { MusicPanel } from "./MusicPanel";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CallScreen } from "../mobile/CallScreen";
 
 export function VoiceChannelView({ channelId }: { channelId: string }) {
   const ch = useApp((s) => s.channels[channelId]);
@@ -42,6 +43,23 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   useLeaveToText(channelId);
 
   if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  const panel = searching ? (
+    <SearchPanel />
+  ) : side === "music" ? (
+    <SidePanel title="Music" icon={<Music />} subtitle={ch.name} onClose={() => setSide(null)}>
+      <MusicPanel channelId={channelId} />
+    </SidePanel>
+  ) : chat && canRead && (
+    <SidePanel title="Chat" subtitle={`#${ch.name}`} onClose={() => setSide(null)}>
+      <VoiceChat channelId={channelId} name={ch.name} />
+    </SidePanel>
+  );
+  if (mobile) {
+    return (
+      <CallScreen channelId={channelId} name={ch.name} canRead={canRead} side={side} onSide={setSide} panel={panel}
+        layout={{ layout, canStage, toggle: () => setLayout((l) => (l === "grid" ? "stage" : "grid")) }} />
+    );
+  }
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background" aria-label={ch.name}>
@@ -90,19 +108,10 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
           <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
           {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
+        {!canStage && <p className="m-0 px-4 pt-2 text-xs text-muted-foreground pointer-fine:hidden">Grid layout is on until someone shares a screen.</p>}
         <VoiceStage channelId={channelId} layout={layout} inviteTo={ch.name} onOpenMusic={() => setSide("music")} />
       </main>
-      {searching ? (
-        <SearchPanel />
-      ) : side === "music" ? (
-        <SidePanel title="Music" icon={<Music />} subtitle={ch.name} onClose={() => setSide(null)}>
-          <MusicPanel channelId={channelId} />
-        </SidePanel>
-      ) : chat && canRead && (
-        <SidePanel title="Chat" subtitle={`#${ch.name}`} onClose={() => setSide(null)}>
-          <VoiceChat channelId={channelId} name={ch.name} />
-        </SidePanel>
-      )}
+      {panel}
     </>
   );
 }

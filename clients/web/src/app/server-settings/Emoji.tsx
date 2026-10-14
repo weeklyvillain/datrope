@@ -120,7 +120,7 @@ export function Emoji() {
                   <img src={t.url} alt="" className="mx-auto size-12 object-contain" />
                   <div className="flex items-center gap-1 text-muted-foreground">
                     :<Input value={t.name} aria-label={`Name for emoji ${i + 1}`} aria-invalid={err ? true : undefined}
-                      className="h-8 px-2 font-mono text-sm" disabled={uploading}
+                      className="h-8 px-2 font-mono text-[16px] md:text-sm" disabled={uploading}
                       onChange={(e) => setTiles((ts) => ts.map((x) => (x.key === t.key ? { ...x, name: e.target.value, serverError: undefined } : x)))} />:
                   </div>
                   {err && <p className="text-xs text-destructive" role="alert">{err}</p>}
@@ -192,7 +192,7 @@ function RenameField({ emoji }: { emoji: EmojiT }) {
   return (
     <div className="grid gap-1">
       <div className="flex items-center gap-1 font-mono text-sm text-muted-foreground">
-        :<Input value={name} aria-label={`Rename :${emoji.name}:`} aria-invalid={error ? true : undefined} className="h-8 w-44 px-2 font-mono text-sm text-foreground"
+        :<Input value={name} aria-label={`Rename :${emoji.name}:`} aria-invalid={error ? true : undefined} className="h-8 w-44 px-2 font-mono text-[16px] md:text-sm text-foreground"
           onChange={(e) => setName(e.target.value)} onBlur={save}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />:
       </div>

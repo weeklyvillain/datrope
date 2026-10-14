@@ -75,7 +75,7 @@ export function ProfileStrip() {
 /** Limits a status to 80 characters (code points), as the server does. */
 const limit = (v: string) => Array.from(v).slice(0, 80).join("");
 
-function EditStatusDialog({ current, onClose }: { current: string; onClose: () => void }) {
+export function EditStatusDialog({ current, onClose }: { current: string; onClose: () => void }) {
   const [status, setStatus] = useState(current);
   const fieldId = useId();
   const { busy, error, run } = useSubmit();

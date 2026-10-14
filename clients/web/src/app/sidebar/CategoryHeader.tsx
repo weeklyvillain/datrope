@@ -1,5 +1,5 @@
 import type { Category } from "@datrope/core";
-import { ChevronDown, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
 import type { HTMLAttributes, Ref } from "react";
 import { RefButton } from "@/components/ref-button";
 import {
@@ -10,15 +10,18 @@ import {
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 
-export type CategoryAction = "create" | "rename" | "delete";
+export type CategoryAction = "create" | "rename" | "delete" | "up" | "down";
 
 /** A category's label: toggles collapse, is the drag handle for managers, and has the category menu. */
-export function CategoryHeader({ category, collapsed, onToggle, onAction, canManage, handle }: {
+export function CategoryHeader({ category, collapsed, onToggle, onAction, canManage, canMoveUp, canMoveDown, handle }: {
   category: Category;
   collapsed: boolean;
   onToggle: () => void;
   onAction: (a: CategoryAction) => void;
   canManage: boolean;
+  /** False for the first (up) or last (down) category: the item shows disabled. */
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   handle?: HTMLAttributes<HTMLButtonElement> & { ref?: Ref<HTMLButtonElement> };
 }) {
   return (
@@ -35,13 +38,15 @@ export function CategoryHeader({ category, collapsed, onToggle, onAction, canMan
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <RefButton variant="ghost" size="icon-xs" aria-label="Category options"
-                  className="text-muted-foreground opacity-0 group-hover/cat:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100">
+                  className="text-muted-foreground opacity-0 pointer-coarse:opacity-100 group-hover/cat:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100">
                   <Ellipsis />
                 </RefButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48" onContextMenu={(e) => e.stopPropagation()}>
                 <DropdownMenuItem onSelect={() => onAction("create")}><Plus />Create channel</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onAction("rename")}><Pencil />Rename category</DropdownMenuItem>
+                <DropdownMenuItem disabled={!canMoveUp} onSelect={() => onAction("up")}><ArrowUp />Move up</DropdownMenuItem>
+                <DropdownMenuItem disabled={!canMoveDown} onSelect={() => onAction("down")}><ArrowDown />Move down</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => onAction("delete")}><Trash2 />Delete category</DropdownMenuItem>
               </DropdownMenuContent>
@@ -56,6 +61,8 @@ export function CategoryHeader({ category, collapsed, onToggle, onAction, canMan
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={() => onAction("create")}><Plus />Create channel</ContextMenuItem>
             <ContextMenuItem onSelect={() => onAction("rename")}><Pencil />Rename category</ContextMenuItem>
+            <ContextMenuItem disabled={!canMoveUp} onSelect={() => onAction("up")}><ArrowUp />Move up</ContextMenuItem>
+            <ContextMenuItem disabled={!canMoveDown} onSelect={() => onAction("down")}><ArrowDown />Move down</ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onSelect={() => onAction("delete")}><Trash2 />Delete category</ContextMenuItem>
           </>

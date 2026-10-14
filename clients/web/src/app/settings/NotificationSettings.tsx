@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { desktop } from "../../desktop";
+import { needsHomeScreen } from "../../notify/push";
 import { setNotifyEnabled, setNotifyLevel, useNotifyPrefs, type NotifyLevel } from "../../notify/prefs";
 
 const currentPermission = (): NotificationPermission | "unsupported" =>
@@ -53,7 +54,13 @@ export function NotificationSettings() {
         <div className="grow">
           <Label htmlFor="notify-enabled" className="font-medium">Desktop notifications</Label>
           <p className="m-0 text-sm text-muted-foreground">Show a system notification when Datrope is in the background or you are in another conversation.</p>
-          {permission === "unsupported" && <p id="notify-unsupported" className="m-0 text-sm text-muted-foreground">This browser cannot show notifications.</p>}
+          {permission === "unsupported" && (
+            <p id="notify-unsupported" className="m-0 text-sm text-muted-foreground">
+              {needsHomeScreen()
+                ? "Add Datrope to your Home Screen to get notifications when the app is closed."
+                : "This browser cannot show notifications."}
+            </p>
+          )}
         </div>
         <Switch id="notify-enabled" disabled={permission === "unsupported"} aria-describedby={permission === "unsupported" ? "notify-unsupported" : undefined}
           checked={enabled && permission === "granted"} onCheckedChange={(on) => void toggle(on)} />

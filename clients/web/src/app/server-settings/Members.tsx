@@ -15,7 +15,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StackedRows } from "@/components/stacked-rows";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSubmit } from "@/hooks/use-submit";
 import { cn } from "@/lib/utils";
 import { client, displayName, errorText, useApp, usePerms } from "@/session";
@@ -29,6 +31,7 @@ export function Members() {
   const [query, setQuery] = useState("");
   const [action, setAction] = useState<Action>();
   const [error, setError] = useState<string>();
+  const phone = useIsMobile();
 
   useEffect(() => {
     client.loadMembers().catch((e: unknown) => setError(errorText(e)));
@@ -44,19 +47,34 @@ export function Members() {
       <Input aria-label="Search members" placeholder="Search members" value={query} onChange={(e) => setQuery(e.target.value)}
         className="max-w-sm" />
       <ErrorText error={error} />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Member</TableHead>
-            <TableHead>Roles</TableHead>
-            <TableHead>Joined</TableHead>
-            <TableHead><span className="sr-only">Actions</span></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((m) => <MemberRow key={m.user.id} m={m} onAction={(kind) => setAction({ kind, member: m })} />)}
-        </TableBody>
-      </Table>
+      {phone ? (
+        <StackedRows label="Members" items={rows} getKey={(m) => m.user.id}
+          primary={(m) => (
+            <span className="flex items-center gap-2.5">
+              <UserAvatar user={m.user} size="md" />
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate">{displayName(m.user)}</span>
+                {m.user.id === sv?.server.owner_id && <Crown className="size-3.5 flex-none text-primary" aria-label="Server owner" />}
+              </span>
+            </span>
+          )}
+          secondary={(m) => `@${m.user.username} · joined ${new Date(m.joined_at).toLocaleDateString()}`}
+          actions={(m) => <MemberMenu m={m} onAction={(kind) => setAction({ kind, member: m })} />} />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Member</TableHead>
+              <TableHead>Roles</TableHead>
+              <TableHead>Joined</TableHead>
+              <TableHead><span className="sr-only">Actions</span></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((m) => <MemberRow key={m.user.id} m={m} onAction={(kind) => setAction({ kind, member: m })} />)}
+          </TableBody>
+        </Table>
+      )}
       {rows.length === 0 && <p className="text-muted-foreground">Nobody matches.</p>}
 
       {action?.kind === "roles" && <ManageRoles userId={action.member.user.id} onClose={() => setAction(undefined)} />}
@@ -67,17 +85,40 @@ export function Members() {
   );
 }
 
-/** One member's row: roles, joined date and the actions I may take on them, within the role hierarchy. */
-function MemberRow({ m, onAction }: { m: Member; onAction: (kind: Action["kind"]) => void }) {
+/** The `⋯` menu of the actions I may take on one member, within the role hierarchy (nothing when none). */
+function MemberMenu({ m, onAction }: { m: Member; onAction: (kind: Action["kind"]) => void }) {
   const sv = useApp((s) => s.server);
   const meId = useApp((s) => s.me?.id);
   const perms = usePerms();
-  const { held, canEdit: canRoles, above } = useAssignableRoles(m.user.id);
+  const { canEdit: canRoles, above } = useAssignableRoles(m.user.id);
   const name = displayName(m.user);
   const owner = m.user.id === sv?.server.owner_id;
   const self = m.user.id === meId;
   const canKick = !owner && !self && above && hasPerm(perms, Perm.Kick);
   const canBan = !owner && !self && above && hasPerm(perms, Perm.Ban);
+  if (!canRoles && !canKick && !canBan) return null;
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger aria-label={`Actions for ${name}`}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground")}>
+        <Ellipsis />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {canRoles && <DropdownMenuItem onSelect={() => onAction("roles")}>Manage roles</DropdownMenuItem>}
+        {canRoles && (canKick || canBan) && <DropdownMenuSeparator />}
+        {canKick && <DropdownMenuItem variant="destructive" onSelect={() => onAction("kick")}>Kick</DropdownMenuItem>}
+        {canBan && <DropdownMenuItem variant="destructive" onSelect={() => onAction("ban")}>Ban</DropdownMenuItem>}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** One member's row: roles, joined date and the actions menu. */
+function MemberRow({ m, onAction }: { m: Member; onAction: (kind: Action["kind"]) => void }) {
+  const sv = useApp((s) => s.server);
+  const { held } = useAssignableRoles(m.user.id);
+  const name = displayName(m.user);
+  const owner = m.user.id === sv?.server.owner_id;
   return (
     <TableRow>
       <TableCell>
@@ -99,20 +140,7 @@ function MemberRow({ m, onAction }: { m: Member; onAction: (kind: Action["kind"]
       </TableCell>
       <TableCell className="text-muted-foreground">{new Date(m.joined_at).toLocaleDateString()}</TableCell>
       <TableCell className="text-right">
-        {(canRoles || canKick || canBan) && (
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger aria-label={`Actions for ${name}`}
-              className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground")}>
-              <Ellipsis />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canRoles && <DropdownMenuItem onSelect={() => onAction("roles")}>Manage roles</DropdownMenuItem>}
-              {canRoles && (canKick || canBan) && <DropdownMenuSeparator />}
-              {canKick && <DropdownMenuItem variant="destructive" onSelect={() => onAction("kick")}>Kick</DropdownMenuItem>}
-              {canBan && <DropdownMenuItem variant="destructive" onSelect={() => onAction("ban")}>Ban</DropdownMenuItem>}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <MemberMenu m={m} onAction={onAction} />
       </TableCell>
     </TableRow>
   );

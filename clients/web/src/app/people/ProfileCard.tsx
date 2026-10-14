@@ -1,12 +1,12 @@
 import type { PublicUser, Role } from "@datrope/core";
 import { useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
-import { useNavigate } from "react-router-dom";
 import { RoleBadge } from "@/components/role-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
+import { useLayerNavigate } from "@/hooks/use-history-layer";
 import { avatarColor } from "@/lib/avatar-color";
 import { isHttpsLink } from "@/lib/social";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,8 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
 }) {
   const stored = useUser(userId, fallback);
   const user = stored ? { ...stored, ...preview } : undefined;
-  const navigate = useNavigate();
+  // In the phone profile drawer (a layer), replace its history entry so Back does not land on the closed profile.
+  const navigate = useLayerNavigate();
   const sv = useApp((s) => s.server);
   const member = useApp((s) => s.server?.members[userId]);
   const presence = useApp((s) => s.presences[userId] ?? "offline");

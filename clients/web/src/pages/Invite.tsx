@@ -16,7 +16,7 @@ import { sinceLabel, useServerPreview } from "./use-server-preview";
 
 function Backdrop({ children }: { children: ReactNode }) {
   return (
-    <div className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-12">
+    <div className="relative grid min-h-dvh place-items-center overflow-hidden px-4 pt-[max(3rem,env(safe-area-inset-top))] pb-[max(3rem,env(safe-area-inset-bottom))]">
       <Logo className="pointer-events-none absolute top-1/2 left-1/2 size-[1400px] -translate-x-1/2 -translate-y-[46%] text-primary opacity-[0.06]" />
       {children}
     </div>

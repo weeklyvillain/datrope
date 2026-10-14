@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./media";
+import { videoControlsAfterTap } from "./video-controls";
 
 const RATES = [1, 1.25, 1.5, 2, 0.5];
 const IDLE_MS = 2000;
+const TOUCH_IDLE_MS = 3000;
 
 /** Plays a video attachment with its own controls, which fade out while it plays and the pointer rests. */
 export function VideoPlayer({ attachment: a }: { attachment: Attachment }) {
@@ -16,6 +18,8 @@ export function VideoPlayer({ attachment: a }: { attachment: Attachment }) {
   const box = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const idle = useRef<ReturnType<typeof setTimeout>>();
+  const touch = useRef(false); // the last pointerdown came from a finger
+  const shownAtDown = useRef(false); // were the controls visible when that pointerdown landed
   const [playing, setPlaying] = useState(false);
   const [started, setStarted] = useState(false);
   const [time, setTime] = useState(0);
@@ -46,7 +50,7 @@ export function VideoPlayer({ attachment: a }: { attachment: Attachment }) {
   function wake() {
     setActive(true);
     clearTimeout(idle.current);
-    idle.current = setTimeout(() => setActive(false), IDLE_MS);
+    idle.current = setTimeout(() => setActive(false), touch.current ? TOUCH_IDLE_MS : IDLE_MS);
   }
 
   function toggle() {
@@ -98,16 +102,25 @@ export function VideoPlayer({ attachment: a }: { attachment: Attachment }) {
   }
 
   const shown = !playing || active;
+  /** Mouse clicks play or pause; a tap first reveals hidden controls. */
+  function onVideoClick() {
+    if (!touch.current) return toggle();
+    const tap = videoControlsAfterTap({ playing, shown: shownAtDown.current });
+    if (tap.shown) wake();
+    if (tap.toggle) toggle();
+  }
   const level = muted ? 0 : volume;
   return (
     <div ref={box} tabIndex={0} role="group" aria-label={`Video ${a.filename}`}
       className={cn("group/video relative overflow-hidden bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring",
         fullscreen ? "flex h-full w-full items-center justify-center" : "w-[400px] max-w-full rounded-lg border",
         !shown && "cursor-none")}
-      onKeyDown={onKeyDown} onPointerMove={wake} onPointerLeave={() => setActive(false)}>
+      onKeyDown={onKeyDown} onPointerDown={(e) => { touch.current = e.pointerType === "touch"; shownAtDown.current = shown; }}
+      onPointerMove={(e) => { if (e.pointerType !== "touch") wake(); }}
+      onPointerLeave={(e) => { if (e.pointerType !== "touch") setActive(false); }}>
       <video ref={video} src={src} preload="metadata" playsInline
         className={cn("block w-full object-contain", fullscreen ? "h-full" : "aspect-video")}
-        onClick={toggle} onDoubleClick={toggleFullscreen}
+        onClick={onVideoClick} onDoubleClick={toggleFullscreen}
         onPlay={() => { setPlaying(true); setStarted(true); wake(); }}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
@@ -142,7 +155,7 @@ export function VideoPlayer({ attachment: a }: { attachment: Attachment }) {
               {level === 0 ? <VolumeX /> : <Volume2 />}
             </Button>
             <Slider aria-label="Volume" min={0} max={1} step={0.05} value={[level]} onValueChange={([v]) => setLevel(v)}
-              className="w-0 opacity-0 transition-all group-focus-within/volume:mr-2 group-focus-within/volume:w-16 group-focus-within/volume:opacity-100 group-hover/volume:mr-2 group-hover/volume:w-16 group-hover/volume:opacity-100 [&_[data-slot=slider-thumb]]:size-3" />
+              className="w-0 opacity-0 transition-all pointer-coarse:mr-2 pointer-coarse:w-16 pointer-coarse:opacity-100 group-focus-within/volume:mr-2 group-focus-within/volume:w-16 group-focus-within/volume:opacity-100 group-hover/volume:mr-2 group-hover/volume:w-16 group-hover/volume:opacity-100 [&_[data-slot=slider-thumb]]:size-3" />
           </div>
           <span className="text-xs tabular-nums text-muted-foreground">{formatDuration(time)} / {formatDuration(duration)}</span>
           <span className="flex-1" />

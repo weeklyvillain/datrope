@@ -28,6 +28,7 @@ import (
 	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/push"
 	"github.com/datrope/datrope/server/internal/system"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/webhooks"
@@ -48,6 +49,7 @@ type App struct {
 	Music        *music.Service   // nil when built without a database
 	Gateway      *gateway.Gateway // nil when built without a database
 	Audit        *audit.Service   // nil when built without a database
+	Push         *push.Service    // nil when built without a database
 	closers      []func()
 }
 
@@ -223,6 +225,18 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		filesSvc.SetAlbums(albumSvc)
 	}
 
+	pushSvc := push.NewService(pool, a.Bus, push.Deps{
+		Audience: audience{communities: commSvc, channels: chanSvc}, Channels: chanSvc,
+		Server: commSvc, PublicURL: cfg.PublicURL,
+	}, cfg.Push)
+	push.Register(api, pushSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		pushSvc.Start()
+		a.closers = append(a.closers, pushSvc.Close)
+		a.Push = pushSvc
+		mux.Handle("GET /manifest.webmanifest", pushSvc.ManifestHandler())
+	}
+
 	registerEventSchemas(api)
 	var gw *gateway.Gateway
 	if pool != nil { // nil only for `datrope openapi`
@@ -235,6 +249,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		}, cfg.Gateway)
 		mux.Handle("GET /ws", gw)
 		commSvc.SetPresence(gw)
+		pushSvc.SetPresence(gw)
 		a.Gateway = gw
 		a.closers = append(a.closers, gw.Close)
 	}

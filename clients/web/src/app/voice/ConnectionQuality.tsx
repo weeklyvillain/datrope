@@ -1,6 +1,8 @@
 import { SignalHigh, SignalLow, SignalMedium, SignalZero, type LucideIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { RefButton } from "@/components/ref-button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { isTouchOnly } from "@/lib/touch";
 import type { Rating } from "../../voice/stats";
 import { useVoice } from "../../voice/voice";
 
@@ -22,13 +24,25 @@ export function ConnectionQuality() {
     q.lossPct !== undefined && `Packet loss ${q.lossPct.toFixed(1)} %`,
     q.jitterMs !== undefined && `Jitter ${Math.round(q.jitterMs)} ms`,
   ].filter(Boolean).join(" · ");
+  const button = (
+    <RefButton variant="ghost" size="icon-sm" aria-label={`Connection quality: ${look.word}${ping}`} className={look.color}>
+      <Icon />
+    </RefButton>
+  );
+  if (isTouchOnly()) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>{button}</PopoverTrigger>
+        <PopoverContent className="w-auto p-3 text-sm">
+          <p className="m-0">{details || "Measuring…"}</p>
+          <p className="m-0 text-xs text-muted-foreground">Connection to the voice server</p>
+        </PopoverContent>
+      </Popover>
+    );
+  }
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Connection quality: ${look.word}${ping}`} className={look.color}>
-          <Icon />
-        </Button>
-      </TooltipTrigger>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent>
         <p>{details || "Measuring…"}</p>
         <p className="text-xs opacity-80">Connection to the voice server</p>

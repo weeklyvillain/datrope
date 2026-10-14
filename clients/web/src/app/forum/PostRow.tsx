@@ -3,6 +3,7 @@ import { MessageSquare } from "lucide-react";
 import { displayName } from "../../session";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "../threads";
 
@@ -10,6 +11,24 @@ import { timeAgo } from "../threads";
 export function PostRow({ post, selected, onOpen }: { post: ThreadListItem; selected: boolean; onOpen: () => void }) {
   const { channel, summary } = post;
   const replies = summary.message_count - 1; // the post body is the first message
+  const mobile = useIsMobile();
+  if (mobile) {
+    return (
+      <li className="border-b">
+        <button type="button" onClick={onOpen} aria-current={selected || undefined}
+          className={cn("min-h-[44px] w-full px-4 py-3 text-left outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset",
+            selected && "bg-accent hover:bg-accent")}>
+          <span className="line-clamp-2 font-medium">{channel.name}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            {(channel.tags ?? []).map((t) => <Badge key={t} variant="outline">{t}</Badge>)}
+            {post.author && <span>{displayName(post.author)}</span>}
+            <span>{replies === 1 ? "1 reply" : `${Math.max(replies, 0)} replies`}</span>
+            {summary.last_message_at && <span>{timeAgo(summary.last_message_at)}</span>}
+          </span>
+        </button>
+      </li>
+    );
+  }
   return (
     <li className="border-b">
       <button type="button" onClick={onOpen} aria-current={selected || undefined}

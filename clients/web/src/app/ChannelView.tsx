@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { Lock, LogOut, Megaphone, MessageSquare, Phone, Users } from "lucide-react";
+import { Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useHistoryLayer } from "@/hooks/use-history-layer";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Markdown } from "../chat/Markdown";
 import { ChannelSettingsDialog } from "./dialogs/ChannelSettingsDialog";
@@ -16,13 +18,14 @@ import { useVoice, voice } from "../voice/voice";
 import { Composer } from "./Composer";
 import { MemberList } from "./MemberList";
 import { MessageList, jumpTo } from "./MessageList";
-import { PinsPanel } from "./PinsPanel";
+import { PinsPanel, PinsSheet } from "./PinsPanel";
 import { SearchPanel } from "./search/SearchPanel";
 import { closePanel, openPanel, panelStore, usePanel } from "./side-panel/panel";
 import { ThreadPanel } from "./side-panel/ThreadPanel";
 import { SidePanel } from "./side-panel/SidePanel";
 import { ThreadsList } from "./side-panel/ThreadsList";
-import { TopBar } from "./TopBar";
+import { TopBar, type PhoneAction } from "./TopBar";
+import { ChannelInfoSheet } from "./mobile/ChannelInfoSheet";
 import { EmojiText } from "@/chat/EmojiText";
 import { EmptyView } from "./EmptyView";
 import { VoiceStage } from "./voice/VoiceStage";
@@ -41,6 +44,11 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [showMembers, setShowMembers] = useState(false); // phones: the member list as a sheet
+  useHistoryLayer("members", showMembers, () => setShowMembers(false));
+  const mobile = useIsMobile();
+  const [info, setInfo] = useState(false); // phones: the channel info sheet
+  const [pins, setPins] = useState(false); // phones: the pinned messages sheet
+  const [settings, setSettings] = useState(false); // phones: channel settings, from the info sheet
   const reply = useMemo(() => ({ replyTo, setReplyTo }), [replyTo]);
 
   // A reply and the side panel belong to their channel.
@@ -59,10 +67,18 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
   // Starting one needs SEND_MESSAGES in the thread, which a webhook channel's mask does not take away.
   const canCreateThread = threads && hasPerm(perms, Perm.CreateThreads) && hasPerm(threadPerms, Perm.SendMessages);
   const openThread = (threadId: string) => openPanel({ kind: "thread", threadId });
+  const jumpToPin = (id: string) => void jumpTo(channelId, id).catch(() => undefined);
+  const phoneActions: PhoneAction[] = [
+    ...(threads ? [{ label: "Threads", icon: <MessageSquare />, onSelect: () => (panel?.kind === "threads" ? closePanel() : openPanel({ kind: "threads" })) }] : []),
+    { label: "Pinned messages", icon: <Pin />, onSelect: () => setPins(true) },
+    ...(members ? [{ label: "Members", icon: <Users />, onSelect: () => setShowMembers(true) }] : []),
+    ...(ch.type === "dm" && !here && inCall === 0 ? [{ label: "Start call", icon: <Phone />, onSelect: () => void voice.join(channelId) }] : []),
+    ...(ch.group ? [{ label: "Leave group", icon: <LogOut />, destructive: true, onSelect: () => setLeaving(true) }] : []),
+  ];
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={title}>
-        <TopBar actions={(
+        <TopBar phoneActions={phoneActions} onTitleClick={() => setInfo(true)} actions={(
           <>
             {threads && (
               <Tooltip>
@@ -78,7 +94,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
                 <TooltipContent>Threads</TooltipContent>
               </Tooltip>
             )}
-            <PinsPanel channelId={channelId} onJump={(id) => void jumpTo(channelId, id).catch(() => undefined)} />
+            <PinsPanel channelId={channelId} onJump={jumpToPin} />
             {members && (
               <Button variant="ghost" size="icon-sm" aria-label="Members" className="text-muted-foreground md:hidden" onClick={() => setShowMembers(true)}>
                 <Users />
@@ -103,7 +119,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
         )}>
           {kind === "announcement" && <Megaphone className="size-5 flex-none text-muted-foreground" aria-hidden />}
           <h2 className="flex-none">{ch.type === "dm" ? title : <># <EmojiText text={ch.name} /></>}</h2>
-          {ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
+          {!mobile && ch.type !== "dm" && ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
         {ch.type === "dm" && (inCall > 0 || here) && (
           <div className="border-b"><VoiceStage channelId={channelId} joinLabel="Join call" compact /></div>
@@ -125,6 +141,16 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
               reply={reply} withTitle={kind === "announcement"}
               readOnlyText={ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
           </div>
+        )}
+        {mobile && (
+          <>
+            <PinsSheet channelId={channelId} open={pins} onOpenChange={setPins} onJump={jumpToPin} />
+            <ChannelInfoSheet channelId={channelId} kind={kind} open={info} onOpenChange={setInfo}
+              onPins={() => setPins(true)} onMembers={members ? () => setShowMembers(true) : undefined}
+              onThreads={threads ? () => openPanel({ kind: "threads" }) : undefined}
+              onSettings={ch.type !== "dm" && hasPerm(perms, Perm.ManageChannels) ? () => setSettings(true) : undefined} />
+            {settings && <ChannelSettingsDialog channelId={channelId} onClose={() => setSettings(false)} />}
+          </>
         )}
         {leaving && <LeaveGroupDialog channelId={channelId} onClose={() => setLeaving(false)} />}
       </main>

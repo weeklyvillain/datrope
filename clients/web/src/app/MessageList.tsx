@@ -19,6 +19,12 @@ import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
 import { PollCard } from "@/chat/PollCard";
 import { cn } from "@/lib/utils";
+import { useLongPress } from "@/hooks/use-long-press";
+import { useSwipeReply } from "@/hooks/use-swipe-reply";
+import { recordEmoji } from "@/chat/recent-emoji";
+import { EmojiPicker, reactionKey } from "@/chat/EmojiPicker";
+import { KEEP_TOUCH_DEFAULT, canLongPress, enterAction, isTouchOnly } from "@/lib/touch";
+import { useLatch } from "@/hooks/use-latch";
 import { AddToAlbumContextItems } from "./gallery/AddToAlbum";
 import { addAll } from "./gallery/albums";
 import { AlbumDialog } from "./gallery/AlbumDialog";
@@ -30,6 +36,8 @@ import { WebhookBadge, WebhookPopover } from "./WebhookAuthor";
 import { WebhookEmbeds } from "./WebhookEmbed";
 import { ProfilePopover } from "./people/ProfilePopover";
 import { MessageToolbar } from "./MessageToolbar";
+import { MessageSheet } from "./MessageSheet";
+import { messageActions } from "./message-actions";
 import { ReplyQuote } from "./ReplyQuote";
 import { ThreadSummary } from "./ThreadSummary";
 import { clearPendingJump, usePendingJump } from "./jump";
@@ -147,6 +155,8 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   // is in view and the window has focus are read at once, so they get no line.
   const noLine = useRef(false);
   const stick = useRef(true); // scrolled to the bottom
+  const hasNewer = useRef(false); // the ResizeObserver reads the current value, not its closure
+  hasNewer.current = !!list?.hasNewer;
   const opened = useRef<string>();
 
   const items = list?.items ?? [];
@@ -205,6 +215,17 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
     return () => clearTimeout(t);
   }, [jumpError]);
 
+  // The keyboard or a reply bar resizing the scroller keeps the bottom pinned while stuck.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (stick.current && !hasNewer.current) bottom.current?.scrollIntoView({ block: "end" });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [channelId, !!list]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const el = bottom.current;
     if (!el) return;
@@ -256,7 +277,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
           <Button size="sm" variant="ghost" className="h-7 hover:bg-primary-foreground/15 hover:text-primary-foreground" onClick={markRead}>Mark as read</Button>
         </div>
       )}
-      <div ref={scroller} className="flex flex-1 flex-col gap-0.5 overflow-y-auto pb-2 pt-4" role="log" aria-label="Messages"
+      <div ref={scroller} className="flex flex-1 flex-col gap-0.5 overflow-y-auto overscroll-y-contain pb-2 pt-4" role="log" aria-label="Messages"
         onScroll={(e) => {
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
@@ -423,15 +444,60 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   // Radix skips its menu (and its preventDefault) while the trigger is disabled, so links, media and
   // selected text keep the native menu: decide on pointerdown, which precedes contextmenu.
   const [nativeMenu, setNativeMenu] = useState(false);
+  // Phones: long-press opens a bottom sheet, swipe right replies.
+  const [sheet, setSheet] = useState(false);
+  const [picker, setPicker] = useState(false);
+  // Touch-only sheets mount on first open (a closed vaul drawer still listens to the window), never without touch.
+  const touchy = canLongPress();
+  const sheetMounted = useLatch(sheet);
+  const pickerMounted = useLatch(picker);
+  const acts = messageActions(m, {
+    reply: !!onReply, react: canReact, thread: !!openThread && canCreateThread, hasThread: !!thread && !!openThread, edit: !!onEdit,
+    pin: !!onPin, pinned: m.pinned, album: (m.attachments?.length ?? 0) > 0 && !isDM, delete: !!onDelete,
+  });
+  const lastTouch = useRef(false);
+  const inRow = (e: { currentTarget: Element; target: EventTarget }) => e.currentTarget.contains(e.target as Node);
+  const press = useLongPress(() => {
+    swipe.cancel(); // hold-then-drag must not also reply
+    setSheet(true);
+  }, touchy && !!acts?.length && !nativeMenu && !editing);
+  const swipe = useSwipeReply(() => onReply?.(), !!onReply && actionable && !editing);
+  const react = (emoji: string) => {
+    recordEmoji(emoji);
+    void client.react(m.channel_id, m.id, emoji).catch(showReactError);
+  };
 
   return (
+    <>
     <ContextMenu modal={false}>
-    <ContextMenuTrigger asChild disabled={!actionable || nativeMenu}>
+    <ContextMenuTrigger asChild disabled={!actionable || nativeMenu || isTouchOnly()}>
     <article id={`message-${m.id}`}
       onPointerDownCapture={(e) => setNativeMenu(!!(e.target as HTMLElement).closest("a, img, video, audio") || !!window.getSelection()?.toString())}
-      className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4",
+      onPointerDown={(e) => {
+        if (!inRow(e)) return;
+        // Touch and pen never use Radix's own long-press menu: our sheet handles them.
+        lastTouch.current = e.pointerType !== "mouse";
+        // Links and media keep the browser's own long-press menu; fields and buttons keep focus, caret and clicks.
+        if (lastTouch.current && !editing && !(e.target as HTMLElement).closest(KEEP_TOUCH_DEFAULT)) e.preventDefault();
+        press.onPointerDown(e);
+        swipe.handlers.onPointerDown(e);
+      }}
+      onPointerMove={(e) => { if (!inRow(e)) return; press.onPointerMove(e); swipe.handlers.onPointerMove(e); }}
+      onPointerUp={(e) => { if (!inRow(e)) return; press.onPointerUp(e); swipe.handlers.onPointerUp(e); }}
+      onPointerCancel={(e) => { if (!inRow(e)) return; press.onPointerCancel(); swipe.handlers.onPointerCancel(); }}
+      onClickCapture={(e) => { if (inRow(e)) press.onClickCapture(e); }}
+      onContextMenu={(e) => {
+        if (!inRow(e)) return;
+        if (lastTouch.current && !nativeMenu) e.preventDefault(); // Windows touch long-press: no Radix menu
+        press.onContextMenu(e);
+      }}
+      onKeyDown={() => { lastTouch.current = false; }}
+      style={{ transform: swipe.offset ? `translateX(${swipe.offset}px)` : undefined }}
+      className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4 touch-pan-y pointer-coarse:[-webkit-touch-callout:none]",
+        swipe.offset === 0 && "motion-safe:transition-transform",
         card ? "rounded-xl py-4" : grouped ? "py-0.5" : "mt-2 pb-0.5 pt-1",
         mentioned ? "border-l-2 border-primary bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] pl-3.5" : !card && "hover:bg-card/50")}>
+      {swipe.offset > 0 && <Reply aria-hidden className="absolute left-2 top-1/2 size-5 -translate-x-[calc(100%+0.5rem)] -translate-y-1/2 text-muted-foreground" style={{ opacity: Math.min(1, swipe.offset / 64) }} />}
       {replyTo && <ReplyQuote reply={replyTo} onJump={() => void jump(replyTo.id)} />}
       {grouped ? <span /> : (
         <button ref={avatarRef} type="button" tabIndex={-1} aria-hidden className="size-10 self-start justify-self-start rounded-full" onClick={() => setProfileOpen((o) => !o)}>
@@ -475,20 +541,28 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
                 }} />
             )}
             <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} aria-label="Edit message" autoFocus
+              enterKeyHint={isTouchOnly() ? "enter" : undefined}
               onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   e.preventDefault();
                   setEditing(false);
-                } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                } else if (enterAction({ key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, isComposing: e.nativeEvent.isComposing }, isTouchOnly()) === "send") {
                   e.preventDefault();
                   void save();
                 }
               }} />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Escape to <Button variant="link" className="h-auto p-0 text-xs" onClick={() => setEditing(false)}>cancel</Button>
-              {" · "}Enter to <Button type="submit" variant="link" className="h-auto p-0 text-xs">save</Button>
-            </p>
+            {isTouchOnly() ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Return adds a line · tap <Button type="submit" variant="link" className="h-auto p-0 text-xs">save</Button>
+                {" or "}<Button variant="link" className="h-auto p-0 text-xs" onClick={() => setEditing(false)}>cancel</Button>
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Escape to <Button variant="link" className="h-auto p-0 text-xs" onClick={() => setEditing(false)}>cancel</Button>
+                {" · "}Enter to <Button type="submit" variant="link" className="h-auto p-0 text-xs">save</Button>
+              </p>
+            )}
           </form>
         ) : m.content || m.edited_at ? (
           <div className={cn("wrap-anywhere", m.pending && "opacity-60")}>
@@ -519,34 +593,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           pinned={m.pinned}
           onDelete={onDelete} />
       )}
-      <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-[480px]" onContextMenu={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Delete message?</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[40vh] overflow-y-auto rounded-lg border bg-background px-3 py-2 wrap-anywhere">
-            <div className="flex items-baseline gap-2">
-              <strong className="font-semibold" style={{ color }}>{name}{hook ? <WebhookBadge /> : m.author && <GuestBadge user={m.author} />}</strong>
-              <span className="text-xs text-muted-foreground">{stamp(new Date(m.created_at))}</span>
-            </div>
-            <Markdown text={m.content} mentions={m.mentions ?? undefined} />
-            {m.poll && <p className="m-0 text-sm text-muted-foreground">Poll: {m.poll.question}</p>}
-            {(m.attachments?.length ?? 0) > 0 && (
-              <p className="m-0 text-sm text-muted-foreground">
-                {m.attachments!.length === 1 ? "1 attachment" : `${m.attachments!.length} attachments`}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => void remove()}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {newAlbum && <AlbumDialog onClose={() => setNewAlbum(false)} onSaved={(a) => {
-        setNewAlbum(false);
-        void addAll(a.id, (m.attachments ?? []).map((x) => x.id)).then((e) => e && showAlbumError(e));
-      }} />}
+      {canReact && touchy && pickerMounted && <EmojiPicker open={picker} onOpenChange={setPicker} onPick={(v) => react(reactionKey(v))} />}
     </article>
     </ContextMenuTrigger>
     <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
@@ -573,6 +620,48 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
       )}
     </ContextMenuContent>
     </ContextMenu>
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent aria-describedby={undefined} className="sm:max-w-[480px]" onContextMenu={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Delete message?</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[40vh] overflow-y-auto rounded-lg border bg-background px-3 py-2 wrap-anywhere">
+            <div className="flex items-baseline gap-2">
+              <strong className="font-semibold" style={{ color }}>{name}{hook ? <WebhookBadge /> : m.author && <GuestBadge user={m.author} />}</strong>
+              <span className="text-xs text-muted-foreground">{stamp(new Date(m.created_at))}</span>
+            </div>
+            <Markdown text={m.content} mentions={m.mentions ?? undefined} />
+            {m.poll && <p className="m-0 text-sm text-muted-foreground">Poll: {m.poll.question}</p>}
+            {(m.attachments?.length ?? 0) > 0 && (
+              <p className="m-0 text-sm text-muted-foreground">
+                {m.attachments!.length === 1 ? "1 attachment" : `${m.attachments!.length} attachments`}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => void remove()}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {touchy && sheetMounted && !!acts?.length && (
+        <MessageSheet open={sheet} onOpenChange={setSheet} message={m} actions={acts} hasThread={!!thread} pinned={m.pinned}
+          onReact={react} onMoreReactions={() => setPicker(true)}
+          onReply={() => onReply?.()} onThread={() => openThread?.()} onEdit={() => onEdit?.()}
+          onCopy={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}
+          onPin={() => onPin?.()} onNewAlbum={() => setNewAlbum(true)} onAlbumError={showAlbumError} onDelete={() => onDelete?.()}
+          preview={(
+            <div className="mx-4 mb-1 max-h-24 overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm wrap-anywhere">
+              <strong className="font-semibold" style={{ color }}>{name}</strong>
+              <p className="m-0 line-clamp-2 text-muted-foreground">{m.content || ((m.attachments?.length ?? 0) > 0 ? "Attachment" : "")}</p>
+            </div>
+          )} />
+      )}
+      {newAlbum && <AlbumDialog onClose={() => setNewAlbum(false)} onSaved={(a) => {
+        setNewAlbum(false);
+        void addAll(a.id, (m.attachments ?? []).map((x) => x.id)).then((e) => e && showAlbumError(e));
+      }} />}
+    </>
   );
 }
 

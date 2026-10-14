@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combinePtt, watchPtt } from "./ptt";
+import { bindUiPtt, combinePtt, setPttFromUi, watchPtt } from "./ptt";
 
 const key = (type: string, code: string, repeat = false) => Object.assign(new Event(type), { code, repeat });
 
@@ -66,6 +66,21 @@ describe("combinePtt", () => {
     p.set("local", false);
     p.set("global", false);
     p.set("global", false);
+    expect(seen).toEqual([true, false]);
+  });
+});
+
+describe("hold to talk from the UI", () => {
+  it("feeds the bound call's push to talk, and nothing once unbound", () => {
+    const seen: boolean[] = [];
+    const p = combinePtt((d) => seen.push(d));
+    bindUiPtt((d) => p.set("ui", d));
+    setPttFromUi(true);
+    p.set("local", true);
+    setPttFromUi(false);
+    p.set("local", false);
+    bindUiPtt(null);
+    setPttFromUi(true);
     expect(seen).toEqual([true, false]);
   });
 });

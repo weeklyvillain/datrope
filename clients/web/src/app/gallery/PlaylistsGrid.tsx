@@ -34,7 +34,7 @@ export function PlaylistsGrid({ filter, setFilter }: { filter: GalleryFilter; se
         {canCreate && <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus />New playlist</Button>}
       </div>
       {list.length === 0 ? <p className="m-0 p-8 text-center text-sm text-muted-foreground">{playlists ? "No playlists yet." : "Loading…"}</p> : (
-        <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 p-0">
+        <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-0">
           {list.map((p) => (
             <li key={p.id}>
               <button type="button" aria-label={`Open ${p.title}`} onClick={() => setFilter({ playlist: p.id })}

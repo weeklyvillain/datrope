@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ErrorText } from "@/components/error-text";
 import { useSubmit } from "@/hooks/use-submit";
 import { useBriefError } from "@/chat/Reactions";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { EmptyView } from "../EmptyView";
 import { UserAvatar } from "@/components/user-avatar";
 import { client, errorText, useApp, usePerms } from "../../session";
@@ -49,6 +50,7 @@ export function AlbumView({ albumId }: { albumId: string }) {
   const [removing, setRemoving] = useState<GalleryItem>(); // an album upload: removing it deletes it
   const [actionError, showActionError] = useBriefError();
   const nav = useNavigate();
+  const mobile = useIsMobile();
   const me = useApp((s) => s.me?.id);
   const members = useApp((s) => s.server?.members);
   const canModerate = hasPerm(usePerms(), Perm.ManageMessages);
@@ -79,7 +81,7 @@ export function AlbumView({ albumId }: { albumId: string }) {
     );
   const header = (
     <>
-      <Button variant="ghost" size="icon-sm" asChild aria-label="Back to albums"><Link to="/gallery/albums"><ArrowLeft /></Link></Button>
+      {!mobile && <Button variant="ghost" size="icon-sm" asChild aria-label="Back to albums"><Link to="/gallery/albums"><ArrowLeft /></Link></Button>}
       <h2 className="flex-none">{album.title}</h2>
       <Icon className="size-4 flex-none text-muted-foreground" aria-label={album.visibility === "server" ? "Everyone on the server" : "Only collaborators"} />
       <span className="flex -space-x-1.5" aria-label="Collaborators">
