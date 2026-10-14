@@ -18,6 +18,8 @@ use tauri::{
 pub const RAIL: &str = "rail";
 /// The server drawer: its own webview, created after the server webviews so it stacks above them.
 pub const DRAWER: &str = "drawer";
+/// The screen picker: its own transparent webview over the whole window while a server page asks for a source.
+pub const PICKER: &str = "picker";
 pub const MAIN: &str = "main";
 pub const TOP_BAR_HEIGHT: f64 = 32.0;
 pub const DRAWER_WIDTH: f64 = 260.0;
@@ -451,6 +453,28 @@ pub fn create_main_window(app: &AppHandle, hidden: bool) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Opens the screen picker in its own webview over the whole window, replacing an open one. It is transparent and
+/// created last, so it stacks above everything and the server page stays visible, live, under its dimmed overlay.
+pub fn open_picker_webview(app: &AppHandle) -> tauri::Result<()> {
+    let Some(window) = main_window(app) else {
+        return Ok(());
+    };
+    close_picker_webview(app);
+    let size = content_size(&window)?;
+    let wv = window.add_child(
+        chrome_webview(app, PICKER, "picker.html").transparent(true),
+        LogicalPosition::new(0.0, 0.0),
+        LogicalSize::new(size.width, size.height),
+    )?;
+    wv.set_focus()
+}
+
+pub fn close_picker_webview(app: &AppHandle) {
+    if let Some(wv) = app.get_webview(PICKER) {
+        let _ = wv.close();
+    }
+}
+
 /// A chrome webview (title bar, drawer) showing the bundled `page`. On Windows it joins the servers' WebView2
 /// environment (same data directory, same browser flags), so the chrome starts no browser process group of its own.
 fn chrome_webview(app: &AppHandle, label: &str, page: &str) -> WebviewBuilder<tauri::Wry> {
@@ -764,6 +788,7 @@ pub fn layout(app: &AppHandle) -> tauri::Result<()> {
         let r = match wv.label() {
             RAIL => chrome,
             DRAWER => drawer,
+            PICKER => Rect::new(0.0, 0.0, size.width, size.height),
             _ => page,
         };
         wv.set_position(LogicalPosition::new(r.x, r.y))?;
@@ -790,7 +815,7 @@ pub fn apply_visibility(app: &AppHandle) {
         return;
     };
     for wv in window.webviews() {
-        if wv.label() == RAIL || wv.label() == DRAWER {
+        if [RAIL, DRAWER, PICKER].contains(&wv.label()) {
             continue;
         }
         let visible = show.as_deref() == Some(wv.label());

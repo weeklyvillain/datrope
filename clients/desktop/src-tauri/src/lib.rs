@@ -86,6 +86,7 @@ pub fn run() {
             commands::update_restart,
             commands::desktop_screen_pick,
             commands::desktop_screen_stop,
+            commands::screen_pick_request,
             commands::screen_pick_done,
         ])
         .build(tauri::generate_context!())

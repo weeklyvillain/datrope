@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "../../session";
 import { NAV } from "../server-settings/ServerSettings";
 import { GROUPS, visibleSections } from "./sections";
-import { closeSettings, showSection, useSettings, type SettingsSection } from "./settings-store";
+import { closeSettings, showSection, useSettings } from "./settings-store";
 
 /** "Your settings": a modal with a section nav on the left, like server settings. */
 export function UserSettingsDialog() {

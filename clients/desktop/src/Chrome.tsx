@@ -5,10 +5,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddServerDialog, AddServerForm } from "./AddServerDialog";
 import {
-  answerScreenPick, emptyRailState, listServers, onChromeRequest, onRailState, onScreenPick, onScreenPickClosed,
-  removeServer, setChromeMode, type ChromeMode, type RailState, type ScreenPickRequest,
+  emptyRailState, listServers, onChromeRequest, onRailState, removeServer, setChromeMode, type ChromeMode, type RailState,
 } from "./rail-api";
-import { ScreenPicker } from "./ScreenPicker";
 import { TopBar } from "./TopBar";
 
 /**
@@ -19,7 +17,6 @@ export function Chrome() {
   const [state, setState] = useState<RailState>(emptyRailState);
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string>();
-  const [screenPick, setScreenPick] = useState<ScreenPickRequest>();
   const removing = state.servers.find((s) => s.id === removingId);
 
   useEffect(() => {
@@ -30,10 +27,7 @@ export function Chrome() {
       if (action === "add") setAdding(true);
       else setRemovingId(action.remove);
     });
-    // Same for the screen picker; the shell takes the window back once it has the answer.
-    const stopPick = onScreenPick(setScreenPick);
-    const stopPickClosed = onScreenPickClosed(() => setScreenPick(undefined));
-    return () => { stopState(); stopRequests(); stopPick(); stopPickClosed(); };
+    return () => { stopState(); stopRequests(); };
   }, []);
 
   const empty = state.servers.length === 0 && state.mode === "full";
@@ -76,8 +70,6 @@ export function Chrome() {
       )}
 
       <AddServerDialog open={adding} onOpenChange={openAdd} />
-
-      <ScreenPicker request={screenPick} onDone={(id) => { setScreenPick(undefined); void answerScreenPick(id); }} />
 
       <AlertDialog open={!!removing} onOpenChange={(open) => !open && confirmRemove(undefined)}>
         <AlertDialogContent>

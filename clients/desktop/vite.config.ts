@@ -14,6 +14,7 @@ export default defineConfig({
         rail: fileURLToPath(new URL("./index.html", import.meta.url)),
         offline: fileURLToPath(new URL("./offline.html", import.meta.url)),
         drawer: fileURLToPath(new URL("./drawer.html", import.meta.url)),
+        picker: fileURLToPath(new URL("./picker.html", import.meta.url)),
       },
     },
   },

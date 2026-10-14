@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "picker",
+  "description": "The bundled screen picker over the server page",
+  "webviews": ["picker"],
+  "permissions": ["allow-screen-pick-request", "allow-screen-pick-done"]
+}
