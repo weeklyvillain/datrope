@@ -1,6 +1,7 @@
 import { Children, forwardRef, type ComponentProps, type ReactNode } from "react";
 import { ProfilePopover } from "./ProfilePopover";
 
+// Inline text styled only by `.mention` (Markdown.test pins class="mention"), so no Button chrome.
 const MentionButton = forwardRef<HTMLButtonElement, ComponentProps<"button">>((props, ref) => (
   <button ref={ref} type="button" {...props} />
 ));

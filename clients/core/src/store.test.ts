@@ -122,6 +122,13 @@ describe("store", () => {
     expect(applyEvent(s, "MESSAGE_CREATE", msg("30")).messages["101"].items).toHaveLength(3);
   });
 
+  it("keeps a confirmed message's nonce through MESSAGE_UPDATE, which carries none", () => {
+    let s = addPending(loaded(), "101", "n1", "see https://example.com");
+    s = applyEvent(s, "MESSAGE_CREATE", msg("30", { content: "see https://example.com", nonce: "n1" }));
+    s = applyEvent(s, "MESSAGE_UPDATE", msg("30", { content: "see https://example.com", edited_at: "2026-01-01T00:01:00Z" }));
+    expect(s.messages["101"].items.at(-1)).toMatchObject({ id: "30", nonce: "n1", edited_at: "2026-01-01T00:01:00Z" });
+  });
+
   it("marks a failed send", () => {
     const s = markFailed(addPending(loaded(), "101", "n1", "x"), "101", "n1");
     expect(s.messages["101"].items.at(-1)).toMatchObject({ pending: true, failed: true });

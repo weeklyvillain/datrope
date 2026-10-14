@@ -33,7 +33,7 @@ export function ScreenHeader({ title, back = true, actions }: { title: ReactNode
   return (
     <header className="flex min-h-[48px] flex-none items-center gap-1 border-b bg-topbar pt-safe pr-[max(0.5rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))] text-topbar-foreground">
       {back ? <BackButton /> : <span className="w-2" />}
-      <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h2>
+      <h2 className="min-w-0 flex-1 truncate text-body font-semibold">{title}</h2>
       {actions && <div className="flex flex-none items-center gap-1">{actions}</div>}
     </header>
   );

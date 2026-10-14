@@ -1,5 +1,5 @@
 import { Perm, canCreateInvites, hasPerm, sidebarChannelIds, unwrap, type Member } from "@datrope/core";
-import { BookOpen, Hash, Plus, Search, Settings, User, UserPlus, Volume2, type LucideIcon } from "lucide-react";
+import { BookOpen, CheckCheck, Hash, Keyboard, PhoneOff, Plus, Search, Settings, User, UserPlus, Users, Volume2, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -13,6 +13,9 @@ import { CreateChannelDialog } from "../dialogs/CreateChannelDialog";
 import { InviteDialog } from "../dialogs/InviteDialog";
 import { openSettings, type SettingsSection } from "../settings/settings-store";
 import { openPanel, openProfile, setSearchQuery } from "../side-panel/panel";
+import { openShortcutSheet } from "@/components/shortcut-sheet";
+import { useVoice, voice } from "../../voice/voice";
+import { emitToggleMembers } from "../chat-events";
 import { closeCommands, findDM, toggleCommands, useCommands } from "./command-store";
 
 const CHANNEL_ICONS: Record<string, LucideIcon> = { voice: Volume2, welcome: BookOpen };
@@ -44,6 +47,9 @@ export function CommandPalette() {
   const canInvite = useApp(canCreateInvites);
   const canSettings = !!me?.is_admin || SETTINGS_PERMS.some((p) => hasPerm(perms, p));
   const canCreate = hasPerm(perms, Perm.ManageChannels);
+  const inCall = useVoice((v) => v.status !== "idle");
+  const chatId = /^\/(?:channels|messages)\/([^/]+)/.exec(pathname)?.[1];
+  const lastMessageId = useApp((s) => (chatId ? s.readStates[chatId]?.lastMessageId : undefined));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -135,6 +141,10 @@ export function CommandPalette() {
                 <Settings />Settings: {s.label}
               </CommandItem>
             ))}
+            {chatId && lastMessageId && <CommandItem value="mark as read" onSelect={() => act(() => void client.ack(chatId, lastMessageId).catch(() => undefined))}><CheckCheck />Mark as read</CommandItem>}
+            {inCall && <CommandItem value="leave voice" onSelect={() => act(() => void voice.leave())}><PhoneOff />Leave voice</CommandItem>}
+            {chatId && <CommandItem value="toggle members" onSelect={() => act(emitToggleMembers)}><Users />Toggle members</CommandItem>}
+            <CommandItem value="keyboard shortcuts" onSelect={() => act(openShortcutSheet)}><Keyboard />Keyboard shortcuts</CommandItem>
             {canSettings && <CommandItem value="server settings" onSelect={() => go("/server-settings")}><Settings />Server settings</CommandItem>}
             {canCreate && <CommandItem value="create channel" onSelect={() => act(() => setDialog("create"))}><Plus />Create channel</CommandItem>}
             {canInvite && <CommandItem value="invite people" onSelect={() => act(() => setDialog("invite"))}><UserPlus />Invite people</CommandItem>}

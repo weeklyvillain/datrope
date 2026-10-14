@@ -459,7 +459,8 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(alice.getByRole("button", { name: "Hangouts" })).toBeVisible();
   const generalRow = alice.getByRole("link", { name: "general" });
   await generalRow.hover();
-  await alice.getByRole("button", { name: "Settings for general" }).click();
+  await alice.getByRole("button", { name: "Options for general" }).click();
+  await alice.getByRole("menuitem", { name: "Channel settings" }).click();
   await alice.getByLabel("Category", { exact: true }).selectOption({ label: "Hangouts" });
   // Topic: set in the same dialog; the header shows it.
   await alice.getByLabel("Topic", { exact: true }).fill("Plans and memes");
@@ -528,17 +529,17 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(bannerCrop).toBeVisible();
   await bannerCrop.getByRole("button", { name: "Apply" }).click();
   await expect(alice.getByRole("region", { name: "Profile", exact: true }).locator('img[src*="/api/banners/"]')).toBeVisible();
-  await alice.keyboard.press("Escape"); // closes the settings modal
+  await alice.keyboard.press("Escape"); // leaves the settings page
   // Appearance: a theme re-skins the app and stays on this device.
   await alice.getByRole("button", { name: "Your settings" }).click();
-  await alice.getByRole("dialog").getByRole("button", { name: "Appearance" }).click();
+  await alice.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Appearance" }).click();
   await alice.getByRole("radio", { name: "Gotham" }).click();
   await expect.poll(() => alice.evaluate(() => document.documentElement.style.getPropertyValue("--sidebar"))).toBe("#0a0f14");
   await alice.getByRole("radio", { name: "Datrope" }).click();
   await alice.keyboard.press("Escape");
   // Voice & audio: push to talk shows the key instead of the sensitivity, and stays on this device.
   await alice.getByRole("button", { name: "Your settings" }).click();
-  await alice.getByRole("dialog").getByRole("button", { name: "Voice & audio" }).click();
+  await alice.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Voice & audio" }).click();
   await expect(alice.getByLabel("Input device")).toBeVisible();
   await expect(alice.getByRole("slider", { name: "Input sensitivity" })).toBeVisible();
   await alice.getByRole("radio", { name: "Push to talk" }).click();
@@ -611,7 +612,8 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
 
   // Channel settings → Webhooks: "CI" is created and its URL shown once.
   await alice.getByRole("link", { name: "alerts" }).hover();
-  await alice.getByRole("button", { name: "Settings for alerts" }).click();
+  await alice.getByRole("button", { name: "Options for alerts" }).click();
+  await alice.getByRole("menuitem", { name: "Channel settings" }).click();
   await alice.getByRole("tab", { name: "Webhooks" }).click();
   await alice.getByLabel("Webhook name").fill("CI");
   await alice.getByRole("button", { name: "Create webhook" }).click();
@@ -789,7 +791,7 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   await createChannel(alice, "Gallery", "photos");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
   const alicePhotos = alice.getByRole("main", { name: "photos" });
-  await expect(alicePhotos.getByText("No files yet.")).toBeVisible();
+  await expect(alicePhotos.getByText("No files yet", { exact: true })).toBeVisible();
   await alicePhotos.getByRole("button", { name: "Upload" }).click();
   const upload = alice.getByRole("dialog", { name: "Upload files" });
   const chooser = alice.waitForEvent("filechooser");

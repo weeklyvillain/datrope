@@ -1,12 +1,15 @@
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { moveId } from "./order";
 import {
   emptyRailState, listServers, onRailState, reorderServers, requestChrome, selectServer, setChromeMode,
   type RailServer, type RailState,
 } from "./rail-api";
 import { ServerDrawer } from "./ServerDrawer";
+import { applyTheme } from "./theme";
 import "./rail.css";
 
 /**
@@ -20,6 +23,8 @@ function Drawer() {
     void listServers().then(setState);
     return onRailState(setState);
   }, []);
+
+  useEffect(() => applyTheme(state.theme), [state.theme]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") void setChromeMode("closed"); };
@@ -49,7 +54,14 @@ function Drawer() {
 
   return (
     <div className="flex h-full">
-      <ServerDrawer servers={state.servers} selected={state.selected} onPick={pick}
+      <ServerDrawer
+        header={state.barHidden ? (
+          <div className="-mx-2 -mt-2 mb-1 flex h-14 flex-none items-center gap-2 border-b border-border px-3">
+            <h2 className="min-w-0 flex-1 text-sm font-semibold">Servers</h2>
+            <Button variant="ghost" size="icon-sm" aria-label="Close servers" onClick={() => void setChromeMode("closed")}><X /></Button>
+          </div>
+        ) : undefined}
+        servers={state.servers} selected={state.selected} onPick={pick}
         onMenu={(s) => void showMenu(s)} onReorder={reorder} onAdd={() => void requestChrome("add")} />
     </div>
   );

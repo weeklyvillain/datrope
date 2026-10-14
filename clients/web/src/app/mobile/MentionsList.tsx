@@ -26,7 +26,7 @@ export function MentionsList({ onJump, title = true }: { onJump?: () => void; ti
   return (
     <>
       <div className={`flex items-center border-b px-4 py-2.5 ${title ? "justify-between" : "justify-end"}`}>
-        {title && <h3 className="m-0 text-[15px] font-semibold normal-case text-foreground">Mentions</h3>}
+        {title && <h3 className="m-0 text-body font-semibold normal-case text-foreground">Mentions</h3>}
         <Button variant="ghost" size="sm" disabled={unread === 0} onClick={() => void run(client.markMentionsRead())}>Mark all read</Button>
       </div>
       {error && <div className="px-4 pt-2"><ErrorText error={error} /></div>}

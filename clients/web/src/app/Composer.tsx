@@ -24,6 +24,7 @@ import type { ReplyState } from "./MessageList";
 import { PollDialog } from "@/chat/PollDialog";
 import { GifDialog } from "./GifDialog";
 import { composerTools } from "./composer-tools";
+import { emitEditLast, emitPresent } from "./chat-events";
 
 const MAX_LENGTH = 4000;
 
@@ -183,7 +184,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
       {listOpen && (
         <Autocomplete id={listId} kind={trigger.kind} items={suggestions} active={activeIndex} onPick={pick} onHover={setActive} />
       )}
-      <div className="rounded-lg border bg-card max-md:rounded-2xl focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="rounded-lg border bg-card max-md:rounded-2xl focus-within:border-ring focus-within:ring-2 focus-within:ring-ring">
         {replyTo && (
           <div className="flex items-center gap-2 rounded-t-[inherit] bg-muted py-1.5 pl-2.5 pr-1.5 text-sm text-muted-foreground">
             <Reply className="size-3.5 flex-none" aria-hidden="true" />
@@ -197,7 +198,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               <li key={f.key} className={cn("inline-flex items-center gap-1.5 rounded-full border bg-card py-0.5 pl-2.5 pr-1 text-sm", f.error && "border-destructive")}>
                 {f.text === undefined ? <span>{f.name}</span> : (
                   <Input key={f.name} defaultValue={f.name} aria-label="Snippet file name"
-                    className="h-6 w-36 rounded-full border-0 bg-transparent px-1 py-0 text-[16px] md:text-sm shadow-none focus-visible:ring-1"
+                    className="h-6 w-36 rounded-full border-0 bg-transparent px-1 py-0 text-title md:text-sm shadow-none focus-visible:ring-1"
                     onBlur={(e) => {
                       const n = snippetName(e.target.value, f.name);
                       e.target.value = n;
@@ -257,7 +258,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               <CirclePlus />
             </Button>
           ))}
-          <Textarea className="max-h-[40vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 text-[16px] shadow-none focus-visible:ring-0 max-md:min-h-[44px] max-md:py-2.5"
+          <Textarea className="max-h-[40vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 text-title shadow-none focus-visible:ring-0 max-md:min-h-[44px] max-md:py-2.5"
             value={text} placeholder={placeholder} aria-label={label} maxLength={MAX_LENGTH} rows={1}
             enterKeyHint={isTouchOnly() ? "enter" : undefined}
             role="combobox" aria-expanded={listOpen} aria-autocomplete="list" aria-controls={listOpen ? listId : undefined}
@@ -309,9 +310,16 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
                   return;
                 }
               }
-              if (e.key === "Escape" && replyTo) {
+              if (e.key === "ArrowUp" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.nativeEvent.isComposing && text === "" && !replyTo) {
+                e.preventDefault();
+                emitEditLast(channelId);
+              } else if (e.key === "Escape" && replyTo) {
                 e.preventDefault();
                 setReplyTo(null);
+              } else if (e.key === "Escape" && !e.nativeEvent.isComposing && !e.defaultPrevented) {
+                // Nothing else to dismiss: mark the conversation read and jump to the present. Not prevented, so a
+                // side panel's Esc still closes it.
+                emitPresent(channelId);
               } else if (enterAction({ key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, isComposing: e.nativeEvent.isComposing }, isTouchOnly()) === "send") {
                 e.preventDefault();
                 submit();

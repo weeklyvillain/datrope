@@ -6,7 +6,7 @@ import { WebhookAvatar } from "@/components/webhook-avatar";
 
 /** The tag next to a webhook message's name. */
 export function WebhookBadge() {
-  return <Badge variant="secondary" className="h-4 self-center rounded px-1 text-[10px] font-bold uppercase tracking-wide">Webhook</Badge>;
+  return <Badge variant="secondary" className="h-4 self-center rounded px-1 text-caption font-bold uppercase tracking-wide">Webhook</Badge>;
 }
 
 /** What clicking a webhook message's name or avatar shows. A webhook has no profile, just a name and an avatar.

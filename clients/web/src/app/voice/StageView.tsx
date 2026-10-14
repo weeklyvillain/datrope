@@ -1,6 +1,7 @@
 import { EyeOff, Maximize, Volume2 } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { canFullscreen } from "@/lib/media-support";
 import { cn } from "@/lib/utils";
 import { useApp, userName } from "../../session";
@@ -57,13 +58,8 @@ function ScreenAudio({ userId }: { userId: string }) {
   return (
     <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-background/80 px-2.5 py-1 text-xs text-muted-foreground">
       <Volume2 className="size-3.5" aria-hidden /> Screen audio
-      <input type="range" min={0} max={200} step={5} value={volume} aria-label={`Volume of ${name}'s screen audio`}
-        onChange={(e) => setScreenVolume(userId, Number(e.target.value))}
-        className={cn(
-          "h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-primary",
-          "[&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary",
-          "[&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary",
-        )} />
+      <Slider min={0} max={200} step={5} value={[volume]} aria-label={`Volume of ${name}'s screen audio`}
+            onValueChange={([x]) => setScreenVolume(userId, x)} className="w-24" />
     </div>
   );
 }

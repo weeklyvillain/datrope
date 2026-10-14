@@ -1,4 +1,4 @@
-import { LayoutGrid, List, Play, Shuffle } from "lucide-react";
+import { FilterX, LayoutGrid, List, Play, Shuffle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ import type { GalleryFilter } from "./filter";
 import { audioOnly, itemAuthor, type GalleryItem } from "./items";
 import { PlaylistsGrid } from "./PlaylistsGrid";
 import type { useFiles } from "./use-files";
+import { ListSkeleton } from "@/components/loading-skeleton";
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { BareButton } from "@/components/bare-button";
 
 const LAYOUT_KEY = "gallery.music.layout";
 const readLayout = (): "grid" | "list" => { try { return localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "grid"; } catch { return "grid"; } };
@@ -67,12 +70,11 @@ export function MusicView({ filter, setFilter, files, global, menuExtra }: {
         <PlaylistsGrid filter={filter} setFilter={setFilter} />
       ) : files.error && !items.length ? <ErrorText error={files.error} />
         : !items.length && !files.loading && filtered ? (
-          <div className="grid justify-items-center gap-3 p-8">
-            <p className="m-0 text-sm text-muted-foreground">No files match.</p>
-            <Button variant="outline" size="sm" onClick={() => setFilter({ q: "", uploader: null, channels: [] })}>Clear filters</Button>
-          </div>
+          <Empty><EmptyHeader><EmptyMedia variant="icon"><FilterX /></EmptyMedia><EmptyTitle>No files match</EmptyTitle></EmptyHeader>
+            <EmptyContent><Button variant="outline" size="sm" onClick={() => setFilter({ q: "", uploader: null, channels: [] })}>Clear filters</Button></EmptyContent>
+          </Empty>
         )
-        : !items.length ? <p className="m-0 p-8 text-center text-sm text-muted-foreground">{files.loading ? "Loading…" : "No music yet."}</p>
+        : !items.length ? files.loading ? <ListSkeleton rowClassName="h-10" /> : <p className="m-0 p-8 text-center text-sm text-muted-foreground">No music yet.</p>
         : layout === "grid" ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
             {items.map((it, i) => (
@@ -96,7 +98,7 @@ export function MusicView({ filter, setFilter, files, global, menuExtra }: {
                         {cur ? <span className="text-primary">♪</span> : <span className="text-muted-foreground tabular-nums">{i + 1}</span>}
                       </Button>
                     </TableCell>
-                    <TableCell><button type="button" className={cn("text-left", cur && "font-semibold text-primary")} onClick={() => open(i)}>{it.attachment.filename}</button></TableCell>
+                    <TableCell><BareButton className={cn("text-left", cur && "font-semibold text-primary")} onClick={() => open(i)}>{it.attachment.filename}</BareButton></TableCell>
                     {global && <TableCell>{channelTag(it) && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">#{channelTag(it)}</span>}</TableCell>}
                     <TableCell>{displayName(itemAuthor(it, members) ?? { username: "unknown", display_name: "Unknown" })}</TableCell>
                     <TableCell className="text-muted-foreground">{dateFmt.format(new Date(it.created_at))}</TableCell>

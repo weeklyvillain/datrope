@@ -7,6 +7,7 @@ import { ErrorText } from "@/components/error-text";
 import { ActionSheet } from "@/components/action-sheet";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,6 +20,7 @@ import { setSoundboardVolume, toggleFavourite, useVoicePrefs, voicePrefs } from 
 import { playClip, preload, recordPlay, stopAllClips, shouldPlay, useRecentPlay, type PlayEvent } from "../../voice/soundboard-audio";
 import { useVoice, voice } from "../../voice/voice";
 import type { Entry } from "./GridView";
+import { BareButton } from "@/components/bare-button";
 
 const seconds = (s: Sound) => `${(s.duration_ms / 1000).toFixed(1)} s`;
 const soundUrl = (s: Sound) => client.url(s.url);
@@ -181,17 +183,17 @@ function Panel({ callId }: { callId: string }) {
         const fav = favourites.includes(s.id);
         return (
           <li key={s.id} className="relative">
-            <button type="button" aria-label={`Play ${s.name}, ${seconds(s)}`} onClick={(e) => play(s, e.shiftKey)}
-              className="grid w-full justify-items-center gap-1 rounded-lg border bg-card px-1.5 py-2.5 text-sm outline-none hover:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50">
+            <BareButton aria-label={`Play ${s.name}, ${seconds(s)}`} onClick={(e) => play(s, e.shiftKey)}
+              className="grid w-full justify-items-center gap-1 rounded-lg border bg-card px-1.5 py-2.5 text-sm outline-none hover:border-primary focus-visible:ring-2 focus-visible:ring-ring">
               <span className="text-2xl leading-none" aria-hidden>{s.emoji}</span>
               <span className="w-full truncate text-center font-medium">{s.name}</span>
               <span className="text-xs text-muted-foreground">{seconds(s)}</span>
-            </button>
-            <button type="button" aria-label={`Favourite ${s.name}`} aria-pressed={fav} onClick={() => toggleFavourite(s.id)}
-              className={cn("absolute right-1 top-1 grid size-5 place-items-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            </BareButton>
+            <BareButton aria-label={`Favourite ${s.name}`} aria-pressed={fav} onClick={() => toggleFavourite(s.id)}
+              className={cn("absolute right-1 top-1 grid size-5 place-items-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
                 fav && "text-primary hover:text-primary")}>
               <Star className={cn("size-3.5", fav && "fill-current")} />
-            </button>
+            </BareButton>
           </li>
         );
       })}
@@ -230,13 +232,8 @@ function Panel({ callId }: { callId: string }) {
           <span className="text-muted-foreground">Volume</span>
           <span className="tabular-nums text-muted-foreground">{volume}%</span>
         </div>
-        <input type="range" min={0} max={100} step={5} value={volume} aria-label="Soundboard volume, just for you"
-          onChange={(e) => setSoundboardVolume(Number(e.target.value))}
-          className={cn(
-            "h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary",
-            "[&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary",
-            "[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary",
-          )} />
+        <Slider min={0} max={100} step={5} value={[volume]} aria-label="Soundboard volume, just for you"
+            onValueChange={([x]) => setSoundboardVolume(x)} />
       </div>
       <p className="text-xs text-muted-foreground">Everyone in {title} hears a sound you play. Hold Shift to preview it only for yourself.</p>
     </div>

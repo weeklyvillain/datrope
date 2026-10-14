@@ -13,6 +13,7 @@ import { MessageList, type ReplyState } from "../MessageList";
 import { SidePanel } from "../side-panel/SidePanel";
 import { repliesText } from "../threads";
 import { PostDialog } from "./PostDialog";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** Inside a post nobody replies to a single message. */
 const NO_REPLY: ReplyState = { replyTo: null, setReplyTo: () => undefined };
@@ -39,7 +40,7 @@ export function PostPanel({ postId, forumId, onClose }: { postId: string; forumI
   if (!post) {
     return (
       <SidePanel title="Post" icon={<MessagesSquare />} onClose={onClose}>
-        <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton />
       </SidePanel>
     );
   }

@@ -1,7 +1,7 @@
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { sizedImage } from "@/lib/sized-image";
-import { useApp } from "@/session";
+import { initials, useApp } from "@/session";
 
 // The Datrope mark (src/assets/datrope-logo.svg), inlined so it takes currentColor.
 const MARK =
@@ -25,13 +25,18 @@ export function ServerIcon({ size = 32, className }: { size?: number; className?
   return <ServerIconImage src={img?.src} srcSet={img?.srcSet} name={name} size={size} className={className} />;
 }
 
-/** ServerIcon for a given image URL (used where the store has no server, e.g. the auth pages). */
+/** ServerIcon for a given image URL (used where the store has no server, e.g. the auth pages). The image shows only once
+ *  it has loaded; until then (or if it fails) the server's initials, else the mark, sit in a card square. */
 export function ServerIconImage({ src, srcSet, name, size = 32, className }: { src?: string; srcSet?: string; name?: string; size?: number; className?: string }) {
   const style = { width: size, height: size };
-  if (src) return <img src={src} srcSet={srcSet} alt={name ?? ""} style={style} className={cn("flex-none rounded-lg object-cover", className)} />;
+  const [loadedSrc, setLoadedSrc] = useState<string>();
+  const loaded = !!src && loadedSrc === src;
   return (
-    <span style={style} className={cn("grid flex-none place-items-center rounded-lg bg-muted", className)}>
-      <Logo className="size-[70%] text-primary" />
+    <span style={style} className={cn("relative grid flex-none place-items-center overflow-hidden rounded-lg bg-card", className)}>
+      {name ? <span aria-hidden className="font-semibold text-muted-foreground" style={{ fontSize: size * 0.4 }}>{initials(name)}</span>
+        : <Logo className="size-[70%] text-primary" />}
+      {src && <img src={src} srcSet={srcSet} alt="" onLoad={() => setLoadedSrc(src)} onError={() => setLoadedSrc(undefined)}
+        className={cn("absolute inset-0 size-full object-cover", !loaded && "invisible")} />}
     </span>
   );
 }

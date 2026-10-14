@@ -16,6 +16,9 @@ export class Desktop {
   private shown = true;
   private unread?: string;
   private inCall?: boolean;
+  private claimed?: boolean;
+  private claim?: Promise<void>;
+  private theme?: string;
 
   constructor(private t: DesktopTransport) {
     this.on<{ visible: boolean }>("visible", (p) => {
@@ -55,6 +58,40 @@ export class Desktop {
     }
   }
 
+  /**
+   * Asks the shell to hide its bar above this page: the page's own top bars carry the window buttons. Resolves once
+   * the shell answered; a shell without the command rejects, and the next call with the same value tries again.
+   */
+  claimTitleBar(claimed: boolean): Promise<void> {
+    if (claimed === this.claimed && this.claim) return this.claim;
+    this.claimed = claimed;
+    const claim: Promise<void> = this.t.invoke<void>("desktop_title_bar", { claimed }).catch((e: unknown) => {
+      if (this.claim === claim) {
+        this.claimed = undefined;
+        this.claim = undefined;
+      }
+      throw e;
+    });
+    this.claim = claim;
+    return claim;
+  }
+
+  windowAction(action: "minimize" | "toggle_maximize" | "close" | "servers" | "update") {
+    void this.t.invoke("desktop_window", { action }).catch(() => undefined);
+  }
+
+  /** Sends the colour tokens for the app's own screens (title bar, drawer, dialogs), when they changed. */
+  setTheme(tokens: Record<string, string>) {
+    const key = JSON.stringify(tokens);
+    if (key === this.theme) return;
+    this.theme = key;
+    void this.t.invoke("desktop_set_theme", { tokens }).catch(() => undefined);
+  }
+
+  startDrag() {
+    void this.t.invoke("desktop_start_drag").catch(() => undefined);
+  }
+
   setServerInfo(name: string, icon?: string) {
     void this.t.invoke("desktop_server_info", { name, icon: icon ?? null }).catch(() => undefined);
   }
@@ -80,7 +117,7 @@ export class Desktop {
     void this.t.invoke("desktop_screen_stop").catch(() => undefined);
   }
 
-  on<T>(event: "ptt" | "leave_voice" | "open_notification" | "visible", cb: (payload: T) => void): () => void {
+  on<T>(event: "ptt" | "leave_voice" | "open_notification" | "visible" | "chrome", cb: (payload: T) => void): () => void {
     let stop: (() => void) | undefined;
     let stopped = false;
     void this.t.listen<T>(event, cb).then((un) => {

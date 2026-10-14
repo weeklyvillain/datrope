@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { answerScreenPick, fetchScreenPick, type ScreenPickRequest } from "./rail-api";
+import { applyTheme } from "./theme";
 import { ScreenPicker } from "./ScreenPicker";
 import "./rail.css";
 
@@ -13,8 +14,12 @@ function Picker() {
 
   useEffect(() => {
     void fetchScreenPick().then((r) => {
-      if (r) setRequest(r);
-      else void answerScreenPick(null, null); // answered or replaced before this loaded
+      if (r) {
+        applyTheme(r.theme);
+        setRequest(r);
+      } else {
+        void answerScreenPick(null, null); // answered or replaced before this loaded
+      }
     });
   }, []);
 

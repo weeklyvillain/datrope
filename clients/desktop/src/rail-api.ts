@@ -24,11 +24,15 @@ export interface RailState {
   mode: ChromeMode;
   maximized: boolean;
   platform: "windows" | "macos" | "linux";
+  /** The selected server's page draws the title bar, so the shell bar has no height. */
+  barHidden: boolean;
+  /** The selected server's colour tokens (names without `--`); empty if it sent none. */
+  theme: Record<string, string>;
 }
 
 /** What the chrome and the drawer show until the shell answers. */
 export const emptyRailState: RailState = {
-  servers: [], selected: null, updateReady: false, mode: "closed", maximized: false, platform: "windows",
+  servers: [], selected: null, updateReady: false, mode: "closed", maximized: false, platform: "windows", barHidden: false, theme: {},
 };
 
 export const listServers = () => invoke<RailState>("servers_list");
@@ -66,6 +70,8 @@ export interface ScreenPickRequest {
   sources: ScreenSource[];
   /** The stream quality to start from when going live; null when only a source is asked for. */
   settings: StreamSettings | null;
+  /** The requesting server's colour tokens. */
+  theme: Record<string, string>;
 }
 
 /** The open request, for the picker webview once it has loaded; null if it was answered or replaced meanwhile. */

@@ -32,13 +32,13 @@ export function TabBar() {
           // The accessible name stays the tab name; the badge is its description.
           <Link key={tab} to={tabPath[tab]} aria-label={name} aria-current={tab === current ? "page" : undefined}
             aria-describedby={note ? `${id}-${tab}` : undefined}
-            className={cn("flex min-h-[60px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] no-underline",
+            className={cn("flex min-h-[60px] flex-1 flex-col items-center justify-center gap-0.5 text-caption no-underline",
               tab === current ? "text-foreground" : "text-muted-foreground")}>
             <span className="relative flex">
               <Icon className="size-[22px]" aria-hidden />
               {dot && <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-foreground" aria-hidden />}
               {n > 0 && (
-                <span className="absolute -top-1.5 left-3.5 min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] leading-4 font-semibold text-destructive-foreground" aria-hidden>
+                <span className="absolute -top-1.5 left-3.5 min-w-4 rounded-full bg-destructive px-1 text-center text-caption leading-4 font-semibold text-destructive-foreground" aria-hidden>
                   {n > 99 ? "99+" : n}
                 </span>
               )}

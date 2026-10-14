@@ -62,6 +62,8 @@ pub struct PickRequest {
     pub server: String,
     pub sources: Vec<Source>,
     pub settings: Option<StreamSettings>,
+    /// The requesting server's colour tokens for the picker.
+    pub theme: std::collections::BTreeMap<String, String>,
 }
 
 /// What the page gets back: the capture's generation, with the quality chosen if it asked for one. Just the

@@ -13,6 +13,7 @@ import { SETTINGS_PERMS } from "../ServerSidebar";
 import { GROUPS, visibleSections } from "../settings/sections";
 import { ScreenHeader } from "./ScreenHeader";
 import { ROW, SettingsList, type SettingsRow } from "./SettingsList";
+import { BareButton } from "@/components/bare-button";
 
 const DOT: Record<PresenceStatus, string> = { online: "online", idle: "idle", invisible: "offline" };
 const PRESENCE: { value: PresenceStatus; label: string }[] = [
@@ -54,25 +55,25 @@ function YouHome({ sections }: { sections: ReturnType<typeof visibleSections> })
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex min-h-12 flex-none items-center border-b bg-topbar px-4 pt-safe text-topbar-foreground">
-        <h2 className="text-[15px] font-semibold">You</h2>
+        <h2 className="text-body font-semibold">You</h2>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
         <div className="flex items-center gap-3 px-4 py-4">
           <UserAvatar user={me} size="lg" status={DOT[presence]} className="size-[52px]" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-base font-semibold">{displayName(me)}</div>
-            <button type="button" className="block min-h-[44px] max-w-full truncate text-left text-sm text-muted-foreground" onClick={() => setEditing(true)}>
+            <BareButton className="block min-h-[44px] max-w-full truncate text-left text-sm text-muted-foreground" onClick={() => setEditing(true)}>
               {me.custom_status ? <EmojiText text={me.custom_status} /> : "Set a status"}
-            </button>
+            </BareButton>
           </div>
         </div>
         <div role="radiogroup" aria-label="Presence" className="border-t">
           {PRESENCE.map((p) => (
-            <button key={p.value} type="button" role="radio" aria-checked={presence === p.value} onClick={() => choosePresence(p.value)}
+            <BareButton key={p.value} role="radio" aria-checked={presence === p.value} onClick={() => choosePresence(p.value)}
               className={cn(ROW, "active:bg-accent")}>
               <span className={cn("size-2.5 flex-none rounded-full", presence === p.value ? "bg-primary" : "border border-muted-foreground")} aria-hidden />
               {p.label}
-            </button>
+            </BareButton>
           ))}
         </div>
         {GROUPS.map((g) => (
@@ -87,10 +88,10 @@ function YouHome({ sections }: { sections: ReturnType<typeof visibleSections> })
           </div>
         )}
         <div className="pt-5 pb-4">
-          <button type="button" className={cn(ROW, "justify-center border-y font-medium text-destructive active:bg-accent")}
+          <BareButton className={cn(ROW, "justify-center border-y font-medium text-destructive active:bg-accent")}
             onClick={() => signOut().catch((e: unknown) => window.alert(errorText(e)))}>
             Sign out
-          </button>
+          </BareButton>
         </div>
       </div>
       {editing && <EditStatusDialog current={me.custom_status} onClose={() => setEditing(false)} />}

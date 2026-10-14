@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { client, useApp, usePerms } from "../../session";
 import { ConfirmAction, Cover, SiteIcon } from "./MusicBits";
 import { LibraryDialog, Who, clock } from "./MusicPanel";
+import { ListSkeleton } from "@/components/loading-skeleton";
+import { BareButton } from "@/components/bare-button";
 
 /** May I change this playlist: I made it, or I manage expressions. */
 function useCanEdit(pl?: MusicPlaylist) {
@@ -47,7 +49,7 @@ export function PlaylistsTab({ channelId, here, queueLength }: { channelId: stri
     <section aria-label="Playlists" className="grid gap-2">
       {canCreate && <Button variant="outline" size="sm" className="w-fit" onClick={() => setCreating(true)}><Plus />New playlist</Button>}
       <ErrorText error={error} />
-      {!playlists && !error && <p className="m-0 text-sm text-muted-foreground">Loading…</p>}
+      {!playlists && !error && <ListSkeleton className="p-0" />}
       <ul className="grid list-none gap-1">
         {list.map((pl) => (
           <PlaylistRow key={pl.id} playlist={pl} channelId={channelId} here={here} queueLength={queueLength} onOpen={() => setOpen(pl.id)} />
@@ -98,13 +100,13 @@ function PlaylistRow({ playlist, channelId, here, queueLength, onOpen }: {
   return (
     <li className="grid gap-1">
       <div className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-accent">
-        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left" aria-label={`Open ${playlist.title}`}>
+        <BareButton onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left" aria-label={`Open ${playlist.title}`}>
           <Cover src={playlist.cover} />
           <span className="grid min-w-0">
             <span className="truncate text-sm font-medium">{playlist.title}</span>
             <span className="truncate text-xs text-muted-foreground">{trackCount(playlist.count)}{playlist.duration ? ` · ${totalLength(playlist.duration)}` : ""}</span>
           </span>
-        </button>
+        </BareButton>
         <Button size="icon-sm" aria-label={`Play ${playlist.title}`} disabled={!canPlay} onClick={() => play({})}><Play /></Button>
         <Button size="icon-sm" variant="outline" aria-label={`Shuffle play ${playlist.title}`} disabled={!canPlay} onClick={() => play({ shuffle: true })}><Shuffle /></Button>
         <DropdownMenu>
@@ -242,10 +244,10 @@ function SortableItem({ item, channelName, index, last, canEdit, onMove, onRemov
     <li ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }}
       className={cn("group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-accent", isDragging && "relative z-10 bg-accent opacity-80")}>
       {canEdit ? (
-        <button type="button" ref={setActivatorNodeRef} {...listeners} {...attributes} aria-label={`Move ${item.title}`}
+        <BareButton ref={setActivatorNodeRef} {...listeners} {...attributes} aria-label={`Move ${item.title}`}
           className="flex-none cursor-grab touch-none rounded-sm text-muted-foreground opacity-60 group-hover:opacity-100 focus-visible:opacity-100">
           <GripVertical className="size-4" aria-hidden />
-        </button>
+        </BareButton>
       ) : <span className="w-4 flex-none text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>}
       <Cover src={item.cover} className="size-8" />
       <span className="grid min-w-0 flex-1">

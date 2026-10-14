@@ -21,8 +21,9 @@ import { PostPanel } from "./PostPanel";
 import { EmojiText } from "@/chat/EmojiText";
 import { EmptyView } from "../EmptyView";
 import { PostRow } from "./PostRow";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
-const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
+const chip = "h-7 rounded-full px-3 text-ui font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
 const note = "m-0 p-8 text-center text-sm text-muted-foreground";
 
 /** A forum: a searchable, filterable list of titled posts; a post opens in the side panel. */
@@ -77,7 +78,7 @@ export function ForumView({ channelId }: { channelId: string }) {
           </Button>
           : canStart && <Button size="sm" onClick={() => setCreating(true)}><Plus /> New post</Button>}>
           <MessagesSquare className="size-4 flex-none text-muted-foreground" aria-hidden />
-          <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
+          <h1 className="flex-none"><EmojiText text={ch.name} /></h1>
           {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
 
@@ -94,7 +95,7 @@ export function ForumView({ channelId }: { channelId: string }) {
             ))}
           </div>
           <span className="flex-1" />
-          <label htmlFor={sortId} className="text-[13px] text-muted-foreground">Sort</label>
+          <label htmlFor={sortId} className="text-ui text-muted-foreground">Sort</label>
           <NativeSelect id={sortId} size="sm" value={sort} onChange={(e) => setSort(e.target.value as PostSort)}>
             <NativeSelectOption value="activity">Latest activity</NativeSelectOption>
             <NativeSelectOption value="newest">Newest</NativeSelectOption>
@@ -105,7 +106,7 @@ export function ForumView({ channelId }: { channelId: string }) {
         <div className="relative min-h-0 flex-1">
         <div className={cn("h-full overflow-y-auto overscroll-y-contain", mobile && canStart && "pb-[calc(80px+env(safe-area-inset-bottom))]")}>
           {loadError ? <div className="p-4"><ErrorText error={loadError} /></div>
-            : !posts ? <p className={note}>Loading…</p>
+            : !posts ? <ListSkeleton />
             : posts.length === 0 ? <p className={note}>No posts yet. Start one with New post.</p>
             : shown.length === 0 ? <p className={note}>No posts match.</p>
             : (

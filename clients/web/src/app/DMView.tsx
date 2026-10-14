@@ -12,7 +12,7 @@ export function DMView() {
     return (
       <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-background" aria-label="Direct messages">
         <header className="flex min-h-[48px] flex-none items-center border-b bg-topbar px-4 pt-safe text-topbar-foreground">
-          <h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">Messages</h2>
+          <h1 className="min-w-0 flex-1 truncate text-body font-semibold">Messages</h1>
         </header>
         <DMList />
       </main>
@@ -20,5 +20,5 @@ export function DMView() {
   }
   return channelId
     ? <ChannelView key={channelId} channelId={channelId} />
-    : <EmptyView>Pick a conversation or start a new one.</EmptyView>;
+    : <EmptyView title="Messages">Pick a conversation or start a new one.</EmptyView>;
 }

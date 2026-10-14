@@ -8,6 +8,7 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui
 import { cn } from "@/lib/utils";
 import { attachmentImage } from "@/lib/sized-image";
 import { pinchZoom, swipeIntent } from "@/lib/viewer-gestures";
+import { BareButton } from "@/components/bare-button";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
@@ -206,7 +207,7 @@ export function ImageViewer({ images, index, onIndexChange }:
             onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}
             onDoubleClick={(e) => { if (performance.now() - lastTouchUp.current > 500) toggleZoom(e); }}>
             {/* Keyed so the previous image never lingers while the next one loads. */}
-            <img key={a.id} src={client.url(a.url)} alt={a.filename} draggable={false}
+            <img key={a.id} src={client.url(a.url)} loading="eager" alt={a.filename} draggable={false}
               className={cn("max-h-full max-w-full object-contain will-change-transform",
                 !offset && view.zoom === MIN_ZOOM && "motion-safe:transition-transform motion-safe:duration-150")}
               style={{ transform: `translate(${view.x + (offset?.x ?? 0)}px, ${view.y + (offset?.y ?? 0)}px) scale(${view.zoom})` }} />
@@ -225,12 +226,12 @@ export function ImageViewer({ images, index, onIndexChange }:
           {many && (
             <div className="flex justify-center gap-2 overflow-x-auto border-t bg-background/80 p-2">
               {images.map((img, i) => (
-                <button key={img.id} type="button" aria-label={`Show ${img.filename}`} aria-current={i === index}
+                <BareButton key={img.id} aria-label={`Show ${img.filename}`} aria-current={i === index}
                   className={cn("size-14 shrink-0 overflow-hidden rounded-md border-2 outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     i === index ? "border-primary" : "border-transparent opacity-60 hover:opacity-100")}
                   onClick={() => go(i)}>
-                  <img {...attachmentImage(img, 56, { cover: true })} alt="" className="size-full object-cover" />
-                </button>
+                  <img {...attachmentImage(img, 56, { cover: true })} loading="lazy" alt="" className="size-full object-cover" />
+                </BareButton>
               ))}
             </div>
           )}
