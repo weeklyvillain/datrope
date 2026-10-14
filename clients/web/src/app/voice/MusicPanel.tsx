@@ -18,6 +18,7 @@ import { useVoice } from "../../voice/voice";
 import { setVolume, useVoicePrefs } from "../../voice/prefs";
 import { ConfirmAction, Cover, SiteIcon } from "./MusicBits";
 import { PlaylistsTab } from "./PlaylistsTab";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** m:ss or h:mm:ss. */
 export function clock(seconds: number): string {
@@ -63,7 +64,7 @@ export function MusicPanel({ channelId }: { channelId: string }) {
     void client.loadMusic(channelId).catch(() => undefined);
   }, [channelId]);
 
-  if (!state) return <p className="p-4 text-sm text-muted-foreground">Loading…</p>;
+  if (!state) return <ListSkeleton rowClassName="h-10" />;
   if (!state.enabled) {
     return <p className="p-4 text-sm text-muted-foreground">The music bot is not set up on this server. An admin needs voice and ffmpeg on the server.</p>;
   }

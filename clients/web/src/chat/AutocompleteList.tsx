@@ -53,7 +53,7 @@ export function useSuggestions(channelId: string, trigger: Trigger | null, comma
       }));
       const userHits = [...byUsername, ...byName].filter(({ u }) => !seen.has(u.id) && !!seen.add(u.id)).map(({ u }): Suggestion => ({
         id: `user-${u.id}`, insert: `@${u.username} `, text: displayName(u), hint: `@${u.username}`,
-        icon: <span className="grid size-6 place-items-center rounded-full bg-muted text-[10px] font-semibold" aria-hidden="true">
+        icon: <span className="grid size-6 place-items-center rounded-full bg-muted text-caption font-semibold" aria-hidden="true">
           {displayName(u).slice(0, 2).toUpperCase()}
         </span>,
       }));

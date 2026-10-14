@@ -917,6 +917,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-push-key"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["put-push-subscription"];
+        post?: never;
+        delete: operations["delete-push-subscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -2021,6 +2053,9 @@ export interface components {
             /** @description Every custom emoji on the server */
             emoji: components["schemas"]["Emoji"][] | null;
         };
+        EndpointInput: {
+            endpoint: string;
+        };
         Error: {
             code: string;
             details?: {
@@ -2596,6 +2631,10 @@ export interface components {
             title: string;
             url: string;
         };
+        PublicKey: {
+            /** @description VAPID application server key, base64url */
+            public_key: string;
+        };
         PublicUser: {
             /** @description Up to 190 characters */
             about_me?: string;
@@ -2979,6 +3018,20 @@ export interface components {
             /** @description RSS: only entries whose title contains this are posted (empty: all) */
             title_filter: string;
             url: string;
+        };
+        SubscriptionInput: {
+            /** @description The push service URL from PushSubscription.endpoint */
+            endpoint: string;
+            keys: components["schemas"]["SubscriptionKeys"];
+            /**
+             * @description This device's notification level
+             * @enum {string}
+             */
+            level: "all" | "mentions" | "nothing";
+        };
+        SubscriptionKeys: {
+            auth: string;
+            p256dh: string;
         };
         SystemSample: {
             /** Format: date-time */
@@ -5844,6 +5897,97 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuthResult"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-push-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicKey"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "put-push-subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionInput"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-push-subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndpointInput"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

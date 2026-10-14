@@ -94,6 +94,7 @@ type Service struct {
 	// could exhaust memory.
 	imageSlots chan struct{}
 	variants   *variants // resized copies of images; nil until SetVariants
+	appIcons   appIconCache
 	done       chan struct{}
 	stop       sync.Once
 }

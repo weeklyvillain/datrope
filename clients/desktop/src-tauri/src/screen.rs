@@ -4,7 +4,7 @@
 //! small `{ gen, slot, width, height, timestamp }` message per frame on the page's channel. Windows only for now;
 //! elsewhere the page keeps using the browser's own picker.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
@@ -31,13 +31,52 @@ pub struct Source {
     pub thumbnail: Option<String>,
 }
 
-/// What the picker gets: the sources and which server asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StreamMode {
+    Game,
+    Detail,
+}
+
+/// The stream quality, as the page keeps it (`StreamSettings` in clients/web). The picker only passes it through:
+/// the page encodes, the shell only needs the frame rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StreamSettings {
+    pub mode: StreamMode,
+    pub resolution: u32,
+    pub fps: u32,
+    pub audio: bool,
+}
+
+impl StreamSettings {
+    pub fn valid(&self) -> bool {
+        matches!(self.resolution, 720 | 1080) && matches!(self.fps, 30 | 60)
+    }
+}
+
+/// What the picker gets: the sources, which server asks and the quality to offer (none: only a source is asked for).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PickRequest {
     pub server: String,
     pub sources: Vec<Source>,
+    pub settings: Option<StreamSettings>,
+    /// The requesting server's colour tokens for the picker.
+    pub theme: std::collections::BTreeMap<String, String>,
 }
+
+/// What the page gets back: the capture's generation, with the quality chosen if it asked for one. Just the
+/// generation otherwise, as before the picker offered quality.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum Picked {
+    Source(u64),
+    WithSettings { gen: u64, settings: StreamSettings },
+}
+
+/// The picker's answer: what to share and, if quality was offered, the quality chosen.
+pub type Answer = (String, Option<StreamSettings>);
 
 pub fn parse_id(id: &str) -> Option<(SourceKind, usize)> {
     let (kind, handle) = id.split_once(':')?;
@@ -52,8 +91,8 @@ pub fn parse_id(id: &str) -> Option<(SourceKind, usize)> {
 /// The picker that is open: which page asked, what it was offered and where the answer goes.
 struct Pick {
     label: String,
-    offered: Vec<String>,
-    answer: tauri::async_runtime::Sender<Option<String>>,
+    request: PickRequest,
+    answer: tauri::async_runtime::Sender<Option<Answer>>,
 }
 
 #[derive(Default)]
@@ -74,12 +113,12 @@ fn screen(app: &AppHandle) -> &Screen {
 pub fn open_pick(
     app: &AppHandle,
     label: &str,
-    offered: Vec<String>,
-) -> tauri::async_runtime::Receiver<Option<String>> {
+    request: PickRequest,
+) -> tauri::async_runtime::Receiver<Option<Answer>> {
     let (tx, rx) = tauri::async_runtime::channel(1);
     let old = screen(app).0.lock().unwrap().pick.replace(Pick {
         label: label.to_string(),
-        offered,
+        request,
         answer: tx,
     });
     if let Some(old) = old {
@@ -88,13 +127,36 @@ pub fn open_pick(
     rx
 }
 
+/// What the open picker shows, for the picker webview to fetch once it has loaded.
+pub fn request(app: &AppHandle) -> Option<PickRequest> {
+    let state = screen(app).0.lock().unwrap();
+    state.pick.as_ref().map(|p| p.request.clone())
+}
+
 /// The picker's answer. Only an id that was offered counts; anything else is a cancel.
-pub fn answer_pick(app: &AppHandle, id: Option<String>) {
+pub fn answer_pick(app: &AppHandle, id: Option<String>, settings: Option<StreamSettings>) {
     let Some(pick) = screen(app).0.lock().unwrap().pick.take() else {
         return;
     };
-    let id = id.filter(|id| pick.offered.contains(id));
-    let _ = pick.answer.try_send(id);
+    let offered: Vec<String> = pick.request.sources.iter().map(|s| s.id.clone()).collect();
+    let _ = pick.answer.try_send(checked_answer(
+        &offered,
+        pick.request.settings,
+        id,
+        settings,
+    ));
+}
+
+/// An offered id, with valid settings when quality was offered (the offered ones if the picker's aren't).
+fn checked_answer(
+    offered: &[String],
+    offered_settings: Option<StreamSettings>,
+    id: Option<String>,
+    settings: Option<StreamSettings>,
+) -> Option<Answer> {
+    let id = id.filter(|id| offered.contains(id))?;
+    let settings = offered_settings.map(|o| settings.filter(StreamSettings::valid).unwrap_or(o));
+    Some((id, settings))
 }
 
 /// Whether a picker is open (a newer request may have replaced the one that just ended).
@@ -585,6 +647,79 @@ mod tests {
         let mut dst = [9u8; 16];
         copy_rows(&src, 12, 2, 2, &mut dst);
         assert_eq!(dst, [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4]);
+    }
+
+    const GAME: StreamSettings = StreamSettings {
+        mode: StreamMode::Game,
+        resolution: 1080,
+        fps: 60,
+        audio: true,
+    };
+
+    #[test]
+    fn settings_round_trip_with_the_page() {
+        let json =
+            serde_json::json!({ "mode": "game", "resolution": 1080, "fps": 60, "audio": true });
+        assert_eq!(
+            serde_json::from_value::<StreamSettings>(json.clone()).unwrap(),
+            GAME
+        );
+        assert_eq!(serde_json::to_value(GAME).unwrap(), json);
+        assert!(GAME.valid());
+        assert!(!StreamSettings { fps: 144, ..GAME }.valid());
+        assert!(!StreamSettings {
+            resolution: 4320,
+            ..GAME
+        }
+        .valid());
+    }
+
+    #[test]
+    fn the_page_gets_settings_only_when_it_asked() {
+        assert_eq!(
+            serde_json::to_value(Picked::Source(3)).unwrap(),
+            serde_json::json!(3)
+        );
+        assert_eq!(
+            serde_json::to_value(Picked::WithSettings {
+                gen: 3,
+                settings: GAME
+            })
+            .unwrap(),
+            serde_json::json!({ "gen": 3, "settings": { "mode": "game", "resolution": 1080, "fps": 60, "audio": true } })
+        );
+    }
+
+    #[test]
+    fn answers_are_checked_against_the_offer() {
+        let offered = vec!["screen:1".to_string()];
+        let detail = StreamSettings {
+            mode: StreamMode::Detail,
+            fps: 30,
+            ..GAME
+        };
+        let id = |s: &str| Some(s.to_string());
+        assert_eq!(checked_answer(&offered, None, id("window:9"), None), None);
+        assert_eq!(checked_answer(&offered, None, None, Some(GAME)), None);
+        assert_eq!(
+            checked_answer(&offered, None, id("screen:1"), Some(GAME)),
+            Some(("screen:1".into(), None)),
+            "no quality unless it was offered"
+        );
+        assert_eq!(
+            checked_answer(&offered, Some(GAME), id("screen:1"), Some(detail)),
+            Some(("screen:1".into(), Some(detail)))
+        );
+        assert_eq!(
+            checked_answer(
+                &offered,
+                Some(GAME),
+                id("screen:1"),
+                Some(StreamSettings { fps: 5, ..detail })
+            ),
+            Some(("screen:1".into(), Some(GAME))),
+            "bad settings fall back to the offered ones"
+        );
     }
 
     #[test]

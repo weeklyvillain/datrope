@@ -31,7 +31,7 @@ function FirstRunSteps() {
   return (
     <AuthAside label="Setting up a new server">
       <div className="grid gap-2.5">
-        <p className="text-[13px] font-semibold tracking-wider text-primary uppercase">New server</p>
+        <p className="text-ui font-semibold tracking-wider text-primary uppercase">New server</p>
         <h2 className="text-4xl leading-[1.1] font-bold tracking-tight text-balance text-foreground sm:text-[44px]">Your Datrope server is up.</h2>
         <p className="text-[17px] leading-normal text-muted-foreground">Nobody has signed up yet. Three steps and your friends can move in.</p>
       </div>
@@ -84,7 +84,7 @@ export function Register() {
       {linkCode && (
         <p className="flex items-center gap-3 rounded-lg border border-primary/45 bg-primary/8 px-3.5 py-3 text-sm">
           <CheckIcon className="size-4 flex-none text-primary" />
-          <span>Invite <code className="font-mono text-[13px] text-foreground">{linkCode.replace(/^.*\/invite\//, "")}</code> applied</span>
+          <span>Invite <code className="font-mono text-ui text-foreground">{linkCode.replace(/^.*\/invite\//, "")}</code> applied</span>
         </p>
       )}
       <form className="grid gap-4" onSubmit={(e) => {

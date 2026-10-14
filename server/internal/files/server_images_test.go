@@ -1,7 +1,10 @@
 package files_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"image"
+	"image/png"
 	"net/http"
 	"strings"
 	"testing"
@@ -79,4 +82,22 @@ func TestServerImageAuditLog(t *testing.T) {
 	require.NoError(t, rows.Err())
 	icon := audit.LogDetails{Changes: []audit.LogChange{{Field: "icon"}}}
 	require.Equal(t, []audit.LogDetails{icon, icon}, got)
+}
+
+func TestServerIconAppSizes(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	env.Anon().Raw(http.MethodGet, "/api/server/icon/192.png", nil, "", http.StatusNotFound)
+
+	alice.UploadTo(http.MethodPut, "/api/server/icon", "icon.png", pngImage(300, 200, true), http.StatusOK)
+	for name, size := range map[string]int{"192.png": 192, "512.png": 512, "maskable-512.png": 512} {
+		res, data := env.Anon().Raw(http.MethodGet, "/api/server/icon/"+name, nil, "", http.StatusOK)
+		require.Equal(t, "image/png", res.Header.Get("Content-Type"), name)
+		img, err := png.Decode(bytes.NewReader(data))
+		require.NoError(t, err, name)
+		require.Equal(t, image.Rect(0, 0, size, size), img.Bounds(), "%s is square at its listed size", name)
+		_, _, _, a := img.At(0, 0).RGBA()
+		require.Equal(t, name == "maskable-512.png", a == 0xffff, "%s: only the maskable icon has an opaque background", name)
+	}
+	env.Anon().Raw(http.MethodGet, "/api/server/icon/64.png", nil, "", http.StatusNotFound)
 }

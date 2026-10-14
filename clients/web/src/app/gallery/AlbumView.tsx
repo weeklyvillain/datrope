@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ErrorText } from "@/components/error-text";
 import { useSubmit } from "@/hooks/use-submit";
 import { useBriefError } from "@/chat/Reactions";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { EmptyView } from "../EmptyView";
 import { UserAvatar } from "@/components/user-avatar";
 import { client, errorText, useApp, usePerms } from "../../session";
@@ -15,6 +16,7 @@ import { AlbumDialog } from "./AlbumDialog";
 import { GalleryView } from "./GalleryView";
 import type { GalleryItem } from "./items";
 import { UploadDialog } from "./UploadDialog";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** A confirmation before something destructive; shows the failure and stays open when it fails. */
 function Confirm({ title, body, label, onConfirm, onClose, destructive = true }: {
@@ -49,6 +51,7 @@ export function AlbumView({ albumId }: { albumId: string }) {
   const [removing, setRemoving] = useState<GalleryItem>(); // an album upload: removing it deletes it
   const [actionError, showActionError] = useBriefError();
   const nav = useNavigate();
+  const mobile = useIsMobile();
   const me = useApp((s) => s.me?.id);
   const members = useApp((s) => s.server?.members);
   const canModerate = hasPerm(usePerms(), Perm.ManageMessages);
@@ -69,7 +72,7 @@ export function AlbumView({ albumId }: { albumId: string }) {
   }, [albumId, nav]);
 
   if (error) return <EmptyView>{error}</EmptyView>;
-  if (!album) return <EmptyView>Loading…</EmptyView>;
+  if (!album) return <EmptyView><ListSkeleton className="w-full max-w-md" /></EmptyView>;
   const canEdit = album.role === "owner" || album.role === "collaborator";
   const Icon = album.visibility === "server" ? Globe : Lock;
   const leave = (a: Album, user: string) =>
@@ -79,8 +82,8 @@ export function AlbumView({ albumId }: { albumId: string }) {
     );
   const header = (
     <>
-      <Button variant="ghost" size="icon-sm" asChild aria-label="Back to albums"><Link to="/gallery/albums"><ArrowLeft /></Link></Button>
-      <h2 className="flex-none">{album.title}</h2>
+      {!mobile && <Button variant="ghost" size="icon-sm" asChild aria-label="Back to albums"><Link to="/gallery/albums"><ArrowLeft /></Link></Button>}
+      <h1 className="flex-none">{album.title}</h1>
       <Icon className="size-4 flex-none text-muted-foreground" aria-label={album.visibility === "server" ? "Everyone on the server" : "Only collaborators"} />
       <span className="flex -space-x-1.5" aria-label="Collaborators">
         {[album.owner_id, ...(album.member_ids ?? [])].map((u) => {

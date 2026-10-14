@@ -5,11 +5,12 @@ function fake() {
   const calls: [string, Record<string, unknown> | undefined][] = [];
   const handlers = new Map<string, (p: unknown) => void>();
   let fail: string | undefined;
+  let reply: unknown;
   const t: DesktopTransport = {
     invoke: async <T,>(cmd: string, args?: Record<string, unknown>) => {
       calls.push([cmd, args]);
       if (fail) throw fail;
-      return undefined as T;
+      return reply as T;
     },
     listen: async <T,>(event: string, cb: (p: T) => void) => {
       handlers.set(event, cb as (p: unknown) => void);
@@ -17,7 +18,7 @@ function fake() {
     },
     channel: async (cb) => cb,
   };
-  return { t, calls, handlers, failWith: (e: string | undefined) => (fail = e) };
+  return { t, calls, handlers, failWith: (e: string | undefined) => (fail = e), answer: (r: unknown) => (reply = r) };
 }
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -68,8 +69,22 @@ describe("Desktop", () => {
     await d.pickScreen(30, onFrame);
     d.stopScreen();
     await tick();
-    expect(f.calls).toContainEqual(["desktop_screen_pick", { fps: 30, frames: onFrame }]);
+    expect(f.calls).toContainEqual(["desktop_screen_pick", { fps: 30, frames: onFrame, settings: null }]);
     expect(f.calls).toContainEqual(["desktop_screen_stop", undefined]);
+  });
+
+  it("takes the stream settings chosen in the shell's picker", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    const offered = { mode: "game", resolution: 1080, fps: 60, audio: true } as const;
+    const chosen = { ...offered, mode: "detail", fps: 30 } as const;
+    f.answer({ gen: 4, settings: chosen });
+    expect(await d.pickScreen(60, vi.fn(), offered)).toEqual({ gen: 4, settings: chosen });
+    expect(f.calls.at(-1)![1]).toMatchObject({ fps: 60, settings: offered });
+    f.answer(3); // a shell from before the picker had quality: just the generation
+    expect(await d.pickScreen(60, vi.fn(), offered)).toEqual({ gen: 3 });
+    f.answer(null);
+    expect(await d.pickScreen(60, vi.fn(), offered)).toBeNull();
   });
 
   it("stops listening even if unsubscribed before listen resolves", async () => {
@@ -113,5 +128,37 @@ describe("eventDispatcher", () => {
     d.add("visible", cb);
     for (const m of [null, "visible", 1, {}, { event: 2 }, { event: "open_notification", payload: {} }]) d.dispatch(m);
     expect(cb).not.toHaveBeenCalled();
+  });
+
+  it("claims the title bar and sends window actions", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    await d.claimTitleBar(true);
+    d.windowAction("toggle_maximize");
+    d.startDrag();
+    await tick();
+    expect(f.calls).toContainEqual(["desktop_title_bar", { claimed: true }]);
+    expect(f.calls).toContainEqual(["desktop_window", { action: "toggle_maximize" }]);
+    expect(f.calls).toContainEqual(["desktop_start_drag", undefined]);
+  });
+
+  it("only re-sends the claim when it changes", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    const first = d.claimTitleBar(true);
+    expect(d.claimTitleBar(true)).toBe(first);
+    await d.claimTitleBar(false);
+    await first;
+    expect(f.calls.filter(([c]) => c === "desktop_title_bar")).toHaveLength(2);
+  });
+
+  it("rejects the claim on a shell without the command, and tries again next time", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    f.failWith("command desktop_title_bar not found");
+    await expect(d.claimTitleBar(true)).rejects.toBe("command desktop_title_bar not found");
+    f.failWith(undefined);
+    await expect(d.claimTitleBar(true)).resolves.toBeUndefined();
+    expect(f.calls.filter(([c]) => c === "desktop_title_bar")).toHaveLength(2);
   });
 });

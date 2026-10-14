@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { StreamSettings } from "@/voice/stream-prefs";
 
 export interface RailServer {
   id: string;
@@ -23,11 +24,15 @@ export interface RailState {
   mode: ChromeMode;
   maximized: boolean;
   platform: "windows" | "macos" | "linux";
+  /** The selected server's page draws the title bar, so the shell bar has no height. */
+  barHidden: boolean;
+  /** The selected server's colour tokens (names without `--`); empty if it sent none. */
+  theme: Record<string, string>;
 }
 
 /** What the chrome and the drawer show until the shell answers. */
 export const emptyRailState: RailState = {
-  servers: [], selected: null, updateReady: false, mode: "closed", maximized: false, platform: "windows",
+  servers: [], selected: null, updateReady: false, mode: "closed", maximized: false, platform: "windows", barHidden: false, theme: {},
 };
 
 export const listServers = () => invoke<RailState>("servers_list");
@@ -59,20 +64,25 @@ export interface ScreenSource {
   thumbnail: string | null;
 }
 
-/** A server page wants to share: the shell has given this webview the whole window for the picker. */
+/** A server page wants to share: what the picker webview shows. */
 export interface ScreenPickRequest {
   server: string;
   sources: ScreenSource[];
+  /** The stream quality to start from when going live; null when only a source is asked for. */
+  settings: StreamSettings | null;
+  /** The requesting server's colour tokens. */
+  theme: Record<string, string>;
 }
 
-/** The picker's answer: what to share, or null to cancel. */
-export const answerScreenPick = (id: string | null) => invoke<void>("screen_pick_done", { id });
+/** The open request, for the picker webview once it has loaded; null if it was answered or replaced meanwhile. */
+export const fetchScreenPick = () => invoke<ScreenPickRequest | null>("screen_pick_request");
+
+/** The picker's answer: what to share, or null to cancel, and the quality if the request offered it. */
+export const answerScreenPick = (id: string | null, settings: StreamSettings | null) =>
+  invoke<void>("screen_pick_done", { id, settings });
 
 export const onRailState = (cb: (s: RailState) => void) => listenHere("rail_state", cb);
 export const onChromeRequest = (cb: (a: ChromeRequest) => void) => listenHere("chrome_request", cb);
-export const onScreenPick = (cb: (r: ScreenPickRequest) => void) => listenHere("screen_pick", cb);
-/** The request ended without this picker (the page reloaded or asked again): close it. */
-export const onScreenPickClosed = (cb: () => void) => listenHere("screen_pick_closed", cb);
 
 /** Listens to an event the shell sends to this webview; returns the unsubscribe for an effect cleanup. */
 function listenHere<T>(event: string, cb: (payload: T) => void): () => void {

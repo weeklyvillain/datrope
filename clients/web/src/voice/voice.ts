@@ -14,7 +14,7 @@ import { applyPrefs, watchPrefs } from "./mixer";
 import { captureNativeScreen, nativeScreenAvailable, nativeScreenSize } from "./native-screen";
 import { canPickOutput } from "./output";
 import { UNKNOWN, watchQuality, type Quality } from "./stats";
-import { encoding, type StreamSettings } from "./stream-prefs";
+import { encoding, saveStreamPrefs, type StreamSettings } from "./stream-prefs";
 
 export type VideoSource = "camera" | "screen";
 
@@ -327,17 +327,19 @@ class Voice {
 
   /**
    * Opens the browser's screen picker; undefined when the picker was closed. Plain MediaStreamTracks rather than
-   * LiveKit tracks: a swapped-in source then leaves no unpublished LiveKit wrapper listening to it.
+   * LiveKit tracks: a swapped-in source then leaves no unpublished LiveKit wrapper listening to it. With `pickQuality`
+   * the desktop app's picker offers the quality too, starting from `s`: `settings` is then what was chosen there.
    */
-  private async capture(s: StreamSettings) {
-    const e = encoding(s);
+  private async capture(s: StreamSettings, pickQuality = false) {
     if (nativeScreenAvailable()) {
       // The desktop app's own picker; it captures no audio yet.
-      const video = await captureNativeScreen(e.fps);
-      if (!video) return undefined;
-      video.contentHint = e.contentHint;
-      return { video, audio: undefined };
+      const got = await captureNativeScreen(encoding(s).fps, pickQuality ? s : undefined);
+      if (!got) return undefined;
+      const settings = got.settings ?? s;
+      got.track.contentHint = encoding(settings).contentHint;
+      return { video: got.track, audio: undefined, settings };
     }
+    const e = encoding(s);
     try {
       const media = await navigator.mediaDevices.getDisplayMedia({
         audio: s.audio,
@@ -345,7 +347,7 @@ class Voice {
       });
       const video = media.getVideoTracks()[0]!;
       video.contentHint = e.contentHint;
-      return { video, audio: media.getAudioTracks()[0] };
+      return { video, audio: media.getAudioTracks()[0], settings: s };
     } catch (err) {
       if (err instanceof DOMException && err.name === "NotAllowedError") return undefined; // picker closed
       throw err;
@@ -389,16 +391,21 @@ class Voice {
     return run;
   }
 
-  /** Goes live: the browser's picker chooses the source, `s` the quality. */
-  startScreen(s: StreamSettings) {
+  /**
+   * Goes live: the browser's picker chooses the source, `s` the quality. The desktop app's picker chooses both,
+   * starting from `s`, and keeps the quality chosen there for next time.
+   */
+  startScreen(start: StreamSettings) {
     return this.serial(async () => {
       const room = this.room;
       const lp = room?.localParticipant;
       if (!room || !lp || lp.isScreenShareEnabled) return;
       let loose: MediaStreamTrack[] = []; // captured but not handed to LiveKit yet: stopped if anything fails
       try {
-        const got = await this.capture(s);
+        const got = await this.capture(start, true);
         if (!got) return;
+        const s = got.settings;
+        if (s !== start) saveStreamPrefs(s);
         loose = [got.video, ...(got.audio ? [got.audio] : [])];
         if (this.room !== room) return stopAll(loose);
         const e = encoding(s);

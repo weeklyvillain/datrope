@@ -21,7 +21,9 @@ import { SidePanel } from "../side-panel/SidePanel";
 import { channelTag, useItemAuthor } from "./FileTile";
 import { itemTitle, type GalleryItem } from "./items";
 import { extension, KIND_SINGULAR } from "./kinds";
+import { enterAction, isTouchOnly } from "@/lib/touch";
 import { attachmentImage } from "@/lib/sized-image";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** In comments nobody replies to a single message. */
 const NO_REPLY: ReplyState = { replyTo: null, setReplyTo: () => undefined };
@@ -60,7 +62,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
   if (!item || !attachment) {
     return (
       <SidePanel title="Item" icon={<Images />} closeLabel="Close details" onClose={onClose}>
-        <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton />
       </SidePanel>
     );
   }
@@ -103,7 +105,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
             ) : kind === "audio" ? <AudioPlayer key={attachment.id} attachment={attachment} />
             : (
               <div className="grid justify-items-center gap-2 p-6">
-                <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-[11px] font-bold text-foreground" aria-hidden>
+                <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-caption font-bold text-foreground" aria-hidden>
                   {extension(attachment.filename)}
                 </span>
                 <span className="text-center text-sm font-semibold wrap-anywhere">{attachment.filename}</span>
@@ -135,7 +137,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
             {message?.content && <div className="text-sm wrap-anywhere"><Markdown text={message.content} mentions={message.mentions ?? undefined} /></div>}
           </div>
         </div>
-        <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-[13px]">
+        <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-ui">
           <dt className="text-muted-foreground">File</dt>
           <dd className="m-0 truncate">{attachment.filename} · {formatBytes(attachment.size)}</dd>
           {attachment.width && attachment.height ? (
@@ -216,11 +218,12 @@ function FirstComment({ channelId, messageId, onThread }: {
   };
   return (
     <form className="flex-none px-3 pt-2 pb-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-      <div className="flex items-end gap-1.5 rounded-lg border bg-background p-2 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="flex items-end gap-1.5 rounded-lg border bg-background p-2 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring">
         <Textarea className="max-h-[30vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0"
           value={text} onChange={(e) => setText(e.target.value)} placeholder="Comment" aria-label="Comment" maxLength={MAX_LENGTH} rows={1}
+          enterKeyHint={isTouchOnly() ? "enter" : undefined}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            if (enterAction({ key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, isComposing: e.nativeEvent.isComposing }, isTouchOnly()) === "send") {
               e.preventDefault();
               submit();
             }

@@ -93,7 +93,11 @@ export function NotificationListener() {
         n.close();
       };
     } catch {
-      // Some mobile browsers only allow notifications from a service worker.
+      // Android Chrome only allows notifications from a service worker.
+      const url = where.type === "dm" ? `/messages/${where.id}` : `/channels/${where.parent_id || where.id}`;
+      void navigator.serviceWorker?.ready.then((reg) => reg.showNotification(title, {
+        body, tag: `channel:${where.id}`, icon: icon ? new URL(icon, window.location.origin).href : undefined, data: { url },
+      })).catch(() => undefined);
     }
   }), []);
 

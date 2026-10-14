@@ -235,3 +235,22 @@ func TestPresence(t *testing.T) {
 	bobWS.Close()
 	require.Equal(t, gateway.StatusOffline, waitPresence(aliceWS, bob.User.ID))
 }
+
+func TestActive(t *testing.T) {
+	env := apptest.New(t)
+	alice := env.Register("alice")
+	gw := env.App.Gateway
+	require.False(t, gw.Active(alice.User.ID), "no connection")
+
+	ws, _ := alice.Connect()
+	require.Eventually(t, func() bool { return gw.Active(alice.User.ID) }, 2*time.Second, 10*time.Millisecond)
+
+	ws.Send(gateway.OpPresenceSet, gateway.PresenceSet{Status: "idle"})
+	require.Eventually(t, func() bool { return !gw.Active(alice.User.ID) }, 2*time.Second, 10*time.Millisecond, "idle is not active")
+
+	ws.Send(gateway.OpPresenceSet, gateway.PresenceSet{Status: "invisible"})
+	require.Eventually(t, func() bool { return gw.Active(alice.User.ID) }, 2*time.Second, 10*time.Millisecond, "invisible is still using the app")
+
+	ws.Close()
+	require.Eventually(t, func() bool { return !gw.Active(alice.User.ID) }, 2*time.Second, 10*time.Millisecond, "a dropped connection is not active")
+}

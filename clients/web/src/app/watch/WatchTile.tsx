@@ -92,9 +92,9 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
         </div>
       )}
       {blocked && (
-        <button type="button" onClick={unblock} className="absolute inset-0 grid place-items-center bg-background/70 text-sm font-medium text-foreground">
-          <span className="flex items-center gap-2"><Play className="size-5" aria-hidden />Click to sync</span>
-        </button>
+        <Button variant="ghost" onClick={unblock} className="absolute inset-0 h-auto rounded-none bg-background/70 text-foreground hover:bg-background/60">
+          <Play className="size-5" aria-hidden />Click to sync
+        </Button>
       )}
       {error && (
         <div role="alert" className="absolute inset-0 grid place-content-center justify-items-center gap-2 bg-background/90 p-4 text-center text-sm">

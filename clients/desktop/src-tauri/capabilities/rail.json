@@ -12,7 +12,6 @@
     "core:window:allow-start-dragging",
     "core:window:allow-close",
     "allow-servers-list", "allow-server-add", "allow-server-remove", "allow-servers-reorder",
-    "allow-server-select", "allow-chrome-mode", "allow-update-restart",
-    "allow-screen-pick-done"
+    "allow-server-select", "allow-chrome-mode", "allow-update-restart"
   ]
 }

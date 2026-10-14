@@ -28,6 +28,7 @@ import (
 	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/push"
 	"github.com/datrope/datrope/server/internal/system"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/watch"
@@ -50,6 +51,7 @@ type App struct {
 	Watch        *watch.Service   // nil when built without a database
 	Gateway      *gateway.Gateway // nil when built without a database
 	Audit        *audit.Service   // nil when built without a database
+	Push         *push.Service    // nil when built without a database
 	closers      []func()
 }
 
@@ -108,6 +110,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			mux.Handle("DELETE /api/server/"+kind, authSvc.RequireHTTP(filesSvc.ServerImageDelete(kind)))
 			mux.Handle("GET /api/server/"+kind, filesSvc.ServerImageDownload())
 		}
+		mux.Handle("GET /api/server/icon/{name}", filesSvc.ServerAppIcon())
 		mux.Handle("POST /api/server/images", authSvc.RequireHTTP(filesSvc.ServerImageUpload("page")))
 		mux.Handle("GET /api/server/images/{id}", filesSvc.ServerImageDownload())
 		filesSvc.AddBlobTable("emoji", "sha256") // before Start: the first sweep must know every blob table
@@ -233,6 +236,18 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		filesSvc.SetAlbums(albumSvc)
 	}
 
+	pushSvc := push.NewService(pool, a.Bus, push.Deps{
+		Audience: audience{communities: commSvc, channels: chanSvc}, Channels: chanSvc,
+		Server: commSvc, PublicURL: cfg.PublicURL,
+	}, cfg.Push)
+	push.Register(api, pushSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		pushSvc.Start()
+		a.closers = append(a.closers, pushSvc.Close)
+		a.Push = pushSvc
+		mux.Handle("GET /manifest.webmanifest", pushSvc.ManifestHandler())
+	}
+
 	registerEventSchemas(api)
 	var gw *gateway.Gateway
 	if pool != nil { // nil only for `datrope openapi`
@@ -245,6 +260,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		}, cfg.Gateway)
 		mux.Handle("GET /ws", gw)
 		commSvc.SetPresence(gw)
+		pushSvc.SetPresence(gw)
 		a.Gateway = gw
 		a.closers = append(a.closers, gw.Close)
 	}

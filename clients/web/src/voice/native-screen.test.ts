@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** The shell side: what the picker answers, and the frame channel it was handed. */
-let answer: number | null = 7;
+let answer: { gen: number; settings?: unknown } | null = { gen: 7 };
 let onFrame: ((m: unknown) => void) | undefined;
+let pickedWith: unknown;
 const stopScreen = vi.fn();
 vi.mock("../desktop", () => ({
   desktop: {
-    pickScreen: vi.fn(async (_fps: number, cb: (m: unknown) => void) => {
+    pickScreen: vi.fn(async (_fps: number, cb: (m: unknown) => void, settings?: unknown) => {
       onFrame = cb;
+      pickedWith = settings;
       return answer;
     }),
     stopScreen: () => stopScreen(),
@@ -54,8 +56,8 @@ const { captureNativeScreen, nativeScreenAvailable, nativeScreenSize } = await i
 
 /** Starts a capture whose first frame arrives right after the picker answers. */
 async function capture(gen = 7) {
-  answer = gen;
-  const p = captureNativeScreen(30);
+  answer = { gen };
+  const p = captureNativeScreen(30).then((c) => c?.track);
   await vi.waitFor(() => expect(onFrame).toBeDefined());
   await Promise.resolve();
   postBuffer(gen, 16);
@@ -89,6 +91,21 @@ describe("native screen capture", () => {
     onFrame!({ gen: 8, slot: 0, width: 2, height: 2 });
     onFrame!({ gen: 7, slot: 9, width: 0, height: 2 }); // malformed
     expect(written).toHaveLength(1);
+  });
+
+  it("passes the settings to the picker and returns the ones chosen there", async () => {
+    const offered = { mode: "game", resolution: 1080, fps: 60, audio: true } as const;
+    const chosen = { ...offered, resolution: 720 } as const;
+    answer = { gen: 9, settings: chosen };
+    const p = captureNativeScreen(60, offered);
+    await vi.waitFor(() => expect(onFrame).toBeDefined());
+    await Promise.resolve();
+    postBuffer(9, 16);
+    onFrame!({ gen: 9, slot: 0, width: 2, height: 2 });
+    const got = (await p)!;
+    expect(pickedWith).toEqual(offered);
+    expect(got.settings).toEqual(chosen);
+    expect(got.track).toBeInstanceOf(FakeGenerator);
   });
 
   it("gives nothing when the picker is cancelled", async () => {

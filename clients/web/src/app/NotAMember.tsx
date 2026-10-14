@@ -15,7 +15,7 @@ export function NotAMember() {
   const [invite, setInvite] = useState("");
   const { busy, error, run } = useSubmit();
   return (
-    <main className="grid min-h-screen place-items-center bg-background p-4">
+    <main className="grid min-h-dvh place-items-center bg-background px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <Card className="w-full max-w-[400px] gap-4 p-6">
         <Logo className="size-12 text-primary" />
         <h1 className="text-xl">You're not a member of this server</h1>

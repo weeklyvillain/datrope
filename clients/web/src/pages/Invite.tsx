@@ -16,7 +16,7 @@ import { sinceLabel, useServerPreview } from "./use-server-preview";
 
 function Backdrop({ children }: { children: ReactNode }) {
   return (
-    <div className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-12">
+    <div className="relative grid min-h-dvh place-items-center overflow-hidden px-4 pt-[max(3rem,env(safe-area-inset-top))] pb-[max(3rem,env(safe-area-inset-bottom))]">
       <Logo className="pointer-events-none absolute top-1/2 left-1/2 size-[1400px] -translate-x-1/2 -translate-y-[46%] text-primary opacity-[0.06]" />
       {children}
     </div>
@@ -77,7 +77,7 @@ export function InvitePage() {
             className="relative -mt-11 box-border rounded-[22px] border-[6px] border-card" />
           <div className="-mt-2 grid gap-2">
             <h1 className="grid gap-2">
-              <span className="text-[13px] font-semibold tracking-wider text-primary uppercase">You're invited to join</span>{" "}
+              <span className="text-ui font-semibold tracking-wider text-primary uppercase">You're invited to join</span>{" "}
               <span className="text-[32px] leading-[1.15] font-bold tracking-tight text-balance text-foreground">{server.name}</span>
             </h1>
             {server.description && <p className="text-muted-foreground">{server.description}</p>}

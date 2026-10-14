@@ -1,5 +1,5 @@
 import { ApiError, emojiList, type Emoji as EmojiT, type SevenTVEmote } from "@datrope/core";
-import { Trash2, Upload, X } from "lucide-react";
+import { Smile, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";
@@ -14,6 +14,7 @@ import { client, displayName, errorText, useApp } from "@/session";
 import { nameFromEmote, nameFromFile, validateNames } from "./emojiNames";
 import { SevenTVDialog } from "./SevenTVDialog";
 import { sizedImage } from "@/lib/sized-image";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
 const MAX_EMOJI = 200;
 const MAX_BYTES = 256 * 1024;
@@ -117,10 +118,10 @@ export function Emoji() {
                 <div key={t.key} className="relative grid gap-2 rounded-md border bg-background p-3">
                   <Button variant="ghost" size="icon-xs" className="absolute top-1 right-1" aria-label={`Remove ${t.name}`}
                     disabled={uploading} onClick={() => drop([t.key])}><X aria-hidden /></Button>
-                  <img src={t.url} alt="" className="mx-auto size-12 object-contain" />
+                  <img src={t.url} loading="lazy" alt="" className="mx-auto size-12 object-contain" />
                   <div className="flex items-center gap-1 text-muted-foreground">
                     :<Input value={t.name} aria-label={`Name for emoji ${i + 1}`} aria-invalid={err ? true : undefined}
-                      className="h-8 px-2 font-mono text-sm" disabled={uploading}
+                      className="h-8 px-2 font-mono text-title md:text-sm" disabled={uploading}
                       onChange={(e) => setTiles((ts) => ts.map((x) => (x.key === t.key ? { ...x, name: e.target.value, serverError: undefined } : x)))} />:
                   </div>
                   {err && <p className="text-xs text-destructive" role="alert">{err}</p>}
@@ -150,7 +151,7 @@ function ServerEmoji({ emoji }: { emoji: EmojiT[] }) {
   return (
     <section aria-label="Server emoji" className="grid gap-3">
       <Input type="search" aria-label="Search emoji" placeholder="Search emoji" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-xs" />
-      {emoji.length === 0 ? <p className="text-muted-foreground">No custom emoji yet.</p>
+      {emoji.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><Smile /></EmptyMedia><EmptyTitle>No custom emoji yet</EmptyTitle><EmptyDescription>Upload one to use it in chat.</EmptyDescription></EmptyHeader></Empty>
         : shown.length === 0 ? <p className="text-muted-foreground">No emoji match.</p> : (
           <Table>
             <TableHeader>
@@ -164,7 +165,7 @@ function ServerEmoji({ emoji }: { emoji: EmojiT[] }) {
             <TableBody>
               {shown.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell><img {...sizedImage(e.url, 32)} alt="" className="size-8 object-contain" /></TableCell>
+                  <TableCell><img {...sizedImage(e.url, 32)} loading="lazy" alt="" className="size-8 object-contain" /></TableCell>
                   <TableCell><RenameField key={e.name} emoji={e} /></TableCell>
                   <TableCell className="text-muted-foreground">{creator(e)}</TableCell>
                   <TableCell className="text-right">
@@ -192,7 +193,7 @@ function RenameField({ emoji }: { emoji: EmojiT }) {
   return (
     <div className="grid gap-1">
       <div className="flex items-center gap-1 font-mono text-sm text-muted-foreground">
-        :<Input value={name} aria-label={`Rename :${emoji.name}:`} aria-invalid={error ? true : undefined} className="h-8 w-44 px-2 font-mono text-sm text-foreground"
+        :<Input value={name} aria-label={`Rename :${emoji.name}:`} aria-invalid={error ? true : undefined} className="h-8 w-44 px-2 font-mono text-title md:text-sm text-foreground"
           onChange={(e) => setName(e.target.value)} onBlur={save}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />:
       </div>

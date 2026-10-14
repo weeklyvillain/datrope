@@ -2,11 +2,17 @@ import { emojiList, type Emoji } from "@datrope/core";
 import { memo, startTransition, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useApp } from "@/session";
+import { ActionSheet } from "@/components/action-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEmojiData } from "./emoji-data";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useLatch } from "@/hooks/use-latch";
 import { sizedImage } from "@/lib/sized-image";
+import { isTouchOnly } from "@/lib/touch";
+import { recordEmoji } from "./recent-emoji";
+import { BareButton } from "@/components/bare-button";
 
 export type EmojiValue = { unicode: string } | { custom: Emoji };
 
@@ -26,27 +32,40 @@ type Cell = { label: string; value: EmojiValue; show: ReactNode };
 type Section = { id: string; name: string; icon: ReactNode; cells: Cell[] };
 
 /** A popover emoji picker: search, the server's custom emoji, then the Unicode groups. */
-export function EmojiPicker({ onPick, trigger, onOpenChange, onCloseAutoFocus }: {
+export function EmojiPicker({ onPick, trigger, open: controlled, onOpenChange, onCloseAutoFocus }: {
   onPick: (value: EmojiValue) => void;
-  /** The element that opens the picker; it must take a ref. */
-  trigger: ReactNode;
+  /** The element that opens the picker; it must take a ref. Optional when `open` is controlled (a hidden anchor is rendered). */
+  trigger?: ReactNode;
+  /** Controlled mode: the parent owns the open state. */
+  open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onCloseAutoFocus?: (e: Event) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [inner, setInner] = useState(false);
+  const phone = useIsMobile();
+  const open = controlled ?? inner;
+  // The phone sheet mounts on first open: a closed vaul drawer still listens to the window.
+  const sheetMounted = useLatch(open);
   const change = (o: boolean) => {
-    setOpen(o);
+    setInner(o);
     onOpenChange?.(o);
   };
+  const pick = (v: EmojiValue) => {
+    change(false);
+    recordEmoji(reactionKey(v));
+    onPick(v);
+  };
   return (
-    <Popover open={open} onOpenChange={change}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+    <Popover open={open && !phone} onOpenChange={change}>
+      {trigger ? <PopoverTrigger asChild>{trigger}</PopoverTrigger> : <PopoverAnchor asChild><span aria-hidden className="absolute right-4 top-0 size-0" /></PopoverAnchor>}
       {/* Fade only: zooming a panel full of colour emoji makes opening feel heavy. */}
+      {phone && sheetMounted && (
+        <ActionSheet open={open} onOpenChange={change} title="Emoji" role="group">
+          {open && <PickerPanel onPick={pick} />}
+        </ActionSheet>
+      )}
       <PopoverContent className="w-[352px] p-0 duration-100 [--tw-enter-scale:1]! [--tw-enter-translate-y:0]! [--tw-exit-scale:1]!" align="end" onCloseAutoFocus={onCloseAutoFocus} onContextMenu={(e) => e.stopPropagation()}>
-        <PickerPanel onPick={(v) => {
-          change(false);
-          onPick(v);
-        }} />
+        <PickerPanel onPick={pick} />
       </PopoverContent>
     </Popover>
   );
@@ -168,7 +187,7 @@ function PickerPanel({ onPick }: { onPick: (value: EmojiValue) => void }) {
   return (
     <div className="flex flex-col">
       <div className="border-b p-2">
-        <Input value={query} placeholder="Search emoji" aria-label="Search emoji" autoFocus className="h-8"
+        <Input value={query} placeholder="Search emoji" aria-label="Search emoji" autoFocus={!isTouchOnly()} className="h-8"
           onChange={(e) => {
             setQuery(e.target.value);
             setActive(0);
@@ -234,12 +253,12 @@ const EmojiRow = memo(function EmojiRow({ cells, first, top, active, onActive, o
       {cells.map((cell, j) => {
         const i = first + j;
         return (
-          <button key={i} type="button" data-cell={i} tabIndex={i === active || (active < 0 && i === 0 && first === 0) ? 0 : -1}
+          <BareButton key={i} data-cell={i} tabIndex={i === active || (active < 0 && i === 0 && first === 0) ? 0 : -1}
             aria-label={cell.label} title={cell.label}
-            className="grid size-10 place-items-center rounded-md text-2xl leading-none outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="grid size-10 place-items-center rounded-md text-2xl leading-none outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
             onFocus={() => onActive(i)} onClick={() => onPick(cell.value)}>
             {cell.show}
-          </button>
+          </BareButton>
         );
       })}
     </div>

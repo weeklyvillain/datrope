@@ -5,6 +5,7 @@ mod screen;
 mod servers;
 mod shell;
 mod state;
+mod theme;
 mod tray;
 #[cfg(feature = "updater")]
 mod update;
@@ -38,7 +39,11 @@ pub fn run() {
     builder
         .setup(|app| {
             let config = app.path().app_config_dir()?;
-            let data_root = app.path().app_local_data_dir()?.join("webviews");
+            let local = app.path().app_local_data_dir()?;
+            // The chrome's own WebView2 folder from before it shared the servers' one.
+            #[cfg(windows)]
+            let _ = std::fs::remove_dir_all(local.join("EBWebView"));
+            let data_root = local.join("webviews");
             let path = config.join("servers.json");
             let (store, corrupt) = servers::Store::load(&path);
             // An unreadable list says nothing about which data directories are still in use.
@@ -82,6 +87,11 @@ pub fn run() {
             commands::update_restart,
             commands::desktop_screen_pick,
             commands::desktop_screen_stop,
+            commands::desktop_title_bar,
+            commands::desktop_window,
+            commands::desktop_start_drag,
+            commands::desktop_set_theme,
+            commands::screen_pick_request,
             commands::screen_pick_done,
         ])
         .build(tauri::generate_context!())

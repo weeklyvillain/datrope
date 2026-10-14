@@ -34,9 +34,14 @@ export function ProfileStrip() {
         <DropdownMenuTrigger className="group -my-1 -ml-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-md p-1 text-left outline-none hover:bg-accent focus-visible:bg-accent">
           <UserAvatar user={me} size="md" status={DOT[presence]} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-foreground">{name}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{name}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top">{name}</TooltipContent>
+            </Tooltip>
             <span className="block truncate text-xs text-muted-foreground">
-              {me.custom_status ? <EmojiText text={me.custom_status} /> : <span className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100">Set a status</span>}
+              {me.custom_status ? <EmojiText text={me.custom_status} /> : <span className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100">Set a status</span>}
             </span>
           </span>
         </DropdownMenuTrigger>
@@ -75,7 +80,7 @@ export function ProfileStrip() {
 /** Limits a status to 80 characters (code points), as the server does. */
 const limit = (v: string) => Array.from(v).slice(0, 80).join("");
 
-function EditStatusDialog({ current, onClose }: { current: string; onClose: () => void }) {
+export function EditStatusDialog({ current, onClose }: { current: string; onClose: () => void }) {
   const [status, setStatus] = useState(current);
   const fieldId = useId();
   const { busy, error, run } = useSubmit();

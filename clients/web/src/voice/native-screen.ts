@@ -1,4 +1,5 @@
 import { desktop } from "../desktop";
+import type { StreamSettings } from "./stream-prefs";
 
 /**
  * Screen share through the desktop app's own picker (Windows, WebView2). The shell captures the screen or window
@@ -59,10 +60,13 @@ export function nativeScreenSize(track: MediaStreamTrack) {
 const FIRST_FRAME_WAIT_MS = 2000;
 
 /**
- * Opens the app's picker and captures what the user picks at up to `fps`. Undefined if the picker was closed.
+ * Opens the app's picker and captures what the user picks at up to `fps`. With `settings` the picker offers the
+ * stream quality too, and `settings` comes back with what was chosen there. Undefined if the picker was closed.
  * Stopping the track stops the capture; when the shared window closes the track ends (an `ended` event).
  */
-export async function captureNativeScreen(fps: number): Promise<MediaStreamTrack | undefined> {
+export async function captureNativeScreen(
+  fps: number, settings?: StreamSettings,
+): Promise<{ track: MediaStreamTrack; settings?: StreamSettings } | undefined> {
   const wv = hostWebview()!;
   const track = new (Generator()!)({ kind: "video" });
   const writer = track.writable.getWriter();
@@ -119,9 +123,9 @@ export async function captureNativeScreen(fps: number): Promise<MediaStreamTrack
   };
 
   wv.addEventListener("sharedbufferreceived", onBuffer);
-  let started: number | null;
+  let started: { gen: number; settings?: StreamSettings } | null;
   try {
-    started = await desktop!.pickScreen<FrameMessage>(fps, onFrame);
+    started = await desktop!.pickScreen<FrameMessage>(fps, onFrame, settings);
   } catch (e) {
     cleanup();
     throw e;
@@ -131,7 +135,7 @@ export async function captureNativeScreen(fps: number): Promise<MediaStreamTrack
     stopTrack();
     return undefined;
   }
-  gen = started;
+  gen = started.gen;
   if (info && info.datropeScreen !== gen) release();
 
   track.stop = () => {
@@ -143,5 +147,5 @@ export async function captureNativeScreen(fps: number): Promise<MediaStreamTrack
   };
   // Publish once there is a picture (and a size to scale from), but don't hang on a source that draws nothing.
   await Promise.race([gotFirstFrame, new Promise((r) => setTimeout(r, FIRST_FRAME_WAIT_MS))]);
-  return track;
+  return { track, settings: started.settings };
 }

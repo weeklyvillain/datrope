@@ -169,6 +169,9 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
               })}
             </div>
           ))}
+          {editable && PERM_LABELS.some((p) => !hasPerm(perms, p.flag)) && (
+            <p className="m-0 text-xs text-muted-foreground pointer-fine:hidden">You can only grant permissions you have.</p>
+          )}
         </TabsContent>
 
         {!everyone && (
@@ -182,7 +185,7 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
 
       {dirty && editable && (
         <div role="region" aria-label="Unsaved changes"
-          className="sticky bottom-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-lg">
+          className="sticky bottom-safe flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-lg">
           <span className="min-w-0 flex-1">You have unsaved changes.</span>
           <Button variant="outline" size="sm" disabled={busy} onClick={() => setEdits({})}>Reset</Button>
           <Button size="sm" disabled={busy || !name.trim()} onClick={save}>Save</Button>
@@ -208,7 +211,7 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
 
 function ColorPicker({ value, disabled, onChange }: { value?: string; disabled: boolean; onChange: (c: Color | null) => void }) {
   const id = useId();
-  const swatch = "size-8 rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:ring-2 data-[state=checked]:ring-foreground data-[state=checked]:ring-offset-2 data-[state=checked]:ring-offset-background";
+  const swatch = "size-8 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:ring-2 data-[state=checked]:ring-foreground data-[state=checked]:ring-offset-2 data-[state=checked]:ring-offset-background";
   return (
     <div className="grid gap-2">
       <span id={id} className="text-sm font-medium">Colour</span>
@@ -257,7 +260,7 @@ function SwitchRow({ label, description, checked, disabled, lacking, separated, 
       {lacking ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">{toggle}</span>
+            <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">{toggle}</span>
           </TooltipTrigger>
           <TooltipContent>You can only grant permissions you have</TooltipContent>
         </Tooltip>

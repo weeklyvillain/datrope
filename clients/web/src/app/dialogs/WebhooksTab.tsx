@@ -94,7 +94,7 @@ function NewUrl({ webhook, onDone }: { webhook: WebhookWithURL; onDone: () => vo
       <Field>
         <FieldLabel htmlFor={id}>Webhook URL</FieldLabel>
         <div className="flex gap-2">
-          <Input id={id} readOnly value={webhook.url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+          <Input id={id} readOnly value={webhook.url} className="font-mono text-title md:text-xs" onFocus={(e) => e.currentTarget.select()} />
           <Button variant="outline" onClick={() => void navigator.clipboard?.writeText(webhook.url).then(() => setCopied(true), () => undefined)}>
             {copied ? <Check /> : <Copy />}Copy URL
           </Button>

@@ -14,6 +14,7 @@ import { player } from "../player/player-store";
 import { Cover } from "../voice/MusicBits";
 import { clock } from "../voice/MusicPanel";
 import { playableTracks } from "./playlist-tracks";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** One playlist: play it in your own player, or queue it on the bot in the voice channel you're in. */
 export function PlaylistDetailView({ id, onBack }: { id: string; onBack: () => void }) {
@@ -35,7 +36,7 @@ export function PlaylistDetailView({ id, onBack }: { id: string; onBack: () => v
   }, [id, summary]);
 
   if (error) return <ErrorText error={error} />;
-  if (!detail) return <p className="m-0 p-8 text-center text-sm text-muted-foreground">Loading…</p>;
+  if (!detail) return <ListSkeleton rowClassName="h-10" />;
   const name = (cid?: string) => (cid ? channels[cid]?.name : undefined);
   const tracks = playableTracks(detail.items ?? [], name);
   const inVoice = () => void send.run(async () => {
@@ -67,6 +68,7 @@ export function PlaylistDetailView({ id, onBack }: { id: string; onBack: () => v
               <Tooltip><TooltipTrigger asChild><span tabIndex={0}>{voiceButton}</span></TooltipTrigger><TooltipContent>Join a voice channel first</TooltipContent></Tooltip>
             )}
           </div>
+          {!voiceId && <p className="m-0 text-xs text-muted-foreground pointer-fine:hidden">Join a voice channel first</p>}
           {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
           <ErrorText error={send.error} />
         </div>

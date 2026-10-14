@@ -45,6 +45,17 @@ Link previews make the server fetch pages from the internet. It only fetches pub
 (never loopback, private or other internal ranges, also after redirects), reads at most 1 MB of
 HTML, and caches each result, failures included, for 24 hours.
 
+## Phone app and notifications
+
+Datrope installs as an app from the browser: on Android use Chrome's "Install app", on iPhone/iPad
+open the site in Safari and choose Share → Add to Home Screen (iOS 16.4+). The app is named after
+your server.
+
+Notifications while the app is closed use Web Push. Nothing to configure: the server makes its own
+VAPID keys on first use and keeps them in the database (`vapid_keys`). Deleting that row
+invalidates every device's subscription; people turn notifications off and on again to recover.
+Push needs HTTPS (Caddy provides it).
+
 ## Voice and video
 
 Voice, camera and screen sharing run through [LiveKit](https://livekit.io), which Compose starts

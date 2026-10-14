@@ -344,7 +344,8 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
         return { ...i, message: { ...m, reactions: i.message.reactions, ...(poll ? { poll } : {}) } };
       });
       return updateMessages(inbox, m.channel_id, (items) => updateReplies(
-        items.map((x) => (x.id === m.id ? { ...m, reactions: x.reactions, thread: m.thread ?? x.thread, ...(x.poll ? { poll: x.poll } : {}) } : x)),
+        // Updates carry no nonce; keeping the sender's keeps the row's key (and so its focus and state) stable.
+        items.map((x) => (x.id === m.id ? { ...m, reactions: x.reactions, thread: m.thread ?? x.thread, ...(x.poll ? { poll: x.poll } : {}), ...(x.nonce && !m.nonce ? { nonce: x.nonce } : {}) } : x)),
         m.id, { content: Array.from(m.content).slice(0, REPLY_PREVIEW_LEN).join("") },
       ));
     }

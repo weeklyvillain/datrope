@@ -71,7 +71,7 @@ export function PostDialog({ forumId, post, onClose, onSaved }: {
                   return (
                     <Toggle key={t} variant="outline" size="sm" pressed={on} disabled={!on && tags.length >= MAX_TAGS}
                       onPressedChange={(v) => toggle(t, v)}
-                      className="h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground">
+                      className="h-7 rounded-full px-3 text-ui font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground">
                       {t}
                     </Toggle>
                   );

@@ -44,17 +44,30 @@ export function watchPtt(target: EventTarget, getCode: () => string, onChange: (
   };
 }
 
-/** Push to talk from two places (keys in the window, the desktop app's global shortcut): down while either is. */
+/** Push to talk from three places (keys in the window, the desktop app's global shortcut, the hold-to-talk button):
+ *  down while any is. */
 export function combinePtt(onChange: (down: boolean) => void) {
-  const held = { local: false, global: false };
+  const held = { local: false, global: false, ui: false };
   let down = false;
   return {
-    set(source: "local" | "global", d: boolean) {
+    set(source: "local" | "global" | "ui", d: boolean) {
       held[source] = d;
-      const next = held.local || held.global;
+      const next = held.local || held.global || held.ui;
       if (next === down) return;
       down = next;
       onChange(next);
     },
   };
+}
+
+let uiPtt: ((down: boolean) => void) | null = null;
+
+/** The current call's hold-to-talk input; null when it ends. */
+export function bindUiPtt(fn: ((down: boolean) => void) | null) {
+  uiPtt = fn;
+}
+
+/** The hold-to-talk button went down or up. Does nothing outside a call. */
+export function setPttFromUi(down: boolean) {
+  uiPtt?.(down);
 }

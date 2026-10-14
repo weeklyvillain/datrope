@@ -1,12 +1,13 @@
 import type { PublicUser, Role } from "@datrope/core";
+import { Copy } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
-import { useNavigate } from "react-router-dom";
 import { RoleBadge } from "@/components/role-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
+import { useLayerNavigate } from "@/hooks/use-history-layer";
 import { avatarColor } from "@/lib/avatar-color";
 import { isHttpsLink } from "@/lib/social";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,8 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
 }) {
   const stored = useUser(userId, fallback);
   const user = stored ? { ...stored, ...preview } : undefined;
-  const navigate = useNavigate();
+  // In the phone profile drawer (a layer), replace its history entry so Back does not land on the closed profile.
+  const navigate = useLayerNavigate();
   const sv = useApp((s) => s.server);
   const member = useApp((s) => s.server?.members[userId]);
   const presence = useApp((s) => s.presences[userId] ?? "offline");
@@ -69,7 +71,7 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
   return (
     <div>
       <div className={cn("overflow-hidden", panel ? "h-24" : "h-16")} style={{ background: roleColor(sv, userId) ?? avatarColor(userId) }}>
-        {user.banner_url && <img {...sizedImage(user.banner_url, 512)} alt="" className="size-full object-cover" />}
+        {user.banner_url && <img {...sizedImage(user.banner_url, 512)} loading="lazy" alt="" className="size-full object-cover" />}
       </div>
       <div className={cn("pb-4", panel ? "px-5" : "px-4")}>
         <div className="-mt-10 w-fit">
@@ -81,6 +83,10 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
             <div className={cn("truncate font-bold text-foreground", panel ? "text-[20px]" : "text-[18px]")}>{name}</div>
             <div className="truncate text-sm text-muted-foreground">{sub}</div>
           </div>
+          {!preview && (
+            <Button size="icon-sm" variant="ghost" aria-label="Copy user ID" title="Copy user ID" className="text-muted-foreground"
+              onClick={() => void navigator.clipboard?.writeText(userId).catch(() => undefined)}><Copy /></Button>
+          )}
           {panel && actions}
         </div>
         {user.custom_status && <p className="mt-2 text-sm wrap-anywhere"><EmojiText text={user.custom_status} /></p>}

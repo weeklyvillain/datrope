@@ -5,7 +5,24 @@ vi.mock("../session", () => ({ client: { onEvent: () => {}, store: { getState: (
 vi.mock("../sounds", () => ({ play: () => {} }));
 vi.mock("./mixer", () => ({ applyPrefs: () => {}, watchPrefs: () => () => {} }));
 
+/** The desktop app's picker: off unless a test turns it on; `nativePick` answers each pick. */
+let native = false;
+let nativePick: (offered: unknown) => { settings?: unknown } | undefined = () => ({});
+const nativeCapture = vi.fn(async (_fps: number, offered?: unknown) => {
+  const answer = nativePick(offered);
+  if (!answer) return undefined;
+  const track = raw("video");
+  captured.push(track);
+  return { track, settings: answer.settings };
+});
+vi.mock("./native-screen", () => ({
+  nativeScreenAvailable: () => native,
+  nativeScreenSize: () => undefined,
+  captureNativeScreen: (fps: number, offered?: unknown) => nativeCapture(fps, offered),
+}));
+
 const { voice } = await import("./voice");
+const { streamPrefs } = await import("./stream-prefs");
 
 const settings = { mode: "game", resolution: 1080, fps: 60, audio: true } as const;
 
@@ -148,5 +165,34 @@ describe("screen share", () => {
     expect(first.stop).not.toHaveBeenCalled();
     expect(captured.slice(2).every((t) => t.stop.mock.calls.length > 0)).toBe(true); // the new capture is let go
     expect(voice.store.getState()).toMatchObject({ error: "Could not change what you share.", stream: settings });
+  });
+});
+
+describe("screen share through the desktop app's picker", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    captured.length = 0;
+    native = true;
+    nativePick = () => ({});
+  });
+
+  it("goes live with the quality chosen in the picker and keeps it for next time", async () => {
+    const chosen = { ...settings, mode: "detail", fps: 30 } as const;
+    nativePick = () => ({ settings: chosen });
+    const f = fakeRoom();
+    use(f.room);
+    await voice.startScreen(settings);
+    expect(nativeCapture).toHaveBeenCalledWith(60, settings);
+    expect(voice.store.getState().stream).toEqual({ ...chosen, audio: false });
+    expect(f.pubs.get(Track.Source.ScreenShare)!.options.videoEncoding).toEqual({ maxBitrate: 5_000_000, maxFramerate: 30 });
+    expect(streamPrefs.getState()).toEqual(chosen);
+  });
+
+  it("only asks for a source when changing what is shared", async () => {
+    const f = fakeRoom();
+    use(f.room);
+    await voice.startScreen(settings);
+    await voice.changeSource();
+    expect(nativeCapture).toHaveBeenLastCalledWith(60, undefined);
   });
 });

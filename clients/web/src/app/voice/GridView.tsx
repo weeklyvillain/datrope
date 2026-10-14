@@ -1,4 +1,5 @@
 import { Children, Fragment, isValidElement, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { VideoTile } from "../../voice/voice";
 import { fitWidth } from "./fit";
 import { InviteTile } from "./InviteTile";
@@ -23,6 +24,7 @@ export function GridView({ entries, speaking, watching, chip, bot, watch, invite
   inviteTo?: string; // channel name; set when the invite tile may show
   compact?: boolean;
 }) {
+  const phone = useIsMobile();
   const tiles = entries.map((e) => (
     <Tile key={entryKey(e)} userId={e.userId} tile={e.tile} size="grid" speaking={speaking.includes(e.userId)}
       watching={watching.includes(e.userId)} chip={chip?.(e)} />
@@ -33,6 +35,8 @@ export function GridView({ entries, speaking, watching, chip, bot, watch, invite
   if (compact) {
     return <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">{tiles}{invite}</div>;
   }
+  // Phones: two columns, scrolling when the call outgrows the screen.
+  if (phone) return <div className="grid size-full grid-cols-2 content-start gap-2 overflow-y-auto">{tiles}{invite}</div>;
   return <FitGrid>{tiles}{invite}</FitGrid>;
 }
 

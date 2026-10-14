@@ -11,9 +11,16 @@ export default defineConfig({
   },
   projects: [{
     name: "chromium",
+    testIgnore: /(mobile|desktop)\.spec\.ts/,
     use: {
       ...devices["Desktop Chrome"],
       launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--auto-select-desktop-capture-source=Entire screen"] },
     },
-  }],
+  },
+  { name: "desktop-820", testMatch: /desktop\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 700 } } },
+  { name: "desktop-1100", testMatch: /desktop\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["Desktop Chrome"], viewport: { width: 1100, height: 800 } } },
+  { name: "desktop-1440", testMatch: /desktop\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
+  { name: "pixel-7", testMatch: /mobile\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["Pixel 7"] } },
+  { name: "iphone-14", testMatch: /mobile\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["iPhone 14"], browserName: "chromium" } },
+  ],
 });

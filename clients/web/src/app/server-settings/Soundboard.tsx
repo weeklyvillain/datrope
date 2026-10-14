@@ -164,7 +164,7 @@ function RenameField({ sound }: { sound: Sound }) {
   };
   return (
     <div className="grid gap-1">
-      <Input value={name} aria-label={`Rename ${sound.name}`} aria-invalid={error ? true : undefined} className="h-8 w-48 px-2 text-sm"
+      <Input value={name} aria-label={`Rename ${sound.name}`} aria-invalid={error ? true : undefined} className="h-8 w-48 px-2 text-title md:text-sm"
         onChange={(e) => setName(e.target.value)} onBlur={save}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
       <ErrorText error={error} />

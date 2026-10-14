@@ -5,21 +5,22 @@ import { useShallow } from "zustand/react/shallow";
 import { displayName, useApp } from "../../session";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
+import { BareButton } from "@/components/bare-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-const chipClass = "inline-flex h-[26px] items-center gap-1 rounded-full border px-2 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
+const chipClass = "inline-flex h-[26px] items-center gap-1 rounded-full border px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const offClass = "border-border text-muted-foreground hover:text-foreground";
 const onClass = "border-primary bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-primary";
 
 /** A small rounded filter button that forwards its ref, for dropdown and popover triggers. */
 const Chip = forwardRef<HTMLButtonElement, ComponentProps<"button"> & { on?: boolean }>(({ on = false, className, children, ...props }, ref) => (
-  <button ref={ref} type="button" className={cn(chipClass, on ? onClass : offClass, className)} {...props}>
+  <BareButton ref={ref} className={cn(chipClass, on ? onClass : offClass, className)} {...props}>
     {children}<ChevronDown className="size-3" aria-hidden />
-  </button>
+  </BareButton>
 ));
 Chip.displayName = "Chip";
 
@@ -47,10 +48,10 @@ function FromChip({ query, from, onChange }: { query: string; from?: PublicUser;
       <span className={cn(chipClass, onClass)}>
         {user && <UserAvatar user={user} size="xs" />}
         From: {user ? displayName(user) : username}
-        <button type="button" aria-label="Remove from filter" className="ml-0.5 rounded-full outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        <BareButton aria-label="Remove from filter" className="ml-0.5 rounded-full hover:text-foreground"
           onClick={() => onChange(setOperator(query, "from", null))}>
           <X className="size-3" aria-hidden />
-        </button>
+        </BareButton>
       </span>
     );
   }

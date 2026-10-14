@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubmit } from "@/hooks/use-submit";
+import { useTitleBarClass, useTitleBarEdges } from "@/hooks/use-title-bar-edges";
 import { cn } from "@/lib/utils";
 import { client, useApp } from "@/session";
 import { WelcomeMarkdown } from "./WelcomeMarkdown";
@@ -18,6 +19,8 @@ const MAX = 50_000;
 
 /** Edits the welcome page in place: Markdown on the left, live preview on the right. */
 export function WelcomeEditor({ welcome, onClose }: { welcome: Welcome; onClose: () => void }) {
+  const edges = useTitleBarEdges();
+  const bandClass = useTitleBarClass("flex min-h-14 flex-none flex-wrap items-center gap-3 border-b bg-card py-2 pr-3 pl-4");
   const [markdown, setMarkdown] = useState(welcome.markdown);
   const [gate, setGate] = useState(welcome.rules_gate);
   // Textarea (React 18) doesn't forward refs; keep the element from its focus and selection events.
@@ -71,7 +74,7 @@ export function WelcomeEditor({ welcome, onClose }: { welcome: Welcome; onClose:
 
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-background" aria-label="Edit welcome page">
-      <header className="flex min-h-14 flex-none flex-wrap items-center gap-3 border-b bg-card py-2 pr-3 pl-4">
+      <header ref={edges} data-titlebar-drag className={bandClass}>
         <BookOpen className="size-4 text-muted-foreground" aria-hidden />
         <h2>Edit welcome page</h2>
         <span className="flex-1 text-sm text-muted-foreground">{dirty ? "Unsaved changes" : ""}</span>
@@ -119,7 +122,7 @@ export function WelcomeEditor({ welcome, onClose }: { welcome: Welcome; onClose:
           <Textarea aria-label="Welcome page in Markdown" spellCheck={false} value={markdown}
             onChange={(e) => setMarkdown(e.target.value)}
             onFocus={(e) => (area.current = e.currentTarget)} onSelect={(e) => (area.current = e.currentTarget)} aria-invalid={over || undefined}
-            className="min-h-0 flex-1 resize-none rounded-none border-0 p-4 font-mono text-[13px] leading-relaxed shadow-none field-sizing-fixed focus-visible:ring-0 md:text-[13px]" />
+            className="min-h-0 flex-1 resize-none rounded-none border-0 p-4 font-mono text-title md:text-ui leading-relaxed shadow-none field-sizing-fixed focus-visible:ring-0" />
         </section>
         <section aria-label="Preview" className="flex min-h-0 flex-col">
           <div className="flex h-[45px] flex-none items-center border-b bg-card px-3.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Preview</div>

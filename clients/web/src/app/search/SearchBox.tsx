@@ -1,11 +1,15 @@
-import { Search, X } from "lucide-react";
+import { Command, Search, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { keyLabel, shortcutKeys } from "@/lib/shortcuts";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { closePanel, openPanel, panelStore, setSearchQuery, usePanel } from "../side-panel/panel";
+import { toggleCommands } from "../palette/command-store";
 import { clearSearchResults } from "./results";
 
 /** The operator hints shown while the box is focused and empty (Search.html 3b). */
@@ -21,6 +25,8 @@ export function SearchBox() {
   const query = usePanel((s) => s.query);
   const [focused, setFocused] = useState(false);
   const mobile = useIsMobile();
+  const tier = useLayoutTier();
+  const compact = mobile || tier === "narrow";
   const [expanded, setExpanded] = useState(false); // phones: an icon until tapped, then the box spans the top bar
   const box = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -36,9 +42,9 @@ export function SearchBox() {
     if (panelStore.getState().panel?.kind === "search") closePanel();
   };
 
-  if (mobile && !expanded && !query) {
+  if (compact && !expanded && !query) {
     return (
-      <Button variant="ghost" size="icon-sm" aria-label="Search" className="text-muted-foreground" onClick={() => setExpanded(true)}>
+      <Button variant="ghost" size="icon-sm" aria-label="Search" className="text-muted-foreground max-md:size-[44px]" onClick={() => setExpanded(true)}>
         <Search />
       </Button>
     );
@@ -46,12 +52,12 @@ export function SearchBox() {
   return (
     <Popover open={focused && !query}>
       <PopoverAnchor asChild>
-        <div ref={box} className={cn("relative w-[260px] flex-none max-[760px]:w-40",
-          mobile && "absolute inset-x-2 top-1/2 z-10 w-auto -translate-y-1/2 bg-topbar max-[760px]:w-auto")}>
+        <div ref={box} className={cn("relative w-[260px] flex-none max-[1279px]:w-[200px]",
+          compact && "absolute inset-x-2 in-data-[edge-right]:right-[calc(0.5rem+var(--titlebar-right,0px))] top-1/2 z-10 w-auto -translate-y-1/2 bg-topbar max-[1279px]:w-auto")}>
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input aria-label="Search" placeholder="Search" className="h-8 pr-8 pl-8" value={query}
             onChange={(e) => setSearchQuery(e.target.value)}
-            autoFocus={mobile}
+            autoFocus={compact}
             onFocus={() => setFocused(true)}
             onBlur={() => {
               setFocused(false);
@@ -65,6 +71,11 @@ export function SearchBox() {
                 e.currentTarget.blur();
               }
             }} />
+          {!query && !focused && !compact && (
+            <KbdGroup className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2" aria-hidden>
+              {shortcutKeys("search").map((k) => <Kbd key={k}>{keyLabel(k)}</Kbd>)}
+            </KbdGroup>
+          )}
           {query && (
             <Button variant="ghost" size="icon-sm" aria-label="Clear search"
               className="absolute top-1/2 right-0.5 size-7 -translate-y-1/2 text-muted-foreground" onClick={clear}>
@@ -88,6 +99,16 @@ export function SearchBox() {
               <span className="text-muted-foreground">{h.text}</span>
             </div>
           ))}
+          {mobile && (
+            <div role="option" aria-selected={false} className="flex cursor-pointer items-center gap-2 border-t px-3.5 py-2.5 text-sm hover:bg-accent"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setExpanded(false);
+                toggleCommands();
+              }}>
+              <Command className="size-4 text-muted-foreground" aria-hidden />Commands
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>

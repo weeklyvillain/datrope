@@ -1,30 +1,44 @@
 import { unwrap, type Role } from "@datrope/core";
 import { Plus, UserRound, X } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { RoleBadge } from "@/components/role-badge";
+import { useHistoryLayer } from "@/hooks/use-history-layer";
+import { useTitleBarClass, useTitleBarEdges } from "@/hooks/use-title-bar-edges";
 import { useSubmit } from "@/hooks/use-submit";
 import { client } from "@/session";
-import { closeProfile, usePanel } from "../side-panel/panel";
+import { closeProfile, panelStore, usePanel } from "../side-panel/panel";
 import { ProfileCard } from "./ProfileCard";
 import { useAssignableRoles } from "./use-assignable-roles";
 
 /** Someone's full profile in a drawer from the right, over the page; the side panel underneath stays as it was. */
 export function ProfileDrawer() {
   const userId = usePanel((s) => s.profile);
+  const edges = useTitleBarEdges();
+  const bandClass = useTitleBarClass("flex h-14 flex-none items-center gap-2 border-b pl-4 pr-2");
+  useHistoryLayer("profile", !!userId, closeProfile);
   const shown = useRef(userId);
   if (userId) shown.current = userId; // keeps the profile in place while the drawer slides out
+  // Its actions (Message, Edit profile) go to another page: the drawer must not stay over it.
+  // Their navigate already replaced the layer's entry, so closing pops nothing.
+  const { pathname } = useLocation();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (panelStore.getState().profile) closeProfile();
+  }, [pathname]);
   return (
     <Sheet open={!!userId} onOpenChange={(open) => !open && closeProfile()}>
       <SheetContent side="right" showCloseButton={false} aria-describedby={undefined}
         className="w-[400px] max-w-full gap-0 bg-card p-0 sm:max-w-[400px]">
-        <header className="flex h-14 flex-none items-center gap-2 border-b pl-4 pr-2">
+        <header ref={edges} data-titlebar-drag className={bandClass}>
           <UserRound className="size-4 flex-none text-muted-foreground" aria-hidden />
-          <SheetTitle className="min-w-0 flex-1 truncate text-[15px]">Profile</SheetTitle>
+          <SheetTitle className="min-w-0 flex-1 truncate text-body">Profile</SheetTitle>
           <SheetClose asChild>
             <RefButton variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Close profile" title="Close"><X /></RefButton>
           </SheetClose>

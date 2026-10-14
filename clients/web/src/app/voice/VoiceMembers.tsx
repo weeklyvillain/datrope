@@ -10,6 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TOUCH_ROW } from "@/lib/touch";
 import { cn } from "@/lib/utils";
 import { client, errorText, outranksUser, useApp, usePerms, userName } from "../../session";
 import { useVoice } from "../../voice/voice";
@@ -54,7 +55,7 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
     <ul className="mb-1 ml-5 list-none" aria-label={`In voice: ${name}`}>
       {members.map((v, i) => {
         const row = (
-          <span className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-sm text-muted-foreground hover:bg-accent">
+          <span className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-sm text-muted-foreground hover:bg-accent", TOUCH_ROW)}>
             <span className="flex-1 truncate text-left">{names[i]}</span>
             {v.screen && <Badge variant="destructive" className="px-1 py-0 text-[0.6rem]">LIVE</Badge>}
             {v.camera && <Video className="size-3.5" role="img" aria-label="Camera on" />}

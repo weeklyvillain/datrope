@@ -2,7 +2,7 @@
   "bundle": { "createUpdaterArtifacts": true },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_THE_PUBLIC_KEY_FROM_tauri_signer_generate",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVFRDc2Q0IwNDAxMUZBN0MKUldSOCtoRkFzR3pYN3VqcEM4TWRGRGJJQ1U2RHQzd0VMQ1ZHNE9NNDRDdXE5YTBKdlJPWjdvbzYK",
       "endpoints": ["https://github.com/weeklyvillain/datrope/releases/latest/download/latest.json"]
     }
   }

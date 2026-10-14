@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-screen-pick-request"
+description = "Enables the screen_pick_request command without any pre-configured scope."
+commands.allow = ["screen_pick_request"]
+
+[[permission]]
+identifier = "deny-screen-pick-request"
+description = "Denies the screen_pick_request command without any pre-configured scope."
+commands.deny = ["screen_pick_request"]
