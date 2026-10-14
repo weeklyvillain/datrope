@@ -277,6 +277,13 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(bob.getByRole("article").filter({ hasText: "hi ¯\\_(ツ)_/¯" })).toBeVisible();
   await expect(box).toHaveValue("");
 
+  // /wheel: the reel spins for both and lands on one of the options.
+  await send(alice, "/wheel Pizza, Sushi, Tacos");
+  for (const page of [alice, bob]) {
+    const spin = page.getByRole("region", { name: "Wheel spin" }).last();
+    await expect(spin).toContainText(/Landed on(Pizza|Sushi|Tacos)$/, { timeout: 10_000 });
+  }
+
   // An unknown command is not sent, and the text stays for fixing.
   await send(alice, "/nope");
   await expect(alice.getByRole("alert").filter({ hasText: "Unknown command /nope" })).toBeVisible();

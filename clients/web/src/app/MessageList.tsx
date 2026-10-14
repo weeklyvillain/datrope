@@ -20,6 +20,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
 import { PollCard } from "@/chat/PollCard";
+import { WheelCard } from "@/chat/WheelCard";
+import { parseWheel } from "@/chat/wheel";
 import { cn } from "@/lib/utils";
 import { messageKeyAction, type MessageKey } from "@/lib/message-keys";
 import { buildItems, indexOfMessage, navTarget, neighbourRow, prependedCount, type Item } from "@/lib/message-items";
@@ -628,6 +630,8 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const name = displayName(author);
   const replyTo = m.reply_to;
   const playable = useMemo(() => (m.deleted ? undefined : firstPlayer(m.content, window.location.hostname)), [m.content, m.deleted]);
+  // An edited spin is shown as text with "(edited)", so a changed winner can't pass for a real spin.
+  const wheel = useMemo(() => (m.deleted || m.edited_at ? null : parseWheel(m.content)), [m.content, m.deleted, m.edited_at]);
 
   const save = async () => {
     // Only announcement cards carry a title.
@@ -838,6 +842,11 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
               </p>
             )}
           </form>
+        ) : wheel ? (
+          <div id={`message-${m.id}-text`}>
+            <span className="sr-only">{m.content}</span>
+            <WheelCard id={m.id} wheel={wheel} createdAt={m.created_at} pending={m.pending} />
+          </div>
         ) : m.content || m.edited_at ? (
           <div id={`message-${m.id}-text`} className={cn("wrap-anywhere max-w-[80ch]", m.pending && "opacity-60")}>
             <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} roles={m.pending ? undefined : m.mention_roles ?? undefined} everyone={!!m.mention_everyone} />

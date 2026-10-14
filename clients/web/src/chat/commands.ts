@@ -1,6 +1,8 @@
 // Slash commands typed at the start of the composer. Pure: the composer passes
 // side effects in through CommandContext.
 
+import { wheel } from "./wheel";
+
 export type ModalKind = "gif" | "poll";
 export type CommandContext = {
   gifsEnabled: boolean; // instance info: a Klipy key is set
@@ -48,6 +50,7 @@ export const COMMANDS: Command[] = [
   { name: "spoiler", args: "<text>", description: "Hides the text until clicked", run: needs("spoiler", "text", (s) => `||${s}||`) },
   { name: "roll", args: "[NdM]", description: "Rolls dice, 1d20 by default", run: (a) => roll(a) },
   { name: "flip", description: "Flips a coin", run: () => flip() },
+  { name: "wheel", args: "<option, option, …>", description: "Spins a wheel and picks one option", run: (a) => wheel(a, randomInt) },
   {
     name: "status", args: "[text]", description: "Sets your custom status; empty clears it",
     run: async (a, ctx) => {

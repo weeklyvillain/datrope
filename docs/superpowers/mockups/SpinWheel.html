@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spin the wheel — concepts</title>
+<style>
+:root {
+  color-scheme: dark;
+  --radius: 8px;
+  --background: #131313; --foreground: #bdc3c7;
+  --card: #1c1c1c; --popover: #1c1c1c;
+  --primary: #2ecc71; --primary-foreground: #131313;
+  --secondary: #424242; --muted: #2a2a2a; --muted-foreground: #969da2;
+  --accent: #2a2a2a; --border: #424242; --sidebar: #0d0d0d;
+  --a1: #34495e; --a2: #5b3a6e; --a3: #2d5a46; --a4: #6e4b2a;
+  --a5: #2a4f6e; --a6: #6e2a3f; --a7: #4b5a2a; --a8: #3f3f6e;
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1 { font-size: 20px; margin: 0; }
+.pagehead { padding: 20px 24px 0; }
+.pagehead p { margin: 4px 0 12px; color: var(--muted-foreground); font-size: 13px; }
+.tabs { display: flex; gap: 6px; padding: 0 24px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.tabs button { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; cursor: pointer; }
+.tabs button.on { background: var(--accent); color: var(--foreground); border-color: var(--foreground); font-weight: 600; }
+.concept { display: none; padding: 20px 24px 40px; }
+.concept.on { display: block; }
+.pitch { max-width: 900px; margin: 0 0 16px; color: var(--muted-foreground); font-size: 13px; }
+.pitch b { color: var(--foreground); }
+.frame { max-width: 900px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--background); }
+.top { height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border); }
+.top .name { font-weight: 600; }
+.msgs { padding: 16px 0; }
+.msg { display: flex; gap: 12px; padding: 4px 16px; }
+.msg:hover { background: rgba(255,255,255,.02); }
+.av { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 600; color: var(--foreground); }
+.head { display: flex; gap: 8px; align-items: baseline; }
+.head b { font-weight: 600; color: var(--foreground); }
+.head time { font-size: 12px; color: var(--muted-foreground); }
+.body { min-width: 0; flex: 1; }
+.btn { height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--accent); }
+.composer { margin: 8px 16px 16px; height: 44px; border-radius: 8px; background: var(--muted); display: flex; align-items: center; padding: 0 14px; color: var(--muted-foreground); font-size: 14px; }
+.composer code { color: var(--foreground); }
+.ctrl { display: flex; gap: 8px; margin: 12px 0 0; align-items: center; color: var(--muted-foreground); font-size: 12px; }
+.sr { color: var(--muted-foreground); font-size: 12px; }
+
+/* A: classic wheel */
+.wcard { display: inline-flex; gap: 20px; align-items: center; margin-top: 6px; padding: 14px 18px 14px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.wheelbox { position: relative; width: 200px; height: 200px; flex: none; }
+.wheelbox svg.wheel { width: 200px; height: 200px; display: block; }
+.wheelbox .pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 18px solid var(--foreground); filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+.wheelbox .hub { position: absolute; inset: 50% auto auto 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: var(--card); border: 2px solid var(--border); display: grid; place-items: center; font-size: 13px; }
+.wheelbox.crop { height: 134px; overflow: hidden; }
+.wheelbox.crop::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: linear-gradient(transparent, var(--card)); pointer-events: none; }
+.wcard.crop { align-items: flex-start; padding-bottom: 0; }
+.wcard.crop .winner { padding-top: 28px; }
+.winner { min-width: 160px; }
+.winner .lbl { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.winner .val { font-size: 20px; font-weight: 700; color: var(--foreground); margin-top: 2px; transition: opacity var(--d,240ms), transform var(--d,240ms) var(--ease-out-quint); }
+.winner .val.hide { opacity: 0; transform: translateY(6px); }
+.winner .of { font-size: 12px; color: var(--muted-foreground); margin-top: 6px; }
+
+/* B: reel */
+.reelcard { margin-top: 6px; width: min(520px, 100%); border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow: hidden; }
+.reelhead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 13px; color: var(--muted-foreground); border-bottom: 1px solid var(--border); }
+.reelhead b { color: var(--foreground); }
+.reel { position: relative; height: 72px; overflow: hidden; background: var(--sidebar); }
+.reel .strip { position: absolute; top: 12px; left: 0; display: flex; gap: 8px; will-change: transform; }
+.reel .tile { width: 120px; height: 48px; flex: none; border-radius: 6px; display: grid; place-items: center; font-weight: 600; color: var(--foreground); font-size: 14px; position: relative; overflow: hidden; }
+.reel .tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(255,255,255,.08), transparent 55%, rgba(0,0,0,.25)); }
+.reel .tile.win { outline: 2px solid var(--primary); outline-offset: -2px; }
+.reel .mark { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: var(--primary); box-shadow: 0 0 8px var(--primary); z-index: 2; }
+.reel .fade { position: absolute; top: 0; bottom: 0; width: 80px; z-index: 1; pointer-events: none; }
+.reel .fade.l { left: 0; background: linear-gradient(90deg, var(--sidebar), transparent); }
+.reel .fade.r { right: 0; background: linear-gradient(-90deg, var(--sidebar), transparent); }
+.reelfoot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 13px; }
+.reelfoot .res { font-weight: 700; color: var(--foreground); transition: opacity 240ms; }
+.reelfoot .res.hide { opacity: 0; }
+
+/* C: list roulette */
+.lcard { margin-top: 6px; width: min(360px, 100%); border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 6px; }
+.lcard .lh { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px; font-size: 13px; color: var(--muted-foreground); }
+.lcard .row { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 6px; font-size: 14px; position: relative; transition: background 60ms; }
+.lcard .row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.lcard .row.hot { background: var(--accent); color: var(--foreground); }
+.lcard .row.win { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--foreground); font-weight: 600; box-shadow: inset 0 0 0 1px var(--primary); }
+.lcard .row .badge { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); opacity: 0; transition: opacity 240ms; }
+.lcard .row.win .badge { opacity: 1; }
+.lcard .lf { padding: 8px 8px 4px; font-size: 12px; color: var(--muted-foreground); }
+</style>
+</head>
+<body>
+<div class="pagehead">
+  <h1>/wheel concepts</h1>
+  <p>Message: <code>/wheel Pizza, Sushi, Tacos, Burgers, Thai, Pho</code>. Each animates when the message is fresh (&lt;10 s); older messages render settled. Hit Replay to watch again. Slice colors are the existing <code>--avatar-1..8</code> tokens.</p>
+</div>
+<div class="tabs">
+  <button data-c="a" class="on">A · Classic wheel</button>
+  <button data-c="a2">A2 · Cropped wheel</button>
+  <button data-c="b">B · Case-opening reel</button>
+  <button data-c="c">C · Roulette list</button>
+</div>
+
+<!-- A -->
+<section class="concept on" id="a">
+  <p class="pitch"><b>Classic wheel.</b> A 200 px SVG wheel with labels in slices and a pointer on top. Spins ~4 s with ease-out, then the winner fades in on the right. Most recognisable; labels get cramped past ~10 options or long names (truncated with ellipsis, full list under the winner).</p>
+  <div class="frame">
+    <div class="top"><span># food-chat</span></div>
+    <div class="msgs">
+      <div class="msg"><div class="av" style="background:var(--a3)">F</div><div class="body">
+        <div class="head"><b>Filip</b><time>Today at 18:42</time></div>
+        <div class="wcard">
+          <div class="wheelbox"><svg class="wheel" id="aw" viewBox="-100 -100 200 200"></svg><div class="pointer"></div><div class="hub">🎡</div></div>
+          <div class="winner"><div class="lbl">Landed on</div><div class="val hide" id="aval">—</div><div class="of" id="aof"></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="composer"><code>/wheel</code>&nbsp;Pizza, Sushi, Tacos, Burgers, Thai, Pho</div>
+  </div>
+  <div class="ctrl"><button class="btn" onclick="spinA()">↻ Replay</button><span>Reduced motion: renders settled immediately.</span></div>
+</section>
+
+<!-- A2 -->
+<section class="concept" id="a2">
+  <p class="pitch"><b>Cropped wheel.</b> Same wheel and slice size as A, but the card cuts off the bottom third, so only the top 2/3 shows and the card is about 65 px shorter. The pointer stays on top; the cut edge fades into the card.</p>
+  <div class="frame">
+    <div class="top"><span># food-chat</span></div>
+    <div class="msgs">
+      <div class="msg"><div class="av" style="background:var(--a3)">F</div><div class="body">
+        <div class="head"><b>Filip</b><time>Today at 18:42</time></div>
+        <div class="wcard crop">
+          <div class="wheelbox crop"><svg class="wheel" id="a2w" viewBox="-100 -100 200 200"></svg><div class="pointer"></div><div class="hub">🎡</div></div>
+          <div class="winner"><div class="lbl">Landed on</div><div class="val hide" id="a2val">—</div><div class="of" id="a2of"></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="composer"><code>/wheel</code>&nbsp;Pizza, Sushi, Tacos, Burgers, Thai, Pho</div>
+  </div>
+  <div class="ctrl"><button class="btn" onclick="spinA2()">↻ Replay</button></div>
+</section>
+
+<!-- B -->
+<section class="concept" id="b">
+  <p class="pitch"><b>Case-opening reel.</b> Options as tiles on a horizontal strip that races past a center marker and decelerates onto the winner. Wide and short, so it fits a chat row; long labels and many options are fine. Less "wheel", more loot-box energy.</p>
+  <div class="frame">
+    <div class="top"><span># food-chat</span></div>
+    <div class="msgs">
+      <div class="msg"><div class="av" style="background:var(--a3)">F</div><div class="body">
+        <div class="head"><b>Filip</b><time>Today at 18:42</time></div>
+        <div class="reelcard">
+          <div class="reelhead">🎡 <b>Spin the wheel</b> · 6 options</div>
+          <div class="reel"><div class="fade l"></div><div class="fade r"></div><div class="mark"></div><div class="strip" id="bstrip"></div></div>
+          <div class="reelfoot"><span class="sr">Result:</span><span class="res hide" id="bres">—</span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="composer"><code>/wheel</code>&nbsp;Pizza, Sushi, Tacos, Burgers, Thai, Pho</div>
+  </div>
+  <div class="ctrl"><button class="btn" onclick="spinB()">↻ Replay</button></div>
+</section>
+
+<!-- C -->
+<section class="concept" id="c">
+  <p class="pitch"><b>Roulette list.</b> No wheel graphic: the options are a plain list and a highlight hops row to row, slowing down until it stops on the winner, which gets a primary outline and a WINNER tag. Smallest, most readable, best on mobile and for long option names; least spectacle.</p>
+  <div class="frame">
+    <div class="top"><span># food-chat</span></div>
+    <div class="msgs">
+      <div class="msg"><div class="av" style="background:var(--a3)">F</div><div class="body">
+        <div class="head"><b>Filip</b><time>Today at 18:42</time></div>
+        <div class="lcard"><div class="lh">🎡 Spinning the wheel…</div><div id="clist"></div><div class="lf" id="cfoot">6 options</div></div>
+      </div></div>
+    </div>
+    <div class="composer"><code>/wheel</code>&nbsp;Pizza, Sushi, Tacos, Burgers, Thai, Pho</div>
+  </div>
+  <div class="ctrl"><button class="btn" onclick="spinC()">↻ Replay</button></div>
+</section>
+
+<script>
+const OPTS = ["Pizza", "Sushi", "Tacos", "Burgers", "Thai", "Pho"];
+const COLORS = ["--a1","--a2","--a3","--a4","--a5","--a6","--a7","--a8"].map(v => `var(${v})`);
+const pick = () => Math.floor(Math.random() * OPTS.length);
+
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".concept").forEach(s => s.classList.toggle("on", s.id === b.dataset.c));
+  ({ a: spinA, a2: spinA2, b: spinB, c: spinC })[b.dataset.c]();
+});
+
+// A
+function drawWheel(aw, id) {
+  const n = OPTS.length, step = 360 / n, r = 96;
+  let s = "";
+  OPTS.forEach((o, i) => {
+    const a0 = (i * step - 90) * Math.PI / 180, a1 = ((i + 1) * step - 90) * Math.PI / 180;
+    const mid = (i + .5) * step - 90;
+    s += `<path d="M0 0 L${r*Math.cos(a0)} ${r*Math.sin(a0)} A${r} ${r} 0 0 1 ${r*Math.cos(a1)} ${r*Math.sin(a1)}Z" fill="${COLORS[i % 8]}" stroke="#131313" stroke-width="1.5"/>`;
+    s += `<text transform="rotate(${mid}) translate(58 0)" fill="#bdc3c7" font-size="11" font-weight="600" text-anchor="middle" dominant-baseline="middle">${o}</text>`;
+  });
+  aw.innerHTML = `<g id="${id}rot">${s}<circle r="${r}" fill="none" stroke="#424242" stroke-width="2"/></g>`;
+}
+drawWheel(document.getElementById("aw"), "a");
+drawWheel(document.getElementById("a2w"), "a2");
+const angles = { a: 0, a2: 0 };
+const spinA = () => spinWheel("a");
+const spinA2 = () => spinWheel("a2");
+function spinWheel(id) {
+  const n = OPTS.length, step = 360 / n, w = pick();
+  let aAngle = angles[id];
+  const rot = document.getElementById(id + "rot"), val = document.getElementById(id + "val");
+  val.classList.add("hide");
+  // Slice w's centre at the top: rotate by -(w+.5)*step, plus whole turns.
+  const target = Math.ceil(aAngle / 360) * 360 + 5 * 360 - (w + .5) * step + (Math.random() - .5) * step * .6;
+  rot.style.transition = "none"; rot.style.transform = `rotate(${aAngle % 360}deg)`;
+  rot.getBoundingClientRect();
+  rot.style.transition = "transform 4s cubic-bezier(0.15, 0.85, 0.25, 1)";
+  rot.style.transform = `rotate(${target}deg)`;
+  angles[id] = target;
+  setTimeout(() => { val.textContent = OPTS[w]; val.classList.remove("hide"); }, 4000);
+  document.getElementById(id + "of").textContent = `of ${n}: ${OPTS.join(", ")}`;
+}
+
+// B
+const TILE = 128;
+function spinB() {
+  const strip = document.getElementById("bstrip"), res = document.getElementById("bres"), w = pick();
+  const loops = 8, count = OPTS.length * loops + 3;
+  const winIdx = OPTS.length * (loops - 1) + w;
+  strip.innerHTML = Array.from({ length: count }, (_, i) => {
+    const k = i % OPTS.length;
+    return `<div class="tile${i === winIdx ? " win-pending" : ""}" style="background:${COLORS[k % 8]}">${OPTS[k]}</div>`;
+  }).join("");
+  res.classList.add("hide");
+  const reelW = strip.parentElement.clientWidth;
+  const jitter = (Math.random() - .5) * 80;
+  const x = -(winIdx * TILE + 60) + reelW / 2 + jitter;
+  strip.style.transition = "none"; strip.style.transform = "translateX(0)";
+  strip.getBoundingClientRect();
+  strip.style.transition = "transform 4.5s cubic-bezier(0.1, 0.8, 0.2, 1)";
+  strip.style.transform = `translateX(${x}px)`;
+  setTimeout(() => {
+    strip.style.transition = "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)";
+    strip.style.transform = `translateX(${x - jitter}px)`;
+    strip.querySelector(".win-pending").classList.add("win");
+    res.textContent = `🎡 ${OPTS[w]}`; res.classList.remove("hide");
+  }, 4500);
+}
+
+// C
+let cTimer;
+function spinC() {
+  clearTimeout(cTimer);
+  const list = document.getElementById("clist"), w = pick();
+  list.innerHTML = OPTS.map((o, i) => `<div class="row"><span class="dot" style="background:${COLORS[i % 8]}"></span>${o}<span class="badge">Winner</span></div>`).join("");
+  const rows = [...list.children];
+  document.querySelector("#c .lh").textContent = "🎡 Spinning the wheel…";
+  const hops = OPTS.length * 3 + w;
+  let i = 0;
+  const tick = () => {
+    rows.forEach((r, k) => r.classList.toggle("hot", k === i % OPTS.length));
+    if (i === hops) {
+      rows[w].classList.remove("hot"); rows[w].classList.add("win");
+      document.querySelector("#c .lh").textContent = `🎡 Spun the wheel → ${OPTS[w]}`;
+      return;
+    }
+    i++;
+    const t = i / hops;
+    cTimer = setTimeout(tick, 40 + 360 * t * t * t);
+  };
+  tick();
+}
+
+spinA();
+</script>
+</body>
+</html>
