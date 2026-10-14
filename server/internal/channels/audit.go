@@ -35,6 +35,8 @@ func (s *Service) channelChanges(ctx context.Context, old, new *Channel) ([]audi
 		cs = audit.Diff(cs, "position", strconv.Itoa(old.Position), strconv.Itoa(new.Position))
 	}
 	cs = audit.Diff(cs, "tags", strings.Join(old.Tags, ", "), strings.Join(new.Tags, ", "))
+	cs = audit.Diff(cs, "gallery_sources", old.GallerySources, new.GallerySources)
+	cs = audit.Diff(cs, "source_channels", idList(old.SourceChannelIDs), idList(new.SourceChannelIDs))
 	return audit.Diff(cs, "require_tag", strconv.FormatBool(old.RequireTag), strconv.FormatBool(new.RequireTag)), nil
 }
 

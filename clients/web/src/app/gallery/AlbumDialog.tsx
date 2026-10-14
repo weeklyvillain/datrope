@@ -13,12 +13,12 @@ import { useSubmit } from "@/hooks/use-submit";
 import { X } from "lucide-react";
 
 /** Create an album, or (with album) change its name, who can see it and its collaborators, or delete it. */
-export function AlbumDialog({ album, onClose, onSaved, onDeleted }: {
-  album?: Album; onClose: () => void; onSaved: (a: Album) => void; onDeleted?: () => void;
+export function AlbumDialog({ album, galleryId, onClose, onSaved, onDeleted }: {
+  album?: Album; galleryId?: string; onClose: () => void; onSaved: (a: Album) => void; onDeleted?: () => void;
 }) {
   const id = useId();
   const [title, setTitle] = useState(album?.title ?? "");
-  const [visibility, setVisibility] = useState<AlbumVisibility>(album?.visibility ?? "private");
+  const [visibility, setVisibility] = useState<AlbumVisibility>(album?.visibility ?? "gallery");
   const [members, setMembers] = useState<string[]>(album?.member_ids ?? []);
   const [confirming, setConfirming] = useState(false);
   const all = useApp((s) => s.server?.members);
@@ -32,7 +32,7 @@ export function AlbumDialog({ album, onClose, onSaved, onDeleted }: {
     const existing = album ?? created.current;
     let a = existing
       ? await client.updateAlbum(existing.id, { title: t, visibility })
-      : await client.createAlbum({ title: t, visibility });
+      : await client.createAlbum(galleryId!, { title: t, visibility });
     created.current = a;
     // diff against the server's current members, so a retry after a partial failure doesn't use a stale list
     const before = new Set((existing && !album ? (await client.album(a.id)).member_ids : album?.member_ids) ?? []);
@@ -55,7 +55,7 @@ export function AlbumDialog({ album, onClose, onSaved, onDeleted }: {
             <FieldLabel id={`${id}-vis`}>Who can see it</FieldLabel>
             <RadioGroup aria-labelledby={`${id}-vis`} value={visibility} onValueChange={(v) => setVisibility(v as AlbumVisibility)}>
               <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="private" />Only collaborators</label>
-              <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="server" />Everyone on the server</label>
+              <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="gallery" />Everyone in this gallery</label>
             </RadioGroup>
           </Field>
           <Field>
@@ -83,7 +83,7 @@ export function AlbumDialog({ album, onClose, onSaved, onDeleted }: {
             {album && album.role === "owner" ? (
               confirming ? (
                 <Button variant="destructive" disabled={busy} onClick={() => void run(async () => { await client.deleteAlbum(album.id); onDeleted?.(); })}>
-                  Delete album and its uploads
+                  Delete album
                 </Button>
               ) : <Button variant="outline" onClick={() => setConfirming(true)}>Delete album</Button>
             ) : <span />}

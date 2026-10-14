@@ -1,7 +1,7 @@
 import type { Attachment, FileItem, Message, PublicUser } from "@datrope/core";
 import { shownAuthor, type ShownAuthor } from "../message-author";
 
-/** A gallery tile: a file from /api/files or an album. Album uploads have no message or channel. */
+/** A gallery tile: a file from /api/files or an album. */
 export type GalleryItem = FileItem;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,9 +27,14 @@ export function itemTitle(it: { message?: Message | null; attachment: Attachment
   return it.message?.content.split("\n")[0].trim() || it.attachment.filename;
 }
 
-/** Who shared a file: the message's shown author, or for an album upload the member who uploaded it. */
+/** Who shared a file: the message's shown author, or the member who uploaded it. */
 export function itemAuthor(it: GalleryItem, members?: Record<string, { user: PublicUser }>): ShownAuthor | undefined {
   return it.message ? shownAuthor(it.message) : members?.[it.uploader_id]?.user;
+}
+
+/** The channel a file was posted in, a thread's file counting as its parent's. */
+export function itemHome(it: GalleryItem): string | undefined {
+  return it.channel ? it.channel.parent_id || it.channel.id : undefined;
 }
 
 /** The audio files of a list (a list can briefly hold the previous filter's files). */

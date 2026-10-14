@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { client, useApp } from "../../session";
 import { CHANNEL_TYPES, type CreatableChannelType } from "../channel-types";
 import { TagsEditor } from "../TagsEditor";
+import { GallerySourcesField, sourcesBody, type SourcesValue } from "../gallery/GallerySourcesField";
 
 const PLACEHOLDERS: Record<CreatableChannelType, string> = {
   text: "general", voice: "Lounge", webhook: "alerts", announcement: "announcements", forum: "ideas", gallery: "photos",
@@ -30,6 +31,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
   const [tags, setTags] = useState(["Feature", "Bug", "Question"]);
   const [requireTag, setRequireTag] = useState(false);
   const [category, setCategory] = useState(categoryId ?? "");
+  const [sources, setSources] = useState<SourcesValue>({ mode: "none", ids: [] });
   const byId = useApp((s) => s.server?.categories);
   const categories = useMemo(() => Object.values(byId ?? {}).sort((a, b) => a.position - b.position), [byId]);
   const { busy, error, run } = useSubmit();
@@ -42,7 +44,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
         <form className="grid gap-3" onSubmit={(e) => {
           e.preventDefault();
           void run(async () => {
-            const ch = await unwrap(client.api.POST("/api/server/channels", { body: { name, type, ...(category && { category_id: category }), ...(type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }) } }));
+            const ch = await unwrap(client.api.POST("/api/server/channels", { body: { name, type, ...(category && { category_id: category }), ...(type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }), ...(type === "gallery" && sourcesBody(sources)) } }));
             client.apply("CHANNEL_CREATE", ch);
             onClose();
             nav(`/channels/${ch.id}`);
@@ -78,7 +80,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
             </Field>
           )}
           {type === "announcement" && <p className="text-sm text-muted-foreground">Members with Manage messages can post. Everyone else can react and reply in threads.</p>}
-          {type === "gallery" && <p className="text-sm text-muted-foreground">Only photos and videos can be posted here.</p>}
+          {type === "gallery" && <GallerySourcesField value={sources} onChange={setSources} />}
           {type === "forum" && (
             <>
               <Field>
@@ -94,7 +96,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
           )}
           <ErrorText error={error} />
           <DialogFooter>
-            <Button type="submit" disabled={busy}>Create</Button>
+            <Button type="submit" disabled={busy || (type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Create</Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
           </DialogFooter>
         </form>

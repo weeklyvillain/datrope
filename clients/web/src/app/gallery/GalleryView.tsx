@@ -1,7 +1,7 @@
 import { Perm, canPost, hasPerm } from "@datrope/core";
 import { Images, Search, SlidersHorizontal, Upload, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { client, displayName, isUnread, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
+import { useElementWidth } from "@/hooks/use-element-width";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { EmojiText } from "@/chat/EmojiText";
@@ -20,28 +21,29 @@ import { TopBar } from "../TopBar";
 import { closePanel, openPanel, panelStore, usePanel } from "../side-panel/panel";
 import { ThreadPanel } from "../side-panel/ThreadPanel";
 import { player, trackFromItem } from "../player/player-store";
+import { AlbumDecks } from "./AlbumDecks";
 import { ChannelFilter } from "./ChannelFilter";
 import { FileMenu, TrackActions } from "./FileMenu";
 import { FileTile } from "./FileTile";
 import { DEFAULT_FILTER, filterParams, parseFilter, type GalleryFilter } from "./filter";
 import { GalleryFilterSheet, GallerySegments } from "./GalleryFilterSheet";
 import { GalleryItemPanel } from "./GalleryItemPanel";
-import { audioRun, sections, type GalleryItem } from "./items";
+import { audioRun, itemHome, sections, type GalleryItem } from "./items";
 import { KIND_LABELS, KIND_ORDER } from "./kinds";
 import { MusicView } from "./MusicView";
+import { sourceSummary } from "./sources";
 import { TileSheet } from "./TileSheet";
 import { UploadDialog } from "./UploadDialog";
 import { useFiles, type GalleryScope } from "./use-files";
+import { Wall } from "./Wall";
 
 const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
-export const viewChip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground";
-export const viewChipActive = "border-foreground font-semibold text-foreground";
 const note = "m-0 p-8 text-center text-sm text-muted-foreground";
 
 const openItem = (it: GalleryItem) =>
   openPanel({ kind: "media", attachmentId: it.attachment.id });
 
-/** A gallery of files, newest first: one channel's, or (global) every channel the viewer can read. */
+/** A gallery channel's files, newest first, or one of its albums' files. */
 export function GalleryView({ scope: given, header, menuExtra, canUploadHere, onUpload }: {
   scope: GalleryScope;
   header?: ReactNode; // replaces the title row (albums)
@@ -49,11 +51,12 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
   canUploadHere?: boolean; // albums decide upload rights themselves
   onUpload?: () => void;
 }) {
-  const channelId = given.kind === "channel" ? given.channelId : undefined;
+  const channelId = given.kind === "gallery" ? given.channelId : given.galleryId;
   const albumId = given.kind === "album" ? given.albumId : undefined;
-  // useFiles resubscribes when the scope changes identity, so keep one object per channel.
-  const scope = useMemo<GalleryScope>(() => (channelId ? { kind: "channel", channelId } : albumId ? { kind: "album", albumId } : { kind: "global" }), [channelId, albumId]);
-  const ch = useApp((s) => (channelId ? s.channels[channelId] : undefined));
+  // useFiles resubscribes when the scope changes identity, so keep one object per gallery or album.
+  const scope = useMemo<GalleryScope>(() => (albumId ? { kind: "album", albumId, galleryId: channelId } : { kind: "gallery", channelId }), [channelId, albumId]);
+  const ch = useApp((s) => s.channels[channelId]);
+  const channels = useApp((s) => s.channels);
   const perms = usePerms(channelId);
   const panel = usePanel((s) => s.panel);
   const [params, setParams] = useSearchParams();
@@ -67,11 +70,13 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
   const uploaderId = useId();
   const [uploading, setUploading] = useState(false);
   const mobile = useIsMobile();
+  const [wallRef, wallWidth] = useElementWidth<HTMLDivElement>();
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sheetItem, setSheetItem] = useState<GalleryItem | null>(null);
-  const global = scope.kind === "global";
-  const tags = scope.kind !== "channel"; // tiles name their channel outside a channel gallery
+  const hasSources = !!ch && ch.gallery_sources !== "none";
+  const showTag = (it: GalleryItem) => itemHome(it) !== channelId; // tiles name the channel a file came from
+  const summary = ch && !header ? sourceSummary(ch, channels) : "";
 
   useEffect(() => {
     // A thread, a post, a gallery item or the threads list belongs to its channel; a profile (and search) stays open.
@@ -100,8 +105,8 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
     return () => io.disconnect();
   }, [hasMore, loadMore, error]);
 
-  if (scope.kind === "channel" && !ch) return <EmptyView>This channel is not available.</EmptyView>;
-  const canUpload = !!ch && canPost(ch, perms) && hasPerm(perms, Perm.AttachFiles);
+  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  const canUpload = canPost(ch, perms) && hasPerm(perms, Perm.AttachFiles);
   const selected = panel?.kind === "media" ? panel : undefined;
   const filtered = filter.kind !== "all" || filter.q.trim() !== "" || filter.uploader !== null || filter.channels.length > 0;
   const count = `${files.items.length}${files.hasMore ? "+" : ""} ${files.items.length === 1 && !files.hasMore ? "item" : "items"}`;
@@ -119,76 +124,62 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
     </>
   );
 
+  const searchBox = (
+    <>
+      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Input value={filter.q} onChange={(e) => setFilter({ q: e.target.value })} placeholder="Search files" aria-label="Search files"
+        className="h-8 pr-8 pl-8" />
+      {filter.q && (
+        <button type="button" aria-label="Clear search" onClick={() => setFilter({ q: "" })}
+          className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+      )}
+    </>
+  );
+  const showToggles = (
+    <>
+      <Toggle variant="outline" size="sm" className={chip} pressed={filter.kind === "all"} onPressedChange={() => setFilter({ kind: "all", view: "tracks", playlist: null })}>All</Toggle>
+      {KIND_ORDER.map((k) => (
+        <Toggle key={k} variant="outline" size="sm" className={chip} pressed={filter.kind === k}
+          onPressedChange={() => setFilter({ kind: k, view: "tracks", playlist: null })}>{KIND_LABELS[k]}</Toggle>
+      ))}
+    </>
+  );
+
   return (
     <>
-      <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={global ? "Gallery" : scope.kind === "album" ? "Album" : ch!.name}>
+      <main className="relative flex min-w-0 flex-1 flex-col bg-background" aria-label={scope.kind === "album" ? "Album" : ch.name}>
         {mobile && !header ? (
-          <ScreenHeader title={global ? "Gallery" : <EmojiText text={ch!.name} />}
+          <ScreenHeader title={<EmojiText text={ch.name} />}
             actions={<>
               {canUpload && <Button variant="ghost" size="icon" aria-label="Upload" onClick={() => setUploading(true)}><Upload /></Button>}
               {phoneTools}
             </>} />
         ) : (
-          <TopBar actions={header ? <>{canUploadHere && <Button size="sm" onClick={onUpload}><Upload /> Upload</Button>}{mobile && phoneTools}</>
-            : canUpload && <Button size="sm" onClick={() => setUploading(true)}><Upload /> Upload</Button>}>
+          <TopBar actions={header ? <>{!mobile && <div className="relative w-56">{searchBox}</div>}{canUploadHere && <Button size="sm" onClick={onUpload}><Upload /> Upload</Button>}{mobile && phoneTools}</>
+            : <><div className="relative w-56">{searchBox}</div>{canUpload && <Button size="sm" onClick={() => setUploading(true)}><Upload /> Upload</Button>}</>}>
             {header ? header : (<>
             <Images className="size-4 flex-none text-muted-foreground" aria-hidden />
-            {global ? (
-              <>
-                <h2 className="flex-none">Gallery</h2>
-                <div role="group" aria-label="Gallery view" className="ml-2 flex gap-1.5">
-                  <Button variant="outline" size="sm" asChild className={cn(viewChip, viewChipActive)}>
-                    <Link to="/gallery" aria-current="page">All files</Link>
-                  </Button>
-                  <Button variant="outline" size="sm" asChild className={viewChip}><Link to="/gallery/albums">Albums</Link></Button>
-                </div>
-                <span className="truncate text-sm text-muted-foreground">Files from every channel</span>
-              </>
-            ) : (
-              <>
-                <h2 className="flex-none"><EmojiText text={ch!.name} /></h2>
-                {ch!.topic && <Topic channelId={ch!.id} name={ch!.name} topic={ch!.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
-              </>
-            )}
+            <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
+            {summary && <span className="truncate text-sm text-muted-foreground">{summary}</span>}
+            {ch.topic && <Topic channelId={ch.id} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
             </>)}
           </TopBar>
         )}
-        {mobile && global && !header && (
+        {mobile && !header && (
           <GallerySegments value={music ? "music" : "files"} onFiles={() => setFilter({ kind: "all", view: "tracks", playlist: null })}
             onMusic={() => setFilter({ kind: "audio", view: "tracks", playlist: null })} />
         )}
 
-        <div className={cn("flex flex-none items-center gap-2 border-b px-4 py-3", mobile ? "flex-col items-stretch" : "flex-wrap")}>
-          {(!mobile || searchOpen || filter.q) && <div className={cn("relative", mobile ? "w-full" : "w-56")}>
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <Input value={filter.q} onChange={(e) => setFilter({ q: e.target.value })} placeholder="Search files" aria-label="Search files"
-              className="h-8 pr-8 pl-8" />
-            {filter.q && (
-              <button type="button" aria-label="Clear search" onClick={() => setFilter({ q: "" })}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
-            )}
-          </div>}
-          <div role="group" aria-label="Show" className={cn("flex gap-1.5", mobile ? "-mx-4 flex-nowrap overflow-x-auto overscroll-x-contain px-4 [&>*]:flex-none" : "flex-wrap")}>
-            <Toggle variant="outline" size="sm" className={chip} pressed={filter.kind === "all"} onPressedChange={() => setFilter({ kind: "all", view: "tracks", playlist: null })}>All</Toggle>
-            {KIND_ORDER.map((k) => (
-              <Toggle key={k} variant="outline" size="sm" className={chip} pressed={filter.kind === k}
-                onPressedChange={() => setFilter({ kind: k, view: "tracks", playlist: null })}>{KIND_LABELS[k]}</Toggle>
-            ))}
+        {mobile && (
+          <div className="flex flex-none flex-col items-stretch gap-2 border-b px-4 py-3">
+            {(searchOpen || filter.q) && <div className="relative w-full">{searchBox}</div>}
+            <div role="group" aria-label="Show" className="-mx-4 flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain px-4 [&>*]:flex-none">{showToggles}</div>
           </div>
-          {!mobile && <>
-            <span className="flex-1" />
-            {global && <ChannelFilter value={filter.channels} onChange={(channels) => setFilter({ channels })} />}
-            <label htmlFor={uploaderId} className="text-[13px] text-muted-foreground">Uploaded by</label>
-            <NativeSelect id={uploaderId} size="sm" value={filter.uploader ?? ""} onChange={(e) => setFilter({ uploader: e.target.value || null })}>
-              <NativeSelectOption value="">Anyone</NativeSelectOption>
-              {uploaders.map(([id, name]) => <NativeSelectOption key={id} value={id}>{name}</NativeSelectOption>)}
-            </NativeSelect>
-            <span className="text-[13px] text-muted-foreground">{count}</span>
-          </>}
-        </div>
+        )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-          {music ? <MusicView filter={filter} setFilter={setFilter} files={files} global={global} menuExtra={menuExtra} />
+        <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-y-contain", !mobile && "pb-24")}>
+          {scope.kind === "gallery" && !music && <AlbumDecks galleryId={channelId} />}
+          {music ? <MusicView filter={filter} setFilter={setFilter} files={files} global={hasSources} menuExtra={menuExtra} />
             : files.error && files.items.length === 0 ? <div className="p-4"><ErrorText error={files.error} /></div>
             : files.loading && files.items.length === 0 ? <p className={note}>Loading…</p>
             : files.items.length === 0 ? (
@@ -199,17 +190,16 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
                 </div>
               ) : <p className={note}>No files yet.</p>
             ) : (
-              <div className="grid content-start gap-6 p-4">
+              <div className="grid content-start gap-6 px-2 pt-2 pb-4">
+                <div ref={wallRef} aria-hidden className="h-0" />
                 {groups.map((g) => (
                   <section key={g.label} aria-label={g.label}>
-                    <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.label}</h3>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
-                      {g.items.map((it) => (
-                        <FileTile key={it.attachment.id} item={it} global={tags} playing={false}
-                          selected={selected?.attachmentId === it.attachment.id} onOpen={() => openItem(it)}
-                          onPlay={it.kind === "audio" ? () => playFrom(it) : undefined} onLongPress={mobile ? () => setSheetItem(it) : undefined} menu={<FileMenu item={it} items={files.items} extra={menuExtra?.(it)} />} />
-                      ))}
-                    </div>
+                    <h3 className="mx-2 mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.label}</h3>
+                    <Wall items={g.items} width={wallWidth} render={(it, size) => (
+                      <FileTile key={it.attachment.id} item={it} size={size} global={showTag(it)} playing={false}
+                        selected={selected?.attachmentId === it.attachment.id} onOpen={() => openItem(it)}
+                        onPlay={it.kind === "audio" ? () => playFrom(it) : undefined} onLongPress={mobile ? () => setSheetItem(it) : undefined} menu={<FileMenu item={it} items={files.items} extra={menuExtra?.(it)} />} />
+                    )} />
                   </section>
                 ))}
                 {files.hasMore && (
@@ -221,18 +211,32 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
               </div>
             )}
         </div>
+
+        {!mobile && (
+          <div role="toolbar" aria-label="Filters"
+            className="absolute inset-x-0 bottom-4 z-10 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:flex-none rounded-full border bg-popover/95 p-1.5 shadow-lg backdrop-blur">
+            <div role="group" aria-label="Show" className="flex flex-none gap-1">{showToggles}</div>
+            {hasSources && <ChannelFilter value={filter.channels} onChange={(channels) => setFilter({ channels })} />}
+            <NativeSelect id={uploaderId} size="sm" aria-label="Uploaded by" value={filter.uploader ?? ""} onChange={(e) => setFilter({ uploader: e.target.value || null })}
+              className="h-7 rounded-full">
+              <NativeSelectOption value="">Anyone</NativeSelectOption>
+              {uploaders.map(([id, name]) => <NativeSelectOption key={id} value={id}>{name}</NativeSelectOption>)}
+            </NativeSelect>
+            <span className="flex-none px-2 text-[13px] text-muted-foreground">{count}</span>
+          </div>
+        )}
       </main>
       {selected ? (
-        <GalleryItemPanel key={selected.attachmentId} attachmentId={selected.attachmentId} items={files.items} onClose={closePanel}
+        <GalleryItemPanel attachmentId={selected.attachmentId} items={files.items} onClose={closePanel}
           actions={(it) => it.kind === "audio" && <TrackActions item={it} items={files.items} />} />
       ) : panel?.kind === "thread" ? (
-        <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={panel.parentId ?? channelId ?? ""} onClose={closePanel} />
+        <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={panel.parentId ?? channelId} onClose={closePanel} />
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : null}
-      {mobile && <GalleryFilterSheet open={filterOpen} onOpenChange={setFilterOpen} filter={filter} setFilter={setFilter} global={global} uploaders={uploaders} />}
+      {mobile && <GalleryFilterSheet open={filterOpen} onOpenChange={setFilterOpen} filter={filter} setFilter={setFilter} global={hasSources} uploaders={uploaders} />}
       {mobile && <TileSheet item={sheetItem} items={files.items} onClose={() => setSheetItem(null)} />}
-      {uploading && channelId && <UploadDialog target={{ channelId }} onClose={() => setUploading(false)} />}
+      {uploading && <UploadDialog target={{ channelId }} onClose={() => setUploading(false)} />}
     </>
   );
 }

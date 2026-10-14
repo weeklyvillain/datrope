@@ -1,4 +1,4 @@
-import { Perm, hasPerm, type Album } from "@datrope/core";
+import { Perm, canPost, hasPerm, type Album } from "@datrope/core";
 import { ArrowLeft, Globe, Lock, LogOut, Settings, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -14,7 +14,6 @@ import { UserAvatar } from "@/components/user-avatar";
 import { client, errorText, useApp, usePerms } from "../../session";
 import { AlbumDialog } from "./AlbumDialog";
 import { GalleryView } from "./GalleryView";
-import type { GalleryItem } from "./items";
 import { UploadDialog } from "./UploadDialog";
 
 /** A confirmation before something destructive; shows the failure and stays open when it fails. */
@@ -40,20 +39,21 @@ function Confirm({ title, body, label, onConfirm, onClose, destructive = true }:
 }
 
 /** One album: the gallery grid over its files, with its settings, upload and leave actions. */
-export function AlbumView({ albumId }: { albumId: string }) {
+export function AlbumView({ galleryId, albumId }: { galleryId: string; albumId: string }) {
   const [album, setAlbum] = useState<Album>();
   const [error, setError] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [removing, setRemoving] = useState<GalleryItem>(); // an album upload: removing it deletes it
   const [actionError, showActionError] = useBriefError();
   const nav = useNavigate();
   const mobile = useIsMobile();
   const me = useApp((s) => s.me?.id);
   const members = useApp((s) => s.server?.members);
   const canModerate = hasPerm(usePerms(), Perm.ManageMessages);
+  const gallery = useApp((s) => s.channels[galleryId]);
+  const galleryPerms = usePerms(galleryId);
 
   useEffect(() => {
     let live = true;
@@ -64,26 +64,29 @@ export function AlbumView({ albumId }: { albumId: string }) {
       if (type === "ALBUM_UPDATE" && d.id === albumId) void load();
       // Turning an album private is announced as a delete to everyone but its members: look again before leaving.
       if (type === "ALBUM_DELETE" && d.id === albumId) {
-        client.album(albumId).then((a) => live && setAlbum(a), () => live && nav("/gallery/albums"));
+        client.album(albumId).then((a) => live && setAlbum(a), () => live && nav(`/channels/${galleryId}`));
       }
     });
     return () => { live = false; off(); };
-  }, [albumId, nav]);
+  }, [albumId, galleryId, nav]);
 
   if (error) return <EmptyView>{error}</EmptyView>;
   if (!album) return <EmptyView>Loading…</EmptyView>;
   const canEdit = album.role === "owner" || album.role === "collaborator";
-  const Icon = album.visibility === "server" ? Globe : Lock;
+  const canUpload = canEdit && !!gallery && canPost(gallery, galleryPerms) && hasPerm(galleryPerms, Perm.AttachFiles);
+  const Icon = album.visibility === "gallery" ? Globe : Lock;
   const leave = (a: Album, user: string) =>
     client.removeAlbumMember(a.id, user).then(
-      () => client.album(a.id).then(setAlbum, () => nav("/gallery/albums")),
+      () => client.album(a.id).then(setAlbum, () => nav(`/channels/${galleryId}`)),
       showActionError,
     );
   const header = (
     <>
-      {!mobile && <Button variant="ghost" size="icon-sm" asChild aria-label="Back to albums"><Link to="/gallery/albums"><ArrowLeft /></Link></Button>}
+      {!mobile && <Button variant="ghost" size="icon-sm" asChild aria-label="Back to gallery"><Link to={`/channels/${galleryId}`}><ArrowLeft /></Link></Button>}
+      <Link to={`/channels/${galleryId}`} className="flex-none text-muted-foreground hover:text-foreground">#{gallery?.name ?? "gallery"}</Link>
+      <span className="text-muted-foreground" aria-hidden>/</span>
       <h2 className="flex-none">{album.title}</h2>
-      <Icon className="size-4 flex-none text-muted-foreground" aria-label={album.visibility === "server" ? "Everyone on the server" : "Only collaborators"} />
+      <Icon className="size-4 flex-none text-muted-foreground" aria-label={album.visibility === "gallery" ? "Everyone in this gallery" : "Only collaborators"} />
       <span className="flex -space-x-1.5" aria-label="Collaborators">
         {[album.owner_id, ...(album.member_ids ?? [])].map((u) => {
           const user = members?.[u]?.user;
@@ -97,7 +100,7 @@ export function AlbumView({ albumId }: { albumId: string }) {
           <LogOut /> Leave album
         </Button>
       )}
-      {album.visibility === "server" && album.role !== "owner" && canModerate && (
+      {album.visibility === "gallery" && album.role !== "owner" && canModerate && (
         <Button size="sm" variant="outline" className="border-destructive text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>
           <Trash2 /> Delete album
         </Button>
@@ -107,32 +110,25 @@ export function AlbumView({ albumId }: { albumId: string }) {
   );
   return (
     <>
-      <GalleryView scope={{ kind: "album", albumId }} header={header} canUploadHere={canEdit} onUpload={() => setUploading(true)}
-        menuExtra={canEdit ? (it) => it.attachment.album_id ? (
-          <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(it)}><Trash2 />Delete from album</DropdownMenuItem>
-        ) : (
+      <GalleryView scope={{ kind: "album", albumId, galleryId }} header={header} canUploadHere={canUpload} onUpload={() => setUploading(true)}
+        menuExtra={canEdit ? (it) => (
           <DropdownMenuItem variant="destructive" onSelect={() => void client.removeFromAlbum(albumId, it.attachment.id).catch(showActionError)}>
             <Trash2 />Remove from album
           </DropdownMenuItem>
         ) : undefined} />
       {editing && <AlbumDialog album={album} onClose={() => setEditing(false)} onSaved={(a) => { setAlbum(a); setEditing(false); }}
-        onDeleted={() => nav("/gallery/albums")} />}
+        onDeleted={() => nav(`/channels/${galleryId}`)} />}
       {leaving && me && (
         <Confirm title="Leave this album?" body="You will lose access to this album and its files until someone adds you again."
           label="Leave album" destructive={false} onClose={() => setLeaving(false)}
-          onConfirm={async () => { await client.removeAlbumMember(album.id, me); nav("/gallery/albums"); }} />
+          onConfirm={async () => { await client.removeAlbumMember(album.id, me); nav(`/channels/${galleryId}`); }} />
       )}
       {deleting && (
-        <Confirm title="Delete this album?" body="This deletes the album and the files uploaded to it, for everyone."
+        <Confirm title="Delete this album?" body="This deletes the album for everyone. Its files stay where they were posted."
           label="Delete album" onClose={() => setDeleting(false)}
-          onConfirm={async () => { await client.deleteAlbum(album.id); nav("/gallery/albums"); }} />
+          onConfirm={async () => { await client.deleteAlbum(album.id); nav(`/channels/${galleryId}`); }} />
       )}
-      {removing && (
-        <Confirm title="Delete this file?" body={`${removing.attachment.filename} was uploaded to this album. Removing it deletes it for everyone.`}
-          label="Delete" onClose={() => setRemoving(undefined)}
-          onConfirm={async () => { await client.removeFromAlbum(albumId, removing.attachment.id); setRemoving(undefined); }} />
-      )}
-      {uploading && <UploadDialog target={{ albumId }} onClose={() => setUploading(false)} />}
+      {uploading && <UploadDialog target={{ channelId: galleryId, albumId }} onClose={() => setUploading(false)} />}
     </>
   );
 }

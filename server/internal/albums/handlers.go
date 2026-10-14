@@ -22,26 +22,42 @@ func Register(api huma.API, s *Service) {
 	}
 	me := func(ctx context.Context) id.ID { return auth.Current(ctx).User.ID }
 
-	huma.Register(api, op("list-albums", http.MethodGet, "/api/albums", 0),
-		func(ctx context.Context, in *struct {
-			Contains string `query:"contains" doc:"An attachment ID: say whether each album holds it"`
-		}) (*struct{ Body []Album }, error) {
-			var c *id.ID
-			if in.Contains != "" {
-				v, err := httpx.ParseID(in.Contains, "attachment")
-				if err != nil {
-					return nil, err
-				}
-				c = &v
+	type galleryPath struct {
+		ID string `path:"id"`
+	}
+	huma.Register(api, op("list-gallery-albums", http.MethodGet, "/api/channels/{id}/albums", 0),
+		func(ctx context.Context, in *galleryPath) (*struct{ Body []Album }, error) {
+			gid, err := httpx.ParseID(in.ID, "channel")
+			if err != nil {
+				return nil, err
 			}
-			out, err := s.list(ctx, me(ctx), c)
+			out, err := s.list(ctx, me(ctx), gid)
 			return &struct{ Body []Album }{out}, err
 		})
 
-	huma.Register(api, op("create-album", http.MethodPost, "/api/albums", http.StatusCreated),
-		func(ctx context.Context, in *struct{ Body AlbumCreate }) (*struct{ Body *Album }, error) {
-			a, err := s.create(ctx, me(ctx), in.Body)
+	huma.Register(api, op("create-album", http.MethodPost, "/api/channels/{id}/albums", http.StatusCreated),
+		func(ctx context.Context, in *struct {
+			ID   string `path:"id"`
+			Body AlbumCreate
+		}) (*struct{ Body *Album }, error) {
+			gid, err := httpx.ParseID(in.ID, "channel")
+			if err != nil {
+				return nil, err
+			}
+			a, err := s.create(ctx, me(ctx), gid, in.Body)
 			return &struct{ Body *Album }{a}, err
+		})
+
+	huma.Register(api, op("list-albums-for-file", http.MethodGet, "/api/albums", 0),
+		func(ctx context.Context, in *struct {
+			Contains string `query:"contains" required:"true" doc:"An attachment ID: the albums you can add it to, and whether each holds it"`
+		}) (*struct{ Body []Album }, error) {
+			att, err := httpx.ParseID(in.Contains, "attachment")
+			if err != nil {
+				return nil, err
+			}
+			out, err := s.listForFile(ctx, me(ctx), att)
+			return &struct{ Body []Album }{out}, err
 		})
 
 	huma.Register(api, op("get-album", http.MethodGet, "/api/albums/{albumID}", 0),

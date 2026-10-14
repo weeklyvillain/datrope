@@ -805,7 +805,7 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   const tile = bob.getByRole("main", { name: "photos" }).getByRole("button", { name: "Photo: Board night, by alice" });
   await expect(tile).toBeVisible();
   await tile.click();
-  const details = bob.getByRole("complementary", { name: "Photo details" });
+  const details = bob.getByRole("dialog", { name: "Photo details" });
   await expect(details.getByRole("img", { name: "parrot.png" })).toBeVisible();
   const comments = details.getByRole("region", { name: "Comments" });
   await comments.getByLabel("Comment").fill("Nice");
@@ -821,7 +821,7 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
 });
 
 // Runs after the first tests: alice and bob exist; #general is shared.
-test("global gallery: files from readable channels, music player and playlists", async ({ browser }) => {
+test("gallery sources: files from other channels, music player and playlists", async ({ browser }) => {
   const alice = await (await browser.newContext()).newPage();
   await signIn(alice, "alice");
   const bob = await (await browser.newContext()).newPage();
@@ -836,7 +836,6 @@ test("global gallery: files from readable channels, music player and playlists",
   await alice.locator('input[type="file"]').setInputFiles({ name: "riff-idea.wav", mimeType: "audio/wav", buffer: silentWav() });
   await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
   await alice.getByRole("button", { name: "Send" }).click();
-
   const server = await (await alice.request.get("/api/server")).json() as { id: string };
   const priv = await (await alice.request.post("/api/server/channels", { headers: CSRF, data: { name: "alice-only", type: "text" } })).json() as { id: string };
   expect((await put(`/api/channels/${priv.id}/overrides/role/${server.id}`, { allow: 0, deny: 1 })).ok()).toBe(true);
@@ -846,31 +845,42 @@ test("global gallery: files from readable channels, music player and playlists",
   await alice.getByRole("button", { name: "Send" }).click();
   await expect(alice.getByRole("main").getByRole("img", { name: "secret.png" })).toBeVisible();
 
-  // bob opens Gallery: the song is there, tagged #general; the private picture is not.
-  await bob.getByRole("link", { name: "Gallery" }).click();
-  const gallery = bob.getByRole("main", { name: "Gallery" });
+  // There is no built-in gallery; alice makes one that shows every channel.
+  await expect(bob.getByRole("link", { name: "general" })).toBeVisible();
+  await expect(bob.getByRole("link", { name: "Gallery", exact: true })).toHaveCount(0);
+  await createChannel(alice, "Gallery", "everything");
+  await alice.getByRole("dialog", { name: "Create a channel" }).getByRole("radio", { name: /Every channel/ }).click();
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(alice.getByRole("main", { name: "everything" })).toBeVisible();
+  const galleryId = new URL(alice.url()).pathname.split("/").pop()!;
+
+  // bob sees the song, tagged #general; the private picture is not there.
+  await bob.getByRole("link", { name: "everything" }).click();
+  const gallery = bob.getByRole("main", { name: "everything" });
+  await expect(gallery.getByText("from all channels")).toBeVisible();
   await expect(gallery.getByRole("button", { name: "Track: riff-idea.wav, by alice, in #general" })).toBeVisible();
   await expect(gallery.getByRole("button", { name: /secret\.png/ })).toHaveCount(0);
 
-  // Search and the Music filter.
-  await gallery.getByLabel("Search files").fill("riff");
+  // Search and the Music filter, the player and a playlist.
+  await bob.getByLabel("Search files").fill("riff");
   await expect(gallery.getByRole("button", { name: /riff-idea\.wav/ }).first()).toBeVisible();
-  await gallery.getByRole("group", { name: "Show" }).getByRole("button", { name: "Music" }).click();
-
-  // Play it: the player bar shows the track.
+  await bob.getByRole("toolbar", { name: "Filters" }).getByRole("group", { name: "Show" }).getByRole("button", { name: "Music" }).click();
   await gallery.getByRole("button", { name: "Play all" }).click();
   await expect(bob.getByRole("region", { name: "Music player" })).toContainText("riff-idea.wav");
-
-  // Add it to a new playlist; the playlist lists it.
   await gallery.getByRole("button", { name: "More for riff-idea.wav" }).click();
   await bob.getByRole("menuitem", { name: "Add to playlist" }).click();
   await bob.getByRole("menuitem", { name: "New playlist…" }).click();
   await bob.getByLabel("Name", { exact: true }).fill("Bob's riffs");
-  await bob.getByRole("button", { name: "Create" }).click();
+  await bob.getByRole("button", { name: "Create", exact: true }).click();
   await gallery.getByRole("tab", { name: "Playlists" }).click();
   await gallery.getByRole("button", { name: "Open Bob's riffs" }).click();
   await expect(gallery.getByRole("table", { name: "Tracks" })).toContainText("riff-idea");
-  await expect(gallery.getByRole("table", { name: "Tracks" })).toContainText("#general");
+
+  // Narrowed to alice-only, the gallery shows bob nothing: a source never grants access.
+  const patched = await alice.request.patch(`/api/channels/${galleryId}`, { headers: CSRF, data: { gallery_sources: "selected", source_channel_ids: [priv.id] } });
+  expect(patched.ok()).toBe(true);
+  await bob.goto(`/channels/${galleryId}`);
+  await expect(bob.getByRole("main", { name: "everything" }).getByText("No files yet.")).toBeVisible();
 });
 
 // Runs after the first test: alice and bob exist and #general is there.
@@ -993,53 +1003,63 @@ test("the instance admin sees the system dashboard and updates", async ({ browse
 });
 
 // Runs after the first tests: alice and bob exist; #general is shared.
-test("albums: collect a channel file, upload into the album, share it with the server", async ({ browser }) => {
+test("albums live in a gallery: collect a file, upload into the album, share it with the gallery", async ({ browser }) => {
   const alice = await (await browser.newContext()).newPage();
   await signIn(alice, "alice");
   const bob = await (await browser.newContext()).newPage();
   await signIn(bob, "bob");
 
-  // alice posts a picture in #general.
   await alice.getByRole("link", { name: "general" }).click();
   await alice.locator('input[type="file"]').setInputFiles({ name: "harbour.png", mimeType: "image/png", buffer: solidPng(8, 8) });
   await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
   await alice.getByRole("button", { name: "Send" }).click();
 
-  // She makes a private album.
-  await alice.getByRole("link", { name: "Gallery" }).click();
-  await alice.getByRole("link", { name: "Albums" }).click();
-  await alice.getByRole("main", { name: "Albums" }).getByRole("button", { name: "New album" }).first().click();
-  await alice.getByLabel("Name").fill("Lofoten");
-  await alice.getByRole("button", { name: "Create" }).click();
-  await expect(alice.getByRole("heading", { name: "Lofoten" })).toBeVisible();
+  // A gallery fed by #general, picked in the dialog.
+  await createChannel(alice, "Gallery", "trips");
+  const dialog = alice.getByRole("dialog", { name: "Create a channel" });
+  await dialog.getByRole("radio", { name: /Channels I pick/ }).click();
+  await dialog.getByRole("group", { name: "Channels" }).getByRole("checkbox", { name: "general", exact: true }).click();
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  const trips = alice.getByRole("main", { name: "trips" });
+  await expect(trips.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
 
-  // Adds the #general picture from the global gallery.
-  await alice.getByRole("link", { name: "Gallery" }).click();
-  const gallery = alice.getByRole("main", { name: "Gallery" });
-  await gallery.getByRole("button", { name: /harbour\.png/ }).first().hover();
-  await gallery.getByRole("button", { name: "More for harbour.png" }).click();
+  // A private album from the deck row, then the #general picture into it.
+  await trips.getByRole("region", { name: "Albums" }).getByRole("button", { name: "New album" }).click();
+  const newAlbum = alice.getByRole("dialog", { name: "New album" });
+  await newAlbum.getByLabel("Name").fill("Lofoten");
+  await newAlbum.getByRole("radio", { name: "Only collaborators" }).click();
+  await newAlbum.getByRole("button", { name: "Create" }).click();
+  await expect(alice.getByRole("heading", { name: "Lofoten" })).toBeVisible();
+  await alice.getByRole("link", { name: "trips" }).first().click();
+  await trips.getByRole("button", { name: /^Photo: harbour\.png/ }).first().hover();
+  await trips.getByRole("button", { name: "More for harbour.png" }).click();
   await alice.getByRole("menuitem", { name: "Add to album" }).click();
-  await alice.getByRole("menuitemcheckbox", { name: "Lofoten" }).click();
+  await alice.getByRole("menuitemcheckbox", { name: /Lofoten/ }).click();
   await alice.keyboard.press("Escape");
 
-  // And uploads one straight into the album.
-  await alice.getByRole("link", { name: "Albums" }).click();
-  await alice.getByRole("link", { name: /Lofoten/ }).click();
+  // Upload into the album: it is posted in the gallery and filed into the album.
+  await trips.getByRole("link", { name: /^Lofoten, / }).click();
   const album = alice.getByRole("main", { name: "Album" });
   await expect(album.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
   await album.getByRole("button", { name: "Upload" }).click();
-  await alice.locator('input[type="file"]').setInputFiles({ name: "fjord.png", mimeType: "image/png", buffer: solidPng(8, 8) });
-  await expect(alice.getByRole("list", { name: "Files" })).not.toContainText("Uploading");
-  await alice.getByRole("button", { name: "Done" }).click();
+  const upload = alice.getByRole("dialog", { name: "Upload files" });
+  const chooser = alice.waitForEvent("filechooser");
+  await upload.getByRole("button", { name: "Choose files" }).click();
+  await (await chooser).setFiles({ name: "fjord.png", mimeType: "image/png", buffer: solidPng(8, 8) });
+  await expect(upload.getByRole("list", { name: "Files" })).not.toContainText("Uploading");
+  await upload.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(album.getByRole("button", { name: /^Photo: fjord.png/ })).toBeVisible();
 
-  // bob doesn't see the private album; once shared with the server he sees both files.
-  await bob.goto("/gallery/albums");
-  await expect(bob.getByRole("link", { name: /Lofoten/ })).toHaveCount(0);
+  // bob doesn't see the private album; shared with the gallery, he sees both files.
+  await bob.getByRole("link", { name: "trips" }).click();
+  const bobTrips = bob.getByRole("main", { name: "trips" });
+  await expect(bobTrips.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
+  await expect(bobTrips.getByRole("region", { name: "Albums" }).getByRole("button", { name: "New album" })).toBeVisible();
+  await expect(bobTrips.getByRole("link", { name: /^Lofoten, / })).toHaveCount(0);
   await alice.getByRole("button", { name: "Album settings" }).click();
-  await alice.getByRole("radio", { name: "Everyone on the server" }).click();
+  await alice.getByRole("radio", { name: "Everyone in this gallery" }).click();
   await alice.getByRole("button", { name: "Save" }).click();
-  await bob.getByRole("link", { name: /Lofoten/ }).click();
+  await bobTrips.getByRole("link", { name: /^Lofoten, / }).click();
   const bobAlbum = bob.getByRole("main", { name: "Album" });
   await expect(bobAlbum.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
   await expect(bobAlbum.getByRole("button", { name: /^Photo: fjord.png/ })).toBeVisible();

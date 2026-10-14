@@ -1,5 +1,4 @@
 import { useId, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { ActionSheet } from "@/components/action-sheet";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -7,24 +6,19 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChannelFilter } from "./ChannelFilter";
 import type { GalleryFilter } from "./filter";
 
-export type GallerySegment = "files" | "albums" | "music";
+export type GallerySegment = "files" | "music";
 
-/** Phones' full-width view switch: All files, Albums (its own route) and Music (the audio kind). */
-export function GallerySegments({ value, onFiles, onMusic }: { value: GallerySegment; onFiles?: () => void; onMusic?: () => void }) {
-  const nav = useNavigate();
+/** Phones' full-width view switch: All files and Music (the audio kind). */
+export function GallerySegments({ value, onFiles, onMusic }: { value: GallerySegment; onFiles: () => void; onMusic: () => void }) {
   const go = (v: string) => {
     if (!v || v === value) return; // a click on the selected segment reports ""
-    if (v === "albums") nav("/gallery/albums");
-    else if (v === "music") {
-      if (onMusic) onMusic();
-      else nav("/gallery?kind=audio");
-    } else if (onFiles) onFiles();
-    else nav("/gallery");
+    if (v === "music") onMusic();
+    else onFiles();
   };
   return (
     <ToggleGroup type="single" variant="outline" aria-label="Gallery view" value={value} onValueChange={go}
       className="mx-4 mt-3 mb-1 w-[calc(100%-2rem)] flex-none">
-      {([["files", "All files"], ["albums", "Albums"], ["music", "Music"]] as const).map(([v, label]) => (
+      {([["files", "All files"], ["music", "Music"]] as const).map(([v, label]) => (
         <ToggleGroupItem key={v} value={v} aria-label={label} className="h-9 flex-1 text-[13px] font-normal text-muted-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground">{label}</ToggleGroupItem>
       ))}
     </ToggleGroup>

@@ -7,7 +7,6 @@ import { AnnouncementView } from "./announcement/AnnouncementView";
 import { ChannelView } from "./ChannelView";
 import { ForumView } from "./forum/ForumView";
 import { AlbumView } from "./gallery/AlbumView";
-import { AlbumsView } from "./gallery/AlbumsView";
 import { GalleryView } from "./gallery/GalleryView";
 import { VoiceChannelView } from "./voice/VoiceChannelView";
 import { EmptyView } from "./EmptyView";
@@ -49,20 +48,10 @@ export function Home() {
   );
 }
 
-/** /gallery — files from every channel the viewer can read. */
-export function GlobalGalleryRoute() {
-  return <GalleryView scope={{ kind: "global" }} />;
-}
-
-/** /gallery/albums — the albums I can see. */
-export function AlbumsRoute() {
-  return <AlbumsView />;
-}
-
-/** /gallery/albums/:albumId — one album's files. */
-export function AlbumRoute() {
-  const { albumId = "" } = useParams();
-  return <AlbumView key={albumId} albumId={albumId} />;
+/** /channels/:channelId/albums/:albumId — an album inside a gallery. */
+export function GalleryAlbumRoute() {
+  const { channelId = "", albumId = "" } = useParams();
+  return <AlbumView key={albumId} galleryId={channelId} albumId={albumId} />;
 }
 
 /** /channels/:channelId — a text, webhook, announcement, forum, gallery, voice or welcome channel. */
@@ -74,7 +63,7 @@ export function ChannelRoute() {
     case "webhook":
       return <ChannelView key={channelId} channelId={channelId} members />;
     case "gallery":
-      return <GalleryView key={channelId} scope={{ kind: "channel", channelId }} />;
+      return <GalleryView key={channelId} scope={{ kind: "gallery", channelId }} />;
     case "forum":
       return <ForumView key={channelId} channelId={channelId} />;
     case "announcement":

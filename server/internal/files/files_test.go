@@ -348,23 +348,3 @@ func TestUploadRefusesWelcomeChannel(t *testing.T) {
 	require.NotZero(t, welcomeID)
 	alice.UploadFail(welcomeID, "x.txt", []byte("x"), http.StatusBadRequest, "NO_MESSAGES_HERE")
 }
-
-// An album upload has no message but is not an abandoned upload: the sweep keeps it.
-func TestSweepKeepsAlbumUploads(t *testing.T) {
-	env := apptest.New(t)
-	alice := env.Register("alice")
-	ctx := context.Background()
-	albumID := id.New()
-	_, err := env.Pool.Exec(ctx, `INSERT INTO albums (id, owner_id, title) VALUES ($1, $2, 'Trip')`, albumID, alice.User.ID)
-	require.NoError(t, err)
-	attID := id.New()
-	_, err = env.Pool.Exec(ctx, `INSERT INTO attachments (id, album_id, uploader_id, filename, content_type, size, sha256, created_at)
-		VALUES ($1, $2, $3, 'a.txt', 'text/plain', 1, 'deadbeef', now() - interval '2 days')`, attID, albumID, alice.User.ID)
-	require.NoError(t, err)
-
-	require.NoError(t, env.App.Files.Sweep(ctx, time.Now()))
-
-	var n int
-	require.NoError(t, env.Pool.QueryRow(ctx, `SELECT count(*) FROM attachments WHERE id = $1`, attID).Scan(&n))
-	require.Equal(t, 1, n)
-}

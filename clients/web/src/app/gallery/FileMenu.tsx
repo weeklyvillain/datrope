@@ -11,8 +11,6 @@ import { client, errorText } from "../../session";
 import { openMessage } from "../jump";
 import { player, trackFromItem } from "../player/player-store";
 import { AddToAlbumItems } from "./AddToAlbum";
-import { addAll } from "./albums";
-import { AlbumDialog } from "./AlbumDialog";
 import { AddToPlaylistItems, NewPlaylistDialog } from "./AddToPlaylist";
 import { audioRun, type GalleryItem } from "./items";
 
@@ -88,7 +86,6 @@ export function fileActions(item: GalleryItem, items: GalleryItem[], nav: Naviga
 export function FileMenu({ item, items, extra }: { item: GalleryItem; items: GalleryItem[]; extra?: ReactNode }) {
   const nav = useNavigate();
   const [creating, setCreating] = useState(false);
-  const [newAlbum, setNewAlbum] = useState(false);
   const [albumError, setAlbumError] = useState<string>();
   const acts = fileActions(item, items, nav);
   const act = (id: FileAction["id"]) => {
@@ -96,7 +93,6 @@ export function FileMenu({ item, items, extra }: { item: GalleryItem; items: Gal
     return a && <DropdownMenuItem onSelect={a.onSelect}>{a.icon}{a.label}</DropdownMenuItem>;
   };
   const audio = item.kind === "audio";
-  const library = !item.attachment.album_id; // an album upload can't join a playlist or another album
   return (
     <>
       <DropdownMenu modal={false}>
@@ -106,7 +102,7 @@ export function FileMenu({ item, items, extra }: { item: GalleryItem; items: Gal
         <DropdownMenuContent align="end" className="w-52">
           {act("play")}
           {act("queue")}
-          {audio && library && (
+          {audio && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger><Plus />Add to playlist</DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-60">
@@ -114,22 +110,18 @@ export function FileMenu({ item, items, extra }: { item: GalleryItem; items: Gal
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           )}
-          {library && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger><Images />Add to album</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-60">
-                <AddToAlbumItems attachmentId={item.attachment.id} onNew={() => setNewAlbum(true)} onError={setAlbumError} />
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          )}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger><Images />Add to album</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-60">
+              <AddToAlbumItems attachmentId={item.attachment.id} onError={setAlbumError} />
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           {act("message")}
           {extra}
           {act("download")}
         </DropdownMenuContent>
       </DropdownMenu>
       {creating && <NewPlaylistWith item={item} onClose={() => setCreating(false)} />}
-      {newAlbum && <AlbumDialog onClose={() => setNewAlbum(false)}
-        onSaved={(a) => { setNewAlbum(false); void addAll(a.id, [item.attachment.id]).then((m) => m && setAlbumError(m)); }} />}
       {albumError && <AlbumAddFailed message={albumError} onClose={() => setAlbumError(undefined)} />}
     </>
   );
@@ -142,16 +134,14 @@ export function TrackActions({ item, items }: { item: GalleryItem; items: Galler
     <>
       <Button size="sm" onClick={() => playFrom(items, item)}><Play className="fill-current" />Play</Button>
       <Button size="sm" variant="outline" onClick={() => player.add([trackFromItem(item)])}><ListPlus />Add to queue</Button>
-      {!item.attachment.album_id && (
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <RefButton size="sm" variant="outline"><Plus />Add to playlist</RefButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-60">
-            <AddToPlaylistItems attachmentId={item.attachment.id} onNew={() => setCreating(true)} />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <RefButton size="sm" variant="outline"><Plus />Add to playlist</RefButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-60">
+          <AddToPlaylistItems attachmentId={item.attachment.id} onNew={() => setCreating(true)} />
+        </DropdownMenuContent>
+      </DropdownMenu>
       {creating && <NewPlaylistWith item={item} onClose={() => setCreating(false)} />}
     </>
   );

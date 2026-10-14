@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSubmit } from "@/hooks/use-submit";
 import { TagsEditor } from "../TagsEditor";
+import { GallerySourcesField, sourcesBody, type SourcesValue } from "../gallery/GallerySourcesField";
+import { liveIds, sourcesChanged } from "../gallery/sources";
 import { PERM_LABELS } from "../../permLabels";
 import { WebhooksTab } from "./WebhooksTab";
 import { AlertsTab } from "./AlertsTab";
@@ -72,6 +74,8 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
   const [category, setCategory] = useState(ch.category_id ?? "");
   const [tags, setTags] = useState(ch.tags ?? []);
   const [requireTag, setRequireTag] = useState(ch.require_tag);
+  const channels = useApp((s) => s.channels);
+  const [sources, setSources] = useState<SourcesValue>({ mode: ch.gallery_sources ?? "none", ids: liveIds(ch.source_channel_ids, channels) });
   const byId = useApp((s) => s.server?.categories);
   const categories = useMemo(() => Object.values(byId ?? {}).sort((a, b) => a.position - b.position), [byId]);
   const { busy, error, run } = useSubmit();
@@ -82,7 +86,7 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
     <form className="grid gap-3" onSubmit={(e) => {
       e.preventDefault();
       void run(async () => {
-        client.apply("CHANNEL_UPDATE", await unwrap(client.api.PATCH("/api/channels/{id}", { ...path, body: { name, topic, ...move, ...(ch.type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }) } })));
+        client.apply("CHANNEL_UPDATE", await unwrap(client.api.PATCH("/api/channels/{id}", { ...path, body: { name, topic, ...move, ...(ch.type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }), ...(ch.type === "gallery" && sourcesChanged(ch, sources, channels) && sourcesBody(sources)) } })));
         onClose();
       });
     }}>
@@ -107,6 +111,7 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
           </NativeSelect>
         </Field>
       )}
+      {ch.type === "gallery" && <GallerySourcesField value={sources} onChange={setSources} selfId={ch.id} />}
       {ch.type === "forum" && (
         <>
           <Field>
@@ -122,7 +127,7 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
       )}
       <ErrorText error={error} />
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={busy}>Save</Button>
+        <Button type="submit" disabled={busy || (ch.type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Save</Button>
         {ch.type !== "welcome" && <Button variant="destructive" disabled={busy} onClick={() => {
           if (!window.confirm(`Delete #${ch.name} and all its messages?`)) return;
           void run(async () => {

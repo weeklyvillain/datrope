@@ -495,7 +495,8 @@ it("lists files with comma-joined filters", async () => {
     url = new URL(request.url);
     return HttpResponse.json({ items: [] });
   }));
-  const r = await readyClient().files({ kinds: ["image", "video"], channels: ["300", "301"], q: "cat", limit: 20 });
+  const r = await readyClient().files({ gallery: "299", kinds: ["image", "video"], channels: ["300", "301"], q: "cat", limit: 20 });
+  expect(url?.searchParams.get("gallery")).toBe("299");
   expect(url?.searchParams.get("kind")).toBe("image,video");
   expect(url?.searchParams.get("channel")).toBe("300,301");
   expect(url?.searchParams.get("q")).toBe("cat");
@@ -674,16 +675,16 @@ it("manages webhooks", async () => {
   expect(avatarMethod).toBe("PUT");
 });
 
-it("lists albums, optionally with whether they contain a file", async () => {
+it("lists a gallery's albums and the albums a file can join", async () => {
   let url: URL | undefined;
-  server.use(http.get(`${BASE}/api/albums`, ({ request }) => {
-    url = new URL(request.url);
-    return HttpResponse.json([]);
-  }));
-  await readyClient().albums("900");
+  server.use(
+    http.get(`${BASE}/api/channels/300/albums`, ({ request }) => { url = new URL(request.url); return HttpResponse.json([]); }),
+    http.get(`${BASE}/api/albums`, ({ request }) => { url = new URL(request.url); return HttpResponse.json([]); }),
+  );
+  await readyClient().galleryAlbums("300");
+  expect(url?.pathname).toBe("/api/channels/300/albums");
+  await readyClient().albumsForFile("900");
   expect(url?.searchParams.get("contains")).toBe("900");
-  await readyClient().albums();
-  expect(url?.searchParams.has("contains")).toBe(false);
 });
 
 it("lists an album's files with comma-joined kinds", async () => {
@@ -699,16 +700,15 @@ it("lists an album's files with comma-joined kinds", async () => {
   expect(url?.searchParams.get("limit")).toBe("10");
 });
 
-it("adds a file to an album and uploads into one", async () => {
+it("creates an album in a gallery and adds a file to it", async () => {
+  let created: unknown;
   let put = "";
-  let upload = "";
   server.use(
+    http.post(`${BASE}/api/channels/300/albums`, async ({ request }) => { created = await request.json(); return HttpResponse.json({ id: "7" }, { status: 201 }); }),
     http.put(`${BASE}/api/albums/7/files/900`, ({ request }) => { put = request.url; return new HttpResponse(null, { status: 204 }); }),
-    http.post(`${BASE}/api/attachments`, ({ request }) => { upload = request.url; return HttpResponse.json({ id: "1", filename: "a.png" }, { status: 201 }); }),
   );
+  expect((await readyClient().createAlbum("300", { title: "Trip", visibility: "gallery" })).id).toBe("7");
+  expect(created).toEqual({ title: "Trip", visibility: "gallery" });
   await readyClient().addToAlbum("7", "900");
   expect(put).toContain("/api/albums/7/files/900");
-  const a = await readyClient().uploadToAlbum("7", new Blob(["x"]), "a.png");
-  expect(new URL(upload).searchParams.get("album_id")).toBe("7");
-  expect(a.filename).toBe("a.png");
 });

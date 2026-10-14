@@ -187,9 +187,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list-albums"];
+        get: operations["list-albums-for-file"];
         put?: never;
-        post: operations["create-album"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -414,6 +414,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["ack-channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{id}/albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-gallery-albums"];
+        put?: never;
+        post: operations["create-album"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1676,10 +1692,12 @@ export interface components {
         Album: {
             /** @description With contains=: whether the file is in it */
             contains?: boolean;
-            /** @description The newest image you can see; absent in events */
-            cover?: components["schemas"]["Attachment"];
             /** Format: date-time */
             created_at: string;
+            /** @description Up to three of the newest images you can see, newest first; empty in events and in contains= listings */
+            deck: components["schemas"]["Attachment"][] | null;
+            /** @description Snowflake ID as a decimal string */
+            gallery_id: string;
             /** @description Snowflake ID as a decimal string */
             id: string;
             /**
@@ -1700,12 +1718,12 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
             /** @enum {string} */
-            visibility: "private" | "server";
+            visibility: "private" | "gallery";
         };
         AlbumCreate: {
             title: string;
             /** @enum {string} */
-            visibility: "private" | "server";
+            visibility: "private" | "gallery";
         };
         AlbumDeleted: {
             /** @description Snowflake ID as a decimal string */
@@ -1714,16 +1732,14 @@ export interface components {
         AlbumUpdate: {
             title?: string;
             /** @enum {string} */
-            visibility?: "private" | "server";
+            visibility?: "private" | "gallery";
         };
         AppCredentials: {
             client_id: string;
             client_secret: string;
         };
         Attachment: {
-            /** @description The album it was uploaded into, for an album upload */
-            album_id?: string;
-            /** @description Where it was posted; absent for an album upload */
+            /** @description Where it was posted */
             channel_id?: string;
             /** @description Detected from the contents, not the name */
             content_type: string;
@@ -1778,6 +1794,11 @@ export interface components {
             category_id?: string;
             /** @description Threads and forum posts: who started it */
             created_by?: string;
+            /**
+             * @description Galleries only: which other channels' files it shows besides its own posts
+             * @enum {string}
+             */
+            gallery_sources?: "none" | "all" | "selected";
             /** @description DMs only: a group conversation, which people can leave */
             group?: boolean;
             /** @description Snowflake ID as a decimal string */
@@ -1797,6 +1818,8 @@ export interface components {
             position: number;
             /** @description Forums only: a post needs at least one tag */
             require_tag: boolean;
+            /** @description Galleries with gallery_sources selected: those channels */
+            source_channel_ids?: string[] | null;
             /** @description Forums: the tags posts can carry. Forum posts: the tags on this post */
             tags: string[] | null;
             topic: string;
@@ -1900,9 +1923,16 @@ export interface components {
         CreateChannelRequest: {
             /** @description Snowflake ID as a decimal string */
             category_id?: string;
+            /**
+             * @description Galleries only; default none
+             * @enum {string}
+             */
+            gallery_sources?: "none" | "all" | "selected";
             name: string;
             /** @description Forums only: a post needs at least one tag */
             require_tag?: boolean;
+            /** @description Galleries with gallery_sources selected */
+            source_channel_ids?: string[] | null;
             /** @description Forums only */
             tags?: string[] | null;
             /** @enum {string} */
@@ -3036,6 +3066,11 @@ export interface components {
             category_id?: string;
             /** @description Move out of any category */
             clear_category?: boolean;
+            /**
+             * @description Galleries only
+             * @enum {string}
+             */
+            gallery_sources?: "none" | "all" | "selected";
             name?: string;
             /**
              * Format: int64
@@ -3044,6 +3079,8 @@ export interface components {
             position?: number;
             /** @description Forums only */
             require_tag?: boolean;
+            /** @description Galleries only; replaces the source list */
+            source_channel_ids?: string[];
             /** @description Forums only; replaces the tag list and strips removed tags from existing posts */
             tags?: string[];
             topic?: string;
@@ -3665,11 +3702,11 @@ export interface operations {
             };
         };
     };
-    "list-albums": {
+    "list-albums-for-file": {
         parameters: {
-            query?: {
-                /** @description An attachment ID: say whether each album holds it */
-                contains?: string;
+            query: {
+                /** @description An attachment ID: the albums you can add it to, and whether each holds it */
+                contains: string;
             };
             header?: never;
             path?: never;
@@ -3684,39 +3721,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Album"][] | null;
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "create-album": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AlbumCreate"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Album"];
                 };
             };
             /** @description Error */
@@ -4385,6 +4389,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-gallery-albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Album"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-album": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlbumCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Album"];
+                };
             };
             /** @description Error */
             default: {
@@ -5309,9 +5379,11 @@ export interface operations {
     "list-files": {
         parameters: {
             query?: {
+                /** @description A gallery channel ID: its own posts and its sources' files */
+                gallery?: string;
                 /** @description Comma-separated: image, video, audio, document, archive, other */
                 kind?: string;
-                /** @description Comma-separated channel IDs; a channel includes its threads */
+                /** @description Comma-separated channel IDs; narrows a gallery, or is the scope without one. A channel includes its threads */
                 channel?: string;
                 uploader?: string;
                 /** @description Matches file names and captions */

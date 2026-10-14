@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery refresh — 3 concepts</title>
+<style>
+:root {
+  color-scheme: dark;
+  --radius: 8px;
+  --background: #131313; --foreground: #bdc3c7;
+  --card: #1c1c1c; --popover: #1c1c1c;
+  --primary: #2ecc71; --primary-foreground: #131313;
+  --secondary: #424242; --muted: #2a2a2a; --muted-foreground: #969da2;
+  --accent: #2a2a2a; --border: #424242; --sidebar: #0d0d0d;
+  --a1: #34495e; --a2: #5b3a6e; --a3: #2d5a46; --a4: #6e4b2a;
+  --a5: #2a4f6e; --a6: #6e2a3f; --a7: #4b5a2a; --a8: #3f3f6e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1 { font-size: 20px; margin: 0; color: var(--foreground); }
+.pagehead { padding: 20px 24px 0; }
+.pagehead p { margin: 4px 0 12px; color: var(--muted-foreground); font-size: 13px; }
+.tabs { display: flex; gap: 6px; padding: 0 24px 16px; border-bottom: 1px solid var(--border); }
+.tabs button { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted-foreground); font: inherit; font-size: 13px; cursor: pointer; }
+.tabs button.on { background: var(--accent); color: var(--foreground); border-color: var(--foreground); font-weight: 600; }
+.concept { display: none; padding: 20px 24px 40px; }
+.concept.on { display: block; }
+.pitch { max-width: 900px; margin: 0 0 16px; color: var(--muted-foreground); font-size: 13px; }
+.pitch b { color: var(--foreground); }
+.frame { display: flex; height: 640px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--background); }
+.side { width: 220px; flex: none; background: var(--sidebar); padding: 10px 8px; font-size: 14px; }
+.side .lbl { padding: 14px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.side .ch { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 6px; color: var(--muted-foreground); }
+.side .ch.on { background: var(--accent); color: var(--foreground); }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.top { height: 48px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border); }
+.top .name { font-weight: 600; color: var(--foreground); }
+.top .meta { color: var(--muted-foreground); font-size: 13px; }
+.sp { flex: 1; }
+.btn { height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.btn.pri { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); font-weight: 600; }
+.chip { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted-foreground); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+.chip.on { border-color: var(--foreground); background: var(--accent); color: var(--foreground); font-weight: 600; }
+.scroll { flex: 1; overflow: auto; }
+.ph { border-radius: 6px; position: relative; overflow: hidden; }
+.ph::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(255,255,255,.08), transparent 55%, rgba(0,0,0,.25)); }
+.g1 { background: var(--a1); } .g2 { background: var(--a2); } .g3 { background: var(--a3); } .g4 { background: var(--a4); }
+.g5 { background: var(--a5); } .g6 { background: var(--a6); } .g7 { background: var(--a7); } .g8 { background: var(--a8); }
+.src { position: absolute; left: 6px; top: 6px; z-index: 1; height: 18px; padding: 0 6px; border-radius: 4px; background: rgba(13,13,13,.8); color: var(--foreground); font-size: 10px; line-height: 18px; }
+.vid { position: absolute; right: 6px; bottom: 6px; z-index: 1; height: 18px; padding: 0 6px; border-radius: 4px; background: rgba(13,13,13,.8); color: var(--foreground); font-size: 10px; line-height: 18px; }
+.sec { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); margin: 16px 0 8px; }
+
+/* deck */
+.deck { position: relative; width: 150px; height: 120px; flex: none; }
+.deck .card { position: absolute; inset: 10px 14px 18px; border-radius: 6px; border: 2px solid var(--card); box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.deck .c1 { transform: rotate(-8deg) translate(-10px, 2px); }
+.deck .c2 { transform: rotate(6deg) translate(10px, 0); }
+.deck .c3 { transform: rotate(0); }
+.deckname { font-size: 13px; color: var(--foreground); font-weight: 600; text-align: center; }
+.deckmeta { font-size: 11px; color: var(--muted-foreground); text-align: center; }
+.lock { font-size: 10px; color: var(--muted-foreground); }
+
+/* dialogs */
+.dlgwrap { margin-top: 20px; display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.dlg { width: 440px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.dlg h3 { margin: 0 0 4px; font-size: 16px; color: var(--foreground); }
+.dlg .sub { margin: 0 0 14px; font-size: 12px; color: var(--muted-foreground); }
+.fl { font-size: 12px; font-weight: 600; color: var(--foreground); margin: 12px 0 6px; }
+.inp { height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; display: flex; align-items: center; color: var(--foreground); font-size: 14px; background: var(--background); }
+.radio { display: flex; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+.radio.on { border-color: var(--primary); background: rgba(46,204,113,.06); }
+.dot { width: 14px; height: 14px; border-radius: 999px; border: 2px solid var(--border); flex: none; margin-top: 2px; }
+.radio.on .dot { border-color: var(--primary); box-shadow: inset 0 0 0 3px var(--card); background: var(--primary); }
+.radio b { display: block; font-size: 13px; color: var(--foreground); }
+.radio span { font-size: 12px; color: var(--muted-foreground); }
+.check { display: flex; align-items: center; gap: 8px; padding: 5px 4px; font-size: 13px; }
+.box { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--border); flex: none; display: grid; place-items: center; font-size: 10px; }
+.box.on { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.note { font-size: 11px; color: var(--muted-foreground); margin-top: 6px; }
+
+/* concept A: wall */
+.wall { padding: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+.wall .ph { height: 170px; flex-grow: 1; border-radius: 3px; }
+.decks { display: flex; gap: 8px; overflow: hidden; padding: 6px 16px 4px; }
+.floatbar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; padding: 6px; border-radius: 999px; background: rgba(28,28,28,.92); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,.5); z-index: 3; }
+
+/* concept B: finder */
+.inner { width: 230px; flex: none; border-right: 1px solid var(--border); background: var(--card); padding: 12px; overflow: auto; }
+.folder { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 6px; }
+.folder.on { background: var(--accent); }
+.minideck { position: relative; width: 40px; height: 34px; flex: none; }
+.minideck i { position: absolute; inset: 4px 6px 6px; border-radius: 3px; border: 1px solid var(--card); }
+.minideck i:nth-child(1) { transform: rotate(-10deg) translate(-3px,0); }
+.minideck i:nth-child(2) { transform: rotate(8deg) translate(3px,0); }
+.folder b { display: block; font-size: 13px; color: var(--foreground); font-weight: 600; }
+.folder span { font-size: 11px; color: var(--muted-foreground); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; padding: 12px 16px; }
+.grid .ph { aspect-ratio: 1; }
+.detail { width: 260px; flex: none; border-left: 1px solid var(--border); background: var(--card); padding: 12px; font-size: 13px; }
+.crumbs { font-size: 13px; color: var(--muted-foreground); }
+.crumbs b { color: var(--foreground); }
+
+/* concept C: feed */
+.feed { max-width: 620px; margin: 0 auto; padding: 12px 16px 40px; }
+.post { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+.post .hd { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 13px; }
+.av { width: 26px; height: 26px; border-radius: 999px; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 600; color: var(--foreground); }
+.post .hd b { color: var(--foreground); }
+.post .hd span { color: var(--muted-foreground); }
+.post .bd { display: grid; gap: 2px; }
+.post .ft { padding: 8px 12px; font-size: 13px; color: var(--muted-foreground); display: flex; gap: 14px; }
+.post .ft b { color: var(--foreground); font-weight: 500; }
+.shelf { display: flex; gap: 18px; overflow: hidden; padding: 12px 16px 0; border-bottom: 1px solid var(--border); }
+.shelf .item { text-align: center; padding-bottom: 10px; }
+.fan { position: relative; width: 84px; height: 84px; margin: 0 auto 6px; }
+.fan i { position: absolute; inset: 8px; border-radius: 10px; border: 2px solid var(--background); }
+.fan i:nth-child(1) { transform: rotate(-14deg) translate(-8px, 4px); }
+.fan i:nth-child(2) { transform: rotate(12deg) translate(8px, 4px); }
+.fan.new i { border: 1.5px dashed var(--border); background: transparent; }
+.sentence { font-size: 15px; line-height: 2.1; color: var(--foreground); }
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 6px; background: var(--accent); border: 1px solid var(--primary); color: var(--foreground); font-size: 14px; font-weight: 600; vertical-align: middle; }
+.menu { margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--popover); padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.menu div { padding: 6px 8px; border-radius: 4px; font-size: 13px; }
+.menu div.on { background: var(--accent); color: var(--foreground); }
+.menu small { display: block; color: var(--muted-foreground); font-size: 11px; }
+.steps { display: flex; gap: 6px; margin-bottom: 14px; }
+.steps i { flex: 1; height: 3px; border-radius: 2px; background: var(--border); }
+.steps i.on { background: var(--primary); }
+</style>
+</head>
+<body>
+<div class="pagehead">
+  <h1>Gallery refresh — three directions</h1>
+  <p>Gallery is now a channel with sources (own posts always + none / all channels / selected). Albums are folders inside a gallery, shown as decks. Each concept shows the gallery view and the create-gallery source picker.</p>
+</div>
+<div class="tabs">
+  <button class="on" data-c="a">A · Wall</button>
+  <button data-c="b">B · Library</button>
+  <button data-c="c">C · Feed</button>
+</div>
+
+<!-- ============ A: WALL ============ -->
+<section class="concept on" id="a">
+  <p class="pitch"><b>A · Wall.</b> Content first, chrome last. Justified rows keep real aspect ratios, edge to edge, tight 4px gutters. Albums sit as a row of fanned decks above the wall. Filters live in a floating pill at the bottom; topbar stays thin. Click opens full-screen lightbox, comments slide in from the right.</p>
+  <div class="frame">
+    <div class="side">
+      <div class="lbl">Text</div>
+      <div class="ch"># general</div><div class="ch"># memes</div><div class="ch"># builds</div>
+      <div class="lbl">Galleries</div>
+      <div class="ch on">▦ everything</div><div class="ch">▦ photos</div><div class="ch">▦ screenshots</div>
+    </div>
+    <div class="main" style="position:relative">
+      <div class="top"><span class="name">▦ everything</span><span class="meta">from all channels · 1,284 files</span><span class="sp"></span><button class="btn">Search</button><button class="btn pri">+ Upload</button></div>
+      <div class="scroll">
+        <div class="decks">
+          <div><div class="deck"><i class="card c1 g4"></i><i class="card c2 g6"></i><i class="card c3 g5"></i></div><div class="deckname">Lan party '26</div><div class="deckmeta">48 items</div></div>
+          <div><div class="deck"><i class="card c1 g3"></i><i class="card c2 g7"></i><i class="card c3 g1"></i></div><div class="deckname">Hiking</div><div class="deckmeta">22 items</div></div>
+          <div><div class="deck"><i class="card c1 g8"></i><i class="card c2 g2"></i><i class="card c3 g6"></i></div><div class="deckname">My picks</div><div class="deckmeta lock">🔒 private · 9</div></div>
+          <div><div class="deck"><i class="card c1 g5"></i><i class="card c2 g1"></i><i class="card c3 g4"></i></div><div class="deckname">Wallpapers</div><div class="deckmeta">61 items</div></div>
+          <div style="display:grid;place-items:center;width:110px;color:var(--muted-foreground);font-size:13px">+ New album</div>
+        </div>
+        <div class="sec" style="padding:0 16px">This week</div>
+        <div class="wall">
+          <div class="ph g1" style="width:260px"><span class="src">#builds</span></div>
+          <div class="ph g6" style="width:130px"></div>
+          <div class="ph g3" style="width:300px"><span class="vid">▶ 0:42</span></div>
+          <div class="ph g8" style="width:170px"><span class="src">#memes</span></div>
+          <div class="ph g4" style="width:220px"></div>
+          <div class="ph g2" style="width:140px"></div>
+          <div class="ph g5" style="width:280px"><span class="src">#general</span></div>
+          <div class="ph g7" style="width:190px"></div>
+          <div class="ph g1" style="width:150px"></div>
+          <div class="ph g6" style="width:240px"><span class="vid">▶ 2:10</span></div>
+        </div>
+      </div>
+      <div class="floatbar"><span class="chip on">All</span><span class="chip">Images</span><span class="chip">Video</span><span class="chip">Music</span><span class="chip">Files</span><span class="chip">Channel ▾</span><span class="chip">Person ▾</span></div>
+    </div>
+  </div>
+  <div class="dlgwrap">
+    <div class="dlg">
+      <h3>Create channel</h3><p class="sub">Type: Gallery</p>
+      <div class="fl">Name</div><div class="inp">everything</div>
+      <div class="fl">Show files from</div>
+      <div class="radio"><i class="dot"></i><div><b>Only this gallery</b><span>Just what people post here.</span></div></div>
+      <div class="radio on"><i class="dot"></i><div><b>Every channel</b><span>Plus posts here. New channels join automatically.</span></div></div>
+      <div class="radio"><i class="dot"></i><div><b>Channels I pick</b><span>Plus posts here.</span></div></div>
+      <p class="note">People only see files from channels they can read.</p>
+      <div class="foot"><button class="btn">Cancel</button><button class="btn pri">Create</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ B: LIBRARY ============ -->
+<section class="concept" id="b">
+  <p class="pitch"><b>B · Library.</b> File-manager feel. Gallery gets its own inner rail: albums as mini-decks (folders), then sources as a filter tree you can tick on/off. Uniform square grid, persistent details pane on the right with comments. Best for big, organised collections; densest info.</p>
+  <div class="frame">
+    <div class="side">
+      <div class="lbl">Text</div>
+      <div class="ch"># general</div><div class="ch"># memes</div><div class="ch"># builds</div>
+      <div class="lbl">Galleries</div>
+      <div class="ch on">▦ everything</div><div class="ch">▦ photos</div>
+    </div>
+    <div class="inner">
+      <div class="folder on"><div class="minideck"><i class="g1"></i><i class="g6"></i><i class="g3"></i></div><div><b>All files</b><span>1,284</span></div></div>
+      <div class="sec">Albums</div>
+      <div class="folder"><div class="minideck"><i class="g4"></i><i class="g6"></i><i class="g5"></i></div><div><b>Lan party '26</b><span>48</span></div></div>
+      <div class="folder"><div class="minideck"><i class="g3"></i><i class="g7"></i><i class="g1"></i></div><div><b>Hiking</b><span>22</span></div></div>
+      <div class="folder"><div class="minideck"><i class="g8"></i><i class="g2"></i><i class="g6"></i></div><div><b>My picks</b><span>🔒 9</span></div></div>
+      <div class="folder" style="color:var(--muted-foreground);font-size:13px;padding-left:12px">+ New album</div>
+      <div class="sec">Sources</div>
+      <div class="check"><i class="box on">✓</i>Posted here</div>
+      <div class="check"><i class="box on">✓</i># general</div>
+      <div class="check"><i class="box on">✓</i># memes</div>
+      <div class="check"><i class="box">&nbsp;</i># builds</div>
+      <div class="sec">Type</div>
+      <div class="check"><i class="box on">✓</i>Images</div>
+      <div class="check"><i class="box on">✓</i>Video</div>
+      <div class="check"><i class="box">&nbsp;</i>Music</div>
+    </div>
+    <div class="main">
+      <div class="top"><span class="crumbs">everything / <b>All files</b></span><span class="sp"></span><span class="chip">Newest ▾</span><span class="chip">⊞ / ☰</span><button class="btn pri">+ Upload</button></div>
+      <div class="scroll">
+        <div class="sec" style="padding:0 16px">October</div>
+        <div class="grid">
+          <div class="ph g1"><span class="src">#builds</span></div><div class="ph g6" style="outline:2px solid var(--primary);outline-offset:1px"></div><div class="ph g3"><span class="vid">▶</span></div><div class="ph g8"></div><div class="ph g4"></div>
+          <div class="ph g2"></div><div class="ph g5"><span class="src">#general</span></div><div class="ph g7"></div><div class="ph g1"></div><div class="ph g6"></div>
+          <div class="ph g4"></div><div class="ph g8"><span class="src">#memes</span></div><div class="ph g3"></div><div class="ph g5"></div><div class="ph g2"></div>
+        </div>
+      </div>
+    </div>
+    <div class="detail">
+      <div class="ph g6" style="aspect-ratio:4/3"></div>
+      <div style="margin-top:10px;color:var(--foreground);font-weight:600">IMG_2041.jpg</div>
+      <div style="color:var(--muted-foreground);font-size:12px">mira · #memes · 2.1 MB · 4032×3024</div>
+      <div style="display:flex;gap:6px;margin-top:10px"><button class="btn">Add to album</button><button class="btn">↓</button></div>
+      <div class="sec">Comments · 3</div>
+      <div style="font-size:12px;margin-bottom:6px"><b style="color:var(--foreground)">jon</b> this is the one</div>
+      <div style="font-size:12px"><b style="color:var(--foreground)">ana</b> frame it</div>
+    </div>
+  </div>
+  <div class="dlgwrap">
+    <div class="dlg">
+      <div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+      <h3>Where do files come from?</h3><p class="sub">Step 2 of 3 · Gallery "everything"</p>
+      <div class="check"><i class="box on">✓</i><b style="color:var(--foreground)">Posted in this gallery</b><span class="sp"></span><span class="lock">always</span></div>
+      <div class="check"><i class="box on">✓</i><b style="color:var(--foreground)">Every channel</b><span class="sp"></span><span class="lock">incl. future</span></div>
+      <div style="padding-left:22px;opacity:.5">
+        <div class="lbl" style="font-size:11px;margin:6px 0 2px;color:var(--muted-foreground)">TEXT</div>
+        <div class="check"><i class="box on">✓</i># general</div>
+        <div class="check"><i class="box on">✓</i># memes</div>
+        <div class="check"><i class="box on">✓</i># builds</div>
+        <div class="lbl" style="font-size:11px;margin:6px 0 2px;color:var(--muted-foreground)">GALLERIES</div>
+        <div class="check"><i class="box on">✓</i>▦ photos</div>
+      </div>
+      <p class="note">Untick "Every channel" to pick channels one by one.</p>
+      <div class="foot"><button class="btn">Back</button><button class="btn pri">Next: permissions</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ C: FEED ============ -->
+<section class="concept" id="c">
+  <p class="pitch"><b>C · Feed.</b> Social, conversational. Albums are a shelf of fanned decks across the top (story-row style). Below, posts in a centred column: uploader, caption, multi-image grid, comment count inline. Toggle to a dense grid when browsing. Best when the gallery is about the people and moments, not file management.</p>
+  <div class="frame">
+    <div class="side">
+      <div class="lbl">Text</div>
+      <div class="ch"># general</div><div class="ch"># memes</div>
+      <div class="lbl">Galleries</div>
+      <div class="ch on">▦ photos</div><div class="ch">▦ everything</div>
+    </div>
+    <div class="main">
+      <div class="top"><span class="name">▦ photos</span><span class="meta">posts here + #general</span><span class="sp"></span><span class="chip on">Feed</span><span class="chip">Grid</span><button class="btn pri">+ Post</button></div>
+      <div class="scroll">
+        <div class="shelf">
+          <div class="item"><div class="fan new"><i></i><i></i><i style="display:grid;place-items:center;color:var(--muted-foreground)">+</i></div><div class="deckmeta">New</div></div>
+          <div class="item"><div class="fan"><i class="g4"></i><i class="g6"></i><i class="g5"></i></div><div class="deckname">Lan '26</div></div>
+          <div class="item"><div class="fan"><i class="g3"></i><i class="g7"></i><i class="g1"></i></div><div class="deckname">Hiking</div></div>
+          <div class="item"><div class="fan"><i class="g8"></i><i class="g2"></i><i class="g6"></i></div><div class="deckname">My picks 🔒</div></div>
+          <div class="item"><div class="fan"><i class="g5"></i><i class="g1"></i><i class="g4"></i></div><div class="deckname">Walls</div></div>
+          <div class="item"><div class="fan"><i class="g2"></i><i class="g8"></i><i class="g3"></i></div><div class="deckname">Pets</div></div>
+        </div>
+        <div class="feed">
+          <div class="post">
+            <div class="hd"><span class="av g2">MI</span><b>mira</b><span>in ▦ photos · 2h</span></div>
+            <div style="padding:0 12px 8px;font-size:14px;color:var(--foreground)">sunset from the ridge, finally made it up</div>
+            <div class="bd" style="grid-template-columns:2fr 1fr;grid-template-rows:140px 140px"><div class="ph g4" style="grid-row:span 2;border-radius:0"></div><div class="ph g6" style="border-radius:0"></div><div class="ph g5" style="border-radius:0;display:grid;place-items:center;color:var(--foreground);font-weight:600;z-index:1">+3</div></div>
+            <div class="ft"><span>💬 <b>12</b></span><span>📁 In <b>Hiking</b></span></div>
+          </div>
+          <div class="post">
+            <div class="hd"><span class="av g3">JO</span><b>jon</b><span>in # general · 5h</span></div>
+            <div class="bd"><div class="ph g1" style="height:220px;border-radius:0"><span class="vid">▶ 0:42</span></div></div>
+            <div class="ft"><span>💬 <b>4</b></span><span>+ Add to album</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dlgwrap">
+    <div class="dlg">
+      <h3>Gallery settings</h3><p class="sub">photos · General</p>
+      <div class="fl">Sources</div>
+      <div class="sentence">Show posts from this gallery <br>and <span class="pill">2 channels ▾</span></div>
+      <div class="menu">
+        <div><b style="color:var(--foreground)">nothing else</b><small>Standalone gallery</small></div>
+        <div><b style="color:var(--foreground)">every channel</b><small>Including ones made later</small></div>
+        <div class="on"><b>specific channels…</b><small># general, ▦ screenshots</small></div>
+      </div>
+      <p class="note">Viewers only see files from channels they can read.</p>
+      <div class="foot"><button class="btn">Cancel</button><button class="btn pri">Save</button></div>
+    </div>
+  </div>
+</section>
+
+<script>
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.concept').forEach(s => s.classList.toggle('on', s.id === b.dataset.c));
+});
+</script>
+</body>
+</html>

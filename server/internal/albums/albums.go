@@ -1,5 +1,5 @@
-// Package albums is personal, shareable collections of files: channel files
-// picked into an album, and files uploaded straight into one (spec: albums).
+// Package albums is folders of files inside a gallery channel: files its gallery shows, picked into
+// an album (spec: gallery sources and wall).
 package albums
 
 import (
@@ -25,6 +25,7 @@ const (
 	maxAlbums        = 100
 	maxItems         = 5000
 	maxCollaborators = 25
+	deckSize         = 3
 )
 
 const (
@@ -35,17 +36,18 @@ const (
 
 // Album is an album as a caller sees it.
 type Album struct {
-	ID         id.ID             `json:"id"`
-	Title      string            `json:"title"`
-	Visibility string            `json:"visibility" enum:"private,server"`
-	OwnerID    id.ID             `json:"owner_id"`
-	MemberIDs  []id.ID           `json:"member_ids" doc:"Collaborators"`
-	ItemCount  int               `json:"item_count" doc:"Every item, including files you cannot see"`
-	Cover      *files.Attachment `json:"cover,omitempty" doc:"The newest image you can see; absent in events"`
-	CreatedAt  time.Time         `json:"created_at"`
-	UpdatedAt  time.Time         `json:"updated_at"`
-	Role       string            `json:"role,omitempty" enum:"owner,collaborator,viewer" doc:"Yours"`
-	Contains   *bool             `json:"contains,omitempty" doc:"With contains=: whether the file is in it"`
+	ID         id.ID              `json:"id"`
+	GalleryID  id.ID              `json:"gallery_id"`
+	Title      string             `json:"title"`
+	Visibility string             `json:"visibility" enum:"private,gallery"`
+	OwnerID    id.ID              `json:"owner_id"`
+	MemberIDs  []id.ID            `json:"member_ids" doc:"Collaborators"`
+	ItemCount  int                `json:"item_count" doc:"Every item, including files you cannot see"`
+	Deck       []files.Attachment `json:"deck" doc:"Up to three of the newest images you can see, newest first; empty in events and in contains= listings"`
+	CreatedAt  time.Time          `json:"created_at"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+	Role       string             `json:"role,omitempty" enum:"owner,collaborator,viewer" doc:"Yours"`
+	Contains   *bool              `json:"contains,omitempty" doc:"With contains=: whether the file is in it"`
 }
 
 // AlbumDeleted is the ALBUM_DELETE event.
@@ -60,26 +62,25 @@ type ItemsChanged struct {
 
 type AlbumCreate struct {
 	Title      string `json:"title" minLength:"1" maxLength:"100"`
-	Visibility string `json:"visibility" enum:"private,server"`
+	Visibility string `json:"visibility" enum:"private,gallery"`
 }
 
 type AlbumUpdate struct {
 	Title      *string `json:"title,omitempty" minLength:"1" maxLength:"100"`
-	Visibility *string `json:"visibility,omitempty" enum:"private,server"`
+	Visibility *string `json:"visibility,omitempty" enum:"private,gallery"`
 }
 
 type Channels interface {
+	GalleryScope(ctx context.Context, userID, galleryID id.ID) ([]id.ID, error)
 	Readable(ctx context.Context, userID id.ID) ([]id.ID, error)
 }
 
 type Members interface {
 	BasePerms(ctx context.Context, userID id.ID) (perms.Perms, error)
-	ServerID(ctx context.Context) (id.ID, error)
 }
 
 type Files interface {
 	ForIDs(ctx context.Context, ids []id.ID) (map[id.ID]files.Attachment, error)
-	RemoveBlobs(ctx context.Context, sums []string) error
 }
 
 type Messages interface {
@@ -102,6 +103,7 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus, ch Channels, m Members, fs 
 // row is an album's stored fields.
 type row struct {
 	id         id.ID
+	galleryID  id.ID
 	ownerID    id.ID
 	title      string
 	visibility string
@@ -118,13 +120,14 @@ func (r *row) has(userID id.ID) bool {
 	return false
 }
 
-const rowCols = `a.id, a.owner_id, a.title, a.visibility, a.updated_at,
+const rowCols = `a.id, a.gallery_id, a.owner_id, a.title, a.visibility, a.updated_at,
 	ARRAY(SELECT m.user_id FROM album_members m WHERE m.album_id = a.id ORDER BY m.user_id)`
 
-func scanRow(r pgx.Row) (*row, error) {
+func scanRow(r pgx.Row, extra ...any) (*row, error) {
 	var a row
 	var members []int64
-	if err := r.Scan(&a.id, &a.ownerID, &a.title, &a.visibility, &a.updatedAt, &members); err != nil {
+	dest := append([]any{&a.id, &a.galleryID, &a.ownerID, &a.title, &a.visibility, &a.updatedAt, &members}, extra...)
+	if err := r.Scan(dest...); err != nil {
 		return nil, err
 	}
 	for _, m := range members {
@@ -133,51 +136,67 @@ func scanRow(r pgx.Row) (*row, error) {
 	return &a, nil
 }
 
-// base is the caller's server-wide permissions; 0 means not a member (or gated), who sees no albums.
-func (s *Service) base(ctx context.Context, userID id.ID) (perms.Perms, error) {
-	return s.members.BasePerms(ctx, userID)
+// inScopeSQL is "attachment %[1]s was posted in a channel of scope %[2]s, or a thread of one", with
+// c joined as its channel.
+const inScopeSQL = `(%[1]s.channel_id = ANY(%[2]s) OR (c.type = 'thread' AND c.parent_channel_id = ANY(%[2]s)))`
+
+// galleryScope is the channels a gallery shows userID. Not being a member (or being gated) is a
+// missing channel, like a gallery you can't see.
+func (s *Service) galleryScope(ctx context.Context, userID, galleryID id.ID) ([]id.ID, error) {
+	p, err := s.members.BasePerms(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if p == 0 {
+		return nil, httpx.NotFound("channel")
+	}
+	return s.channels.GalleryScope(ctx, userID, galleryID)
 }
 
-// access loads an album the caller can see and says how: owner, collaborator or viewer.
-// Anything else is 404, so private albums don't reveal that they exist.
-func (s *Service) access(ctx context.Context, userID, albumID id.ID) (*row, string, error) {
-	p, err := s.base(ctx, userID)
-	if err != nil {
-		return nil, "", err
-	}
+// access loads an album the caller can see, how (owner, collaborator or viewer) and its gallery's
+// scope for them. Anything else is 404, so private albums don't reveal that they exist.
+func (s *Service) access(ctx context.Context, userID, albumID id.ID) (*row, string, []id.ID, error) {
 	a, err := scanRow(s.db.QueryRow(ctx, `SELECT `+rowCols+` FROM albums a WHERE a.id = $1`, albumID))
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && p == 0) {
-		return nil, "", httpx.NotFound("album")
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, "", nil, httpx.NotFound("album")
 	}
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
+	}
+	sc, err := s.galleryScope(ctx, userID, a.galleryID)
+	var he *httpx.Error
+	if errors.As(err, &he) {
+		return nil, "", nil, httpx.NotFound("album")
+	}
+	if err != nil {
+		return nil, "", nil, err
 	}
 	switch {
 	case a.ownerID == userID:
-		return a, RoleOwner, nil
+		return a, RoleOwner, sc, nil
 	case a.has(userID):
-		return a, RoleCollaborator, nil
-	case a.visibility == "server":
-		return a, RoleViewer, nil
+		return a, RoleCollaborator, sc, nil
+	case a.visibility == "gallery":
+		return a, RoleViewer, sc, nil
 	}
-	return nil, "", httpx.NotFound("album")
+	return nil, "", nil, httpx.NotFound("album")
 }
 
 // editable is access for adding and removing files: the owner or a collaborator.
-func (s *Service) editable(ctx context.Context, userID, albumID id.ID) (*row, string, error) {
-	a, role, err := s.access(ctx, userID, albumID)
+func (s *Service) editable(ctx context.Context, userID, albumID id.ID) (*row, []id.ID, error) {
+	a, role, sc, err := s.access(ctx, userID, albumID)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	if role == RoleViewer {
-		return nil, "", httpx.MissingPermission()
+		return nil, nil, httpx.MissingPermission()
 	}
-	return a, role, nil
+	return a, sc, nil
 }
 
 // owned is access for settings: only the owner.
 func (s *Service) owned(ctx context.Context, userID, albumID id.ID) (*row, error) {
-	a, role, err := s.access(ctx, userID, albumID)
+	a, role, _, err := s.access(ctx, userID, albumID)
 	if err != nil {
 		return nil, err
 	}
@@ -185,32 +204,6 @@ func (s *Service) owned(ctx context.Context, userID, albumID id.ID) (*row, error
 		return nil, httpx.MissingPermission()
 	}
 	return a, nil
-}
-
-// CanView implements files.Albums: may userID download the album's uploads?
-func (s *Service) CanView(ctx context.Context, userID, albumID id.ID) (bool, error) {
-	_, _, err := s.access(ctx, userID, albumID)
-	var he *httpx.Error
-	if errors.As(err, &he) {
-		return false, nil
-	}
-	return err == nil, err
-}
-
-// CheckUpload implements files.Albums: the owner or a collaborator with AttachFiles server-wide,
-// while the album has room.
-func (s *Service) CheckUpload(ctx context.Context, userID, albumID id.ID) error {
-	if _, _, err := s.editable(ctx, userID, albumID); err != nil {
-		return err
-	}
-	p, err := s.base(ctx, userID)
-	if err != nil {
-		return err
-	}
-	if !p.Has(perms.AttachFiles) {
-		return httpx.MissingPermission()
-	}
-	return s.checkRoom(ctx, albumID)
 }
 
 func (s *Service) checkRoom(ctx context.Context, albumID id.ID) error {
@@ -224,56 +217,36 @@ func (s *Service) checkRoom(ctx context.Context, albumID id.ID) error {
 	return nil
 }
 
-// readableSQL is the condition "the caller may see attachment t", with $sc the caller's
-// readable channels: an upload into this album, or a sent file in a readable channel or its thread.
-const readableSQL = `(t.album_id = a.id OR (t.message_id IS NOT NULL AND (t.channel_id = ANY(%[1]s)
-	OR EXISTS (SELECT 1 FROM channels c WHERE c.id = t.channel_id AND c.type = 'thread' AND c.parent_channel_id = ANY(%[1]s)))))`
-
-// list returns the albums userID can see, most recently changed first; with contains set, each says
-// whether that attachment is in it.
-func (s *Service) list(ctx context.Context, userID id.ID, contains *id.ID) ([]Album, error) {
-	out := []Album{}
-	p, err := s.base(ctx, userID)
-	if err != nil || p == 0 {
-		return out, err
-	}
-	scope, err := s.channels.Readable(ctx, userID)
+// list returns a gallery's albums userID can see, most recently changed first, each with its deck.
+func (s *Service) list(ctx context.Context, userID, galleryID id.ID) ([]Album, error) {
+	sc, err := s.galleryScope(ctx, userID, galleryID)
 	if err != nil {
 		return nil, err
 	}
-	var containsArg *int64
-	if contains != nil {
-		c := int64(*contains)
-		containsArg = &c
-	}
 	rows, err := s.db.Query(ctx, `SELECT `+rowCols+`,
 		(SELECT count(*) FROM album_items i WHERE i.album_id = a.id),
-		(SELECT t.id FROM album_items i JOIN attachments t ON t.id = i.attachment_id
-			WHERE i.album_id = a.id AND t.inline AND `+fmt.Sprintf(readableSQL, "$2")+` ORDER BY t.id DESC LIMIT 1),
-		$3::bigint IS NOT NULL AND EXISTS (SELECT 1 FROM album_items i WHERE i.album_id = a.id AND i.attachment_id = $3)
+		ARRAY(SELECT t.id FROM album_items i JOIN attachments t ON t.id = i.attachment_id
+			JOIN messages m ON m.id = t.message_id JOIN channels c ON c.id = t.channel_id
+			WHERE i.album_id = a.id AND t.inline AND NOT m.deleted AND `+fmt.Sprintf(inScopeSQL, "t", "$3")+`
+			ORDER BY t.id DESC LIMIT `+fmt.Sprint(deckSize)+`)
 		FROM albums a
-		WHERE a.visibility = 'server' OR a.owner_id = $1
-			OR EXISTS (SELECT 1 FROM album_members m WHERE m.album_id = a.id AND m.user_id = $1)
-		ORDER BY a.updated_at DESC, a.id DESC`, userID, id.Int64s(scope), containsArg)
+		WHERE a.gallery_id = $2 AND (a.visibility = 'gallery' OR a.owner_id = $1
+			OR EXISTS (SELECT 1 FROM album_members m WHERE m.album_id = a.id AND m.user_id = $1))
+		ORDER BY a.updated_at DESC, a.id DESC`, userID, galleryID, id.Int64s(sc))
 	if err != nil {
 		return nil, err
 	}
 	type listed struct {
-		row
+		*row
 		count int
-		cover *int64
-		has   bool
+		deck  []int64
 	}
 	var got []listed
 	for rows.Next() {
 		var l listed
-		var members []int64
-		if err := rows.Scan(&l.id, &l.ownerID, &l.title, &l.visibility, &l.updatedAt, &members, &l.count, &l.cover, &l.has); err != nil {
+		if l.row, err = scanRow(rows, &l.count, &l.deck); err != nil {
 			rows.Close()
 			return nil, err
-		}
-		for _, m := range members {
-			l.memberIDs = append(l.memberIDs, id.ID(m))
 		}
 		got = append(got, l)
 	}
@@ -281,30 +254,100 @@ func (s *Service) list(ctx context.Context, userID id.ID, contains *id.ID) ([]Al
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	var coverIDs []id.ID
+	var deckIDs []id.ID
 	for _, l := range got {
-		if l.cover != nil {
-			coverIDs = append(coverIDs, id.ID(*l.cover))
+		for _, d := range l.deck {
+			deckIDs = append(deckIDs, id.ID(d))
 		}
 	}
-	covers, err := s.files.ForIDs(ctx, coverIDs)
+	atts, err := s.files.ForIDs(ctx, deckIDs)
 	if err != nil {
 		return nil, err
 	}
+	out := []Album{}
 	for _, l := range got {
-		a := toAlbum(&l.row, l.count, roleOf(&l.row, userID))
-		if l.cover != nil {
-			if c, ok := covers[id.ID(*l.cover)]; ok {
-				a.Cover = &c
+		a := toAlbum(l.row, l.count, roleOf(l.row, userID))
+		for _, d := range l.deck {
+			if att, ok := atts[id.ID(d)]; ok {
+				a.Deck = append(a.Deck, att)
 			}
-		}
-		if contains != nil {
-			has := l.has
-			a.Contains = &has
 		}
 		out = append(out, a)
 	}
 	return out, nil
+}
+
+// listForFile returns the albums userID can edit whose gallery shows the attachment, each saying
+// whether it holds it (no decks).
+func (s *Service) listForFile(ctx context.Context, userID, attachmentID id.ID) ([]Album, error) {
+	out := []Album{}
+	p, err := s.members.BasePerms(ctx, userID)
+	if err != nil || p == 0 {
+		return out, err
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+rowCols+`,
+		(SELECT count(*) FROM album_items i WHERE i.album_id = a.id),
+		EXISTS (SELECT 1 FROM album_items i WHERE i.album_id = a.id AND i.attachment_id = $2)
+		FROM albums a
+		WHERE a.owner_id = $1 OR EXISTS (SELECT 1 FROM album_members m WHERE m.album_id = a.id AND m.user_id = $1)
+		ORDER BY a.updated_at DESC, a.id DESC`, userID, attachmentID)
+	if err != nil {
+		return nil, err
+	}
+	type listed struct {
+		*row
+		count int
+		has   bool
+	}
+	var got []listed
+	for rows.Next() {
+		var l listed
+		if l.row, err = scanRow(rows, &l.count, &l.has); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		got = append(got, l)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	shows := map[id.ID]bool{} // per gallery: does it show the file to userID?
+	for _, l := range got {
+		ok, seen := shows[l.galleryID]
+		if !seen {
+			sc, err := s.galleryScope(ctx, userID, l.galleryID)
+			var he *httpx.Error
+			switch {
+			case errors.As(err, &he):
+				ok = false
+			case err != nil:
+				return nil, err
+			default:
+				if ok, err = s.inScope(ctx, attachmentID, sc); err != nil {
+					return nil, err
+				}
+			}
+			shows[l.galleryID] = ok
+		}
+		if ok {
+			a := toAlbum(l.row, l.count, roleOf(l.row, userID))
+			has := l.has
+			a.Contains = &has
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+// inScope says whether a sent, undeleted attachment was posted in scope (or a thread of it).
+func (s *Service) inScope(ctx context.Context, attachmentID id.ID, scope []id.ID) (bool, error) {
+	var ok bool
+	err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM attachments t JOIN channels c ON c.id = t.channel_id
+		JOIN messages m ON m.id = t.message_id
+		WHERE t.id = $1 AND NOT m.deleted AND `+fmt.Sprintf(inScopeSQL, "t", "$2")+`)`,
+		attachmentID, id.Int64s(scope)).Scan(&ok)
+	return ok, err
 }
 
 func roleOf(r *row, userID id.ID) string {
@@ -322,16 +365,17 @@ func toAlbum(r *row, count int, role string) Album {
 	if members == nil {
 		members = []id.ID{}
 	}
-	return Album{ID: r.id, Title: r.title, Visibility: r.visibility, OwnerID: r.ownerID, MemberIDs: members,
-		ItemCount: count, CreatedAt: r.id.Time(), UpdatedAt: r.updatedAt, Role: role}
+	return Album{ID: r.id, GalleryID: r.galleryID, Title: r.title, Visibility: r.visibility, OwnerID: r.ownerID, MemberIDs: members,
+		ItemCount: count, Deck: []files.Attachment{}, CreatedAt: r.id.Time(), UpdatedAt: r.updatedAt, Role: role}
 }
 
 // get is one album as the caller sees it.
 func (s *Service) get(ctx context.Context, userID, albumID id.ID) (*Album, error) {
-	if _, _, err := s.access(ctx, userID, albumID); err != nil {
+	a, _, _, err := s.access(ctx, userID, albumID)
+	if err != nil {
 		return nil, err
 	}
-	all, err := s.list(ctx, userID, nil)
+	all, err := s.list(ctx, userID, a.galleryID)
 	if err != nil {
 		return nil, err
 	}
@@ -345,17 +389,13 @@ func (s *Service) get(ctx context.Context, userID, albumID id.ID) (*Album, error
 
 func blankTitle() error { return httpx.BadRequest("VALIDATION_FAILED", "title must not be blank") }
 
-func (s *Service) create(ctx context.Context, userID id.ID, in AlbumCreate) (*Album, error) {
+func (s *Service) create(ctx context.Context, userID, galleryID id.ID, in AlbumCreate) (*Album, error) {
 	in.Title = strings.TrimSpace(in.Title)
 	if in.Title == "" {
 		return nil, blankTitle()
 	}
-	p, err := s.base(ctx, userID)
-	if err != nil {
+	if _, err := s.galleryScope(ctx, userID, galleryID); err != nil {
 		return nil, err
-	}
-	if p == 0 {
-		return nil, httpx.MissingPermission()
 	}
 	var n int
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM albums WHERE owner_id = $1`, userID).Scan(&n); err != nil {
@@ -365,8 +405,8 @@ func (s *Service) create(ctx context.Context, userID id.ID, in AlbumCreate) (*Al
 		return nil, httpx.BadRequest("ALBUMS_FULL", fmt.Sprintf("you have the most albums you can have (%d)", maxAlbums))
 	}
 	aid := id.New()
-	if _, err := s.db.Exec(ctx, `INSERT INTO albums (id, owner_id, title, visibility) VALUES ($1, $2, $3, $4)`,
-		aid, userID, in.Title, in.Visibility); err != nil {
+	if _, err := s.db.Exec(ctx, `INSERT INTO albums (id, gallery_id, owner_id, title, visibility) VALUES ($1, $2, $3, $4, $5)`,
+		aid, galleryID, userID, in.Title, in.Visibility); err != nil {
 		return nil, err
 	}
 	a, err := s.get(ctx, userID, aid)
@@ -401,19 +441,19 @@ func (s *Service) update(ctx context.Context, userID, albumID id.ID, in AlbumUpd
 	return a, nil
 }
 
-// remove deletes an album and its uploads: by its owner, or a server-visible one by a moderator.
+// remove deletes an album: by its owner, or a gallery-visible one by a moderator. Its files stay.
 func (s *Service) remove(ctx context.Context, userID, albumID id.ID) error {
-	a, role, err := s.access(ctx, userID, albumID)
+	a, role, _, err := s.access(ctx, userID, albumID)
 	if err != nil {
 		return err
 	}
 	moderating := false
 	if role != RoleOwner {
-		p, err := s.base(ctx, userID)
+		p, err := s.members.BasePerms(ctx, userID)
 		if err != nil {
 			return err
 		}
-		if a.visibility != "server" || !p.Has(perms.ManageMessages) {
+		if a.visibility != "gallery" || !p.Has(perms.ManageMessages) {
 			return httpx.MissingPermission()
 		}
 		moderating = true
@@ -423,27 +463,7 @@ func (s *Service) remove(ctx context.Context, userID, albumID id.ID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	rows, err := tx.Query(ctx, `SELECT sha256, coalesce(thumb_sha256, '') FROM attachments WHERE album_id = $1`, albumID)
-	if err != nil {
-		return err
-	}
-	var sums []string
-	for rows.Next() {
-		var sum, thumb string
-		if err := rows.Scan(&sum, &thumb); err != nil {
-			rows.Close()
-			return err
-		}
-		sums = append(sums, sum)
-		if thumb != "" {
-			sums = append(sums, thumb)
-		}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM albums WHERE id = $1`, albumID); err != nil { // cascades to members, items, uploads
+	if _, err := tx.Exec(ctx, `DELETE FROM albums WHERE id = $1`, albumID); err != nil { // cascades to members and items
 		return err
 	}
 	if moderating {
@@ -455,10 +475,10 @@ func (s *Service) remove(ctx context.Context, userID, albumID id.ID) error {
 		return err
 	}
 	s.publishDelete(ctx, a)
-	return s.files.RemoveBlobs(ctx, sums)
+	return nil
 }
 
-// addMember makes a server member a collaborator (owner only).
+// addMember makes someone who can see the gallery a collaborator (owner only).
 func (s *Service) addMember(ctx context.Context, userID, albumID, memberID id.ID) error {
 	a, err := s.owned(ctx, userID, albumID)
 	if err != nil {
@@ -467,10 +487,12 @@ func (s *Service) addMember(ctx context.Context, userID, albumID, memberID id.ID
 	if memberID == a.ownerID || a.has(memberID) {
 		return nil
 	}
-	if p, err := s.base(ctx, memberID); err != nil {
+	if _, err := s.galleryScope(ctx, memberID, a.galleryID); err != nil {
+		var he *httpx.Error
+		if errors.As(err, &he) {
+			return httpx.NotFound("member")
+		}
 		return err
-	} else if p == 0 {
-		return httpx.NotFound("member")
 	}
 	if len(a.memberIDs) >= maxCollaborators {
 		return httpx.BadRequest("COLLABORATORS_FULL", fmt.Sprintf("an album has at most %d collaborators", maxCollaborators))
@@ -483,7 +505,7 @@ func (s *Service) addMember(ctx context.Context, userID, albumID, memberID id.ID
 
 // removeMember: the owner removes a collaborator, or a collaborator leaves.
 func (s *Service) removeMember(ctx context.Context, userID, albumID, memberID id.ID) error {
-	a, role, err := s.access(ctx, userID, albumID)
+	a, role, _, err := s.access(ctx, userID, albumID)
 	if err != nil {
 		return err
 	}
@@ -503,12 +525,10 @@ func (s *Service) touchAndPublish(ctx context.Context, albumID id.ID, before *ro
 	if _, err := s.db.Exec(ctx, `UPDATE albums SET updated_at = now() WHERE id = $1`, albumID); err != nil {
 		return err
 	}
-	r, err := scanRow(s.db.QueryRow(ctx, `SELECT `+rowCols+` FROM albums a WHERE a.id = $1`, albumID))
-	if err != nil {
-		return err
-	}
 	var count int
-	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM album_items WHERE album_id = $1`, albumID).Scan(&count); err != nil {
+	r, err := scanRow(s.db.QueryRow(ctx, `SELECT `+rowCols+`, (SELECT count(*) FROM album_items i WHERE i.album_id = a.id)
+		FROM albums a WHERE a.id = $1`, albumID), &count)
+	if err != nil {
 		return err
 	}
 	a := toAlbum(r, count, "")
@@ -516,17 +536,15 @@ func (s *Service) touchAndPublish(ctx context.Context, albumID id.ID, before *ro
 	return nil
 }
 
-// audience is who hears about an album: the whole server, or its owner and collaborators.
-func (s *Service) audience(ctx context.Context, visibility string, ownerID id.ID, memberIDs []id.ID) events.Scope {
-	if visibility == "server" {
-		if sid, err := s.members.ServerID(ctx); err == nil {
-			return events.Scope{CommunityID: sid}
-		}
+// audience is who hears about an album: everyone who can see its gallery, or its owner and
+// collaborators who still can.
+func (s *Service) audience(ctx context.Context, visibility string, galleryID, ownerID id.ID, memberIDs []id.ID) events.Scope {
+	if visibility == "gallery" {
+		return events.Scope{ChannelID: galleryID}
 	}
-	// Only people still on the server: a kicked collaborator hears nothing.
 	users := []id.ID{}
 	for _, u := range append([]id.ID{ownerID}, memberIDs...) {
-		if p, err := s.base(ctx, u); err == nil && p != 0 {
+		if _, err := s.galleryScope(ctx, u, galleryID); err == nil {
 			users = append(users, u)
 		}
 	}
@@ -544,35 +562,27 @@ func (s *Service) publishUpdate(ctx context.Context, a *Album, before *row) {
 			}
 		}
 		switch {
-		case before.visibility == "server" && a.Visibility == "private":
-			s.bus.Publish(events.Event{Type: "ALBUM_DELETE", Data: AlbumDeleted{ID: a.ID}, Scope: s.audience(ctx, "server", a.OwnerID, nil)})
+		case before.visibility == "gallery" && a.Visibility == "private":
+			s.bus.Publish(events.Event{Type: "ALBUM_DELETE", Data: AlbumDeleted{ID: a.ID}, Scope: s.audience(ctx, "gallery", a.GalleryID, a.OwnerID, nil)})
 		case a.Visibility == "private" && len(lost) > 0:
 			s.bus.Publish(events.Event{Type: "ALBUM_DELETE", Data: AlbumDeleted{ID: a.ID}, Scope: events.Scope{UserIDs: lost}})
 		}
 	}
 	shown := *a
-	shown.Role, shown.Contains, shown.Cover = "", nil, nil
-	s.bus.Publish(events.Event{Type: "ALBUM_UPDATE", Data: shown, Scope: s.audience(ctx, a.Visibility, a.OwnerID, a.MemberIDs)})
+	shown.Role, shown.Contains, shown.Deck = "", nil, []files.Attachment{}
+	s.bus.Publish(events.Event{Type: "ALBUM_UPDATE", Data: shown, Scope: s.audience(ctx, a.Visibility, a.GalleryID, a.OwnerID, a.MemberIDs)})
 }
 
 func (s *Service) publishDelete(ctx context.Context, r *row) {
-	s.bus.Publish(events.Event{Type: "ALBUM_DELETE", Data: AlbumDeleted{ID: r.id}, Scope: s.audience(ctx, r.visibility, r.ownerID, r.memberIDs)})
+	s.bus.Publish(events.Event{Type: "ALBUM_DELETE", Data: AlbumDeleted{ID: r.id}, Scope: s.audience(ctx, r.visibility, r.galleryID, r.ownerID, r.memberIDs)})
 }
 
 func (s *Service) publishItems(ctx context.Context, albumID id.ID) {
-	var visibility string
-	var ownerID id.ID
-	var members []int64
-	err := s.db.QueryRow(ctx, `SELECT a.visibility, a.owner_id, ARRAY(SELECT user_id FROM album_members WHERE album_id = a.id)
-		FROM albums a WHERE a.id = $1`, albumID).Scan(&visibility, &ownerID, &members)
+	r, err := scanRow(s.db.QueryRow(ctx, `SELECT `+rowCols+` FROM albums a WHERE a.id = $1`, albumID))
 	if err != nil {
 		return
 	}
-	ids := make([]id.ID, len(members))
-	for i, m := range members {
-		ids[i] = id.ID(m)
-	}
-	s.bus.Publish(events.Event{Type: "ALBUM_ITEMS_UPDATE", Data: ItemsChanged{AlbumID: albumID}, Scope: s.audience(ctx, visibility, ownerID, ids)})
+	s.bus.Publish(events.Event{Type: "ALBUM_ITEMS_UPDATE", Data: ItemsChanged{AlbumID: albumID}, Scope: s.audience(ctx, r.visibility, r.galleryID, r.ownerID, r.memberIDs)})
 }
 
 func contains(ids []id.ID, x id.ID) bool {

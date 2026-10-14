@@ -20,14 +20,14 @@ const LAYOUT_KEY = "gallery.music.layout";
 const readLayout = (): "grid" | "list" => { try { return localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "grid"; } catch { return "grid"; } };
 const dateFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
 
-/** Music: the tracks as tiles or a list, with Play all and Shuffle; in the global gallery, the playlists too. */
+/** Music: the tracks as tiles or a list, with Play all and Shuffle, and the (personal) playlists. */
 export function MusicView({ filter, setFilter, files, global, menuExtra }: {
   filter: GalleryFilter; setFilter: (p: Partial<GalleryFilter>) => void;
   files: ReturnType<typeof useFiles>; global: boolean; menuExtra?: (item: GalleryItem) => ReactNode;
 }) {
   const [layout, setLayout] = useState(readLayout);
   useEffect(() => { try { localStorage.setItem(LAYOUT_KEY, layout); } catch { /* private mode */ } }, [layout]);
-  const view = global ? filter.view : "tracks"; // playlists live in the global gallery only
+  const view = filter.view;
   const playingKey = usePlayer((s) => s.queue.tracks[s.queue.index]?.key);
   // Until the Music page arrives, files can still hold the previous filter's files: show and play only audio.
   const items = useMemo(() => audioOnly(files.items), [files.items]);
@@ -45,11 +45,9 @@ export function MusicView({ filter, setFilter, files, global, menuExtra }: {
   return (
     <div className="grid content-start gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        {global && (
-          <Tabs value={filter.view} onValueChange={(v) => setFilter({ view: v as GalleryFilter["view"], playlist: null })}>
-            <TabsList><TabsTrigger value="tracks">Tracks</TabsTrigger><TabsTrigger value="playlists">Playlists</TabsTrigger></TabsList>
-          </Tabs>
-        )}
+        <Tabs value={filter.view} onValueChange={(v) => setFilter({ view: v as GalleryFilter["view"], playlist: null })}>
+          <TabsList><TabsTrigger value="tracks">Tracks</TabsTrigger><TabsTrigger value="playlists">Playlists</TabsTrigger></TabsList>
+        </Tabs>
         {view === "tracks" && (
           <>
             <Button size="sm" disabled={!tracks.length} onClick={() => player.play(tracks)}><Play className="fill-current" />Play all</Button>

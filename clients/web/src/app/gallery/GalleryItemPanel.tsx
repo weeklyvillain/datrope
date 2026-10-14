@@ -1,12 +1,12 @@
 import { Perm, hasPerm, type Message } from "@datrope/core";
-import { ChevronLeft, ChevronRight, Download, Images, Maximize2, SendHorizontal } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Download, Maximize2, SendHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { client, displayName, formatBytes, roleColor, useApp, usePerms } from "../../session";
 import { Markdown } from "@/chat/Markdown";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
 import { useSubmit } from "@/hooks/use-submit";
@@ -17,7 +17,6 @@ import { VideoPlayer } from "../attachments/VideoPlayer";
 import { MessageList, type ReplyState } from "../MessageList";
 import { openMessage } from "../jump";
 import { openPanel } from "../side-panel/panel";
-import { SidePanel } from "../side-panel/SidePanel";
 import { channelTag, useItemAuthor } from "./FileTile";
 import { itemTitle, type GalleryItem } from "./items";
 import { extension, KIND_SINGULAR } from "./kinds";
@@ -34,9 +33,29 @@ const EMPTY_ITEM = {
 } as GalleryItem;
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
-/** A gallery item in the side panel: a large preview, stepping through `items` (the grid as shown),
+/** The full-screen frame: the media fills the left, the details and comments slide in on the right (below on phones). */
+function Lightbox({ label, onClose, media, children }: { label: string; onClose: () => void; media: ReactNode; children: ReactNode }) {
+  // Button doesn't forward refs (React 18), so the close control is a plain button with the same styling.
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => { close.current?.focus(); }, []);
+  return (
+    <div role="dialog" aria-modal="true" aria-label={label}
+      data-lightbox className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm md:flex-row">
+      <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center p-4 md:p-10">{media}</div>
+      <aside className="flex max-h-[55%] min-h-0 flex-none flex-col border-t bg-card animate-in slide-in-from-bottom md:max-h-none md:w-[380px] md:border-t-0 md:border-l md:slide-in-from-right motion-reduce:animate-none">
+        <div className="flex flex-none items-center justify-end gap-1 px-2 pt-2">
+          <button type="button" ref={close} aria-label="Close details" title="Close details" onClick={onClose}
+            className={buttonVariants({ variant: "ghost", size: "icon-sm", className: "text-muted-foreground" })}><X /></button>
+        </div>
+        {children}
+      </aside>
+    </div>
+  );
+}
+
+/** A gallery item full screen: the media with stepping through `items` (the grid as shown), and beside it
  *  its uploader, caption and file details, and its comments (the message's thread, started by the first comment).
- *  `actions` adds buttons under the preview (the music player's, for a track). */
+ *  `actions` adds buttons under the title (the music player's, for a track). */
 export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra }: {
   attachmentId: string; items: GalleryItem[]; onClose: () => void; actions?: (item: GalleryItem) => ReactNode;
 }) {
@@ -52,25 +71,40 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
   const perms = usePerms(channelId || undefined);
   const [viewing, setViewing] = useState<number | null>(null);
   const gone = !item || !!message?.deleted;
+  // The panel stays mounted while stepping (so focus stays put); per-item state resets here and via keys below.
+  useEffect(() => { setViewing(null); }, [attachmentId]);
 
   // A deleted item closes its panel.
   useEffect(() => {
     if (gone) onClose();
   }, [gone, onClose]);
 
-  if (!item || !attachment) {
-    return (
-      <SidePanel title="Item" icon={<Images />} closeLabel="Close details" onClose={onClose}>
-        <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>
-      </SidePanel>
-    );
-  }
-  const kind = item.kind;
   const i = items.findIndex((it) => it.attachment.id === attachmentId);
   const go = (to: number) => {
     const it = items[to];
     if (it) openPanel({ kind: "media", attachmentId: it.attachment.id });
   };
+  // Escape closes and ←/→ step, from anywhere (focus may be on the body after a click on the media). Skipped when a nested
+  // layer already handled the key, the target is in another dialog (the full-size viewer, a popover) or a control that uses the keys itself.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      const dialog = t?.closest("[role=dialog]");
+      if (dialog && !dialog.hasAttribute("data-lightbox")) return;
+      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+      if (t?.closest("input, textarea, select, video, audio, [role=slider], [contenteditable=true]")) return;
+      if (e.key === "ArrowLeft") go(i - 1);
+      if (e.key === "ArrowRight") go(i + 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  if (!item || !attachment) {
+    return <Lightbox label="Item" onClose={onClose} media={<p className="text-sm text-muted-foreground">Loading…</p>}><span /></Lightbox>;
+  }
+  const kind = item.kind;
   const url = client.url(attachment.url);
   const tabbed = kind === "video" || attachment.content_type.split(";")[0].trim() === "application/pdf";
   const where = item.channel;
@@ -92,36 +126,36 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
     </>
   );
 
-  return (
-    <SidePanel title={itemTitle({ message, attachment })} label={`${KIND_SINGULAR[kind]} details`}
-      closeLabel="Close details" icon={<Images />} actions={actions} onClose={onClose}>
-      <div className="max-h-[60%] flex-none overflow-y-auto border-b">
-        <div className="mx-4 mt-4 overflow-hidden rounded-md bg-muted">
-          {kind === "video" ? <VideoPlayer key={attachment.id} attachment={attachment} />
-            : kind === "image" ? (
-              <img {...attachmentImage(attachment, 512)} alt={attachment.filename}
-                className="aspect-[4/3] w-full object-contain" />
-            ) : kind === "audio" ? <AudioPlayer key={attachment.id} attachment={attachment} />
-            : (
-              <div className="grid justify-items-center gap-2 p-6">
-                <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-[11px] font-bold text-foreground" aria-hidden>
-                  {extension(attachment.filename)}
-                </span>
-                <span className="text-center text-sm font-semibold wrap-anywhere">{attachment.filename}</span>
-              </div>
-            )}
-        </div>
-        {kind === "image" && <ImageViewer images={[attachment]} index={viewing} onIndexChange={setViewing} />}
-        {extraActions && <div className="mx-4 mt-2 flex flex-wrap gap-2">{extraActions}</div>}
-        {i >= 0 && (
-          <div className="mx-4 mt-2 flex items-center justify-between">
-            <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Previous item" disabled={i === 0}
-              onClick={() => go(i - 1)}><ChevronLeft /></Button>
-            <span className="text-xs text-muted-foreground tabular-nums">{i + 1} of {items.length}</span>
-            <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Next item" disabled={i === items.length - 1}
-              onClick={() => go(i + 1)}><ChevronRight /></Button>
+  const media = (
+    <>
+      {kind === "video" ? <div className="w-full max-w-5xl"><VideoPlayer key={attachment.id} attachment={attachment} /></div>
+        : kind === "image" ? <img key={attachment.id} {...attachmentImage(attachment, 1600)} alt={attachment.filename} className="max-h-full max-w-full rounded-sm object-contain" />
+        : kind === "audio" ? <div className="w-full max-w-md"><AudioPlayer key={attachment.id} attachment={attachment} /></div>
+        : (
+          <div className="grid justify-items-center gap-2 rounded-lg bg-card p-8">
+            <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-[11px] font-bold text-foreground" aria-hidden>{extension(attachment.filename)}</span>
+            <span className="text-center text-sm font-semibold wrap-anywhere">{attachment.filename}</span>
           </div>
         )}
+      {kind === "image" && <ImageViewer key={attachment.id} images={[attachment]} index={viewing} onIndexChange={setViewing} />}
+      <div className="absolute top-3 right-3 flex gap-1">{actions}</div>
+      {i >= 0 && (
+        <>
+          <Button variant="secondary" size="icon" className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full" aria-label="Previous item" disabled={i === 0}
+            onClick={() => go(i - 1)}><ChevronLeft /></Button>
+          <Button variant="secondary" size="icon" className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full" aria-label="Next item" disabled={i === items.length - 1}
+            onClick={() => go(i + 1)}><ChevronRight /></Button>
+          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background/80 px-2.5 py-0.5 text-xs text-muted-foreground tabular-nums">{i + 1} of {items.length}</span>
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <Lightbox label={`${KIND_SINGULAR[kind]} details`} onClose={onClose} media={media}>
+      <div className="max-h-[60%] flex-none overflow-y-auto border-b">
+        <h2 className="m-0 px-4 text-sm font-semibold">{itemTitle({ message, attachment })}</h2>
+        {extraActions && <div className="mx-4 mt-2 flex flex-wrap gap-2">{extraActions}</div>}
         <div className="flex gap-2.5 border-b px-4 pt-2 pb-3">
           <UserAvatar user={author} />
           <div className="min-w-0 flex-1">
@@ -156,8 +190,8 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
               onClick={(e) => { e.preventDefault(); openWhere(); }}>#{channelTag(item)}</Link>
           </p>
         </section>
-      ) : <Comments channelId={channelId} message={message} perms={perms} />)}
-    </SidePanel>
+      ) : <Comments key={attachment.id} channelId={channelId} message={message} perms={perms} />)}
+    </Lightbox>
   );
 }
 

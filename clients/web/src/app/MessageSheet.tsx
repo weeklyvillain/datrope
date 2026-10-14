@@ -1,18 +1,19 @@
 import type { ClientMessage } from "@datrope/core";
-import { Copy, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Plus, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { Copy, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { quickReactions } from "@/chat/recent-emoji";
-import { addAll, useAlbums } from "./gallery/albums";
+import { useAlbumLabel } from "./gallery/AddToAlbum";
+import { addAll, useAlbumsForFile } from "./gallery/albums";
 import type { MessageAction } from "./message-actions";
 
 /** The phone's message menu: quick reactions on top, then the message's actions. */
-export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onNewAlbum, onAlbumError, onDelete, preview }: {
+export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onAlbumError, onDelete, preview }: {
   open: boolean; onOpenChange: (open: boolean) => void; message: ClientMessage; actions: MessageAction[];
   hasThread: boolean; pinned: boolean;
   onReact: (emoji: string) => void; onMoreReactions: () => void;
   onReply: () => void; onThread: () => void; onEdit: () => void; onCopy: () => void; onPin: () => void;
-  onNewAlbum: () => void; onAlbumError: (message: string) => void; onDelete: () => void;
+  onAlbumError: (message: string) => void; onDelete: () => void;
   preview: ReactNode;
 }) {
   const [albums, setAlbums] = useState(false);
@@ -55,7 +56,7 @@ export function MessageSheet({ open, onOpenChange, message, actions, hasThread, 
       </ActionSheet>
       {albums && (
         <AlbumSheet open={albums} onOpenChange={setAlbums} attachmentIds={(message.attachments ?? []).map((x) => x.id)}
-          onNew={onNewAlbum} onError={onAlbumError} />
+          onError={onAlbumError} />
       )}
     </>
   );
@@ -71,23 +72,22 @@ function QuickReactions({ onReact }: { onReact: (emoji: string) => void }) {
   ));
 }
 
-function AlbumSheet({ open, onOpenChange, attachmentIds, onNew, onError }: {
-  open: boolean; onOpenChange: (open: boolean) => void; attachmentIds: string[]; onNew: () => void; onError: (message: string) => void;
+function AlbumSheet({ open, onOpenChange, attachmentIds, onError }: {
+  open: boolean; onOpenChange: (open: boolean) => void; attachmentIds: string[]; onError: (message: string) => void;
 }) {
-  const { albums } = useAlbums();
-  const mine = albums.filter((a) => a.role === "owner" || a.role === "collaborator");
+  const { albums } = useAlbumsForFile(attachmentIds[0]);
+  const label = useAlbumLabel();
   const close = (fn: () => void) => () => {
     onOpenChange(false);
     fn();
   };
   return (
     <ActionSheet open={open} onOpenChange={onOpenChange} title="Add to album">
-      {mine.map((a) => (
+      {albums.map((a) => (
         <ActionSheetItem key={a.id} icon={<Images />} onSelect={close(() => void addAll(a.id, attachmentIds).then((m) => m && onError(m)))}>
-          {a.title}
+          {label(a)}
         </ActionSheetItem>
       ))}
-      <ActionSheetItem icon={<Plus />} onSelect={close(onNew)}>New album</ActionSheetItem>
     </ActionSheet>
   );
 }

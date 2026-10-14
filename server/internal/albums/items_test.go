@@ -1,19 +1,15 @@
 package albums_test
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/datrope/datrope/server/internal/albums"
 	"github.com/datrope/datrope/server/internal/apptest"
-	"github.com/datrope/datrope/server/internal/files"
 	"github.com/datrope/datrope/server/internal/messages"
-	"github.com/datrope/datrope/server/internal/perms"
 )
 
 func albumFiles(t *testing.T, c *apptest.Client, albumID string, q url.Values) messages.FilesPage {
@@ -31,140 +27,85 @@ func names(p messages.FilesPage) []string {
 	return out
 }
 
-func uploadTo(t *testing.T, c *apptest.Client, albumID, name string, want int) files.Attachment {
-	t.Helper()
-	raw := c.UploadTo(http.MethodPost, "/api/attachments?album_id="+albumID, name, []byte("hello "+name), want)
-	var a files.Attachment
-	if want == http.StatusCreated {
-		require.NoError(t, jsonUnmarshal(raw, &a))
-	}
-	return a
-}
-
-func TestAlbumChannelFiles(t *testing.T) {
+func TestAlbumFilesInGalleryScope(t *testing.T) {
 	env := apptest.New(t)
 	alice := env.Register("alice")
 	bob := env.Register("bob")
 	general := alice.General()
-	srv := alice.Server()
-	secret := alice.CreateTextChannel("secret")
-	alice.Do(http.MethodPut, "/api/channels/"+secret.String()+"/overrides/role/"+srv.ID.String(),
-		map[string]any{"allow": 0, "deny": perms.ViewChannel}, http.StatusOK, nil)
+	memes := alice.CreateTextChannel("memes")
+	secret := alice.CreatePrivateChannel("secret")
+	g := alice.CreateGallery("photos", "selected", general, secret)
+
 	pub := alice.Upload(general, "public.txt", []byte("hi"), http.StatusCreated)
 	alice.SendWith(general, "caption words", pub.ID)
 	hid := alice.Upload(secret, "hidden.txt", []byte("psst"), http.StatusCreated)
 	alice.SendWith(secret, "", hid.ID)
-	unsent := alice.Upload(general, "unsent.txt", []byte("x"), http.StatusCreated)
+	out := alice.Upload(memes, "outside.txt", []byte("x"), http.StatusCreated)
+	alice.SendWith(memes, "", out.ID)
+	own := alice.Upload(g, "own.png", tinyPNG(t), http.StatusCreated)
+	alice.SendWith(g, "", own.ID)
 
-	trip := create(t, alice, "Trip", "server")
+	trip := create(t, alice, g, "Trip", "gallery")
 	path := "/api/albums/" + trip.ID.String() + "/files/"
 	alice.Do(http.MethodPut, path+pub.ID.String(), nil, http.StatusNoContent, nil)
-	alice.Do(http.MethodPut, path+pub.ID.String(), nil, http.StatusNoContent, nil) // again: no change
 	alice.Do(http.MethodPut, path+hid.ID.String(), nil, http.StatusNoContent, nil)
-	alice.Fail(http.MethodPut, path+unsent.ID.String(), nil, http.StatusNotFound, "NOT_FOUND")
+	alice.Do(http.MethodPut, path+own.ID.String(), nil, http.StatusNoContent, nil)
+	alice.Fail(http.MethodPut, path+out.ID.String(), nil, http.StatusBadRequest, "NOT_IN_GALLERY")
 	bob.Fail(http.MethodPut, path+pub.ID.String(), nil, http.StatusForbidden, "MISSING_PERMISSION")
 
-	require.Equal(t, []string{"hidden.txt", "public.txt"}, names(albumFiles(t, alice, trip.ID.String(), nil)))
+	require.Equal(t, []string{"own.png", "hidden.txt", "public.txt"}, names(albumFiles(t, alice, trip.ID.String(), nil)))
 	got := albumFiles(t, bob, trip.ID.String(), nil)
-	require.Equal(t, []string{"public.txt"}, names(got), "bob can't read #secret")
-	require.Equal(t, "caption words", got.Items[0].Message.Content)
-	require.Equal(t, "general", got.Items[0].Channel.Name)
-	require.Equal(t, alice.User.ID, got.Items[0].UploaderID)
-	require.Equal(t, []string{"public.txt"}, names(albumFiles(t, alice, trip.ID.String(), url.Values{"q": {"caption"}})))
+	require.Equal(t, []string{"own.png", "public.txt"}, names(got), "bob can't read #secret")
+	require.Equal(t, "caption words", got.Items[1].Message.Content)
 
-	var a struct {
-		ItemCount int `json:"item_count"`
-	}
-	bob.Do(http.MethodGet, "/api/albums/"+trip.ID.String(), nil, http.StatusOK, &a)
-	require.Equal(t, 2, a.ItemCount, "the count includes files bob can't see")
+	var listed []albums.Album
+	alice.Do(http.MethodGet, "/api/channels/"+g.String()+"/albums", nil, http.StatusOK, &listed)
+	require.Len(t, listed[0].Deck, 1, "only images make the deck")
+	require.Equal(t, own.ID, listed[0].Deck[0].ID)
 
-	// Removing a channel file takes it out of the album but keeps the file.
-	alice.Do(http.MethodDelete, "/api/albums/"+trip.ID.String()+"/files/"+pub.ID.String(), nil, http.StatusNoContent, nil)
-	require.Equal(t, []string{"hidden.txt"}, names(albumFiles(t, alice, trip.ID.String(), nil)))
-	alice.Do(http.MethodGet, pub.URL, nil, http.StatusOK, nil) // removing a channel file keeps the file
+	// Removing #general as a source hides its file from the album but keeps it counted.
+	alice.Do(http.MethodPatch, "/api/channels/"+g.String(), map[string]any{"source_channel_ids": []string{secret.String()}}, http.StatusOK, nil)
+	require.Equal(t, []string{"own.png", "hidden.txt"}, names(albumFiles(t, alice, trip.ID.String(), nil)))
+	var a albums.Album
+	alice.Do(http.MethodGet, "/api/albums/"+trip.ID.String(), nil, http.StatusOK, &a)
+	require.Equal(t, 3, a.ItemCount)
+
+	// Removing an item keeps the file.
+	alice.Do(http.MethodDelete, path+hid.ID.String(), nil, http.StatusNoContent, nil)
+	require.Equal(t, []string{"own.png"}, names(albumFiles(t, alice, trip.ID.String(), nil)))
+	alice.Do(http.MethodGet, hid.URL, nil, http.StatusOK, nil)
 }
 
-func TestAlbumUploads(t *testing.T) {
+func TestAlbumsForFile(t *testing.T) {
 	env := apptest.New(t)
 	alice := env.Register("alice")
-	bob := env.Register("bob")
-	carol := env.Register("carol")
-	trip := create(t, alice, "Trip", "private")
-	aid := trip.ID.String()
-	alice.Do(http.MethodPut, "/api/albums/"+aid+"/members/"+bob.User.ID.String(), nil, http.StatusNoContent, nil)
+	general := alice.General()
+	memes := alice.CreateTextChannel("memes")
+	withGeneral := alice.CreateGallery("all", "all")
+	onlyMemes := alice.CreateGallery("memes-only", "selected", memes)
+	a := create(t, alice, withGeneral, "A", "private")
+	create(t, alice, onlyMemes, "B", "private")
+	f := alice.Upload(general, "f.txt", []byte("x"), http.StatusCreated)
+	alice.SendWith(general, "", f.ID)
+	alice.Do(http.MethodPut, "/api/albums/"+a.ID.String()+"/files/"+f.ID.String(), nil, http.StatusNoContent, nil)
 
-	up := uploadTo(t, bob, aid, "beach.txt", http.StatusCreated)
-	require.NotNil(t, up.AlbumID)
-	require.Nil(t, up.ChannelID)
-	carol.UploadTo(http.MethodPost, "/api/attachments?album_id="+aid, "nope.txt", []byte("x"), http.StatusNotFound)
-
-	got := albumFiles(t, alice, aid, nil)
-	require.Equal(t, []string{"beach.txt"}, names(got))
-	require.Nil(t, got.Items[0].Message)
-	require.Nil(t, got.Items[0].Channel)
-	require.Equal(t, bob.User.ID, got.Items[0].UploaderID)
-
-	// Downloads follow the album, also after visibility changes.
-	alice.Do(http.MethodGet, up.URL, nil, http.StatusOK, nil)
-	carol.Fail(http.MethodGet, up.URL, nil, http.StatusNotFound, "NOT_FOUND")
-	alice.Do(http.MethodPatch, "/api/albums/"+aid, map[string]any{"visibility": "server"}, http.StatusOK, nil)
-	carol.Do(http.MethodGet, up.URL, nil, http.StatusOK, nil)
-	alice.Do(http.MethodPatch, "/api/albums/"+aid, map[string]any{"visibility": "private"}, http.StatusOK, nil)
-	carol.Fail(http.MethodGet, up.URL, nil, http.StatusNotFound, "NOT_FOUND")
-
-	// Never in the global gallery, and never swept.
-	var all messages.FilesPage
-	alice.Do(http.MethodGet, "/api/files", nil, http.StatusOK, &all)
-	require.Empty(t, all.Items)
-	require.NoError(t, env.App.Files.Sweep(context.Background(), time.Now().Add(48*time.Hour)))
-	alice.Do(http.MethodGet, up.URL, nil, http.StatusOK, nil)
-
-	// Kicked from the server: no more access, even as a listed collaborator.
-	alice.Do(http.MethodDelete, "/api/server/members/"+bob.User.ID.String(), nil, http.StatusNoContent, nil)
-	bob.Fail(http.MethodGet, up.URL, nil, http.StatusNotFound, "NOT_FOUND")
-
-	// Removing an album upload deletes the file.
-	alice.Do(http.MethodDelete, "/api/albums/"+aid+"/files/"+up.ID.String(), nil, http.StatusNoContent, nil)
-	alice.Fail(http.MethodGet, up.URL, nil, http.StatusNotFound, "NOT_FOUND")
-
-	// Deleting the album deletes its uploads.
-	second := uploadTo(t, alice, aid, "second.txt", http.StatusCreated)
-	alice.Do(http.MethodDelete, "/api/albums/"+aid, nil, http.StatusNoContent, nil)
-	var n int
-	require.NoError(t, env.Pool.QueryRow(context.Background(), `SELECT count(*) FROM attachments WHERE id = $1`, second.ID).Scan(&n))
-	require.Zero(t, n)
+	var got []albums.Album
+	alice.Do(http.MethodGet, "/api/albums?contains="+f.ID.String(), nil, http.StatusOK, &got)
+	require.Equal(t, []string{"A"}, titles(got), "only albums whose gallery shows the file")
+	require.True(t, *got[0].Contains)
+	alice.Fail(http.MethodGet, "/api/albums", nil, http.StatusBadRequest, "VALIDATION_FAILED")
 }
 
-func TestAlbumItemEvents(t *testing.T) {
+// Deleting a message deletes its files, which takes them out of any album.
+func TestDeletedMessageLeavesAlbums(t *testing.T) {
 	env := apptest.New(t)
 	alice := env.Register("alice")
-	bob := env.Register("bob")
-	trip := create(t, alice, "Trip", "private")
-	ws, _ := bob.Connect()
-	defer ws.Close()
-
-	uploadTo(t, alice, trip.ID.String(), "a.txt", http.StatusCreated)
-	ws.ExpectNoDispatch("ALBUM_ITEMS_UPDATE", 300*time.Millisecond) // private: bob isn't told
-
-	alice.Do(http.MethodPatch, "/api/albums/"+trip.ID.String(), map[string]any{"visibility": "server"}, http.StatusOK, nil)
-	var upd struct {
-		ID string `json:"id"`
-	}
-	ws.ExpectDispatch("ALBUM_UPDATE", &upd)
-	require.Equal(t, trip.ID.String(), upd.ID)
-	uploadTo(t, alice, trip.ID.String(), "b.txt", http.StatusCreated)
-	var items struct {
-		AlbumID string `json:"album_id"`
-	}
-	ws.ExpectDispatch("ALBUM_ITEMS_UPDATE", &items)
-	require.Equal(t, trip.ID.String(), items.AlbumID)
-
-	alice.Do(http.MethodPatch, "/api/albums/"+trip.ID.String(), map[string]any{"visibility": "private"}, http.StatusOK, nil)
-	var del struct {
-		ID string `json:"id"`
-	}
-	ws.ExpectDispatch("ALBUM_DELETE", &del)
-	require.Equal(t, trip.ID.String(), del.ID)
+	general := alice.General()
+	g := alice.CreateGallery("all", "all")
+	f := alice.Upload(general, "pic.txt", []byte("x"), http.StatusCreated)
+	m := alice.SendWith(general, "", f.ID)
+	album := create(t, alice, g, "T", "private")
+	alice.Do(http.MethodPut, "/api/albums/"+album.ID.String()+"/files/"+f.ID.String(), nil, http.StatusNoContent, nil)
+	alice.Do(http.MethodDelete, "/api/channels/"+general.String()+"/messages/"+m.ID.String(), nil, http.StatusNoContent, nil)
+	require.Empty(t, albumFiles(t, alice, album.ID.String(), nil).Items)
 }
-
-func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }

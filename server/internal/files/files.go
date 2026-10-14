@@ -29,18 +29,10 @@ type Settings interface {
 	Settings(ctx context.Context) (auth.Settings, error)
 }
 
-// Albums decides who may upload into and download from an album. The albums package implements it.
-type Albums interface {
-	CheckUpload(ctx context.Context, userID, albumID id.ID) error
-	CanView(ctx context.Context, userID, albumID id.ID) (bool, error)
-	Uploaded(ctx context.Context, albumID, attachmentID, userID id.ID)
-}
-
 // Attachment is an uploaded file. URLs are relative to the server.
 type Attachment struct {
 	ID           id.ID  `json:"id"`
-	ChannelID    *id.ID `json:"channel_id,omitempty" doc:"Where it was posted; absent for an album upload"`
-	AlbumID      *id.ID `json:"album_id,omitempty" doc:"The album it was uploaded into, for an album upload"`
+	ChannelID    *id.ID `json:"channel_id,omitempty" doc:"Where it was posted"`
 	Filename     string `json:"filename"`
 	ContentType  string `json:"content_type" doc:"Detected from the contents, not the name"`
 	Size         int64  `json:"size"`
@@ -72,7 +64,7 @@ func (a *Attachment) setURLs(variants bool) {
 // UploaderID is who uploaded the file.
 func (a Attachment) UploaderID() id.ID { return a.uploaderID }
 
-// MessageID is the message the file was sent with; nil for unsent and album uploads.
+// MessageID is the message the file was sent with; nil while unsent.
 func (a Attachment) MessageID() *id.ID { return a.messageID }
 
 const (
@@ -85,7 +77,6 @@ type Service struct {
 	store    Store
 	channels Channels
 	settings Settings
-	albums   Albums // nil until SetAlbums
 	server   Server
 	// blobTables are the tables, besides attachments, whose rows keep blobs alive.
 	blobTables []blobTable
@@ -104,9 +95,6 @@ func NewService(pool *pgxpool.Pool, store Store, ch Channels, st Settings) *Serv
 	s.AddBlobTable("server_images", "sha256")
 	return s
 }
-
-// SetAlbums enables album uploads and their downloads.
-func (s *Service) SetAlbums(a Albums) { s.albums = a }
 
 // Start runs the hourly cleanup until Close.
 func (s *Service) Start() {
@@ -131,17 +119,17 @@ func (s *Service) Start() {
 
 func (s *Service) Close() { s.stop.Do(func() { close(s.done) }) }
 
-const attachmentCols = `id, channel_id, album_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif`
+const attachmentCols = `id, channel_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif`
 
 func scanAttachment(row pgx.Row, variants bool) (*Attachment, error) {
 	var a Attachment
-	var ch, album, msg *int64
+	var ch, msg *int64
 	var thumb *string
-	if err := row.Scan(&a.ID, &ch, &album, &a.uploaderID, &msg, &a.Filename, &a.ContentType, &a.Size,
+	if err := row.Scan(&a.ID, &ch, &a.uploaderID, &msg, &a.Filename, &a.ContentType, &a.Size,
 		&a.sum, &a.Width, &a.Height, &thumb, &a.Inline, &a.GIF); err != nil {
 		return nil, err
 	}
-	a.ChannelID, a.AlbumID, a.messageID = id.FromNullable(ch), id.FromNullable(album), id.FromNullable(msg)
+	a.ChannelID, a.messageID = id.FromNullable(ch), id.FromNullable(msg)
 	if thumb != nil {
 		a.thumbSum = *thumb
 	}
@@ -169,18 +157,6 @@ func (s *Service) authorized(ctx context.Context, raw string) (*Attachment, erro
 		return nil, err
 	}
 	me := auth.Current(ctx).User.ID
-	if a.AlbumID != nil {
-		ok := false
-		if s.albums != nil {
-			if ok, err = s.albums.CanView(ctx, me, *a.AlbumID); err != nil {
-				return nil, err
-			}
-		}
-		if !ok {
-			return nil, httpx.NotFound("attachment")
-		}
-		return a, nil
-	}
 	if a.messageID == nil {
 		if a.uploaderID != me {
 			return nil, httpx.NotFound("attachment")
@@ -199,10 +175,9 @@ func (s *Service) authorized(ctx context.Context, raw string) (*Attachment, erro
 
 // save processes a staged upload and records it. Images get their metadata
 // stripped and their size measured.
-// home is where an upload goes: a channel (sent later with a message) or an album.
+// home is where an upload goes: a channel, where it is sent later with a message.
 type home struct {
 	channelID *id.ID
-	albumID   *id.ID
 }
 
 func (s *Service) save(ctx context.Context, h home, uploaderID id.ID, filename string, staged *Staged, gif *gifSize) (*Attachment, error) {
@@ -216,7 +191,7 @@ func (s *Service) save(ctx context.Context, h home, uploaderID id.ID, filename s
 	n, _ := io.ReadFull(f, head)
 	_ = f.Close()
 	ct, kind := Sniff(head[:n])
-	a := &Attachment{ID: id.New(), ChannelID: h.channelID, AlbumID: h.albumID, Filename: filename, ContentType: ct, uploaderID: uploaderID}
+	a := &Attachment{ID: id.New(), ChannelID: h.channelID, Filename: filename, ContentType: ct, uploaderID: uploaderID}
 
 	if kind != "" && staged.Size <= maxImageBytes {
 		select {
@@ -252,16 +227,10 @@ func (s *Service) save(ctx context.Context, h home, uploaderID id.ID, filename s
 		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO attachments (id, channel_id, album_id, uploader_id, filename, content_type, size, sha256, width, height, inline, gif)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		a.ID, a.ChannelID, a.AlbumID, uploaderID, a.Filename, a.ContentType, a.Size, a.sum, a.Width, a.Height, a.Inline, a.GIF); err != nil {
+		INSERT INTO attachments (id, channel_id, uploader_id, filename, content_type, size, sha256, width, height, inline, gif)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		a.ID, a.ChannelID, uploaderID, a.Filename, a.ContentType, a.Size, a.sum, a.Width, a.Height, a.Inline, a.GIF); err != nil {
 		return nil, err
-	}
-	if a.AlbumID != nil {
-		if _, err := tx.Exec(ctx, `INSERT INTO album_items (album_id, attachment_id, added_by) VALUES ($1, $2, $3)`,
-			*a.AlbumID, a.ID, uploaderID); err != nil {
-			return nil, err
-		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
@@ -315,7 +284,7 @@ func lockBlobs(ctx context.Context, tx pgx.Tx, sums ...string) error {
 // are 24 hours old, then abandoned staging files.
 func (s *Service) Sweep(ctx context.Context, now time.Time) error {
 	rows, err := s.db.Query(ctx, `
-		DELETE FROM attachments WHERE message_id IS NULL AND album_id IS NULL AND created_at < $1
+		DELETE FROM attachments WHERE message_id IS NULL AND created_at < $1
 		RETURNING sha256, thumb_sha256`, now.Add(-unsentTTL))
 	if err != nil {
 		return err

@@ -22,10 +22,6 @@ describe("dropMessage", () => {
   it("removes every file of a deleted message", () => {
     expect(ids(dropMessage([it_("1", "m"), it_("2", "m"), it_("3")], "m"))).toEqual(["3"]);
   });
-  it("keeps album uploads, which have no message", () => {
-    const upload = { attachment: { id: "u" }, uploader_id: "u1" } as unknown as FileItem;
-    expect(ids(dropMessage([upload, it_("1", "m")], "m"))).toEqual(["u"]);
-  });
 });
 
 describe("patchThread", () => {
@@ -36,20 +32,19 @@ describe("patchThread", () => {
     expect(out.map((x) => x.message?.thread)).toEqual([thread, thread, undefined]);
     expect(out[2]).toBe(cur[2]);
   });
-  it("leaves album uploads alone", () => {
-    const upload = { attachment: { id: "u" }, uploader_id: "u1" } as unknown as FileItem;
-    expect(patchThread([upload], { channel_id: "c", message_id: "m", thread: {} } as never)[0]).toBe(upload);
-  });
 });
 
 describe("paramsFor", () => {
-  it("pins the channel in channel scope and maps the filter", () => {
-    expect(paramsFor({ kind: "channel", channelId: "c1" }, { ...DEFAULT_FILTER, kind: "audio", channels: ["x"], q: " riff " }))
-      .toEqual({ kinds: ["audio"], channels: ["c1"], q: "riff", uploader: undefined });
-    expect(paramsFor({ kind: "global" }, DEFAULT_FILTER)).toEqual({ kinds: undefined, channels: undefined, q: undefined, uploader: undefined });
+  it("scopes to the gallery and lets the channel filter narrow it", () => {
+    expect(paramsFor({ kind: "gallery", channelId: "g" }, { ...DEFAULT_FILTER, kind: "audio", channels: ["x"], q: " riff " }))
+      .toEqual({ gallery: "g", kinds: ["audio"], channels: ["x"], q: "riff", uploader: undefined });
+    expect(paramsFor({ kind: "gallery", channelId: "g" }, DEFAULT_FILTER))
+      .toEqual({ gallery: "g", kinds: undefined, channels: undefined, q: undefined, uploader: undefined });
   });
 
   it("does not filter an album by channel", () => {
-    expect(paramsFor({ kind: "album", albumId: "7" }, { ...DEFAULT_FILTER, channels: ["1"] }).channels).toBeUndefined();
+    const p = paramsFor({ kind: "album", albumId: "7", galleryId: "g" }, { ...DEFAULT_FILTER, channels: ["1"] });
+    expect(p.channels).toBeUndefined();
+    expect(p.gallery).toBeUndefined();
   });
 });

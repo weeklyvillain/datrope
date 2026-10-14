@@ -27,6 +27,9 @@ type CreateChannelRequest struct {
 
 	Tags       []string `json:"tags,omitempty" maxItems:"20" doc:"Forums only"`
 	RequireTag bool     `json:"require_tag,omitempty" doc:"Forums only: a post needs at least one tag"`
+
+	GallerySources   string  `json:"gallery_sources,omitempty" enum:"none,all,selected" doc:"Galleries only; default none"`
+	SourceChannelIDs []id.ID `json:"source_channel_ids,omitempty" maxItems:"100" doc:"Galleries with gallery_sources selected"`
 }
 
 type UpdateChannelRequest struct {
@@ -38,6 +41,9 @@ type UpdateChannelRequest struct {
 
 	Tags       *[]string `json:"tags,omitempty" maxItems:"20" doc:"Forums only; replaces the tag list and strips removed tags from existing posts"`
 	RequireTag *bool     `json:"require_tag,omitempty" doc:"Forums only"`
+
+	GallerySources   *string  `json:"gallery_sources,omitempty" enum:"none,all,selected" doc:"Galleries only"`
+	SourceChannelIDs *[]id.ID `json:"source_channel_ids,omitempty" maxItems:"100" doc:"Galleries only; replaces the source list"`
 }
 
 type OverrideRequest struct {
@@ -106,6 +112,16 @@ func Register(api huma.API, s *Service) {
 			if in.Body.RequireTag && len(tags) == 0 {
 				return nil, errRequireTagWithoutTags()
 			}
+			var sources *string
+			if in.Body.Type == TypeGallery {
+				mode := in.Body.GallerySources
+				if mode == "" {
+					mode = SourcesNone
+				}
+				sources = &mode
+			} else if in.Body.GallerySources != "" || len(in.Body.SourceChannelIDs) > 0 {
+				return nil, errOnlyGalleries()
+			}
 			newID := id.New()
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
@@ -125,10 +141,19 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			if _, err := tx.Exec(ctx, `
-				INSERT INTO channels (id, community_id, type, name, position, category_id, tags, require_tag)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-				newID, cid, in.Body.Type, strings.TrimSpace(in.Body.Name), len(group), in.Body.CategoryID, tags, in.Body.RequireTag); err != nil {
+				INSERT INTO channels (id, community_id, type, name, position, category_id, tags, require_tag, gallery_sources)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				newID, cid, in.Body.Type, strings.TrimSpace(in.Body.Name), len(group), in.Body.CategoryID, tags, in.Body.RequireTag, sources); err != nil {
 				return nil, err
+			}
+			if sources != nil {
+				srcIDs, err := checkSources(ctx, tx, cid, newID, *sources, in.Body.SourceChannelIDs)
+				if err != nil {
+					return nil, err
+				}
+				if err := setSources(ctx, tx, newID, *sources, srcIDs); err != nil {
+					return nil, err
+				}
 			}
 			if err := audit.Record(ctx, tx, audit.ChannelCreate, newID, audit.LogDetails{Name: strings.TrimSpace(in.Body.Name)}); err != nil {
 				return nil, err
@@ -191,6 +216,25 @@ func Register(api huma.API, s *Service) {
 				}
 				if requireTag && len(finalTags) == 0 {
 					return nil, errRequireTagWithoutTags()
+				}
+			}
+			if in.Body.GallerySources != nil || in.Body.SourceChannelIDs != nil {
+				if c.Type != TypeGallery {
+					return nil, errOnlyGalleries()
+				}
+				mode := c.GallerySources
+				if in.Body.GallerySources != nil {
+					mode = *in.Body.GallerySources
+				}
+				var ids []id.ID
+				switch {
+				case in.Body.SourceChannelIDs != nil:
+					ids = *in.Body.SourceChannelIDs
+				case mode == SourcesSelected && c.GallerySources == SourcesSelected:
+					ids = c.SourceChannelIDs // keep the list when only re-sending the mode
+				}
+				if err := s.updateSources(ctx, c, mode, ids); err != nil {
+					return nil, err
 				}
 			}
 			if in.Body.CategoryID != nil || in.Body.ClearCategory || in.Body.Position != nil {

@@ -1,7 +1,7 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./app/AppShell";
 import { DMView } from "./app/DMView";
-import { AlbumRoute, AlbumsRoute, ChannelRoute, GlobalGalleryRoute, Home } from "./app/Home";
+import { ChannelRoute, GalleryAlbumRoute, Home } from "./app/Home";
 import { MentionsRoute, YouRoute } from "./app/mobile/PhoneRoutes";
 import { RequireSession } from "./app/RequireSession";
 import { ServerSettings } from "./app/server-settings/ServerSettings";
@@ -24,9 +24,8 @@ export const router = createBrowserRouter([
       children: [
         { index: true, element: <Home /> },
         { path: "channels/:channelId", element: <ChannelRoute /> },
-        { path: "gallery", element: <GlobalGalleryRoute /> },
-        { path: "gallery/albums", element: <AlbumsRoute /> },
-        { path: "gallery/albums/:albumId", element: <AlbumRoute /> },
+        { path: "channels/:channelId/albums/:albumId", element: <GalleryAlbumRoute /> },
+        { path: "gallery/*", element: <Navigate to="/" replace /> },
         { path: "messages/:channelId?", element: <DMView /> },
         { path: "mentions", element: <MentionsRoute /> },
         { path: "you/:section?", element: <YouRoute /> },

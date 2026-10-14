@@ -70,6 +70,9 @@ type Channel struct {
 	Tags       []string `json:"tags" doc:"Forums: the tags posts can carry. Forum posts: the tags on this post"`
 	RequireTag bool     `json:"require_tag" doc:"Forums only: a post needs at least one tag"`
 	CreatedBy  *id.ID   `json:"created_by,omitempty" doc:"Threads and forum posts: who started it"`
+
+	GallerySources   string  `json:"gallery_sources,omitempty" enum:"none,all,selected" doc:"Galleries only: which other channels' files it shows besides its own posts"`
+	SourceChannelIDs []id.ID `json:"source_channel_ids,omitempty" doc:"Galleries with gallery_sources selected: those channels"`
 }
 
 type ChannelDeleted struct {
@@ -96,12 +99,13 @@ func (s *Service) SeedCommunity(ctx context.Context, tx pgx.Tx, communityID id.I
 	return err
 }
 
-const channelCols = `id, community_id, type, name, position, category_id, topic, parent_channel_id, parent_message_id, tags, require_tag, created_by, dm_group`
+const channelCols = `id, community_id, type, name, position, category_id, topic, parent_channel_id, parent_message_id, tags, require_tag, created_by, dm_group, gallery_sources`
 
 func scanChannel(row pgx.Row) (*Channel, error) {
 	var c Channel
 	var cid, catID, parentCh, parentMsg, createdBy *int64
-	if err := row.Scan(&c.ID, &cid, &c.Type, &c.Name, &c.Position, &catID, &c.Topic, &parentCh, &parentMsg, &c.Tags, &c.RequireTag, &createdBy, &c.Group); err != nil {
+	var sources *string
+	if err := row.Scan(&c.ID, &cid, &c.Type, &c.Name, &c.Position, &catID, &c.Topic, &parentCh, &parentMsg, &c.Tags, &c.RequireTag, &createdBy, &c.Group, &sources); err != nil {
 		return nil, err
 	}
 	c.CommunityID = id.FromNullable(cid)
@@ -109,6 +113,9 @@ func scanChannel(row pgx.Row) (*Channel, error) {
 	c.ParentChannelID = id.FromNullable(parentCh)
 	c.ParentMessageID = id.FromNullable(parentMsg)
 	c.CreatedBy = id.FromNullable(createdBy)
+	if sources != nil {
+		c.GallerySources = *sources
+	}
 	if c.Tags == nil {
 		c.Tags = []string{}
 	}
@@ -134,6 +141,9 @@ func (s *Service) query(ctx context.Context, sql string, args ...any) ([]*Channe
 		return nil, err
 	}
 	if err := s.loadOverrides(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := s.loadSources(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, s.loadParticipants(ctx, out)
@@ -377,7 +387,7 @@ func (s *Service) ListVisible(ctx context.Context, userID, communityID id.ID) ([
 
 func (s *Service) ListDMs(ctx context.Context, userID id.ID) ([]Channel, error) {
 	chs, err := s.query(ctx, `
-		SELECT c.id, c.community_id, c.type, c.name, c.position, c.category_id, c.topic, c.parent_channel_id, c.parent_message_id, c.tags, c.require_tag, c.created_by, c.dm_group
+		SELECT c.id, c.community_id, c.type, c.name, c.position, c.category_id, c.topic, c.parent_channel_id, c.parent_message_id, c.tags, c.require_tag, c.created_by, c.dm_group, c.gallery_sources
 		FROM channels c JOIN dm_participants p ON p.channel_id = c.id
 		WHERE p.user_id = $1 ORDER BY c.id DESC`, userID)
 	if err != nil {

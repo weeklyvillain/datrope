@@ -26,8 +26,6 @@ import { EmojiPicker, reactionKey } from "@/chat/EmojiPicker";
 import { KEEP_TOUCH_DEFAULT, canLongPress, enterAction, isTouchOnly } from "@/lib/touch";
 import { useLatch } from "@/hooks/use-latch";
 import { AddToAlbumContextItems } from "./gallery/AddToAlbum";
-import { addAll } from "./gallery/albums";
-import { AlbumDialog } from "./gallery/AlbumDialog";
 import { LinkPreview } from "./LinkPreview";
 import { InlinePlayer } from "./InlinePlayer";
 import { firstPlayer } from "@/lib/players";
@@ -385,7 +383,6 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
   const [draft, setDraft] = useState(m.content);
   const [titleDraft, setTitleDraft] = useState(m.title ?? "");
   const [confirming, setConfirming] = useState(false);
-  const [newAlbum, setNewAlbum] = useState(false);
   const isDM = useApp((s) => s.channels[m.channel_id]?.type === "dm");
   const [error, setError] = useState<string>();
   const [reactError, showReactError] = useBriefError();
@@ -608,7 +605,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
         <ContextMenuSub>
           <ContextMenuSubTrigger><Images />Add to album</ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-56">
-            <AddToAlbumContextItems attachmentIds={m.attachments!.map((a) => a.id)} onNew={() => setNewAlbum(true)} onError={showAlbumError} />
+            <AddToAlbumContextItems attachmentIds={m.attachments!.map((a) => a.id)} onError={showAlbumError} />
           </ContextMenuSubContent>
         </ContextMenuSub>
       )}
@@ -649,7 +646,7 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
           onReact={react} onMoreReactions={() => setPicker(true)}
           onReply={() => onReply?.()} onThread={() => openThread?.()} onEdit={() => onEdit?.()}
           onCopy={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}
-          onPin={() => onPin?.()} onNewAlbum={() => setNewAlbum(true)} onAlbumError={showAlbumError} onDelete={() => onDelete?.()}
+          onPin={() => onPin?.()} onAlbumError={showAlbumError} onDelete={() => onDelete?.()}
           preview={(
             <div className="mx-4 mb-1 max-h-24 overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm wrap-anywhere">
               <strong className="font-semibold" style={{ color }}>{name}</strong>
@@ -657,10 +654,6 @@ function MessageRow({ m, grouped, mine, mentioned, canManage, canReply, canReact
             </div>
           )} />
       )}
-      {newAlbum && <AlbumDialog onClose={() => setNewAlbum(false)} onSaved={(a) => {
-        setNewAlbum(false);
-        void addAll(a.id, (m.attachments ?? []).map((x) => x.id)).then((e) => e && showAlbumError(e));
-      }} />}
     </>
   );
 }
