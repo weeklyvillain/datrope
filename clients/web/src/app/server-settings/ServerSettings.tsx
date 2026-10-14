@@ -8,6 +8,9 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { ServerIcon } from "@/components/logo";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ScreenHeader } from "../mobile/ScreenHeader";
+import { SettingsList } from "../mobile/SettingsList";
 import { client, lastVisited, useApp, usePerms } from "@/session";
 import { AuditLog } from "./AuditLog";
 import { Bans } from "./Bans";
@@ -84,6 +87,7 @@ export function ServerSettings() {
   const name = useApp((s) => s.server?.server.name);
   const links = useApp(useShallow((s) => sections.map((x) => x.to?.(s))));
   const nav = useNavigate();
+  const mobile = useIsMobile();
   // Back to the last channel visited in this tab, if it still exists; else Home picks one.
   const close = () => {
     const last = lastVisited("channel");
@@ -107,12 +111,42 @@ export function ServerSettings() {
   const shown = sections.filter((s) => s.visible(perms, me));
   const pages = shown.filter((s) => s.element);
   const current = pages.find((s) => s.id === section);
+  if (mobile) {
+    if (section && !current) return <Navigate to="/server-settings" replace />;
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <ScreenHeader title={current?.label ?? "Server settings"} />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-safe">
+          {current ? <div className="grid gap-7 px-4 pt-4 pb-12">{current.element}</div> : (
+            <>
+              {GROUPS.map((g) => {
+                const rows = shown.filter((s) => s.group === g).flatMap((s) => {
+                  const to = s.to ? links[sections.indexOf(s)] : `/server-settings/${s.id}`;
+                  if (!s.soon && !to) return [];
+                  return [{ id: s.id, label: s.label, icon: s.icon, to, soon: s.soon, state: s.to ? { edit: true } : undefined,
+                    value: s.id === "updates" && updateCount > 0 ? `${updateCount} available` : undefined }];
+                });
+                if (rows.length === 0) return null;
+                return (
+                  <div key={g}>
+                    <div className="px-4 pt-5 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g}</div>
+                    <SettingsList label={g} rows={rows} />
+                  </div>
+                );
+              })}
+              {pages.length === 0 && <p className="px-4 pt-4 text-muted-foreground">There is nothing here you can change.</p>}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (!current && pages.length > 0) return <Navigate to={`/server-settings/${pages[0].id}`} replace />;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 max-md:flex-col">
       <nav aria-label="Server settings" className="flex w-[260px] min-w-[240px] flex-none flex-col border-r bg-sidebar max-md:w-full max-md:min-w-0 max-md:border-r-0 max-md:border-b">
-        <div className="flex h-14 flex-none items-center gap-2.5 border-b px-3.5 max-md:h-12 max-md:px-2">
+        <div className="flex min-h-14 flex-none items-center gap-2.5 border-b px-3.5 max-md:min-h-12 max-md:px-2 max-md:pt-safe">
           <Button variant="ghost" size="icon-sm" aria-label="Back to chat" className="md:hidden" onClick={close}><ArrowLeft /></Button>
           <ServerIcon size={26} />
           <span className="min-w-0 flex-1">
@@ -120,7 +154,7 @@ export function ServerSettings() {
             <span className="block truncate text-xs text-muted-foreground">{name}</span>
           </span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-2 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden max-md:py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 pt-1 pb-2 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden max-md:py-2">
           {GROUPS.map((g) => {
             const items = shown.filter((s) => s.group === g);
             if (items.length === 0) return null;
@@ -164,7 +198,7 @@ export function ServerSettings() {
         <header className="flex h-14 flex-none items-center gap-3 border-b bg-card pr-4 pl-6 max-md:hidden">
           <h2 className="min-w-0 flex-1 truncate font-semibold">{current?.label ?? "Server settings"}</h2>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
           <div className="grid max-w-[860px] gap-7 px-6 pt-6 pb-12 max-md:px-3 max-md:pt-4">
             {current?.element ?? <p className="text-muted-foreground">There is nothing here you can change.</p>}
           </div>

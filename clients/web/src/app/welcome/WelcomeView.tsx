@@ -58,7 +58,7 @@ export function WelcomeView({ channelId }: { channelId: string }) {
       </TopBar>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Banner />
-        <article className="mx-auto grid max-w-[760px] gap-6 px-8 pb-12">
+        <article className="mx-auto grid max-w-[760px] gap-6 px-4 pb-12 md:px-8">
           <ServerHeading />
           {loadError ? <ErrorText error={loadError} />
             : !welcome ? <p className="text-muted-foreground">Loading…</p>

@@ -15,3 +15,11 @@ export function moveTo(groups: Groups, channelId: string, to: string, index: num
   next[to] = target;
   return next;
 }
+
+/** Where a channel or category goes when moved one step up (-1) or down (1) in its group. */
+export function neighbourMove(ids: string[], id: string, dir: -1 | 1): { position: number } | null {
+  const i = ids.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return null;
+  return { position: j };
+}

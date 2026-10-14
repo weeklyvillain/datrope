@@ -1,6 +1,6 @@
 import { Download, ExternalLink, Images, ListPlus, MoreHorizontal, Play, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,7 +22,7 @@ const playFrom = (items: GalleryItem[], item: GalleryItem) => {
 };
 
 /** A new playlist made from a file's menu starts with that file; if adding it fails, say so. */
-function NewPlaylistWith({ item, onClose }: { item: GalleryItem; onClose: () => void }) {
+export function NewPlaylistWith({ item, onClose }: { item: GalleryItem; onClose: () => void }) {
   const [phase, setPhase] = useState<"form" | "adding" | { failed: string }>("form");
   if (phase === "form") {
     return <NewPlaylistDialog onClose={onClose} onCreated={(id) => {
@@ -47,7 +47,7 @@ function NewPlaylistWith({ item, onClose }: { item: GalleryItem; onClose: () => 
 }
 
 /** Says why a file couldn't be added to an album. */
-function AlbumAddFailed({ message, onClose }: { message: string; onClose: () => void }) {
+export function AlbumAddFailed({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[420px]">
@@ -62,12 +62,39 @@ function AlbumAddFailed({ message, onClose }: { message: string; onClose: () => 
   );
 }
 
+export type FileAction = { id: "play" | "queue" | "message" | "download"; label: string; icon: ReactNode; onSelect: () => void };
+
+/** A file's simple actions (the playlist and album pickers are submenus, so each surface renders those itself), shared by the "…" menu and the touch sheet. */
+export function fileActions(item: GalleryItem, items: GalleryItem[], nav: NavigateFunction): FileAction[] {
+  const out: FileAction[] = [];
+  if (item.kind === "audio") {
+    out.push({ id: "play", label: "Play", icon: <Play />, onSelect: () => playFrom(items, item) });
+    out.push({ id: "queue", label: "Add to queue", icon: <ListPlus />, onSelect: () => player.add([trackFromItem(item)]) });
+  }
+  if (item.message && item.channel) {
+    const { channel, message } = item;
+    out.push({ id: "message", label: "Go to message", icon: <ExternalLink />, onSelect: () => void openMessage(nav, channel, message.id) });
+  }
+  out.push({ id: "download", label: "Download", icon: <Download />, onSelect: () => {
+    const a = document.createElement("a");
+    a.href = client.url(item.attachment.url);
+    a.download = item.attachment.filename;
+    a.click();
+  } });
+  return out;
+}
+
 /** The "…" menu on a file: play, queue and add to a playlist (audio), go to its message, download. */
 export function FileMenu({ item, items, extra }: { item: GalleryItem; items: GalleryItem[]; extra?: ReactNode }) {
   const nav = useNavigate();
   const [creating, setCreating] = useState(false);
   const [newAlbum, setNewAlbum] = useState(false);
   const [albumError, setAlbumError] = useState<string>();
+  const acts = fileActions(item, items, nav);
+  const act = (id: FileAction["id"]) => {
+    const a = acts.find((x) => x.id === id);
+    return a && <DropdownMenuItem onSelect={a.onSelect}>{a.icon}{a.label}</DropdownMenuItem>;
+  };
   const audio = item.kind === "audio";
   const library = !item.attachment.album_id; // an album upload can't join a playlist or another album
   return (
@@ -77,8 +104,8 @@ export function FileMenu({ item, items, extra }: { item: GalleryItem; items: Gal
           <RefButton variant="secondary" size="icon-sm" aria-label={`More for ${item.attachment.filename}`}><MoreHorizontal /></RefButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {audio && <DropdownMenuItem onSelect={() => playFrom(items, item)}><Play />Play</DropdownMenuItem>}
-          {audio && <DropdownMenuItem onSelect={() => player.add([trackFromItem(item)])}><ListPlus />Add to queue</DropdownMenuItem>}
+          {act("play")}
+          {act("queue")}
           {audio && library && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger><Plus />Add to playlist</DropdownMenuSubTrigger>
@@ -95,11 +122,9 @@ export function FileMenu({ item, items, extra }: { item: GalleryItem; items: Gal
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           )}
-          {item.message && item.channel && (
-            <DropdownMenuItem onSelect={() => void openMessage(nav, item.channel!, item.message!.id)}><ExternalLink />Go to message</DropdownMenuItem>
-          )}
+          {act("message")}
           {extra}
-          <DropdownMenuItem asChild><a href={client.url(item.attachment.url)} download={item.attachment.filename}><Download />Download</a></DropdownMenuItem>
+          {act("download")}
         </DropdownMenuContent>
       </DropdownMenu>
       {creating && <NewPlaylistWith item={item} onClose={() => setCreating(false)} />}

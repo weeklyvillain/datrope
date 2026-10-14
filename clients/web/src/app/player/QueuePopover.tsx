@@ -1,8 +1,9 @@
-import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, ListMusic, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Ellipsis, GripVertical, ListMusic, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RefButton } from "@/components/ref-button";
 import { player, usePlayer } from "./player-store";
@@ -10,7 +11,11 @@ import type { Track } from "./queue";
 
 export function QueuePopover() {
   const queue = usePlayer((s) => s.queue);
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const current = queue.tracks[queue.index];
   const upNext = queue.tracks.slice(queue.index + 1);
   const onDragEnd = (e: DragEndEvent) => {
@@ -34,7 +39,7 @@ export function QueuePopover() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={upNext.map((t) => t.key)} strategy={verticalListSortingStrategy}>
             <ol className="m-0 grid max-h-72 list-none gap-0.5 overflow-y-auto p-1">
-              {upNext.map((t, i) => <Row key={t.key} track={t} index={queue.index + 1 + i} />)}
+              {upNext.map((t, i) => <Row key={t.key} track={t} index={queue.index + 1 + i} first={i === 0} last={i === upNext.length - 1} />)}
             </ol>
           </SortableContext>
         </DndContext>
@@ -43,14 +48,30 @@ export function QueuePopover() {
   );
 }
 
-function Row({ track, index }: { track: Track; index: number }) {
+function Row({ track, index, first, last }: { track: Track; index: number; first: boolean; last: boolean }) {
   const s = useSortable({ id: track.key });
   return (
     <li ref={s.setNodeRef} style={{ transform: CSS.Transform.toString(s.transform), transition: s.transition }}
       className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-accent">
-      <button type="button" aria-label={`Move ${track.title}`} className="cursor-grab text-muted-foreground" {...s.attributes} {...s.listeners}><GripVertical className="size-4" /></button>
+      <button type="button" aria-label={`Move ${track.title}`} className="cursor-grab touch-none text-muted-foreground" {...s.attributes} {...s.listeners}><GripVertical className="size-4" /></button>
       <span className="min-w-0 flex-1"><span className="block truncate text-sm">{track.title}</span><span className="block truncate text-xs text-muted-foreground">{track.subtitle}</span></span>
-      <Button variant="ghost" size="icon-sm" aria-label={`Remove ${track.title}`} onClick={() => player.remove(index)}><X /></Button>
+      <TrackMenu track={track} index={index} first={first} last={last} />
     </li>
+  );
+}
+
+/** An upcoming track's ⋯ menu: Move up, Move down, Remove. Also in the phone's full-screen player. */
+export function TrackMenu({ track, index, first, last, className }: { track: Track; index: number; first: boolean; last: boolean; className?: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <RefButton variant="ghost" size="icon-sm" className={className} aria-label={`Options for ${track.title}`}><Ellipsis /></RefButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem disabled={first} onSelect={() => player.move(index, index - 1)}><ArrowUp />Move up</DropdownMenuItem>
+        <DropdownMenuItem disabled={last} onSelect={() => player.move(index, index + 1)}><ArrowDown />Move down</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => player.remove(index)}><X />Remove</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

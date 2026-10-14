@@ -249,7 +249,8 @@ pub fn emit_rail_state(app: &AppHandle) {
 }
 
 /// Chromium flags for server webviews on Windows: Tauri's defaults plus no background throttling, so a hidden
-/// server keeps its gateway heartbeat and voice running.
+/// server keeps its gateway heartbeat and voice running. The chrome uses them too: a webview joins an existing
+/// WebView2 environment only with the same flags.
 pub fn server_browser_args() -> Option<&'static str> {
     if cfg!(windows) {
         Some(concat!(
@@ -263,17 +264,138 @@ pub fn server_browser_args() -> Option<&'static str> {
     }
 }
 
-/// Deletes data directories that belong to no server (left over when deleting failed while a webview held files).
+/// The data directory all server webviews share on Windows, below the data root.
+pub const SHARED_DATA: &str = "shared";
+
+/// Where server `id`'s webview keeps its data. On Windows all servers share one WebView2 user data folder, so they
+/// run in one browser process (with one GPU and one network process) instead of a process group per server; their
+/// origins keep cookies and storage apart. Elsewhere each server gets its own directory, so cookies never mix.
+pub fn server_data_dir(data_root: &Path, id: &str) -> PathBuf {
+    if cfg!(windows) {
+        data_root.join(SHARED_DATA)
+    } else {
+        data_root.join(id)
+    }
+}
+
+/// Whether the data directory `name` below the data root is still in use.
+fn data_in_use(name: &str, store: &Store) -> bool {
+    if cfg!(windows) {
+        name == SHARED_DATA
+    } else {
+        store.get(name).is_some()
+    }
+}
+
+/// Deletes data directories that belong to no server (left over when deleting failed while a webview held files,
+/// and on Windows the per-server directories from before servers shared one).
 pub fn purge_orphan_data(data_root: &Path, store: &Store) {
     let Ok(entries) = std::fs::read_dir(data_root) else {
         return;
     };
     for e in entries.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
-        if store.get(&name).is_none() {
+        if !data_in_use(&name, store) {
             let _ = std::fs::remove_dir_all(e.path());
         }
     }
+}
+
+/// Closes a removed server's webview. On Windows its cookies and storage live in the shared data directory, so they
+/// are cleared first (elsewhere its own directory is deleted afterwards).
+pub fn close_server_webview(wv: tauri::Webview, origin: &str) {
+    #[cfg(windows)]
+    {
+        use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
+        use windows::core::{w, HSTRING};
+        // Close from another thread: the close then runs from the event loop, not inside a WebView2 callback.
+        let close = |wv: tauri::Webview| {
+            std::thread::spawn(move || {
+                let _ = wv.close();
+            });
+        };
+        let params = serde_json::json!({ "origin": origin, "storageTypes": "all" }).to_string();
+        let target = wv.clone();
+        let started = wv.with_webview(move |pw| {
+            let on_done = target.clone();
+            let done = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |_, _| {
+                close(on_done);
+                Ok(())
+            }));
+            // SAFETY: plain WebView2 COM calls on the main thread, where with_webview runs this.
+            let called = unsafe {
+                pw.controller().CoreWebView2().and_then(|core| {
+                    core.CallDevToolsProtocolMethod(
+                        w!("Storage.clearDataForOrigin"),
+                        &HSTRING::from(params),
+                        &done,
+                    )
+                })
+            };
+            if let Err(e) = called {
+                eprintln!("clearing server data: {e}");
+                close(target);
+            }
+        });
+        if started.is_err() {
+            let _ = wv.close();
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = origin;
+        let _ = wv.close();
+    }
+}
+
+/// Whether the server page `label` may run on a reduced memory budget: nobody sees it and it isn't in a call.
+pub fn trim_memory(label: &str, shown: Option<&str>, in_call: Option<&str>) -> bool {
+    shown != Some(label) && in_call != Some(label)
+}
+
+/// Asks WebView2 to trim the memory of server pages nobody uses right now (see `trim_memory`) and gives the others
+/// their normal budget back. Windows only; WebKit has no such knob.
+pub fn apply_memory_levels(app: &AppHandle) {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
+            COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        };
+        use windows::core::Interface;
+        let (shown, in_call) = {
+            let shell = app.state::<Shell>();
+            let inner = shell.0.lock().unwrap();
+            (
+                inner.visible.clone(),
+                inner.voice.in_call().map(str::to_string),
+            )
+        };
+        let Some(window) = main_window(app) else {
+            return;
+        };
+        for wv in window.webviews() {
+            if server_id(wv.label()).is_none() {
+                continue;
+            }
+            let level = if trim_memory(wv.label(), shown.as_deref(), in_call.as_deref()) {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+            } else {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+            };
+            let _ = wv.with_webview(move |pw| {
+                // SAFETY: plain WebView2 COM calls on the main thread, where with_webview runs this.
+                let _ = unsafe {
+                    pw.controller()
+                        .CoreWebView2()
+                        .and_then(|core| core.cast::<ICoreWebView2_19>())
+                        .and_then(|core| core.SetMemoryUsageTargetLevel(level))
+                };
+            });
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = app;
 }
 
 fn main_window(app: &AppHandle) -> Option<Window> {
@@ -317,7 +439,7 @@ pub fn create_main_window(app: &AppHandle, hidden: bool) -> tauri::Result<()> {
     app.state::<Shell>().0.lock().unwrap().maximized = window.is_maximized().unwrap_or(false);
     let size = content_size(&window)?;
     window.add_child(
-        WebviewBuilder::new(RAIL, WebviewUrl::App("index.html".into())),
+        chrome_webview(app, RAIL, "index.html"),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(size.width, TOP_BAR_HEIGHT),
     )?;
@@ -340,7 +462,7 @@ pub fn open_picker_webview(app: &AppHandle) -> tauri::Result<()> {
     close_picker_webview(app);
     let size = content_size(&window)?;
     let wv = window.add_child(
-        WebviewBuilder::new(PICKER, WebviewUrl::App("picker.html".into())).transparent(true),
+        chrome_webview(app, PICKER, "picker.html").transparent(true),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(size.width, size.height),
     )?;
@@ -351,6 +473,24 @@ pub fn close_picker_webview(app: &AppHandle) {
     if let Some(wv) = app.get_webview(PICKER) {
         let _ = wv.close();
     }
+}
+
+/// A chrome webview (title bar, drawer) showing the bundled `page`. On Windows it joins the servers' WebView2
+/// environment (same data directory, same browser flags), so the chrome starts no browser process group of its own.
+fn chrome_webview(app: &AppHandle, label: &str, page: &str) -> WebviewBuilder<tauri::Wry> {
+    let b = WebviewBuilder::new(label, WebviewUrl::App(page.into()));
+    #[cfg(windows)]
+    let b = {
+        let data_root = app.state::<Shell>().0.lock().unwrap().data_root.clone();
+        let b = b.data_directory(data_root.join(SHARED_DATA));
+        match server_browser_args() {
+            Some(args) => b.additional_browser_args(args),
+            None => b,
+        }
+    };
+    #[cfg(not(windows))]
+    let _ = app;
+    b
 }
 
 /// (Re)creates the hidden drawer webview. Each new child webview goes on top, so after a server webview is added
@@ -373,7 +513,7 @@ pub fn create_drawer_webview(app: &AppHandle) -> tauri::Result<()> {
     let size = content_size(&window)?;
     let r = drawer_rect(size.height);
     let wv = window.add_child(
-        WebviewBuilder::new(DRAWER, WebviewUrl::App("drawer.html".into())),
+        chrome_webview(app, DRAWER, "drawer.html"),
         LogicalPosition::new(-DRAWER_WIDTH, r.y),
         LogicalSize::new(r.w, r.h),
     )?;
@@ -539,7 +679,7 @@ pub fn add_server_webview(app: &AppHandle, s: &Server) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     {
         let data_root = app.state::<Shell>().0.lock().unwrap().data_root.clone();
-        b = b.data_directory(data_root.join(&s.id));
+        b = b.data_directory(server_data_dir(&data_root, &s.id));
     }
 
     let size = content_size(&window)?;
@@ -681,6 +821,7 @@ pub fn apply_visibility(app: &AppHandle) {
         let visible = show.as_deref() == Some(wv.label());
         let _ = if visible { wv.show() } else { wv.hide() };
     }
+    apply_memory_levels(app);
     if previous != show {
         if let Some(p) = previous {
             send_to_page(app, &p, "visible", serde_json::json!({ "visible": false }));
@@ -974,10 +1115,44 @@ mod tests {
         let mut store = Store::default();
         let keep = store.add("https://a.example".into(), "A".into()).unwrap();
         std::fs::create_dir_all(root.join(&keep.id)).unwrap();
+        std::fs::create_dir_all(root.join(SHARED_DATA)).unwrap();
         std::fs::create_dir_all(root.join("gone")).unwrap();
         purge_orphan_data(&root, &store);
-        assert!(root.join(&keep.id).exists());
         assert!(!root.join("gone").exists());
+        if cfg!(windows) {
+            assert!(root.join(SHARED_DATA).exists());
+            assert!(
+                !root.join(&keep.id).exists(),
+                "per-server directories from before the shared one go"
+            );
+        } else {
+            assert!(root.join(&keep.id).exists());
+            assert!(!root.join(SHARED_DATA).exists());
+        }
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn servers_share_one_data_dir_on_windows() {
+        let root = Path::new("x/webviews");
+        if cfg!(windows) {
+            assert_eq!(server_data_dir(root, "a"), server_data_dir(root, "b"));
+        } else {
+            assert_eq!(server_data_dir(root, "a"), root.join("a"));
+        }
+    }
+
+    #[test]
+    fn only_unused_pages_trim_memory() {
+        assert!(!trim_memory("server-a", Some("server-a"), None), "shown");
+        assert!(
+            !trim_memory("server-a", Some("server-b"), Some("server-a")),
+            "in a call"
+        );
+        assert!(trim_memory("server-a", Some("server-b"), Some("server-c")));
+        assert!(
+            trim_memory("server-a", None, None),
+            "chrome takes the whole window"
+        );
     }
 }

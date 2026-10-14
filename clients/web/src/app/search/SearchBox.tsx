@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react";
+import { Command, Search, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { closePanel, openPanel, panelStore, setSearchQuery, usePanel } from "../side-panel/panel";
+import { toggleCommands } from "../palette/command-store";
 import { clearSearchResults } from "./results";
 
 /** The operator hints shown while the box is focused and empty (Search.html 3b). */
@@ -38,7 +39,7 @@ export function SearchBox() {
 
   if (mobile && !expanded && !query) {
     return (
-      <Button variant="ghost" size="icon-sm" aria-label="Search" className="text-muted-foreground" onClick={() => setExpanded(true)}>
+      <Button variant="ghost" size="icon-sm" aria-label="Search" className="text-muted-foreground max-md:size-[44px]" onClick={() => setExpanded(true)}>
         <Search />
       </Button>
     );
@@ -88,6 +89,16 @@ export function SearchBox() {
               <span className="text-muted-foreground">{h.text}</span>
             </div>
           ))}
+          {mobile && (
+            <div role="option" aria-selected={false} className="flex cursor-pointer items-center gap-2 border-t px-3.5 py-2.5 text-sm hover:bg-accent"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setExpanded(false);
+                toggleCommands();
+              }}>
+              <Command className="size-4 text-muted-foreground" aria-hidden />Commands
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>

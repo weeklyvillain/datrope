@@ -11,9 +11,13 @@ export default defineConfig({
   },
   projects: [{
     name: "chromium",
+    testIgnore: /mobile\.spec\.ts/,
     use: {
       ...devices["Desktop Chrome"],
       launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--auto-select-desktop-capture-source=Entire screen"] },
     },
-  }],
+  },
+  { name: "pixel-7", testMatch: /mobile\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["Pixel 7"] } },
+  { name: "iphone-14", testMatch: /mobile\.spec\.ts/, dependencies: ["chromium"], use: { ...devices["iPhone 14"], browserName: "chromium" } },
+  ],
 });

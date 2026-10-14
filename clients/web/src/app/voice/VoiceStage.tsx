@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { useApp, usePerms } from "../../session";
 import { useVoice, voice, type VideoTile } from "../../voice/voice";
-import { CallControls } from "./CallControls";
+import { CallControls, type LayoutControl } from "./CallControls";
 import { GridView, type Entry } from "./GridView";
 import { soundChip } from "./SoundboardPanel";
 import { MusicTile } from "./MusicTile";
@@ -41,6 +41,7 @@ type StageProps = {
   chip?: (e: Entry) => ReactNode;
   compact?: boolean; // bounded height, for a call above a conversation
   onOpenMusic?: () => void; // the music bot's tile opens the music panel
+  layoutControl?: LayoutControl; // phones: the grid/stage switch in the call controls' ⋯ menu
 };
 
 /**
@@ -56,7 +57,7 @@ function OwnLayoutCall(props: StageProps) {
   return <Call {...props} layout={useVoiceLayout(props.channelId).layout} />;
 }
 
-function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = soundChip, compact, onOpenMusic }: StageProps & { layout: VoiceLayout }) {
+function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = soundChip, compact, onOpenMusic, layoutControl }: StageProps & { layout: VoiceLayout }) {
   const members = useApp(useShallow((s) => voiceMembers(s, channelId).map((v) => v.user_id)));
   const here = useVoice((v) => v.channelId === channelId && v.status !== "idle");
   const tiles = useVoice((v) => (v.channelId === channelId ? v.tiles : NO_TILES));
@@ -113,7 +114,7 @@ function Call({ channelId, joinLabel = "Join voice", layout, inviteTo, chip = so
           </div>
         )}
       </div>
-      {here && !compact && <CallControls />}
+      {here && !compact && <CallControls layout={layoutControl} />}
     </div>
   );
 }

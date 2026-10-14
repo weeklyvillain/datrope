@@ -1,5 +1,5 @@
 import { Perm, hasPerm, type MusicPlaylist, type PlaylistDetail, type PlaylistItem } from "@datrope/core";
-import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowLeft, GripVertical, ListMusic, MoreHorizontal, Music, Play, Plus, Shuffle } from "lucide-react";
@@ -174,7 +174,8 @@ function PlaylistView({ playlist, channelId, here, queueLength, onBack }: {
     });
   };
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const onDragEnd = (e: DragEndEvent) => {
@@ -242,7 +243,7 @@ function SortableItem({ item, channelName, index, last, canEdit, onMove, onRemov
       className={cn("group flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-accent", isDragging && "relative z-10 bg-accent opacity-80")}>
       {canEdit ? (
         <button type="button" ref={setActivatorNodeRef} {...listeners} {...attributes} aria-label={`Move ${item.title}`}
-          className="flex-none cursor-grab rounded-sm text-muted-foreground opacity-60 group-hover:opacity-100 focus-visible:opacity-100">
+          className="flex-none cursor-grab touch-none rounded-sm text-muted-foreground opacity-60 group-hover:opacity-100 focus-visible:opacity-100">
           <GripVertical className="size-4" aria-hidden />
         </button>
       ) : <span className="w-4 flex-none text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>}
@@ -255,7 +256,7 @@ function SortableItem({ item, channelName, index, last, canEdit, onMove, onRemov
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <RefButton size="icon-xs" variant="ghost" aria-label={`Options for ${item.title}`}
-              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"><MoreHorizontal /></RefButton>
+              className="opacity-0 pointer-coarse:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"><MoreHorizontal /></RefButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem disabled={index === 0} onSelect={() => onMove(index - 1)}>Move up</DropdownMenuItem>

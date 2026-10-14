@@ -1,0 +1,2 @@
+/** Reaction pills: a 26px visual pill whose hit area grows to 44px on touch via the `after:` expander. */
+export const PILL = "relative h-[26px] gap-1.5 rounded-full border bg-card px-2 text-[13px] font-normal text-foreground shadow-none hover:bg-accent pointer-coarse:min-h-0 pointer-coarse:after:absolute pointer-coarse:after:-inset-y-[9px] pointer-coarse:after:inset-x-0 pointer-coarse:after:content-['']";

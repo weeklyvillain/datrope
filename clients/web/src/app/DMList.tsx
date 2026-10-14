@@ -25,7 +25,7 @@ export function DMList({ activeId }: { activeId?: string }) {
       <div className="px-2 pt-2 pb-1">
         <Button variant="outline" size="sm" className="w-full" onClick={() => setPicking(true)}><SquarePen />New message</Button>
       </div>
-      <ul className="grid min-h-0 flex-1 list-none content-start gap-0.5 overflow-y-auto px-2 pt-1 pb-2" aria-label="Conversations">
+      <ul className="grid min-h-0 flex-1 list-none content-start gap-0.5 overflow-y-auto overscroll-y-contain px-2 pt-1 pb-2" aria-label="Conversations">
         {dmIds.map((id) => {
           const ch = channels[id];
           const name = dmName(ch, meId);

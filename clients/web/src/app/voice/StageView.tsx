@@ -1,6 +1,7 @@
 import { EyeOff, Maximize, Volume2 } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { canFullscreen } from "@/lib/media-support";
 import { cn } from "@/lib/utils";
 import { useApp, userName } from "../../session";
 import { setScreenVolume, useVoicePrefs } from "../../voice/prefs";
@@ -26,7 +27,7 @@ export function StageView({ entries, speaking, watching, chip, bot, compact }: {
   const ref = useRef<HTMLDivElement>(null);
   if (!main) return null;
   const fullscreen = () => {
-    // Denied or unsupported (e.g. iOS): nothing to do.
+    // Denied: nothing to do. Unsupported (iPhone Safari): no button.
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else ref.current?.requestFullscreen?.()?.catch(() => {});
   };
@@ -34,7 +35,7 @@ export function StageView({ entries, speaking, watching, chip, bot, compact }: {
     <div className={cn("grid gap-3", compact ? "h-[40vh] min-h-56 grid-rows-[minmax(0,1fr)_5rem]" : "h-full min-h-96 grid-rows-[minmax(0,1fr)_8rem]")}>
       <Tile key={entryKey(main)} userId={main.userId} tile={main.tile} size="large" watching rootRef={ref} chip={chip?.(main)}>
         <div className="absolute right-2.5 top-2.5 flex gap-1.5">
-          <Button variant="secondary" size="icon-sm" aria-label="Full screen" onClick={fullscreen}><Maximize /></Button>
+          {canFullscreen() && <Button variant="secondary" size="icon-sm" aria-label="Full screen" onClick={fullscreen}><Maximize /></Button>}
           <Button variant="secondary" size="sm" onClick={() => voice.watch(main.userId, false)}><EyeOff /> Stop watching</Button>
         </div>
         <ScreenAudio userId={main.userId} />

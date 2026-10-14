@@ -169,6 +169,9 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
               })}
             </div>
           ))}
+          {editable && PERM_LABELS.some((p) => !hasPerm(perms, p.flag)) && (
+            <p className="m-0 text-xs text-muted-foreground pointer-fine:hidden">You can only grant permissions you have.</p>
+          )}
         </TabsContent>
 
         {!everyone && (
@@ -182,7 +185,7 @@ export function RoleEditor({ role, everyone, rank, perms, onDeleted }: Props) {
 
       {dirty && editable && (
         <div role="region" aria-label="Unsaved changes"
-          className="sticky bottom-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-lg">
+          className="sticky bottom-safe flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-lg">
           <span className="min-w-0 flex-1">You have unsaved changes.</span>
           <Button variant="outline" size="sm" disabled={busy} onClick={() => setEdits({})}>Reset</Button>
           <Button size="sm" disabled={busy || !name.trim()} onClick={save}>Save</Button>
