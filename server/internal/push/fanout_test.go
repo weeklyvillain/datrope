@@ -88,6 +88,26 @@ func TestLevels(t *testing.T) {
 	require.True(t, got[0].Urgent)
 }
 
+func TestIcon(t *testing.T) {
+	env, f := newEnv(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	subscribe(bob, "https://push.example/bob", "all")
+
+	// No server icon: the service worker falls back to Datrope's.
+	alice.Send(alice.General(), "one")
+	got := f.take()
+	require.Len(t, got, 1)
+	require.Empty(t, got[0].Payload.Icon)
+
+	alice.UploadTo(http.MethodPut, "/api/server/icon", "icon.png", testPNG(t, 300, 300), http.StatusOK)
+	alice.Send(alice.CreateTextChannel("news"), "two") // a new channel: the 10 s cap holds #general
+	got = f.take()
+	require.Len(t, got, 1)
+	require.Regexp(t, `^/api/server/icon/192\.png\?v=[0-9a-f]{12}$`, got[0].Payload.Icon)
+	env.Anon().Raw(http.MethodGet, got[0].Payload.Icon, nil, "", http.StatusOK)
+}
+
 func TestAuthorAndActiveAreSkipped(t *testing.T) {
 	env, f := newEnv(t)
 	alice := env.Register("alice")
