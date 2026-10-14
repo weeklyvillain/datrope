@@ -16,6 +16,7 @@ type Payload struct {
 	Body  string `json:"body"`
 	URL   string `json:"url"`
 	Tag   string `json:"tag"`
+	Icon  string `json:"icon,omitempty"` // the server icon; empty: Datrope's
 }
 
 const maxBody = 120
