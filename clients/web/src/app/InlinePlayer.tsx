@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BrandIcon } from "@/lib/brand-icons";
 import type { Player } from "@/lib/players";
 import { cn } from "@/lib/utils";
+import { BareButton } from "@/components/bare-button";
 
 /**
  * A YouTube, Twitch or Spotify link as a player. The player loads only once someone presses play;
@@ -24,15 +25,15 @@ export function InlinePlayer({ player, url, embed }: { player: Player; url: stri
           <a href={url} target="_blank" rel="noopener noreferrer" className="line-clamp-2 font-semibold wrap-anywhere">{name}</a>
           {embed?.author && <span className="truncate text-sm text-muted-foreground">{embed.author}</span>}
         </div>
-        <button type="button" aria-label={`Play ${player.label} from ${player.site}`} onClick={() => setPlaying(true)}
-          className={cn("group relative overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", shape)}>
+        <BareButton aria-label={`Play ${player.label} from ${player.site}`} onClick={() => setPlaying(true)}
+          className={cn("group relative overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring", shape)}>
           <img src={player.thumbnail} alt="" loading="lazy" className="size-full object-cover" />
           <span className="absolute inset-0 grid place-items-center">
             <span className="grid size-12 place-items-center rounded-full bg-background/80 text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
               <Play className="size-5 fill-current" />
             </span>
           </span>
-        </button>
+        </BareButton>
       </div>
     );
   }

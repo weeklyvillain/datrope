@@ -12,7 +12,7 @@ export function ProfileLinks({ links }: { links: string[] }) {
         return (
           <li key={`${i}-${url}`}>
             <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`${name} on ${host}`}
-              className="flex min-w-0 items-center gap-2 rounded-sm text-sm text-foreground outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50">
+              className="flex min-w-0 items-center gap-2 rounded-sm text-sm text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
               <Icon className="size-4 shrink-0 text-muted-foreground" />
               <span className="shrink-0">{name}</span>
               <span className="truncate text-muted-foreground">{host}</span>

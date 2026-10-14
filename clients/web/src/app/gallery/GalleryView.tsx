@@ -1,9 +1,10 @@
 import { Perm, canPost, hasPerm } from "@datrope/core";
-import { Images, Search, SlidersHorizontal, Upload, X } from "lucide-react";
+import { FilterX, Images, Search, SlidersHorizontal, Upload, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { client, displayName, isUnread, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -36,9 +37,11 @@ import { TileSheet } from "./TileSheet";
 import { UploadDialog } from "./UploadDialog";
 import { useFiles, type GalleryScope } from "./use-files";
 import { Wall } from "./Wall";
+import { GridSkeleton } from "@/components/loading-skeleton";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { BareButton } from "@/components/bare-button";
 
-const chip = "h-7 rounded-full px-3 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
-const note = "m-0 p-8 text-center text-sm text-muted-foreground";
+const chip = "h-7 rounded-full px-3 text-ui font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
 
 const openItem = (it: GalleryItem) =>
   openPanel({ kind: "media", attachmentId: it.attachment.id });
@@ -73,6 +76,7 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
   const [wallRef, wallWidth] = useElementWidth<HTMLDivElement>();
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const filterCountId = useId();
   const [sheetItem, setSheetItem] = useState<GalleryItem | null>(null);
   const hasSources = !!ch && ch.gallery_sources !== "none";
   const showTag = (it: GalleryItem) => itemHome(it) !== channelId; // tiles name the channel a file came from
@@ -116,11 +120,16 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
     player.play(run.map((it) => trackFromItem(it)), at);
   };
 
+  const activeFilters = (filter.uploader !== null ? 1 : 0) + filter.channels.length;
   const phoneTools = (
     <>
       <Button variant="ghost" size="icon" aria-label="Search files" aria-pressed={searchOpen || !!filter.q} onClick={() => setSearchOpen((o) => !o)}><Search /></Button>
-      <Button variant="ghost" size="icon" aria-label="Filter files" onClick={() => setFilterOpen(true)}
-        className={cn((filter.uploader !== null || filter.channels.length > 0) && "text-primary")}><SlidersHorizontal /></Button>
+      <Button variant="ghost" size="icon" aria-label="Filter files" aria-describedby={activeFilters > 0 ? filterCountId : undefined} aria-pressed={filterOpen}
+        onClick={() => setFilterOpen(true)} className={cn("relative", activeFilters > 0 && "text-primary")}>
+        <SlidersHorizontal />
+        {activeFilters > 0 && <Badge className="absolute -top-0.5 -right-0.5 h-4 min-w-4 justify-center px-1 text-caption" aria-hidden>{activeFilters}</Badge>}
+        {activeFilters > 0 && <span id={filterCountId} className="sr-only">{activeFilters} active {activeFilters === 1 ? "filter" : "filters"}</span>}
+      </Button>
     </>
   );
 
@@ -130,8 +139,8 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
       <Input value={filter.q} onChange={(e) => setFilter({ q: e.target.value })} placeholder="Search files" aria-label="Search files"
         className="h-8 pr-8 pl-8" />
       {filter.q && (
-        <button type="button" aria-label="Clear search" onClick={() => setFilter({ q: "" })}
-          className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+        <BareButton aria-label="Clear search" onClick={() => setFilter({ q: "" })}
+          className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="size-4" /></BareButton>
       )}
     </>
   );
@@ -159,7 +168,7 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
             : <><div className="relative w-56">{searchBox}</div>{canUpload && <Button size="sm" onClick={() => setUploading(true)}><Upload /> Upload</Button>}</>}>
             {header ? header : (<>
             <Images className="size-4 flex-none text-muted-foreground" aria-hidden />
-            <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
+            <h1 className="flex-none"><EmojiText text={ch.name} /></h1>
             {summary && <span className="truncate text-sm text-muted-foreground">{summary}</span>}
             {ch.topic && <Topic channelId={ch.id} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
             </>)}
@@ -181,14 +190,14 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
           {scope.kind === "gallery" && !music && <AlbumDecks galleryId={channelId} />}
           {music ? <MusicView filter={filter} setFilter={setFilter} files={files} global={hasSources} menuExtra={menuExtra} />
             : files.error && files.items.length === 0 ? <div className="p-4"><ErrorText error={files.error} /></div>
-            : files.loading && files.items.length === 0 ? <p className={note}>Loading…</p>
+            : files.loading && files.items.length === 0 ? <GridSkeleton className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 p-4" />
             : files.items.length === 0 ? (
               filtered ? (
-                <div className="grid justify-items-center gap-3 p-8">
-                  <p className="m-0 text-sm text-muted-foreground">No files match.</p>
-                  <Button variant="outline" size="sm" onClick={() => setParams(filterParams(DEFAULT_FILTER), { replace: true })}>Clear filters</Button>
-                </div>
-              ) : <p className={note}>No files yet.</p>
+                <Empty><EmptyHeader><EmptyMedia variant="icon"><FilterX /></EmptyMedia><EmptyTitle>No files match</EmptyTitle></EmptyHeader>
+                  <EmptyContent><Button variant="outline" size="sm" onClick={() => setParams(filterParams(DEFAULT_FILTER), { replace: true })}>Clear filters</Button></EmptyContent>
+                </Empty>
+              ) : <Empty><EmptyHeader><EmptyMedia variant="icon"><Images /></EmptyMedia><EmptyTitle>No files yet</EmptyTitle><EmptyDescription>{hasSources ? "Files shared in its channels show up here." : "Upload files to fill this gallery."}</EmptyDescription></EmptyHeader></Empty>
+
             ) : (
               <div className="grid content-start gap-6 px-2 pt-2 pb-4">
                 <div ref={wallRef} aria-hidden className="h-0" />
@@ -222,7 +231,7 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
               <NativeSelectOption value="">Anyone</NativeSelectOption>
               {uploaders.map(([id, name]) => <NativeSelectOption key={id} value={id}>{name}</NativeSelectOption>)}
             </NativeSelect>
-            <span className="flex-none px-2 text-[13px] text-muted-foreground">{count}</span>
+            <span className="flex-none px-2 text-ui text-muted-foreground">{count}</span>
           </div>
         )}
       </main>
@@ -240,3 +249,4 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
     </>
   );
 }
+

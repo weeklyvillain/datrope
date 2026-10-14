@@ -2,6 +2,7 @@ import type { Album } from "@datrope/core";
 import { Lock, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { BareButton } from "@/components/bare-button";
 import { ErrorText } from "@/components/error-text";
 import { attachmentImage } from "@/lib/sized-image";
 import { cn } from "@/lib/utils";
@@ -27,10 +28,10 @@ export function AlbumDecks({ galleryId }: { galleryId: string }) {
       <ul className="m-0 flex list-none gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-3 pt-3 pb-1">
         {albums.map((a) => <li key={a.id} className="flex-none"><Deck album={a} galleryId={galleryId} /></li>)}
         <li className="flex-none">
-          <button type="button" onClick={() => setCreating(true)}
-            className="grid h-[132px] w-28 place-items-center rounded-md border border-dashed text-[13px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          <BareButton onClick={() => setCreating(true)}
+            className="grid h-[132px] w-28 place-items-center rounded-md border border-dashed text-ui text-muted-foreground hover:bg-accent hover:text-foreground">
             <span className="grid justify-items-center gap-1"><Plus className="size-5" aria-hidden />New album</span>
-          </button>
+          </BareButton>
         </li>
       </ul>
       <ErrorText error={error} />
@@ -53,8 +54,8 @@ function Deck({ album: a, galleryId }: { album: Album; galleryId: string }) {
           </span>
         ))}
       </span>
-      <span className="max-w-full truncate text-[13px] font-semibold text-foreground">{a.title}</span>
-      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+      <span className="max-w-full truncate text-ui font-semibold text-foreground">{a.title}</span>
+      <span className="flex items-center gap-1 text-caption text-muted-foreground">
         {a.visibility === "private" && <Lock className="size-3" aria-hidden />}{count(a.item_count)}
       </span>
     </Link>

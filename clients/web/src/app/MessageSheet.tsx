@@ -6,6 +6,7 @@ import { quickReactions } from "@/chat/recent-emoji";
 import { useAlbumLabel } from "./gallery/AddToAlbum";
 import { addAll, useAlbumsForFile } from "./gallery/albums";
 import type { MessageAction } from "./message-actions";
+import { BareButton } from "@/components/bare-button";
 
 /** The phone's message menu: quick reactions on top, then the message's actions. */
 export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onAlbumError, onDelete, preview }: {
@@ -27,10 +28,10 @@ export function MessageSheet({ open, onOpenChange, message, actions, hasThread, 
         {actions.includes("react") && (
           <div role="group" aria-label="Quick reactions" className="flex items-center justify-between gap-1 px-3 py-2">
             <QuickReactions onReact={(e) => run(() => onReact(e))()} />
-            <button type="button" aria-label="More reactions" onClick={run(onMoreReactions)}
-              className="grid size-[44px] place-items-center rounded-full bg-secondary text-muted-foreground hover:bg-accent focus-visible:bg-accent">
+            <BareButton aria-label="More reactions" onClick={run(onMoreReactions)}
+              className="grid size-[44px] place-items-center rounded-full bg-secondary text-secondary-foreground hover:bg-accent focus-visible:bg-accent">
               <SmilePlus className="size-5" />
-            </button>
+            </BareButton>
           </div>
         )}
         {actions.map((a) => {
@@ -65,10 +66,10 @@ export function MessageSheet({ open, onOpenChange, message, actions, hasThread, 
 /** Read from storage only while the sheet's content is mounted (open), not on every message row render. */
 function QuickReactions({ onReact }: { onReact: (emoji: string) => void }) {
   return quickReactions().map((e) => (
-    <button key={e} type="button" aria-label={`React with ${e}`} onClick={() => onReact(e)}
+    <BareButton key={e} aria-label={`React with ${e}`} onClick={() => onReact(e)}
       className="grid size-[44px] place-items-center rounded-full bg-secondary text-2xl leading-none hover:bg-accent focus-visible:bg-accent">
       {e}
-    </button>
+    </BareButton>
   ));
 }
 

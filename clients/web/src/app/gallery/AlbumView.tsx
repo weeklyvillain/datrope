@@ -15,6 +15,7 @@ import { client, errorText, useApp, usePerms } from "../../session";
 import { AlbumDialog } from "./AlbumDialog";
 import { GalleryView } from "./GalleryView";
 import { UploadDialog } from "./UploadDialog";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** A confirmation before something destructive; shows the failure and stays open when it fails. */
 function Confirm({ title, body, label, onConfirm, onClose, destructive = true }: {
@@ -71,7 +72,7 @@ export function AlbumView({ galleryId, albumId }: { galleryId: string; albumId: 
   }, [albumId, galleryId, nav]);
 
   if (error) return <EmptyView>{error}</EmptyView>;
-  if (!album) return <EmptyView>Loading…</EmptyView>;
+  if (!album) return <EmptyView><ListSkeleton className="w-full max-w-md" /></EmptyView>;
   const canEdit = album.role === "owner" || album.role === "collaborator";
   const canUpload = canEdit && !!gallery && canPost(gallery, galleryPerms) && hasPerm(galleryPerms, Perm.AttachFiles);
   const Icon = album.visibility === "gallery" ? Globe : Lock;
@@ -85,8 +86,9 @@ export function AlbumView({ galleryId, albumId }: { galleryId: string; albumId: 
       {!mobile && <Button variant="ghost" size="icon-sm" asChild aria-label="Back to gallery"><Link to={`/channels/${galleryId}`}><ArrowLeft /></Link></Button>}
       <Link to={`/channels/${galleryId}`} className="flex-none text-muted-foreground hover:text-foreground">#{gallery?.name ?? "gallery"}</Link>
       <span className="text-muted-foreground" aria-hidden>/</span>
-      <h2 className="flex-none">{album.title}</h2>
+      <h1 className="flex-none">{album.title}</h1>
       <Icon className="size-4 flex-none text-muted-foreground" aria-label={album.visibility === "gallery" ? "Everyone in this gallery" : "Only collaborators"} />
+
       <span className="flex -space-x-1.5" aria-label="Collaborators">
         {[album.owner_id, ...(album.member_ids ?? [])].map((u) => {
           const user = members?.[u]?.user;

@@ -40,3 +40,17 @@ export function AddToAlbumContextItems({ attachmentIds, onError }: { attachmentI
     </>
   );
 }
+
+/** The same list as `AddToAlbumContextItems`, for the message toolbar's "More actions" dropdown. */
+export function AddToAlbumMenuItems({ attachmentIds, onError }: { attachmentIds: string[]; onError: (message: string) => void }) {
+  const { albums, loading } = useAlbumsForFile(attachmentIds[0]);
+  const label = useAlbumLabel();
+  return (
+    <>
+      {!loading && albums.length === 0 && <DropdownMenuItem disabled>No albums here yet</DropdownMenuItem>}
+      {albums.map((a) => (
+        <DropdownMenuItem key={a.id} onSelect={() => void addAll(a.id, attachmentIds).then((m) => m && onError(m))}>{label(a)}</DropdownMenuItem>
+      ))}
+    </>
+  );
+}

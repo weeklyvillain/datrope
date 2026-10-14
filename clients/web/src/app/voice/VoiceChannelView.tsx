@@ -105,7 +105,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
           </>
         )}>
           <Volume2 className="size-4 text-muted-foreground" aria-hidden />
-          <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
+          <h1 className="flex-none"><EmojiText text={ch.name} /></h1>
           {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
         {!canStage && <p className="m-0 px-4 pt-2 text-xs text-muted-foreground pointer-fine:hidden">Grid layout is on until someone shares a screen.</p>}

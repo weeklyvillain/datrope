@@ -140,6 +140,10 @@ func (f *fanout) deliver(ctx context.Context, m *messages.Message) error {
 		author = m.Author.Username
 	}
 	url, tag := target(ch)
+	icon := ""
+	if sv, err := s.d.Server.Server(ctx); err == nil && sv != nil && sv.IconURL != nil {
+		icon = "/api/server/icon/192.png" + iconVersion(*sv.IconURL)
+	}
 	isDM := ch.Type == "dm"
 
 	roles := map[id.ID][]id.ID{} // per recipient, loaded only when a role was pinged
@@ -161,7 +165,7 @@ func (f *fanout) deliver(ctx context.Context, m *messages.Message) error {
 		if !f.allow(sub.ID, m.ChannelID, time.Now(), mentioned) {
 			continue
 		}
-		payload, _ := json.Marshal(Payload{Title: title(author, webhook, ch, parent), Body: body(m.Content, len(m.Attachments)), URL: url, Tag: tag})
+		payload, _ := json.Marshal(Payload{Title: title(author, webhook, ch, parent), Body: body(m.Content, len(m.Attachments)), URL: url, Tag: tag, Icon: icon})
 		f.send(ctx, sub, payload, mentioned)
 	}
 	return nil

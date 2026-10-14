@@ -2,6 +2,7 @@ import { EyeOff, MoreHorizontal, Volume1, VolumeX } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
@@ -59,13 +60,8 @@ function PersonSettings({ userId, name, hasCamera }: { userId: string; name: str
           <span className="font-semibold">{name}'s volume</span>
           <span className="text-sm tabular-nums text-muted-foreground">{volume}%</span>
         </div>
-        <input type="range" min={0} max={200} step={5} value={volume} aria-label={`Volume for ${name}, just for you`}
-          onChange={(e) => setVolume(userId, Number(e.target.value))}
-          className={cn(
-            "h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary",
-            "[&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary",
-            "[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary",
-          )} />
+        <Slider min={0} max={200} step={5} value={[volume]} aria-label={`Volume for ${name}, just for you`}
+            onValueChange={([x]) => setVolume(userId, x)} />
         <span className="text-xs text-muted-foreground">Only you hear this change.</span>
       </div>
       <Separator />

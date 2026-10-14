@@ -51,7 +51,7 @@ export function ServerShowcase({ preview, eyebrow }: { preview?: ServerPreview |
       <ServerIconImage src={preview.icon_url ? client.url(preview.icon_url) : undefined} name={preview.name} size={72}
         className="rounded-[18px] border border-border" />
       <div className="grid gap-2.5">
-        {eyebrow && <p className="text-[13px] font-semibold tracking-wider text-primary uppercase">{eyebrow}</p>}
+        {eyebrow && <p className="text-ui font-semibold tracking-wider text-primary uppercase">{eyebrow}</p>}
         <h2 className="text-4xl leading-[1.1] font-bold tracking-tight text-balance text-foreground sm:text-[44px]">{preview.name}</h2>
         {preview.description && <p className="max-w-[420px] text-[17px] leading-normal text-muted-foreground">{preview.description}</p>}
       </div>

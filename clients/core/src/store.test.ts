@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, myThreadPerms, prependHistory,
   rolesByRank, voiceMembers, channelGroups, sidebarChannelIds, findUser, findDM, type State,
   replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, setPoll, publicUser, canCreateInvites,
 } from "./store";
 import { ALL_PERMS, Perm, WEBHOOK_MASKED, hasPerm } from "./perms";
-import type { Message, Ready, VoiceState } from "./types";
+import type { Message, Ready, VoiceState, WatchState } from "./types";
 
 const bob = { id: "2", username: "bob", display_name: "Bob", custom_status: "" };
 
@@ -38,6 +38,49 @@ function loaded(): State {
 }
 
 describe("store", () => {
+  it("WATCH_UPDATE sets and clears a channel's watch, and keeps the server clock offset", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    try {
+      const st: WatchState = {
+        channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
+        paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+      };
+      let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000_500 });
+      expect(s.watch["300"]).toEqual(st);
+      expect(s.serverOffset).toBe(500);
+      s = applyEvent(s, "WATCH_UPDATE", { channel_id: "300", server_now: 1_000_800 });
+      expect(s.watch["300"]).toBeNull();
+      expect(s.serverOffset).toBe(800);
+      expect(initialState.watch["300"]).toBeUndefined(); // not loaded
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("applyReady forgets watches, so a reconnect re-fetches them", () => {
+    const st: WatchState = {
+      channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
+      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+    };
+    let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000_500 });
+    expect(s.watch["300"]).toEqual(st);
+    s = applyReady(s, ready());
+    expect(s.watch["300"]).toBeUndefined();
+    // and the stale-update guard starts over too
+    s = applyEvent(s, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 500 });
+    expect(s.watch["300"]).toEqual(st);
+  });
+  it("WATCH_UPDATE older than the last one applied for the channel is ignored", () => {
+    const st: WatchState = {
+      channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
+      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+    };
+    let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: { ...st, paused: true }, server_now: 2_000 });
+    s = applyEvent(s, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000 });
+    expect(s.watch["300"]?.paused).toBe(true);
+    s = applyEvent(s, "WATCH_UPDATE", { channel_id: "301", state: { ...st, channel_id: "301" }, server_now: 500 }); // other channel unaffected
+    expect(s.watch["301"]).not.toBeUndefined();
+  });
   it("guests cannot create invites even when their roles allow it", () => {
     const s = applyReady(initialState, ready({ server: { ...ready().server!, roles: [{ ...everyone, permissions: everyone.permissions | Perm.CreateInvite }, mod] } }));
     expect(canCreateInvites(s)).toBe(true);
@@ -120,6 +163,13 @@ describe("store", () => {
     expect(s.readStates["101"]).toEqual({ lastMessageId: "30", lastReadId: "30" });
     // The HTTP response may arrive after the event; applying it again is harmless.
     expect(applyEvent(s, "MESSAGE_CREATE", msg("30")).messages["101"].items).toHaveLength(3);
+  });
+
+  it("keeps a confirmed message's nonce through MESSAGE_UPDATE, which carries none", () => {
+    let s = addPending(loaded(), "101", "n1", "see https://example.com");
+    s = applyEvent(s, "MESSAGE_CREATE", msg("30", { content: "see https://example.com", nonce: "n1" }));
+    s = applyEvent(s, "MESSAGE_UPDATE", msg("30", { content: "see https://example.com", edited_at: "2026-01-01T00:01:00Z" }));
+    expect(s.messages["101"].items.at(-1)).toMatchObject({ id: "30", nonce: "n1", edited_at: "2026-01-01T00:01:00Z" });
   });
 
   it("marks a failed send", () => {

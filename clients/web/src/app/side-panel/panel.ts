@@ -30,12 +30,19 @@ export function urlWithPanel(p: Panel): string {
   return window.location.pathname + (s ? `?${s}` : "") + window.location.hash;
 }
 
-const clearPanel = () => panelStore.setState({ panel: null });
+let opener: HTMLElement | null = null;
+const restoreOpener = () => {
+  const el = opener;
+  opener = null;
+  if (el?.isConnected) requestAnimationFrame(() => el.focus({ preventScroll: true }));
+};
+const clearPanel = () => { panelStore.setState({ panel: null }); restoreOpener(); };
 
 /** Opens a panel as a history entry (Back closes it) and records it in `?panel=` so a reload keeps it. */
 export function openPanel(p: Panel) {
   if (!p) return closePanel();
   const wasOpen = panelStore.getState().panel !== null;
+  if (!wasOpen && typeof document !== "undefined") opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   panelStore.setState({ panel: p });
   if (typeof window === "undefined") return layers.open("panel", clearPanel);
   // Swapping panels rewrites our own entry's URL; with another layer on top (the profile) that entry is not ours to touch.

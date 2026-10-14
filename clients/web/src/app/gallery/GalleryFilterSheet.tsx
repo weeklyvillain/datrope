@@ -19,7 +19,7 @@ export function GallerySegments({ value, onFiles, onMusic }: { value: GallerySeg
     <ToggleGroup type="single" variant="outline" aria-label="Gallery view" value={value} onValueChange={go}
       className="mx-4 mt-3 mb-1 w-[calc(100%-2rem)] flex-none">
       {([["files", "All files"], ["music", "Music"]] as const).map(([v, label]) => (
-        <ToggleGroupItem key={v} value={v} aria-label={label} className="h-9 flex-1 text-[13px] font-normal text-muted-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground">{label}</ToggleGroupItem>
+        <ToggleGroupItem key={v} value={v} aria-label={label} className="h-9 flex-1 text-ui font-normal text-muted-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground">{label}</ToggleGroupItem>
       ))}
     </ToggleGroup>
   );
@@ -36,11 +36,11 @@ export function GalleryFilterSheet({ open, onOpenChange, filter, setFilter, glob
     <ActionSheet open={open} onOpenChange={onOpenChange} title="Filter files" role="group">
       <div className="grid gap-4 px-2 py-3">
         {global && row(<>
-          <span className="text-[13px] text-muted-foreground">Channel</span>
+          <span className="text-ui text-muted-foreground">Channel</span>
           <ChannelFilter value={filter.channels} onChange={(channels) => setFilter({ channels })} />
         </>)}
         {row(<>
-          <label htmlFor={uploaderId} className="text-[13px] text-muted-foreground">Uploaded by</label>
+          <label htmlFor={uploaderId} className="text-ui text-muted-foreground">Uploaded by</label>
           <NativeSelect id={uploaderId} value={filter.uploader ?? ""} onChange={(e) => setFilter({ uploader: e.target.value || null })}>
             <NativeSelectOption value="">Anyone</NativeSelectOption>
             {uploaders.map(([id, name]) => <NativeSelectOption key={id} value={id}>{name}</NativeSelectOption>)}

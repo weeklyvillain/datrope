@@ -9,6 +9,17 @@ const PARROT_PNG = fileURLToPath(new URL("./fixtures/parrot.png", import.meta.ur
 // The Ocean palette's accent (#4aa3ff) as getComputedStyle reports it.
 const OCEAN = "rgb(74, 163, 255)";
 
+// Stands in for YouTube's IFrame API in the watch-together step: no network, and playback is just a clock.
+const FAKE_YT = `window.YT = { Player: class {
+  constructor(el, o) { this.t = o.playerVars.start || 0; this.s = -1; this.at = 0; el.dataset.fakeYt = o.videoId; setTimeout(() => o.events.onReady({ target: this }), 0); }
+  time() { return this.s === 1 ? this.t + (Date.now() - this.at) / 1000 : this.t; }
+  playVideo() { if (this.s !== 1) { this.at = Date.now(); this.s = 1; } }
+  pauseVideo() { this.t = this.time(); this.s = 2; }
+  seekTo(t) { this.t = t; this.at = Date.now(); }
+  getCurrentTime() { return this.time(); } getPlayerState() { return this.s; } getDuration() { return 600; }
+  setVolume() {} mute() {} unMute() {} destroy() {}
+} }; window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIReady();`;
+
 // A solid-colour RGB PNG of the given size (for the banner upload).
 function solidPng(width: number, height: number): Buffer {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
@@ -391,7 +402,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   const aliceMain = alice.getByRole("main", { name: "Lounge" });
   await expect(aliceMain.getByText("alice's screen", { exact: true })).toBeVisible();
   const bobLounge = bob.getByRole("main", { name: "Lounge" });
-  await bobLounge.getByRole("button", { name: "Watch" }).click();
+  await bobLounge.getByRole("button", { name: "Watch", exact: true }).click();
   await expect(bobLounge.getByText("alice's screen", { exact: true })).toBeVisible();
   await expect(bobLounge.getByText("Loading alice's screen...")).toHaveCount(0); // the video arrived
   // The local capture's MediaStreamTrack id changes on a swap; the LiveKit publication (and bob's subscription) stays.
@@ -415,6 +426,31 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await menu.getByRole("button", { name: "Stop streaming" }).click();
   await expect(aliceMain.getByText("alice's screen", { exact: true })).toHaveCount(0);
   await expect(bobLounge.getByText("alice's screen", { exact: true })).toHaveCount(0);
+
+  // Watch together: alice starts a YouTube video from the call controls; it takes bob's stage and shows in the sidebar;
+  // bob pauses and alice is told; alice stops it for everyone.
+  for (const p of [alice, bob]) {
+    await p.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ contentType: "text/javascript", body: FAKE_YT }));
+  }
+  await aliceControls.getByRole("button", { name: "Watch together" }).click();
+  const watchDialog = alice.getByRole("dialog", { name: "Watch together" });
+  await watchDialog.getByLabel("Video link").fill("https://example.com/not-a-video");
+  await watchDialog.getByRole("button", { name: "Start watching" }).click();
+  await expect(watchDialog.getByRole("alert")).toContainText("paste a YouTube video");
+  await watchDialog.getByLabel("Video link").fill("https://youtu.be/dQw4w9WgXcQ");
+  await watchDialog.getByRole("button", { name: "Start watching" }).click();
+  await expect(watchDialog).toHaveCount(0);
+  const bobWatch = bobLounge.getByRole("region", { name: "Watch together" });
+  await expect(bobWatch).toBeVisible();
+  await expect(bob.getByRole("list", { name: "In voice: Lounge" }).getByText(/^Watching · /)).toBeVisible();
+  await bobWatch.hover();
+  await bobWatch.getByRole("button", { name: "Pause" }).click();
+  const aliceWatch = aliceMain.getByRole("region", { name: "Watch together" });
+  await expect(aliceWatch.getByRole("status")).toHaveText("bob paused");
+  await expect(aliceWatch.getByRole("button", { name: "Play" })).toBeVisible(); // paused: the controls stay up
+  await aliceWatch.getByRole("button", { name: "Stop" }).click();
+  await expect(bobWatch).toHaveCount(0);
+  await expect(bob.getByRole("list", { name: "In voice: Lounge" }).getByText(/^Watching · /)).toHaveCount(0);
 
   // Soundboard: alice plays Boop; bob sees the chip on alice's tile.
   await aliceControls.getByRole("button", { name: "Soundboard" }).click();
@@ -459,7 +495,8 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(alice.getByRole("button", { name: "Hangouts" })).toBeVisible();
   const generalRow = alice.getByRole("link", { name: "general" });
   await generalRow.hover();
-  await alice.getByRole("button", { name: "Settings for general" }).click();
+  await alice.getByRole("button", { name: "Options for general" }).click();
+  await alice.getByRole("menuitem", { name: "Channel settings" }).click();
   await alice.getByLabel("Category", { exact: true }).selectOption({ label: "Hangouts" });
   // Topic: set in the same dialog; the header shows it.
   await alice.getByLabel("Topic", { exact: true }).fill("Plans and memes");
@@ -528,17 +565,17 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await expect(bannerCrop).toBeVisible();
   await bannerCrop.getByRole("button", { name: "Apply" }).click();
   await expect(alice.getByRole("region", { name: "Profile", exact: true }).locator('img[src*="/api/banners/"]')).toBeVisible();
-  await alice.keyboard.press("Escape"); // closes the settings modal
+  await alice.keyboard.press("Escape"); // leaves the settings page
   // Appearance: a theme re-skins the app and stays on this device.
   await alice.getByRole("button", { name: "Your settings" }).click();
-  await alice.getByRole("dialog").getByRole("button", { name: "Appearance" }).click();
+  await alice.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Appearance" }).click();
   await alice.getByRole("radio", { name: "Gotham" }).click();
   await expect.poll(() => alice.evaluate(() => document.documentElement.style.getPropertyValue("--sidebar"))).toBe("#0a0f14");
   await alice.getByRole("radio", { name: "Datrope" }).click();
   await alice.keyboard.press("Escape");
   // Voice & audio: push to talk shows the key instead of the sensitivity, and stays on this device.
   await alice.getByRole("button", { name: "Your settings" }).click();
-  await alice.getByRole("dialog").getByRole("button", { name: "Voice & audio" }).click();
+  await alice.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Voice & audio" }).click();
   await expect(alice.getByLabel("Input device")).toBeVisible();
   await expect(alice.getByRole("slider", { name: "Input sensitivity" })).toBeVisible();
   await alice.getByRole("radio", { name: "Push to talk" }).click();
@@ -611,7 +648,8 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
 
   // Channel settings → Webhooks: "CI" is created and its URL shown once.
   await alice.getByRole("link", { name: "alerts" }).hover();
-  await alice.getByRole("button", { name: "Settings for alerts" }).click();
+  await alice.getByRole("button", { name: "Options for alerts" }).click();
+  await alice.getByRole("menuitem", { name: "Channel settings" }).click();
   await alice.getByRole("tab", { name: "Webhooks" }).click();
   await alice.getByLabel("Webhook name").fill("CI");
   await alice.getByRole("button", { name: "Create webhook" }).click();
@@ -789,7 +827,7 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   await createChannel(alice, "Gallery", "photos");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
   const alicePhotos = alice.getByRole("main", { name: "photos" });
-  await expect(alicePhotos.getByText("No files yet.")).toBeVisible();
+  await expect(alicePhotos.getByText("No files yet", { exact: true })).toBeVisible();
   await alicePhotos.getByRole("button", { name: "Upload" }).click();
   const upload = alice.getByRole("dialog", { name: "Upload files" });
   const chooser = alice.waitForEvent("filechooser");
@@ -880,7 +918,7 @@ test("gallery sources: files from other channels, music player and playlists", a
   const patched = await alice.request.patch(`/api/channels/${galleryId}`, { headers: CSRF, data: { gallery_sources: "selected", source_channel_ids: [priv.id] } });
   expect(patched.ok()).toBe(true);
   await bob.goto(`/channels/${galleryId}`);
-  await expect(bob.getByRole("main", { name: "everything" }).getByText("No files yet.")).toBeVisible();
+  await expect(bob.getByRole("main", { name: "everything" }).getByText("No files yet", { exact: true })).toBeVisible();
 });
 
 // Runs after the first test: alice and bob exist and #general is there.

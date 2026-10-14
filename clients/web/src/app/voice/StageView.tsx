@@ -1,6 +1,7 @@
 import { EyeOff, Maximize, Volume2 } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { canFullscreen } from "@/lib/media-support";
 import { cn } from "@/lib/utils";
 import { useApp, userName } from "../../session";
@@ -13,19 +14,20 @@ import { Tile, type TileSize } from "./Tile";
 export const isWatchedScreen = (e: Entry, watching: string[]) =>
   e.tile?.source === "screen" && !e.tile.local && watching.includes(e.userId);
 
-/** The first watched screen share large, everyone else (and other watched shares) in a strip below. */
-export function StageView({ entries, speaking, watching, chip, bot, compact }: {
+/** The shared video or the first watched screen share large, everyone else (and other watched shares) in a strip below. */
+export function StageView({ entries, speaking, watching, chip, bot, watch, compact }: {
   entries: Entry[];
   speaking: string[];
   watching: string[];
   chip?: (e: Entry) => ReactNode;
   bot?: (size: TileSize) => ReactNode; // the music bot's tile, while it is in the call
+  watch?: (size: TileSize) => ReactNode; // the shared video, while one is on: it takes the stage
   compact?: boolean;
 }) {
-  const main = entries.find((e) => isWatchedScreen(e, watching));
+  const main = watch ? undefined : entries.find((e) => isWatchedScreen(e, watching));
   const rest = entries.filter((e) => e !== main);
   const ref = useRef<HTMLDivElement>(null);
-  if (!main) return null;
+  if (!main && !watch) return null;
   const fullscreen = () => {
     // Denied: nothing to do. Unsupported (iPhone Safari): no button.
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -33,13 +35,15 @@ export function StageView({ entries, speaking, watching, chip, bot, compact }: {
   };
   return (
     <div className={cn("grid gap-3", compact ? "h-[40vh] min-h-56 grid-rows-[minmax(0,1fr)_5rem]" : "h-full min-h-96 grid-rows-[minmax(0,1fr)_8rem]")}>
-      <Tile key={entryKey(main)} userId={main.userId} tile={main.tile} size="large" watching rootRef={ref} chip={chip?.(main)}>
-        <div className="absolute right-2.5 top-2.5 flex gap-1.5">
-          {canFullscreen() && <Button variant="secondary" size="icon-sm" aria-label="Full screen" onClick={fullscreen}><Maximize /></Button>}
-          <Button variant="secondary" size="sm" onClick={() => voice.watch(main.userId, false)}><EyeOff /> Stop watching</Button>
-        </div>
-        <ScreenAudio userId={main.userId} />
-      </Tile>
+      {main ? (
+        <Tile key={entryKey(main)} userId={main.userId} tile={main.tile} size="large" watching rootRef={ref} chip={chip?.(main)}>
+          <div className="absolute right-2.5 top-2.5 flex gap-1.5">
+            {canFullscreen() && <Button variant="secondary" size="icon-sm" aria-label="Full screen" onClick={fullscreen}><Maximize /></Button>}
+            <Button variant="secondary" size="sm" onClick={() => voice.watch(main.userId, false)}><EyeOff /> Stop watching</Button>
+          </div>
+          <ScreenAudio userId={main.userId} />
+        </Tile>
+      ) : watch?.("large")}
       <div className="flex min-h-0 gap-3 overflow-x-auto py-1">
         {rest.map((e) => (
           <Tile key={entryKey(e)} userId={e.userId} tile={e.tile} size="strip" speaking={speaking.includes(e.userId)}
@@ -57,13 +61,8 @@ function ScreenAudio({ userId }: { userId: string }) {
   return (
     <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-background/80 px-2.5 py-1 text-xs text-muted-foreground">
       <Volume2 className="size-3.5" aria-hidden /> Screen audio
-      <input type="range" min={0} max={200} step={5} value={volume} aria-label={`Volume of ${name}'s screen audio`}
-        onChange={(e) => setScreenVolume(userId, Number(e.target.value))}
-        className={cn(
-          "h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-muted accent-primary",
-          "[&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary",
-          "[&::-moz-range-thumb]:size-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary",
-        )} />
+      <Slider min={0} max={200} step={5} value={[volume]} aria-label={`Volume of ${name}'s screen audio`}
+            onValueChange={([x]) => setScreenVolume(userId, x)} className="w-24" />
     </div>
   );
 }

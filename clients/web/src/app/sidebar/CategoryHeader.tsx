@@ -1,7 +1,6 @@
 import type { Category } from "@datrope/core";
 import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
-import type { HTMLAttributes, Ref } from "react";
-import { RefButton } from "@/components/ref-button";
+import { useRef, type HTMLAttributes, type Ref } from "react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -9,6 +8,9 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
+import { restoreFocus } from "@/lib/focus";
+import { RefButton } from "@/components/ref-button";
+import { BareButton } from "@/components/bare-button";
 
 export type CategoryAction = "create" | "rename" | "delete" | "up" | "down";
 
@@ -24,15 +26,22 @@ export function CategoryHeader({ category, collapsed, onToggle, onAction, canMan
   canMoveDown: boolean;
   handle?: HTMLAttributes<HTMLButtonElement> & { ref?: Ref<HTMLButtonElement> };
 }) {
+  const trigger = useRef<HTMLDivElement>(null);
   return (
     <ContextMenu modal={false}>
       <ContextMenuTrigger asChild>
-        <div className="group/cat flex items-center gap-1 pt-4 pr-1 pb-1">
-          <button type="button" {...handle} aria-expanded={!collapsed} onClick={onToggle}
-            className="flex min-w-0 flex-1 items-center gap-1 rounded-sm px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50">
+        <div ref={trigger} className="group/cat flex items-center gap-1 pt-4 pr-1 pb-1">
+          <BareButton {...handle} data-tree-item="" aria-expanded={!collapsed} onClick={onToggle}
+            onKeyDown={(e) => {
+              handle?.onKeyDown?.(e);
+              if (e.defaultPrevented) return;
+              if (e.key === "ArrowRight" && collapsed) { e.preventDefault(); onToggle(); }
+              else if (e.key === "ArrowLeft" && !collapsed) { e.preventDefault(); onToggle(); }
+            }}
+            className="flex min-w-0 flex-1 items-center gap-1 rounded-sm px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
             <ChevronDown className={cn("size-3.5 flex-none transition-transform", collapsed && "-rotate-90")} aria-hidden />
             <span className="truncate">{category.name}</span>
-          </button>
+          </BareButton>
           {canManage && (
             // Not modal: its items open dialogs, which a modal menu would fight for focus.
             <DropdownMenu modal={false}>
@@ -54,7 +63,7 @@ export function CategoryHeader({ category, collapsed, onToggle, onAction, canMan
           )}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => restoreFocus(e, trigger.current, "button")}>
         <ContextMenuItem onSelect={onToggle}><ChevronDown />{collapsed ? "Expand category" : "Collapse category"}</ContextMenuItem>
         {canManage && (
           <>

@@ -1,8 +1,9 @@
 import { Perm, canCreateInvites, hasPerm, isGated } from "@datrope/core";
 import { ChevronDown, Command, FolderPlus, Plus, Settings, UserPlus } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMatch } from "react-router-dom";
 import { useLayerNavigate } from "@/hooks/use-history-layer";
+import { useTitleBarClass, useTitleBarEdges } from "@/hooks/use-title-bar-edges";
 import { ServerIcon } from "@/components/logo";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
@@ -11,10 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { restoreFocus } from "@/lib/focus";
 import { isUnread, lastVisited, rememberVisit, useApp, usePerms } from "../session";
 import { DMList } from "./DMList";
 import { toggleCommands } from "./palette/command-store";
 import { SidebarFooter } from "./SidebarFooter";
+import { ServersButton } from "./WindowControls";
 import { CategoryDialog } from "./dialogs/CategoryDialog";
 import { CreateChannelDialog } from "./dialogs/CreateChannelDialog";
 import { InviteDialog } from "./dialogs/InviteDialog";
@@ -24,7 +28,7 @@ export const SETTINGS_PERMS = [Perm.ManageServer, Perm.ManageRoles, Perm.Kick, P
 const TAB = "h-8 data-[state=active]:bg-accent data-[state=active]:font-semibold data-[state=active]:shadow-none";
 
 /** The left column: server header, Channels / Messages tabs, voice panel and profile strip. */
-export function ServerSidebar() {
+export function ServerSidebar({ className }: { className?: string }) {
   const nav = useLayerNavigate();
   const dmId = useMatch("/messages/:channelId")?.params.channelId;
   const inMessages = !!useMatch("/messages/*");
@@ -44,7 +48,7 @@ export function ServerSidebar() {
   };
 
   return (
-    <nav className="flex w-60 flex-none flex-col border-r bg-sidebar" aria-label={tab === "messages" ? "Direct messages" : "Channels"}>
+    <nav className={cn("flex w-60 flex-none flex-col border-r bg-sidebar", className)} aria-label={tab === "messages" ? "Direct messages" : "Channels"}>
       <ServerHeader />
       <Tabs value={tab} onValueChange={switchTab} className="min-h-0 flex-1 gap-0">
         <TabsList className="grid h-auto w-auto grid-cols-2 gap-1 bg-transparent px-2 pt-2 pb-0">
@@ -103,14 +107,15 @@ export function ChannelsPane() {
 function CreateMenu({ children }: { children: ReactNode }) {
   const canCreate = hasPerm(usePerms(), Perm.ManageChannels);
   const [dialog, setDialog] = useState<"create" | "category">();
+  const trigger = useRef<HTMLDivElement>(null);
   if (!canCreate) return <>{children}</>;
   return (
     <>
       <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>
-          <div className="min-h-full">{children}</div>
+          <div ref={trigger} className="min-h-full">{children}</div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => restoreFocus(e, trigger.current, "a")}>
           <ContextMenuItem onSelect={() => setDialog("create")}><Plus />Create channel</ContextMenuItem>
           <ContextMenuItem onSelect={() => setDialog("category")}><FolderPlus />Create category</ContextMenuItem>
         </ContextMenuContent>
@@ -130,6 +135,8 @@ export function ServerHeader() {
   const isAdmin = useApp((s) => !!s.me?.is_admin);
   const canInvite = useApp(canCreateInvites);
   const [dialog, setDialog] = useState<"invite" | "create" | "category">();
+  const edges = useTitleBarEdges();
+  const bandClass = useTitleBarClass();
   if (!sv) return null;
   const canSettings = isAdmin || SETTINGS_PERMS.some((p) => hasPerm(perms, p)); // instance admins reach Sign-ups and Uploads
   const canCreate = hasPerm(perms, Perm.ManageChannels);
@@ -144,10 +151,11 @@ export function ServerHeader() {
       </span>
     </>
   );
-  if (!canInvite && !canSettings && !canCreate) return <div className={header}>{content}</div>;
+  if (!canInvite && !canSettings && !canCreate) return <div ref={edges} data-titlebar-drag className={cn(header, bandClass)}><ServersButton />{content}</div>;
   return (
     <>
-      <div className="flex h-14 flex-none items-center border-b">
+      <div ref={edges} data-titlebar-drag className={cn("flex h-14 flex-none items-center border-b", bandClass)}>
+        <span className="flex flex-none pl-2 empty:hidden"><ServersButton /></span>
         {/* Not modal: its items open dialogs, which a modal menu would fight for focus. */}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger aria-label={`${sv.name} menu`}

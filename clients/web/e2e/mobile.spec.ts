@@ -55,8 +55,11 @@ test("Return adds a line on touch and Send sends a multi-line message", async ({
   await box.press("Enter");
   await box.pressSequentially(MARK);
   await expect(box).toHaveValue(`line one\n${MARK}`);
+  // The message shows before the server has it: wait for it to be stored, or the next test may not find it.
+  const stored = page.waitForResponse((r) => r.request().method() === "POST" && /\/api\/channels\/\d+\/messages$/.test(r.url()));
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByRole("log", { name: "Messages" }).getByText(MARK)).toBeVisible();
+  expect((await stored).status()).toBe(201);
 });
 
 test("long-press opens the action sheet and adds the first reaction", async ({ page }) => {

@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";
 import { repliesText, timeAgo } from "./threads";
+import { BareButton } from "@/components/bare-button";
 
 function Participant({ user, className }: { user: PublicUser; className?: string }) {
   return <UserAvatar user={useUser(user.id, user) ?? user} size="xs" className={className} />;
@@ -31,9 +32,9 @@ export function ThreadSummaryLine({ summary }: { summary: Summary }) {
 /** The link-style button under a message that has a thread; opens the thread panel. */
 export function ThreadSummary({ summary, onOpen }: { summary: Summary; onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen}
-      className="mt-1.5 inline-flex max-w-full items-center gap-2 rounded-lg border bg-card py-1 pl-1 pr-2.5 text-left text-[13px] outline-none hover:border-ring focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+    <BareButton onClick={onOpen}
+      className="mt-1.5 inline-flex max-w-full items-center gap-2 rounded-lg border bg-card py-1 pl-1 pr-2.5 text-left text-ui outline-none hover:border-ring focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring">
       <ThreadSummaryLine summary={summary} />
-    </button>
+    </BareButton>
   );
 }

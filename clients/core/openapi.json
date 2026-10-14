@@ -3648,6 +3648,20 @@
         ],
         "type": "object"
       },
+      "SeekRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "description": "Seconds into the video",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "position"
+        ],
+        "type": "object"
+      },
       "SelfStateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4146,6 +4160,21 @@
           "channel_id",
           "user_id",
           "sound_id"
+        ],
+        "type": "object"
+      },
+      "StartRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "description": "A YouTube video, or a Twitch channel or VOD",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
         ],
         "type": "object"
       },
@@ -4946,6 +4975,105 @@
         },
         "required": [
           "positions"
+        ],
+        "type": "object"
+      },
+      "WatchState": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "youtube",
+              "twitch_live",
+              "twitch_vod"
+            ],
+            "type": "string"
+          },
+          "last_action": {
+            "enum": [
+              "start",
+              "play",
+              "pause",
+              "seek"
+            ],
+            "type": "string"
+          },
+          "last_actor": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "position": {
+            "description": "Seconds into the video at updated_at; always 0 for a live stream",
+            "format": "double",
+            "type": "number"
+          },
+          "started_by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "title": {
+            "description": "Filled in shortly after starting, when the site has one",
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "Server time (Unix ms) of position",
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "description": "The canonical link",
+            "type": "string"
+          },
+          "video_id": {
+            "description": "The YouTube video ID, the Twitch login, or the Twitch VOD ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "url",
+          "kind",
+          "video_id",
+          "paused",
+          "position",
+          "updated_at",
+          "started_by",
+          "last_actor",
+          "last_action"
+        ],
+        "type": "object"
+      },
+      "WatchUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "server_now": {
+            "description": "Server time (Unix ms) when this was sent, to work out the position with",
+            "format": "int64",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WatchState",
+            "description": "Absent when nothing is on"
+          }
+        },
+        "required": [
+          "channel_id",
+          "server_now"
         ],
         "type": "object"
       },
@@ -6597,6 +6725,285 @@
         ],
         "tags": [
           "music"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/watch": {
+      "delete": {
+        "operationId": "stop-watch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      },
+      "get": {
+        "operationId": "get-watch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchUpdate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      },
+      "post": {
+        "operationId": "start-watch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchUpdate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/watch/pause": {
+      "post": {
+        "operationId": "pause-watch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchUpdate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/watch/play": {
+      "post": {
+        "operationId": "play-watch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchUpdate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/watch/seek": {
+      "post": {
+        "operationId": "seek-watch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeekRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchUpdate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
         ]
       }
     },
@@ -11953,6 +12360,9 @@
     },
     "VoiceState": {
       "$ref": "#/components/schemas/VoiceState"
+    },
+    "WatchUpdate": {
+      "$ref": "#/components/schemas/WatchUpdate"
     }
   }
 }

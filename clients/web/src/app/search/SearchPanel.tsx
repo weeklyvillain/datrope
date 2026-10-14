@@ -1,5 +1,5 @@
 import { clearOperators, operatorValue, type ChannelRef, type SearchFilters, type SearchResult } from "@datrope/core";
-import { Search } from "lucide-react";
+import { Search, SearchX } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { client, displayName, dmName, errorText, roleColor, useApp } from "../../session";
@@ -17,6 +17,8 @@ import { SidePanel } from "../side-panel/SidePanel";
 import { WebhookBadge } from "../WebhookAuthor";
 import { SearchChips } from "./SearchChips";
 import { clearSearchResults, resultsStore, setSearchResults, updateSearchResults, useSearchResults } from "./results";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { BareButton } from "@/components/bare-button";
 
 /** Nothing to search for yet: empty, or only operators without a value (the hint just inserted "in:#"). */
 const isBlank = (q: string) => q.split(/\s+/).every((t) => !t || /^(from|in|has|before|after):[#@]?$/i.test(t));
@@ -161,10 +163,15 @@ function NoResults({ query, filters, onClear }: { query: string; filters: Search
   const text = (terms.length > 0 ? `Nothing matches "${terms.join(" ")}"` : "Nothing matches these filters")
     + (fromName && terms.length > 0 ? ` from ${fromName}` : "") + ".";
   return (
-    <div className="px-6 py-8 text-center">
-      <p className="m-0 mb-3 text-sm text-muted-foreground">{text}</p>
-      {hasOperators(query) && <Button variant="outline" size="sm" onClick={onClear}>Clear filters</Button>}
-    </div>
+    <Empty className="px-6 py-8 md:p-8">
+      <EmptyHeader>
+        <EmptyMedia variant="icon"><SearchX /></EmptyMedia>
+        <EmptyTitle>Nothing found</EmptyTitle>
+        <EmptyDescription>Try fewer words or a different filter.</EmptyDescription>
+        <p className="sr-only">{text}</p>
+      </EmptyHeader>
+      {hasOperators(query) && <EmptyContent><Button variant="outline" size="sm" onClick={onClear}>Clear filters</Button></EmptyContent>}
+    </Empty>
   );
 }
 
@@ -183,8 +190,8 @@ function ResultRow({ result, terms, active, onOpen }: { result: SearchResult; te
   const nameId = `sr-name-${m.id}`;
   const textId = `sr-text-${m.id}`;
   return (
-    <button type="button" onClick={onOpen} aria-labelledby={`${nameId} ${textId}`}
-      className={cn("mx-2 flex gap-2.5 rounded-lg border border-transparent p-2 text-left outline-none hover:border-border hover:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50",
+    <BareButton onClick={onOpen} aria-labelledby={`${nameId} ${textId}`}
+      className={cn("mx-2 flex gap-2.5 rounded-lg border border-transparent p-2 text-left outline-none hover:border-border hover:bg-background focus-visible:ring-2 focus-visible:ring-ring",
         active && "border-border bg-background")}>
       {m.author ? <UserAvatar user={author} size="md" /> : <WebhookAvatar avatarUrl={m.webhook?.avatar_url} size="md" />}
       <span className="block min-w-0 flex-1">
@@ -203,6 +210,6 @@ function ResultRow({ result, terms, active, onOpen }: { result: SearchResult; te
           <span id={textId} className="block truncate text-sm text-muted-foreground">📎 {file}</span>
         ) : null}
       </span>
-    </button>
+    </BareButton>
   );
 }

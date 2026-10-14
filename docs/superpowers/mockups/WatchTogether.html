@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Datrope: watch together</title>
+<style>
+/* Tokens copied from clients/web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --popover: #1c1c1c;
+  --primary: #2ecc71; --primary-foreground: #131313; --secondary: #424242;
+  --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a;
+  --destructive: #e74c3c; --border: #424242; --sidebar: #0d0d0d;
+  --online: #2ecc71; --idle: #d39b14; --offline: #6b7075;
+  --avatar-1: #34495e; --avatar-2: #5b3a6e; --avatar-3: #2d5a46; --avatar-4: #6e4b2a; --avatar-5: #2a4f6e; --avatar-6: #6e2a3f;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1.frame { margin: 0; padding: 18px 16px 4px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); background: var(--sidebar); }
+p.note { margin: 0; padding: 4px 16px 14px; font-size: 13px; color: var(--muted-foreground); background: var(--sidebar); max-width: 1100px; }
+p.note b { color: var(--foreground); }
+.app { display: flex; height: 720px; border-bottom: 1px solid var(--border); overflow: hidden; position: relative; }
+.side { width: 240px; flex: none; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.side .srv { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 12px; border-bottom: 1px solid var(--border); font-weight: 600; flex: none; }
+.side .tree { flex: 1; min-height: 0; padding: 8px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.chan { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted-foreground); font-size: 15px; }
+.chan.on { background: var(--accent); color: var(--foreground); }
+.sub { display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 30px; font-size: 13px; color: var(--muted-foreground); }
+.label { padding: 14px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.profile { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 10px; border-top: 1px solid var(--border); background: var(--sidebar); flex: none; font-size: 14px; }
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+header.bar { display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); background: var(--card); flex: none; }
+header.bar h2 { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--foreground); }
+.ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico-lg { width: 20px; height: 20px; }
+.av { display: inline-grid; place-items: center; border-radius: 999px; color: var(--foreground); font-weight: 600; flex: none; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 14px; font-weight: 500; }
+.btn.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+.btn.ghost { border-color: transparent; }
+.btn.icon { width: 32px; padding: 0; justify-content: center; }
+.btn.sm { height: 28px; font-size: 13px; padding: 0 10px; }
+.ctrl { display: inline-grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; border: 1px solid var(--border); background: var(--muted); color: var(--foreground); }
+.ctrl.on { background: var(--foreground); color: var(--background); }
+.ctrl.leave { background: var(--destructive); color: var(--background); border-color: transparent; }
+.tile { position: relative; border-radius: 12px; overflow: hidden; background: var(--card); border: 1px solid var(--border); display: grid; place-items: center; }
+.tile.speaking { box-shadow: 0 0 0 3px var(--online); border-color: transparent; }
+.nameplate { position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 6px; background: rgba(13,13,13,.78); font-size: 12px; font-weight: 500; }
+/* Fake video frame: a stand-in for the embedded YouTube/Twitch player. */
+.video { position: relative; background: radial-gradient(120% 90% at 30% 30%, #2d5a46 0%, #1b2f3a 45%, #0d0d0d 100%); overflow: hidden; }
+.video::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 2px, transparent 2px 4px); }
+.video .fake { position: absolute; left: 8%; bottom: 18%; font-size: 38px; font-weight: 800; color: rgba(255,255,255,.12); letter-spacing: -.02em; white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.badge.live { background: var(--destructive); color: var(--background); }
+.badge.yt { background: rgba(13,13,13,.78); color: var(--foreground); border: 1px solid var(--border); }
+.scrub { position: relative; height: 4px; border-radius: 999px; background: var(--muted); }
+.scrub > i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--primary); }
+.scrub > b { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 999px; background: var(--foreground); }
+.tnum { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted-foreground); }
+.toast { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--popover); border: 1px solid var(--border); font-size: 13px; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+.dialog { position: absolute; z-index: 10; width: 440px; border-radius: 12px; border: 1px solid var(--border); background: var(--popover); box-shadow: 0 24px 64px rgba(0,0,0,.6); padding: 20px; display: grid; gap: 14px; }
+.input { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--input, var(--border)); background: var(--background); font-size: 14px; }
+.input.focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(46,204,113,.2); }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); z-index: 9; }
+.msg { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 10px; padding: 6px 12px; font-size: 14px; }
+.who { font-weight: 600; color: var(--foreground); font-size: 14px; }
+.sys { display: flex; align-items: center; gap: 8px; padding: 4px 12px; font-size: 12px; color: var(--muted-foreground); }
+.preview { margin-top: 6px; max-width: 420px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 10px 12px; display: grid; gap: 8px; }
+.kbd { font-size: 11px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted-foreground); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></symbol>
+  <symbol id="i-head" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+  <symbol id="i-screen" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M10.7 13.3a16 16 0 0 0 3.4 2.6l1.2-1.2a2 2 0 0 1 2.1-.5 13 13 0 0 0 2.8.7 2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 4.2 2 2 0 0 1 5.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.9.7 2.8a2 2 0 0 1-.5 2.1L9 9.8"/><line x1="22" x2="2" y1="2" y2="22"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></symbol>
+  <symbol id="i-spk" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+</svg>
+
+<!-- ================================================================== -->
+<h1 class="frame">A · Stage tile</h1>
+<p class="note">Watch-together is <b>one more tile in the call</b>, like a screen share or the music bot. Starting it pins the tile to the stage, and the people in the call move to the strip underneath. The controls sit in a bar under the video, and a small toast says who did what. <b>Start:</b> a new “Watch” button in the call controls opens a link dialog (shown on the right of the second frame). Unpinning the tile puts it back in the normal grid.</p>
+<div class="app">
+  <aside class="side">
+    <div class="srv"><span class="av" style="width:28px;height:28px;background:var(--primary);color:var(--primary-foreground)">D</span>Datrope</div>
+    <div class="tree">
+      <div class="label">Text</div>
+      <div class="chan"><svg class="ico"><use href="#i-hash"/></svg>general</div>
+      <div class="chan"><svg class="ico"><use href="#i-hash"/></svg>clips</div>
+      <div class="label">Voice</div>
+      <div class="chan on"><svg class="ico"><use href="#i-spk"/></svg>Lounge</div>
+      <div class="sub"><svg class="ico" style="width:13px;height:13px;color:var(--primary)"><use href="#i-tv"/></svg><span style="color:var(--primary)">Watching · xQc</span></div>
+      <div class="sub"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-2)">A</span>Anna</div>
+      <div class="sub"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-3)">F</span>Filip</div>
+      <div class="sub"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-4)">M</span>Max</div>
+      <div class="chan"><svg class="ico"><use href="#i-spk"/></svg>Gaming</div>
+    </div>
+    <div class="profile"><span class="av" style="width:32px;height:32px;background:var(--avatar-3)">F</span>Filip</div>
+  </aside>
+  <main>
+    <header class="bar"><svg class="ico"><use href="#i-spk"/></svg><h2>Lounge</h2><span class="tnum" style="margin-left:6px">3 in call</span></header>
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:12px">
+      <!-- stage -->
+      <section class="tile video" style="flex:1;min-height:0;display:block;border-color:var(--primary)">
+        <span class="fake">twitch.tv/xqc</span>
+        <div style="position:absolute;left:12px;top:12px;display:flex;gap:6px;z-index:1"><span class="badge live">● LIVE</span><span class="badge yt">xQc · Just Chatting</span></div>
+        <div style="position:absolute;right:12px;top:12px;z-index:1"><span class="toast"><span class="av" style="width:18px;height:18px;font-size:10px;background:var(--avatar-2)">A</span>Anna started watching xQc</span></div>
+        <!-- control bar -->
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:1;display:flex;align-items:center;gap:8px;padding:10px 12px;background:linear-gradient(transparent, rgba(13,13,13,.92))">
+          <button class="btn icon" style="background:var(--primary);color:var(--primary-foreground);border:0"><svg class="ico"><use href="#i-pause"/></svg></button>
+          <span class="tnum" style="color:var(--destructive);font-weight:600">LIVE</span>
+          <span style="flex:1"></span>
+          <svg class="ico"><use href="#i-vol"/></svg><div class="scrub" style="width:80px"><i style="width:70%"></i></div>
+          <button class="btn sm"><svg class="ico"><use href="#i-swap"/></svg>Change</button>
+          <button class="btn sm"><svg class="ico"><use href="#i-x"/></svg>Stop</button>
+          <button class="btn icon ghost"><svg class="ico"><use href="#i-min"/></svg></button>
+        </div>
+      </section>
+      <!-- strip -->
+      <div style="display:flex;gap:10px;height:110px;flex:none">
+        <div class="tile speaking" style="aspect-ratio:16/9;height:100%"><span class="av" style="width:48px;height:48px;background:var(--avatar-2)">A</span><span class="nameplate">Anna</span></div>
+        <div class="tile" style="aspect-ratio:16/9;height:100%"><span class="av" style="width:48px;height:48px;background:var(--avatar-3)">F</span><span class="nameplate">Filip</span></div>
+        <div class="tile" style="aspect-ratio:16/9;height:100%"><span class="av" style="width:48px;height:48px;background:var(--avatar-4)">M</span><span class="nameplate"><svg class="ico" style="width:12px;height:12px;color:var(--destructive)"><use href="#i-mic"/></svg>Max</span></div>
+      </div>
+      <!-- call controls -->
+      <div style="display:flex;justify-content:center;gap:10px;flex:none">
+        <span class="ctrl"><svg class="ico ico-lg"><use href="#i-mic"/></svg></span>
+        <span class="ctrl"><svg class="ico ico-lg"><use href="#i-head"/></svg></span>
+        <span class="ctrl"><svg class="ico ico-lg"><use href="#i-cam"/></svg></span>
+        <span class="ctrl"><svg class="ico ico-lg"><use href="#i-screen"/></svg></span>
+        <span class="ctrl on" title="Watch together"><svg class="ico ico-lg"><use href="#i-tv"/></svg></span>
+        <span class="ctrl leave"><svg class="ico ico-lg"><use href="#i-phone"/></svg></span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<p class="note" style="padding-top:14px"><b>A, second state:</b> a YouTube video (seekable) next to the start dialog. YouTube gets a real scrubber with times. Twitch live gets only play/pause and the LIVE marker.</p>
+<div class="app" style="height:420px">
+  <main style="flex-direction:row;gap:12px;padding:12px;align-items:stretch">
+    <section class="tile video" style="flex:1;display:block">
+      <span class="fake">Ludwig: Mogul Moves</span>
+      <div style="position:absolute;left:12px;top:12px;z-index:1"><span class="badge yt">▶ YouTube · Ludwig: Mogul Moves</span></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:1;display:grid;gap:8px;padding:10px 12px;background:linear-gradient(transparent, rgba(13,13,13,.92))">
+        <div class="scrub"><i style="width:38%"></i><b style="left:38%"></b></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn icon" style="background:var(--primary);color:var(--primary-foreground);border:0"><svg class="ico"><use href="#i-play"/></svg></button>
+          <span class="tnum">12:41 / 33:10</span>
+          <span class="tnum" style="margin-left:8px">Paused by Max</span>
+          <span style="flex:1"></span>
+          <svg class="ico"><use href="#i-vol"/></svg><div class="scrub" style="width:80px"><i style="width:70%"></i></div>
+          <button class="btn sm"><svg class="ico"><use href="#i-swap"/></svg>Change</button>
+          <button class="btn sm"><svg class="ico"><use href="#i-x"/></svg>Stop</button>
+        </div>
+      </div>
+    </section>
+    <div class="dialog" style="position:relative;align-self:center">
+      <div style="display:flex;align-items:center;gap:8px"><svg class="ico ico-lg" style="color:var(--primary)"><use href="#i-tv"/></svg><b style="color:var(--foreground);font-size:16px">Watch together</b></div>
+      <p style="margin:0;font-size:13px;color:var(--muted-foreground)">Paste a YouTube video or a Twitch channel or VOD. Everyone in Lounge watches it in sync, and anyone can pause, seek or change it.</p>
+      <div class="input focus"><svg class="ico" style="color:var(--muted-foreground)"><use href="#i-link"/></svg>https://youtu.be/dQw4w9WgXcQ</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn ghost">Cancel</button><button class="btn primary">Start watching</button></div>
+    </div>
+  </main>
+</div>
+
+<!-- ================================================================== -->
+<h1 class="frame">B · Theater</h1>
+<p class="note">Starting a watch turns the voice view into a <b>theater</b>. The video fills the main area edge to edge. The people in the call float as small avatar bubbles at the top right, and a speaking ring shows who's talking. A rail on the right holds <b>the voice channel's text chat with sync events mixed in</b> (“Max seeked to 12:41”), so reactions sit next to the video. The controls fade in on hover. <b>Start:</b> a link box at the top of the rail, or paste a link in the chat and choose “Watch”. Esc or “Exit theater” goes back to the grid, and the watch keeps going as a tile.</p>
+<div class="app">
+  <aside class="side" style="width:72px;align-items:center;padding-top:10px;gap:8px">
+    <span class="av" style="width:40px;height:40px;background:var(--primary);color:var(--primary-foreground)">D</span>
+    <span style="width:32px;height:1px;background:var(--border)"></span>
+    <span class="chan on" style="padding:8px"><svg class="ico ico-lg"><use href="#i-spk"/></svg></span>
+    <span class="chan" style="padding:8px"><svg class="ico ico-lg"><use href="#i-hash"/></svg></span>
+  </aside>
+  <main style="flex-direction:row">
+    <section class="video" style="flex:1;min-width:0;display:block">
+      <span class="fake" style="font-size:56px">Ludwig: Mogul Moves</span>
+      <!-- floating call members -->
+      <div style="position:absolute;top:14px;right:14px;z-index:2;display:flex;gap:6px;padding:6px;border-radius:999px;background:rgba(13,13,13,.7);border:1px solid var(--border)">
+        <span class="av" style="width:34px;height:34px;background:var(--avatar-2);box-shadow:0 0 0 2px var(--online)">A</span>
+        <span class="av" style="width:34px;height:34px;background:var(--avatar-3)">F</span>
+        <span class="av" style="width:34px;height:34px;background:var(--avatar-4);opacity:.6">M</span>
+      </div>
+      <div style="position:absolute;top:14px;left:14px;z-index:2;display:flex;gap:8px;align-items:center">
+        <button class="btn sm" style="background:rgba(13,13,13,.7)"><svg class="ico"><use href="#i-min"/></svg>Exit theater <span class="kbd">Esc</span></button>
+        <span class="badge yt">▶ YouTube</span>
+      </div>
+      <!-- hover controls -->
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:2;display:grid;gap:10px;padding:16px 20px 18px;background:linear-gradient(transparent, rgba(13,13,13,.95))">
+        <div style="display:flex;align-items:baseline;gap:10px"><b style="font-size:18px;color:var(--foreground)">Mogul Moves: I bought a hotel</b><span class="tnum">started by Anna</span></div>
+        <div class="scrub" style="height:6px"><i style="width:38%"></i><b style="left:38%;width:14px;height:14px;margin:-7px 0 0 -7px"></b>
+          <span style="position:absolute;left:52%;top:-26px;transform:translateX(-50%)" class="toast">Max · 17:20</span></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="ctrl" style="width:40px;height:40px;background:var(--primary);color:var(--primary-foreground);border:0"><svg class="ico ico-lg"><use href="#i-pause"/></svg></span>
+          <span class="tnum" style="font-size:13px">12:41 / 33:10</span>
+          <span style="flex:1"></span>
+          <span class="ctrl" style="width:40px;height:40px"><svg class="ico"><use href="#i-mic"/></svg></span>
+          <span class="ctrl" style="width:40px;height:40px"><svg class="ico"><use href="#i-head"/></svg></span>
+          <span class="ctrl leave" style="width:40px;height:40px"><svg class="ico"><use href="#i-phone"/></svg></span>
+          <span style="width:1px;height:28px;background:var(--border)"></span>
+          <svg class="ico"><use href="#i-vol"/></svg><div class="scrub" style="width:90px"><i style="width:70%"></i></div>
+          <button class="btn sm"><svg class="ico"><use href="#i-x"/></svg>Stop</button>
+        </div>
+      </div>
+    </section>
+    <!-- rail -->
+    <aside style="width:320px;flex:none;border-left:1px solid var(--border);background:var(--card);display:flex;flex-direction:column">
+      <div style="padding:12px;border-bottom:1px solid var(--border);display:grid;gap:8px">
+        <h3 style="margin:0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Change video</h3>
+        <div class="input"><svg class="ico" style="color:var(--muted-foreground)"><use href="#i-link"/></svg><span style="color:var(--muted-foreground)">Paste a YouTube or Twitch link…</span></div>
+      </div>
+      <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:8px">
+        <div class="sys"><svg class="ico" style="width:13px;height:13px"><use href="#i-tv"/></svg>Anna started <b style="color:var(--foreground)">Mogul Moves</b></div>
+        <div class="msg"><span class="av" style="width:32px;height:32px;background:var(--avatar-2)">A</span><div><span class="who">Anna</span><div>ok this one is actually good</div></div></div>
+        <div class="msg"><span class="av" style="width:32px;height:32px;background:var(--avatar-4)">M</span><div><span class="who">Max</span><div>skip the sponsor</div></div></div>
+        <div class="sys"><svg class="ico" style="width:13px;height:13px"><use href="#i-sync"/></svg>Max seeked to 12:41</div>
+        <div class="msg"><span class="av" style="width:32px;height:32px;background:var(--avatar-3)">F</span><div><span class="who">Filip</span><div>LMAO the hotel lobby 😭</div></div></div>
+      </div>
+      <div style="padding:10px;border-top:1px solid var(--border)"><div class="input"><span style="color:var(--muted-foreground)">Message #Lounge</span></div></div>
+    </aside>
+  </main>
+</div>
+
+<!-- ================================================================== -->
+<h1 class="frame">C · Pop-out mini-player</h1>
+<p class="note">Watching <b>isn't tied to the voice view</b>. It's a floating mini-player that stays on screen while you read other channels (the same idea as the global music player). You can drag it to any corner, resize it, or expand it into the stage. <b>Start:</b> every YouTube or Twitch link preview in chat gets a <b>“Watch together in Lounge”</b> button while you're in a call. The sidebar voice panel also shows what's on, and has a one-click “Join watch” for someone who closed the player. Below: you're reading #clips while Lounge watches xQc.</p>
+<div class="app">
+  <aside class="side">
+    <div class="srv"><span class="av" style="width:28px;height:28px;background:var(--primary);color:var(--primary-foreground)">D</span>Datrope</div>
+    <div class="tree">
+      <div class="label">Text</div>
+      <div class="chan"><svg class="ico"><use href="#i-hash"/></svg>general</div>
+      <div class="chan on"><svg class="ico"><use href="#i-hash"/></svg>clips</div>
+      <div class="label">Voice</div>
+      <div class="chan"><svg class="ico"><use href="#i-spk"/></svg>Lounge</div>
+      <div class="sub"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-2)">A</span>Anna</div>
+      <div class="sub"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-3)">F</span>Filip</div>
+      <div class="sub"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-4)">M</span>Max</div>
+    </div>
+    <!-- voice connection panel with watch row -->
+    <div style="border-top:1px solid var(--border);padding:10px;display:grid;gap:8px;font-size:13px">
+      <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:999px;background:var(--online)"></span><b style="color:var(--online)">Voice connected</b><span style="color:var(--muted-foreground)">· Lounge</span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:var(--accent)">
+        <svg class="ico" style="color:var(--primary)"><use href="#i-tv"/></svg>
+        <div style="min-width:0;flex:1"><div style="color:var(--foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">xQc · Just Chatting</div><div class="tnum">Live · 3 watching</div></div>
+        <button class="btn sm icon"><svg class="ico"><use href="#i-max"/></svg></button>
+      </div>
+    </div>
+    <div class="profile"><span class="av" style="width:32px;height:32px;background:var(--avatar-3)">F</span>Filip</div>
+  </aside>
+  <main>
+    <header class="bar"><svg class="ico"><use href="#i-hash"/></svg><h2>clips</h2></header>
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:12px">
+      <div class="msg" style="padding:8px 16px"><span class="av" style="width:32px;height:32px;background:var(--avatar-4)">M</span><div><span class="who">Max</span> <span class="tnum">Today 21:04</span><div>this vod is insane <a href="#">https://www.twitch.tv/videos/2281904417</a></div>
+        <div class="preview">
+          <div style="display:flex;gap:10px">
+            <div class="video" style="width:160px;aspect-ratio:16/9;border-radius:6px;flex:none"></div>
+            <div style="min-width:0"><div class="tnum">Twitch</div><b style="color:var(--foreground);font-size:14px">xQc reacts to the hotel episode</b><div class="tnum">VOD · 2:14:09</div></div>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn sm"><svg class="ico"><use href="#i-play"/></svg>Play here</button><button class="btn sm primary"><svg class="ico"><use href="#i-tv"/></svg>Watch together in Lounge</button></div>
+        </div>
+      </div></div>
+      <div class="msg" style="padding:8px 16px"><span class="av" style="width:32px;height:32px;background:var(--avatar-2)">A</span><div><span class="who">Anna</span> <span class="tnum">Today 21:05</span><div>after this stream ends 🙏</div></div></div>
+      <div style="padding:8px 16px 0"><div class="input" style="height:44px"><span style="color:var(--muted-foreground)">Message #clips</span></div></div>
+    </div>
+    <!-- floating mini player -->
+    <section style="position:absolute;right:20px;bottom:84px;width:400px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:var(--card);box-shadow:0 24px 64px rgba(0,0,0,.6);z-index:5">
+      <div style="display:flex;align-items:center;gap:6px;height:34px;padding:0 6px 0 8px;font-size:12px;border-bottom:1px solid var(--border)">
+        <svg class="ico" style="width:14px;height:14px;color:var(--muted-foreground);cursor:grab"><use href="#i-grip"/></svg>
+        <span style="color:var(--foreground);font-weight:600">Lounge</span><span class="tnum">· Watching together</span>
+        <span style="flex:1"></span>
+        <div style="display:flex;margin-right:4px"><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-2);box-shadow:0 0 0 2px var(--online)">A</span><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-3);margin-left:-5px">F</span><span class="av" style="width:20px;height:20px;font-size:10px;background:var(--avatar-4);margin-left:-5px">M</span></div>
+        <button class="btn icon ghost" style="width:26px;height:26px"><svg class="ico" style="width:14px;height:14px"><use href="#i-max"/></svg></button>
+        <button class="btn icon ghost" style="width:26px;height:26px"><svg class="ico" style="width:14px;height:14px"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="video" style="aspect-ratio:16/9"><span class="fake" style="font-size:22px">twitch.tv/xqc</span>
+        <div style="position:absolute;left:8px;top:8px;z-index:1"><span class="badge live">● LIVE</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px">
+        <button class="btn icon" style="width:28px;height:28px;background:var(--primary);color:var(--primary-foreground);border:0"><svg class="ico" style="width:14px;height:14px"><use href="#i-pause"/></svg></button>
+        <div style="min-width:0;flex:1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--foreground)">xQc</span> <span class="tnum">· Just Chatting</span></div>
+        <svg class="ico" style="width:14px;height:14px"><use href="#i-vol"/></svg><div class="scrub" style="width:56px"><i style="width:70%"></i></div>
+        <button class="btn sm" style="height:26px"><svg class="ico" style="width:13px;height:13px"><use href="#i-x"/></svg>Stop</button>
+      </div>
+    </section>
+    <div style="position:absolute;right:20px;bottom:44px;z-index:6"><span class="toast"><span class="av" style="width:18px;height:18px;font-size:10px;background:var(--avatar-2)">A</span>Anna changed it to xQc (live)</span></div>
+  </main>
+</div>
+
+</body>
+</html>

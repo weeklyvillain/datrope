@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { RefButton } from "@/components/ref-button";
 import { cn } from "@/lib/utils";
 import { useApp } from "../../session";
+import { BareButton } from "@/components/bare-button";
 
 const LISTED = new Set(["text", "announcement", "forum", "gallery", "voice", "webhook"]);
 
@@ -20,7 +21,7 @@ export function ChannelFilter({ value, onChange }: { value: string[]; onChange: 
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <RefButton variant="outline" size="sm" aria-label={`In channel: ${label}`}
-          className={cn("h-7 gap-1.5 rounded-full text-[13px] font-normal", value.length > 0 && "border-primary bg-primary/10 text-primary")}>
+          className={cn("h-7 gap-1.5 rounded-full text-ui font-normal", value.length > 0 && "border-primary bg-primary/10 text-primary")}>
           In channel: {label}<ChevronDown className="size-3.5" />
         </RefButton>
       </PopoverTrigger>
@@ -38,8 +39,8 @@ export function ChannelFilter({ value, onChange }: { value: string[]; onChange: 
             </CommandGroup>
           </CommandList>
           {value.length > 0 && (
-            <button type="button" className="w-full border-t px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
-              onClick={() => onChange([])}>Clear selection</button>
+            <BareButton className="w-full border-t px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => onChange([])}>Clear selection</BareButton>
           )}
         </Command>
       </PopoverContent>

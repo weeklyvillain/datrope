@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { RefButton } from "@/components/ref-button";
 import { player, usePlayer } from "./player-store";
 import type { Track } from "./queue";
+import { BareButton } from "@/components/bare-button";
 
 export function QueuePopover() {
   const queue = usePlayer((s) => s.queue);
@@ -53,7 +54,7 @@ function Row({ track, index, first, last }: { track: Track; index: number; first
   return (
     <li ref={s.setNodeRef} style={{ transform: CSS.Transform.toString(s.transform), transition: s.transition }}
       className="group flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-accent">
-      <button type="button" aria-label={`Move ${track.title}`} className="cursor-grab touch-none text-muted-foreground" {...s.attributes} {...s.listeners}><GripVertical className="size-4" /></button>
+      <BareButton aria-label={`Move ${track.title}`} className="cursor-grab touch-none text-muted-foreground" {...s.attributes} {...s.listeners}><GripVertical className="size-4" /></BareButton>
       <span className="min-w-0 flex-1"><span className="block truncate text-sm">{track.title}</span><span className="block truncate text-xs text-muted-foreground">{track.subtitle}</span></span>
       <TrackMenu track={track} index={index} first={first} last={last} />
     </li>

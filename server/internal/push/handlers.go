@@ -83,15 +83,20 @@ const background = "#131313"
 // of Datrope's. Android builds the installed app from them; a full-size upload
 // listed as "any" is the likely reason it never reached the app drawer.
 func serverIcons(iconURL string) []manifestIcon {
-	v := ""
-	if u, err := url.Parse(iconURL); err == nil {
-		v = "?v=" + url.QueryEscape(u.Query().Get("v"))
-	}
+	v := iconVersion(iconURL)
 	return []manifestIcon{
 		{Src: "/api/server/icon/192.png" + v, Sizes: "192x192", Type: "image/png"},
 		{Src: "/api/server/icon/512.png" + v, Sizes: "512x512", Type: "image/png"},
 		{Src: "/api/server/icon/maskable-512.png" + v, Sizes: "512x512", Type: "image/png", Purpose: "maskable"},
 	}
+}
+
+// iconVersion is the server icon URL's cache-busting query, for its resized copies.
+func iconVersion(iconURL string) string {
+	if u, err := url.Parse(iconURL); err == nil {
+		return "?v=" + url.QueryEscape(u.Query().Get("v"))
+	}
+	return ""
 }
 
 // ManifestHandler serves the PWA manifest, named after this instance's server

@@ -6,7 +6,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Toggle } from "@/components/ui/toggle";
 import type { PostSort } from "./filter";
 
-const chip = "h-9 rounded-full px-4 text-[13px] font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
+const chip = "h-9 rounded-full px-4 text-ui font-normal text-muted-foreground data-[state=on]:border-foreground data-[state=on]:font-semibold data-[state=on]:text-foreground";
 
 /** Phone version of the forum's filter bar: search, tag chips and sort in a bottom sheet. */
 export function ForumFilterSheet({ open, onOpenChange, query, onQuery, tag, onTag, tags, sort, onSort }: {
@@ -31,7 +31,7 @@ export function ForumFilterSheet({ open, onOpenChange, query, onQuery, tag, onTa
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <label htmlFor={sortId} className="text-[13px] text-muted-foreground">Sort</label>
+          <label htmlFor={sortId} className="text-ui text-muted-foreground">Sort</label>
           <NativeSelect id={sortId} value={sort} onChange={(e) => onSort(e.target.value as PostSort)}>
             <NativeSelectOption value="activity">Latest activity</NativeSelectOption>
             <NativeSelectOption value="newest">Newest</NativeSelectOption>

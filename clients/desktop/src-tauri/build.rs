@@ -23,6 +23,10 @@ fn main() {
         "desktop_server_info",
         "desktop_screen_pick",
         "desktop_screen_stop",
+        "desktop_title_bar",
+        "desktop_window",
+        "desktop_start_drag",
+        "desktop_set_theme",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

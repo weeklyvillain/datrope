@@ -12,6 +12,8 @@ import { Attachments, MessageList, type ReplyState } from "../MessageList";
 import { repliesText } from "../threads";
 import { WebhookBadge } from "../WebhookAuthor";
 import { SidePanel } from "./SidePanel";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** Inside a thread nobody replies to a single message. */
 const NO_REPLY: ReplyState = { replyTo: null, setReplyTo: () => undefined };
@@ -38,7 +40,7 @@ export function ThreadPanel({ threadId, parentChannelId, onClose }: { threadId: 
       ) : error ? (
         <div className="p-4"><ErrorText error={error} /></div>
       ) : (
-        <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton />
       )}
     </SidePanel>
   );
@@ -107,7 +109,7 @@ function ParentMessage({ channelId, messageId }: { channelId: string; messageId?
     const gone = !messageId || m?.deleted || searched;
     return (
       <p className="m-0 flex-none border-b px-4 py-3 text-sm text-muted-foreground">
-        {gone ? <em>Original message deleted</em> : "Loading…"}
+        {gone ? <em>Original message deleted</em> : <span role="status" aria-label="Loading" className="block"><Skeleton className="h-4 w-40" /></span>}
       </p>
     );
   }

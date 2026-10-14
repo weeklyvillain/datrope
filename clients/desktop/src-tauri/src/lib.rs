@@ -5,6 +5,7 @@ mod screen;
 mod servers;
 mod shell;
 mod state;
+mod theme;
 mod tray;
 #[cfg(feature = "updater")]
 mod update;
@@ -86,6 +87,10 @@ pub fn run() {
             commands::update_restart,
             commands::desktop_screen_pick,
             commands::desktop_screen_stop,
+            commands::desktop_title_bar,
+            commands::desktop_window,
+            commands::desktop_start_drag,
+            commands::desktop_set_theme,
             commands::screen_pick_request,
             commands::screen_pick_done,
         ])

@@ -6,6 +6,7 @@ import { client, displayName, formatBytes, roleColor, useApp, usePerms } from ".
 import { Markdown } from "@/chat/Markdown";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
+import { BareButton } from "@/components/bare-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
@@ -22,6 +23,7 @@ import { itemTitle, type GalleryItem } from "./items";
 import { extension, KIND_SINGULAR } from "./kinds";
 import { enterAction, isTouchOnly } from "@/lib/touch";
 import { attachmentImage } from "@/lib/sized-image";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** In comments nobody replies to a single message. */
 const NO_REPLY: ReplyState = { replyTo: null, setReplyTo: () => undefined };
@@ -35,7 +37,7 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "short", time
 
 /** The full-screen frame: the media fills the left, the details and comments slide in on the right (below on phones). */
 function Lightbox({ label, onClose, media, children }: { label: string; onClose: () => void; media: ReactNode; children: ReactNode }) {
-  // Button doesn't forward refs (React 18), so the close control is a plain button with the same styling.
+  // Button doesn't forward refs (React 18), so the close control is a BareButton with Button's styling.
   const close = useRef<HTMLButtonElement>(null);
   useEffect(() => { close.current?.focus(); }, []);
   return (
@@ -44,8 +46,8 @@ function Lightbox({ label, onClose, media, children }: { label: string; onClose:
       <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center p-4 md:p-10">{media}</div>
       <aside className="flex max-h-[55%] min-h-0 flex-none flex-col border-t bg-card animate-in slide-in-from-bottom md:max-h-none md:w-[380px] md:border-t-0 md:border-l md:slide-in-from-right motion-reduce:animate-none">
         <div className="flex flex-none items-center justify-end gap-1 px-2 pt-2">
-          <button type="button" ref={close} aria-label="Close details" title="Close details" onClick={onClose}
-            className={buttonVariants({ variant: "ghost", size: "icon-sm", className: "text-muted-foreground" })}><X /></button>
+          <BareButton ref={close} aria-label="Close details" title="Close details" onClick={onClose}
+            className={buttonVariants({ variant: "ghost", size: "icon-sm", className: "text-muted-foreground" })}><X /></BareButton>
         </div>
         {children}
       </aside>
@@ -102,7 +104,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
   });
 
   if (!item || !attachment) {
-    return <Lightbox label="Item" onClose={onClose} media={<p className="text-sm text-muted-foreground">Loading…</p>}><span /></Lightbox>;
+    return <Lightbox label="Item" onClose={onClose} media={<ListSkeleton className="w-full max-w-md" />}><span /></Lightbox>;
   }
   const kind = item.kind;
   const url = client.url(attachment.url);
@@ -133,7 +135,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
         : kind === "audio" ? <div className="w-full max-w-md"><AudioPlayer key={attachment.id} attachment={attachment} /></div>
         : (
           <div className="grid justify-items-center gap-2 rounded-lg bg-card p-8">
-            <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-[11px] font-bold text-foreground" aria-hidden>{extension(attachment.filename)}</span>
+            <span className="grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-caption font-bold text-foreground" aria-hidden>{extension(attachment.filename)}</span>
             <span className="text-center text-sm font-semibold wrap-anywhere">{attachment.filename}</span>
           </div>
         )}
@@ -170,7 +172,7 @@ export function GalleryItemPanel({ attachmentId, items, onClose, actions: extra 
             {message?.content && <div className="text-sm wrap-anywhere"><Markdown text={message.content} mentions={message.mentions ?? undefined} /></div>}
           </div>
         </div>
-        <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-[13px]">
+        <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 px-4 py-3 text-ui">
           <dt className="text-muted-foreground">File</dt>
           <dd className="m-0 truncate">{attachment.filename} · {formatBytes(attachment.size)}</dd>
           {attachment.width && attachment.height ? (
@@ -251,7 +253,7 @@ function FirstComment({ channelId, messageId, onThread }: {
   };
   return (
     <form className="flex-none px-3 pt-2 pb-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-      <div className="flex items-end gap-1.5 rounded-lg border bg-background p-2 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="flex items-end gap-1.5 rounded-lg border bg-background p-2 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring">
         <Textarea className="max-h-[30vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0"
           value={text} onChange={(e) => setText(e.target.value)} placeholder="Comment" aria-label="Comment" maxLength={MAX_LENGTH} rows={1}
           enterKeyHint={isTouchOnly() ? "enter" : undefined}

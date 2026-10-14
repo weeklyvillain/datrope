@@ -14,6 +14,7 @@ import { MuteControl } from "../voice/VoicePanel";
 import { HoldToTalk } from "./HoldToTalk";
 import { miniBarLayout } from "./mini-bars";
 import { openPlayerScreen } from "./PlayerScreen";
+import { BareButton } from "@/components/bare-button";
 
 const STATUS = { connecting: "Connecting…", reconnecting: "Reconnecting…" } as const;
 const voiceTint = "bg-[color-mix(in_srgb,var(--online)_18%,transparent)]";
@@ -74,12 +75,12 @@ function VoicePart({ compact = false }: { compact?: boolean }) {
   const status = v.status === "connected" ? `Voice connected · ${count}` : v.status === "idle" ? "" : STATUS[v.status];
   return (
     <section aria-label="Voice call" className={cn("flex min-w-0 items-center gap-1", compact ? cn("min-h-[56px] flex-1 px-2", voiceTint) : "flex-1")}>
-      <button type="button" aria-label={`Open call: ${name}`} className={body} onClick={() => navigate(href)}>
+      <BareButton aria-label={`Open call: ${name}`} className={body} onClick={() => navigate(href)}>
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">{name}</span>
           {!compact && <span className="block truncate text-xs text-online">{status}</span>}
         </span>
-      </button>
+      </BareButton>
       <MuteControl variant="default" className={mute} />
       {!compact && <HoldToTalk small />}
       <Button variant="destructive" size="icon" aria-label="Disconnect" className="size-[44px] flex-none rounded-full"
@@ -96,7 +97,7 @@ function MusicPart({ compact = false }: { compact?: boolean }) {
   if (!current) return null;
   return (
     <section aria-label="Music player" className={cn("flex min-w-0 flex-1 items-center gap-1", compact && "min-h-[56px] px-2")}>
-      <button type="button" aria-label={`Open player: ${current.title}`} className={body} onClick={openPlayerScreen}>
+      <BareButton aria-label={`Open player: ${current.title}`} className={body} onClick={openPlayerScreen}>
         {!compact && <Cover src={current.cover} />}
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">{current.title}</span>
@@ -106,7 +107,7 @@ function MusicPart({ compact = false }: { compact?: boolean }) {
             </span>
           )}
         </span>
-      </button>
+      </BareButton>
       <PlayButton playing={playing} />
       {!compact && (
         <Button variant="ghost" size="icon" aria-label="Close player" className="size-[44px] flex-none rounded-full" onClick={() => player.clear()}>
