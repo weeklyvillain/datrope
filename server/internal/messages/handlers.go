@@ -37,6 +37,9 @@ type AckRequest struct {
 	MessageID id.ID `json:"message_id"`
 }
 
+// sendTimeout bounds a send once it no longer follows the request's context.
+const sendTimeout = 30 * time.Second
+
 type channelPath struct {
 	ID string `path:"id"`
 }
@@ -117,6 +120,10 @@ func Register(api huma.API, s *Service) {
 			ID   string `path:"id"`
 			Body SendRequest
 		}) (*struct{ Body *Message }, error) {
+			// The client shows the message as soon as it sends, then may leave
+			// (tab closed, app backgrounded): a send received in full is stored anyway.
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sendTimeout)
+			defer cancel()
 			need := perms.SendMessages
 			if len(in.Body.AttachmentIDs) > 0 {
 				need |= perms.AttachFiles

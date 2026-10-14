@@ -99,7 +99,12 @@ func init() {
 			return newError(status, msg, errs...)
 		}
 		rid := RequestIDFrom(ctx.Context())
-		slog.ErrorContext(ctx.Context(), "request failed", "request_id", rid, "status", status, "msg", msg, "errors", errs)
+		// Most errors marshal to {} in a JSON log; log their text.
+		texts := make([]string, 0, len(errs))
+		for _, err := range errs {
+			texts = append(texts, err.Error())
+		}
+		slog.ErrorContext(ctx.Context(), "request failed", "request_id", rid, "status", status, "msg", msg, "errors", texts)
 		return &Error{Status: status, Code: "INTERNAL", Message: "internal error", Details: map[string]any{"request_id": rid}}
 	}
 }
