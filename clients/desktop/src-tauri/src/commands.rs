@@ -94,12 +94,14 @@ pub fn server_remove(app: AppHandle, webview: Webview, id: String) -> Result<(),
     only_rail(&webview)?;
     let label = server_label(&id);
     let unregister_key;
+    let origin;
     let dir = {
         let shell = app.state::<Shell>();
         let mut inner = shell.0.lock().unwrap();
-        if inner.store.remove(&id).is_none() {
+        let Some(server) = inner.store.remove(&id) else {
             return Ok(());
-        }
+        };
+        origin = server.url;
         inner.save();
         inner.badges.remove(&id);
         inner.offline.remove(&id);
@@ -118,7 +120,7 @@ pub fn server_remove(app: AppHandle, webview: Webview, id: String) -> Result<(),
         crate::ptt::unregister(&app, &key);
     }
     if let Some(wv) = app.get_webview(&label) {
-        let _ = wv.close();
+        shell::close_server_webview(wv, &origin);
     }
     remove_data_later(&app, &id, dir);
     let _ = shell::layout(&app);
@@ -376,6 +378,7 @@ pub fn desktop_voice_state(app: AppHandle, webview: Webview, in_call: bool) -> R
     if let Some(label) = leave {
         shell::send_to_page(&app, &label, "leave_voice", serde_json::Value::Null);
     }
+    shell::apply_memory_levels(&app);
     Ok(())
 }
 
