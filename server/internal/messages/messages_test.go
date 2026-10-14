@@ -8,7 +8,9 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,6 +62,39 @@ func TestSendAndList(t *testing.T) {
 	alice.Fail(http.MethodGet, path+"?limit=101", nil, http.StatusBadRequest, "VALIDATION_FAILED")
 
 	env.Outsider("outsider").Fail(http.MethodGet, path, nil, http.StatusNotFound, "NOT_FOUND")
+}
+
+// cancelOnEOF cancels the request's context once its body is read: the client
+// sent the whole message, then left (closed the tab, backgrounded the app).
+type cancelOnEOF struct {
+	io.Reader
+	cancel context.CancelFunc
+}
+
+func (r cancelOnEOF) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	if err == io.EOF {
+		r.cancel()
+	}
+	return n, err
+}
+
+func TestSendSurvivesClientLeaving(t *testing.T) {
+	env, alice, _, _, ch := setup(t)
+	path := "/api/channels/" + ch.String() + "/messages"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	body := cancelOnEOF{strings.NewReader(`{"content":"line one\nline two","nonce":"n-1"}`), cancel}
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, path, body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+alice.Token)
+	rec := httptest.NewRecorder()
+	env.App.Handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	var page []messages.Message
+	alice.Do(http.MethodGet, path, nil, http.StatusOK, &page)
+	require.Contains(t, contents(page), "line one\nline two", "a send the server received is stored")
 }
 
 func contents(ms []messages.Message) []string {
