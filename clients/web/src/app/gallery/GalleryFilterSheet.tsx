@@ -15,8 +15,11 @@ export function GallerySegments({ value, onFiles, onMusic }: { value: GallerySeg
   const go = (v: string) => {
     if (!v || v === value) return; // a click on the selected segment reports ""
     if (v === "albums") nav("/gallery/albums");
-    else if (v === "music") onMusic ? onMusic() : nav("/gallery?kind=audio");
-    else onFiles ? onFiles() : nav("/gallery");
+    else if (v === "music") {
+      if (onMusic) onMusic();
+      else nav("/gallery?kind=audio");
+    } else if (onFiles) onFiles();
+    else nav("/gallery");
   };
   return (
     <ToggleGroup type="single" variant="outline" aria-label="Gallery view" value={value} onValueChange={go}
