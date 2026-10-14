@@ -91,9 +91,15 @@ describe("runCommand", () => {
     expect(await send("/roll")).toMatchObject({ send: expect.stringMatching(/^🎲 1d20: \*\*([1-9]|1\d|20)\*\*$/) });
   });
 
+  it("/wheel shows the options as typed, even without its card", async () => {
+    const r = await send("/wheel *bold*, a|b, <@1>");
+    expect(r).toMatchObject({ send: expect.stringMatching(/^🎡 Spun the wheel: /) });
+    expect(rendered((r as { send: string }).send)).toMatch(/^🎡 Spun the wheel: \*bold\*, a\|b, &lt;@1&gt; → (\*bold\*|a\|b|&lt;@1&gt;)$/);
+  });
+
   it("lists every command once, in lower case", () => {
     const names = COMMANDS.map((c) => c.name);
-    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "status", "gif", "poll",
+    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "wheel", "status", "gif", "poll",
       "play", "skip", "pause", "resume", "stop"]);
   });
 
