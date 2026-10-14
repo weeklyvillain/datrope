@@ -1,15 +1,19 @@
 import type { Attachment } from "@datrope/core";
-import { CirclePlus, Code, Reply, Smile, X } from "lucide-react";
+import { CirclePlus, Code, Reply, Send, Smile, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { client, displayName, errorText, formatBytes, useApp, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MiniBarsAboveComposer } from "./mobile/MiniBars";
 import { MAX_FILES, useUploads } from "@/hooks/use-uploads";
 import { cn } from "@/lib/utils";
+import { enterAction, isTouchOnly } from "@/lib/touch";
 import { extensionForLanguage, shouldSnippet, snippetName, wrapCodeBlock } from "@/lib/code";
 import { guessLanguage, loadHighlighter } from "@/lib/highlighter";
 import { Autocomplete, useSuggestions, type Suggestion } from "@/chat/AutocompleteList";
@@ -19,11 +23,14 @@ import { EmojiPicker, emojiText } from "@/chat/EmojiPicker";
 import type { ReplyState } from "./MessageList";
 import { PollDialog } from "@/chat/PollDialog";
 import { GifDialog } from "./GifDialog";
+import { composerTools } from "./composer-tools";
 
 const MAX_LENGTH = 4000;
 
 export function Composer({ channelId, canSend, canAttach, placeholder, reply, label = "Message", withTitle = false, readOnlyText = "You can't send messages here." }:
   { channelId: string; canSend: boolean; canAttach: boolean; placeholder: string; reply: ReplyState; label?: string; withTitle?: boolean; readOnlyText?: string }) {
+  const phone = useIsMobile();
+  const tools = composerTools(phone, canAttach);
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string>();
@@ -85,7 +92,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     loadHighlighter().catch(() => undefined);
   }, []);
 
-  if (!canSend) return <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-muted-foreground">{readOnlyText}</div>;
+  if (!canSend) return <>{phone && <MiniBarsAboveComposer />}<div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-muted-foreground">{readOnlyText}</div></>;
 
   const add = (list: File[]) => {
     if (canAttach) uploads.add(list);
@@ -163,7 +170,8 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
 
   return (
     <>
-    <form ref={form} className="px-4 pb-4"
+    {phone && <MiniBarsAboveComposer />}
+    <form ref={form} className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] max-md:px-2"
       onSubmit={(e) => { e.preventDefault(); submit(); }}
       onDragOver={(e) => { if (canAttach && e.dataTransfer.types.includes("Files")) e.preventDefault(); }}
       onDrop={(e) => {
@@ -175,21 +183,21 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
       {listOpen && (
         <Autocomplete id={listId} kind={trigger.kind} items={suggestions} active={activeIndex} onPick={pick} onHover={setActive} />
       )}
-      <div className="overflow-hidden rounded-lg border bg-card focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="rounded-lg border bg-card max-md:rounded-2xl focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
         {replyTo && (
-          <div className="flex items-center gap-2 bg-muted py-1.5 pl-2.5 pr-1.5 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-t-[inherit] bg-muted py-1.5 pl-2.5 pr-1.5 text-sm text-muted-foreground">
             <Reply className="size-3.5 flex-none" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">Replying to <strong className="text-foreground">{displayName(replyTo.author)}</strong></span>
             <Button variant="ghost" size="icon-xs" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><X /></Button>
           </div>
         )}
         {files.length > 0 && (
-          <ul className="flex list-none flex-wrap gap-1.5 border-b bg-muted px-2.5 py-1.5" aria-label="Attachments">
+          <ul className={cn("flex list-none flex-wrap gap-1.5 border-b bg-muted px-2.5 py-1.5", !replyTo && "rounded-t-[inherit]")} aria-label="Attachments">
             {files.map((f) => (
               <li key={f.key} className={cn("inline-flex items-center gap-1.5 rounded-full border bg-card py-0.5 pl-2.5 pr-1 text-sm", f.error && "border-destructive")}>
                 {f.text === undefined ? <span>{f.name}</span> : (
                   <Input key={f.name} defaultValue={f.name} aria-label="Snippet file name"
-                    className="h-6 w-36 rounded-full border-0 bg-transparent px-1 py-0 text-sm shadow-none focus-visible:ring-1"
+                    className="h-6 w-36 rounded-full border-0 bg-transparent px-1 py-0 text-[16px] md:text-sm shadow-none focus-visible:ring-1"
                     onBlur={(e) => {
                       const n = snippetName(e.target.value, f.name);
                       e.target.value = n;
@@ -220,25 +228,38 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
           </ul>
         )}
         {withTitle && (
-          <Input className="rounded-none border-0 border-b bg-transparent px-3 font-semibold shadow-none focus-visible:ring-0"
+          <Input className={cn("rounded-none border-0 border-b bg-transparent px-3 font-semibold shadow-none focus-visible:ring-0", !replyTo && files.length === 0 && "rounded-t-[inherit]")}
             value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Title" maxLength={100} />
         )}
         <div className="flex items-end gap-1.5 p-2">
           {canAttach && (
-            <>
-              <input ref={picker} type="file" multiple hidden
-                onChange={(e) => {
-                  if (e.target.files) add(Array.from(e.target.files));
-                  e.target.value = "";
-                }} />
-              <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Attach files" title="Attach files"
-                onClick={() => picker.current?.click()}>
-                <CirclePlus />
-              </Button>
-            </>
+            <input ref={picker} type="file" multiple hidden
+              onChange={(e) => {
+                if (e.target.files) add(Array.from(e.target.files));
+                e.target.value = "";
+              }} />
           )}
-          <Textarea className="max-h-[40vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0"
+          {tools.inline.includes("attach") && (tools.menu.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <RefButton variant="ghost" size="icon" className="size-11 text-muted-foreground" aria-label="Attach files" title="Attach files"><CirclePlus /></RefButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <DropdownMenuItem onSelect={() => picker.current?.click()}>Upload file</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { box()?.focus(); wrapSelection(); }}>
+                  <Code /> Code block
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Attach files" title="Attach files"
+              onClick={() => picker.current?.click()}>
+              <CirclePlus />
+            </Button>
+          ))}
+          <Textarea className="max-h-[40vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 text-[16px] shadow-none focus-visible:ring-0 max-md:min-h-[44px] max-md:py-2.5"
             value={text} placeholder={placeholder} aria-label={label} maxLength={MAX_LENGTH} rows={1}
+            enterKeyHint={isTouchOnly() ? "enter" : undefined}
             role="combobox" aria-expanded={listOpen} aria-autocomplete="list" aria-controls={listOpen ? listId : undefined}
             aria-activedescendant={listOpen ? `${listId}-${activeIndex}` : undefined}
             onChange={(e) => {
@@ -291,15 +312,17 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               if (e.key === "Escape" && replyTo) {
                 e.preventDefault();
                 setReplyTo(null);
-              } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              } else if (enterAction({ key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, isComposing: e.nativeEvent.isComposing }, isTouchOnly()) === "send") {
                 e.preventDefault();
                 submit();
               }
             }} />
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Code block" title="Code block (Ctrl+E)"
-            onMouseDown={(e) => e.preventDefault()} onClick={wrapSelection}>
-            <Code />
-          </Button>
+          {tools.inline.includes("code") && (
+            <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Code block" title="Code block (Ctrl+E)"
+              onMouseDown={(e) => e.preventDefault()} onClick={wrapSelection}>
+              <Code />
+            </Button>
+          )}
           <EmojiPicker
             onPick={(v) => {
               const el = box();
@@ -310,9 +333,14 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               box()?.focus();
             }}
             trigger={
-              <RefButton variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Emoji" title="Emoji"><Smile /></RefButton>
+              <RefButton variant="ghost" size={phone ? "icon" : "icon-sm"} className={cn("text-muted-foreground", phone && "size-11")} aria-label="Emoji" title="Emoji"><Smile /></RefButton>
             } />
-          <Button type="submit" size="sm" disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}>{withTitle ? "Post" : "Send"}</Button>
+          {phone ? (
+            <Button type="submit" size="icon" className="size-11 rounded-full bg-primary text-primary-foreground" aria-label={withTitle ? "Post" : "Send"}
+              disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}><Send /></Button>
+          ) : (
+            <Button type="submit" size="sm" disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}>{withTitle ? "Post" : "Send"}</Button>
+          )}
         </div>
       </div>
       </div>

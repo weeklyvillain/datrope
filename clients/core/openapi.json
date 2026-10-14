@@ -1142,6 +1142,20 @@
         ],
         "type": "object"
       },
+      "EndpointInput": {
+        "additionalProperties": false,
+        "properties": {
+          "endpoint": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "type": "object"
+      },
       "Error": {
         "additionalProperties": false,
         "properties": {
@@ -2890,6 +2904,19 @@
         ],
         "type": "object"
       },
+      "PublicKey": {
+        "additionalProperties": false,
+        "properties": {
+          "public_key": {
+            "description": "VAPID application server key, base64url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_key"
+        ],
+        "type": "object"
+      },
       "PublicUser": {
         "additionalProperties": false,
         "properties": {
@@ -4115,6 +4142,55 @@
           "display_name",
           "url",
           "title_filter"
+        ],
+        "type": "object"
+      },
+      "SubscriptionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "endpoint": {
+            "description": "The push service URL from PushSubscription.endpoint",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/SubscriptionKeys"
+          },
+          "level": {
+            "description": "This device's notification level",
+            "enum": [
+              "all",
+              "mentions",
+              "nothing"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys",
+          "level"
+        ],
+        "type": "object"
+      },
+      "SubscriptionKeys": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "p256dh": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
         ],
         "type": "object"
       },
@@ -8641,6 +8717,115 @@
         },
         "tags": [
           "server"
+        ]
+      }
+    },
+    "/api/push/key": {
+      "get": {
+        "operationId": "get-push-key",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKey"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "push"
+        ]
+      }
+    },
+    "/api/push/subscription": {
+      "delete": {
+        "operationId": "delete-push-subscription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndpointInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "push"
+        ]
+      },
+      "put": {
+        "operationId": "put-push-subscription",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "push"
         ]
       }
     },

@@ -7,7 +7,7 @@ import { client } from "../session";
 /** The sign-in and registration pages: the server introduces itself on the left, the form sits on the right. */
 export function AuthLayout({ title, lede, aside, children }: { title: string; lede?: string; aside: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-wrap">
+    <div className="flex min-h-dvh flex-wrap pt-safe pb-safe">
       {aside}
       <main className="flex min-w-0 flex-[1_1_440px] flex-col px-6 py-8">
         <div className="grid flex-1 place-items-center">

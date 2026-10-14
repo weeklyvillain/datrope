@@ -1,6 +1,7 @@
 import { isGated, sidebarChannelIds, type State } from "@datrope/core";
 import { Navigate, useParams } from "react-router-dom";
 import { ServerIcon } from "@/components/logo";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { lastVisited, useApp } from "../session";
 import { AnnouncementView } from "./announcement/AnnouncementView";
 import { ChannelView } from "./ChannelView";
@@ -10,6 +11,7 @@ import { AlbumsView } from "./gallery/AlbumsView";
 import { GalleryView } from "./gallery/GalleryView";
 import { VoiceChannelView } from "./voice/VoiceChannelView";
 import { EmptyView } from "./EmptyView";
+import { ServerHome } from "./mobile/ServerHome";
 import { WelcomeView } from "./welcome/WelcomeView";
 
 /** Where "/" goes: the welcome channel while gated, else the last channel visited, else the first text channel. */
@@ -31,6 +33,11 @@ export function textChannel(s: State): string | undefined {
 
 export function Home() {
   const target = useApp(homeChannel);
+  const gated = useApp(isGated);
+  const mobile = useIsMobile();
+  if (gated && target) return <Navigate to={`/channels/${target}`} replace />;
+  // Phones: "/" is the Server tab root, the channel list.
+  if (mobile) return <ServerHome />;
   if (target) return <Navigate to={`/channels/${target}`} replace />;
   return (
     <EmptyView>

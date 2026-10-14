@@ -67,6 +67,7 @@ export function PlaylistDetailView({ id, onBack }: { id: string; onBack: () => v
               <Tooltip><TooltipTrigger asChild><span tabIndex={0}>{voiceButton}</span></TooltipTrigger><TooltipContent>Join a voice channel first</TooltipContent></Tooltip>
             )}
           </div>
+          {!voiceId && <p className="m-0 text-xs text-muted-foreground pointer-fine:hidden">Join a voice channel first</p>}
           {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
           <ErrorText error={send.error} />
         </div>

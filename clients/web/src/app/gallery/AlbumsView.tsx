@@ -5,11 +5,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
 import { attachmentImage } from "@/lib/sized-image";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { displayName, useApp } from "../../session";
 import { TopBar } from "../TopBar";
 import { AlbumDialog } from "./AlbumDialog";
 import { groupAlbums, useAlbums } from "./albums";
+import { GallerySegments } from "./GalleryFilterSheet";
 import { viewChip, viewChipActive } from "./GalleryView";
 
 /** The gallery's Albums view: mine, then other people's albums shared with the server. */
@@ -17,20 +19,22 @@ export function AlbumsView() {
   const { albums, loading, error } = useAlbums();
   const [creating, setCreating] = useState(false);
   const nav = useNavigate();
+  const mobile = useIsMobile();
   const { yours, server } = groupAlbums(albums);
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label="Albums">
       <TopBar actions={<Button size="sm" onClick={() => setCreating(true)}><Plus /> New album</Button>}>
         <Images className="size-4 flex-none text-muted-foreground" aria-hidden />
         <h2 className="flex-none">Gallery</h2>
-        <div role="group" aria-label="Gallery view" className="ml-2 flex gap-1.5">
+        {!mobile && <div role="group" aria-label="Gallery view" className="ml-2 flex gap-1.5">
           <Button variant="outline" size="sm" asChild className={viewChip}><Link to="/gallery">All files</Link></Button>
           <Button variant="outline" size="sm" asChild className={cn(viewChip, viewChipActive)}>
             <Link to="/gallery/albums" aria-current="page">Albums</Link>
           </Button>
-        </div>
+        </div>}
       </TopBar>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      {mobile && <GallerySegments value="albums" />}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4">
         <ErrorText error={error} />
         {loading && albums.length === 0 ? <p className="m-0 p-8 text-center text-sm text-muted-foreground">Loading…</p>
           : albums.length === 0 ? (
@@ -55,7 +59,7 @@ function AlbumGrid({ label, albums }: { label: string; albums: Album[] }) {
   return (
     <section aria-label={label}>
       <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{label}</h3>
-      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 p-0">
+      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 p-0">
         {albums.map((a) => <li key={a.id}><AlbumCard album={a} /></li>)}
       </ul>
     </section>

@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { MessagesSquare, Plus, Search } from "lucide-react";
+import { MessagesSquare, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { client, errorText, isUnread, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";
@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { Topic } from "../ChannelView";
 import { SearchPanel } from "../search/SearchPanel";
 import { TopBar } from "../TopBar";
 import { closePanel, openPanel, panelStore, usePanel } from "../side-panel/panel";
 import { filterPosts, type PostSort } from "./filter";
+import { ForumFilterSheet } from "./ForumFilterSheet";
 import { PostDialog } from "./PostDialog";
 import { PostPanel } from "./PostPanel";
 import { EmojiText } from "@/chat/EmojiText";
@@ -34,6 +37,8 @@ export function ForumView({ channelId }: { channelId: string }) {
   const [tag, setTag] = useState<string | null>(null);
   const [sort, setSort] = useState<PostSort>("activity");
   const [creating, setCreating] = useState(false);
+  const mobile = useIsMobile();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loadError, setLoadError] = useState<string>();
 
   // Loads the posts (again if a fresh READY cleared them).
@@ -65,13 +70,18 @@ export function ForumView({ channelId }: { channelId: string }) {
   return (
     <>
       <main className="flex min-w-0 flex-1 flex-col bg-background" aria-label={ch.name}>
-        <TopBar actions={canStart && <Button size="sm" onClick={() => setCreating(true)}><Plus /> New post</Button>}>
+        <TopBar actions={mobile
+          ? <Button size="icon" variant="ghost" className="relative" aria-label={query || tag ? "Filter posts, filters on" : "Filter posts"} onClick={() => setFiltersOpen(true)}>
+            <SlidersHorizontal />
+            {(query || tag) && <span aria-hidden className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />}
+          </Button>
+          : canStart && <Button size="sm" onClick={() => setCreating(true)}><Plus /> New post</Button>}>
           <MessagesSquare className="size-4 flex-none text-muted-foreground" aria-hidden />
           <h2 className="flex-none"><EmojiText text={ch.name} /></h2>
           {ch.topic && <Topic channelId={channelId} name={ch.name} topic={ch.topic} canEdit={hasPerm(perms, Perm.ManageChannels)} />}
         </TopBar>
 
-        <div className="flex flex-none flex-wrap items-center gap-2 border-b px-4 py-3">
+        {!mobile && <div className="flex flex-none flex-wrap items-center gap-2 border-b px-4 py-3">
           <div className="relative max-w-80 flex-[1_1_220px]">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input className="h-8 pl-8" type="search" value={query} onChange={(e) => setQuery(e.target.value)}
@@ -90,19 +100,20 @@ export function ForumView({ channelId }: { channelId: string }) {
             <NativeSelectOption value="newest">Newest</NativeSelectOption>
             <NativeSelectOption value="replies">Most replies</NativeSelectOption>
           </NativeSelect>
-        </div>
+        </div>}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="relative min-h-0 flex-1">
+        <div className={cn("h-full overflow-y-auto overscroll-y-contain", mobile && canStart && "pb-[calc(80px+env(safe-area-inset-bottom))]")}>
           {loadError ? <div className="p-4"><ErrorText error={loadError} /></div>
             : !posts ? <p className={note}>Loading…</p>
             : posts.length === 0 ? <p className={note}>No posts yet. Start one with New post.</p>
             : shown.length === 0 ? <p className={note}>No posts match.</p>
             : (
               <>
-                <div aria-hidden className="grid grid-cols-[minmax(0,1fr)_72px_80px_96px] gap-4 border-b px-4 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {!mobile && <div aria-hidden className="grid grid-cols-[minmax(0,1fr)_72px_80px_96px] gap-4 border-b px-4 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                   <span>{shown.length === 1 ? "1 post" : `${shown.length} posts`}</span>
                   <span className="text-right">People</span><span className="text-right">Replies</span><span className="text-right">Activity</span>
-                </div>
+                </div>}
                 <ul role="list" aria-label="Posts" className="m-0 list-none p-0">
                   {shown.map((p) => (
                     <PostRow key={p.channel.id} post={p} selected={p.channel.id === openPost}
@@ -112,7 +123,17 @@ export function ForumView({ channelId }: { channelId: string }) {
               </>
             )}
         </div>
+        {mobile && canStart && (
+          <Button className="absolute right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] min-h-[48px] rounded-full px-5 shadow-lg" onClick={() => setCreating(true)}>
+            <Plus /> New post
+          </Button>
+        )}
+        </div>
       </main>
+      {mobile && (
+        <ForumFilterSheet open={filtersOpen} onOpenChange={setFiltersOpen} query={query} onQuery={setQuery}
+          tag={tag} onTag={setTag} tags={ch.tags ?? []} sort={sort} onSort={setSort} />
+      )}
       {panel?.kind === "post" ? (
         <PostPanel key={panel.postId} postId={panel.postId} forumId={channelId} onClose={closePanel} />
       ) : panel?.kind === "search" ? (

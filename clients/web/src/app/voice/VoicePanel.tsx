@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { canShareScreen } from "@/lib/media-support";
 import { cn } from "@/lib/utils";
 import { dmName, useApp, usePerms } from "../../session";
 import { ConnectionQuality } from "./ConnectionQuality";
@@ -52,9 +53,9 @@ export function VoicePanel() {
             </Tooltip>
           </div>
           {v.error && <p className="text-xs text-destructive" role="alert">{v.error}</p>}
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className={cn("grid gap-1.5", canShareScreen() && "grid-cols-2")}>
             <CameraControl />
-            <ShareScreenControl />
+            {canShareScreen() && <ShareScreenControl />}
           </div>
           <SoundboardButton labelled side="top" />
         </>

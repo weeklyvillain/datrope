@@ -100,6 +100,9 @@ export function dmName(ch: Channel | undefined, meId: string | undefined): strin
 
 /** Ends this device's session and returns to the sign-in page. */
 export async function signOut() {
+  // Dynamic: notify/push imports `client` from this module.
+  const { disablePush } = await import("./notify/push");
+  await disablePush().catch(() => undefined); // the server drops it with the session anyway; this frees the browser's
   await unwrap(client.api.POST("/api/auth/logout"));
   client.disconnect();
   window.location.assign("/login");

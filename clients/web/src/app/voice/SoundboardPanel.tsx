@@ -4,11 +4,15 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";
+import { ActionSheet } from "@/components/action-sheet";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useHistoryLayer } from "@/hooks/use-history-layer";
 import { cn } from "@/lib/utils";
 import { client, dmName, errorText, useApp, usePerms } from "../../session";
 import { setSoundboardVolume, toggleFavourite, useVoicePrefs, voicePrefs } from "../../voice/prefs";
@@ -68,20 +72,16 @@ export function SoundboardButton({ labelled = false, side = "bottom", className 
   side?: "top" | "bottom";
   className?: string; // the icon button's
 }) {
-  const callId = useVoice((v) => (v.status === "idle" ? undefined : v.channelId ?? undefined));
-  const perms = usePerms(callId);
-  const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
-  const reason = !callId ? "Join a call to use the soundboard"
-    : serverMuted ? "You are muted by a moderator"
-    : !hasPerm(perms, Perm.UseSoundboard) || !hasPerm(perms, Perm.Speak) ? "You cannot play sounds in this call"
-    : "";
+  const { callId, reason } = useSoundboardAccess();
+  const phone = useIsMobile();
   const [open, setOpen] = useState(false);
   const guard = (e: { preventDefault(): void }) => { if (reason) e.preventDefault(); }; // aria-disabled stays focusable, so the tooltip reason is reachable
   useEffect(() => {
     if (reason) setOpen(false); // do not pop open again when it clears
   }, [reason]);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <>
+    <Popover open={open && !phone} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className={cn("flex", labelled && "w-full")}>
@@ -101,10 +101,48 @@ export function SoundboardButton({ labelled = false, side = "bottom", className 
         </TooltipTrigger>
         <TooltipContent>{reason || "Soundboard"}</TooltipContent>
       </Tooltip>
+      {phone && (
+        <ActionSheet open={open && !reason} onOpenChange={setOpen} title="Soundboard" role="group">
+          <div className="overflow-y-auto p-2">{callId && <Panel callId={callId} />}</div>
+        </ActionSheet>
+      )}
       <PopoverContent align="end" side={side} className="w-[22rem] p-3" aria-label="Soundboard">
         {callId && <Panel callId={callId} />}
       </PopoverContent>
     </Popover>
+    {labelled && reason && <p className="m-0 text-xs text-muted-foreground pointer-fine:hidden">{reason}</p>}
+    </>
+  );
+}
+
+/** The call I'm in, and why I can't play sounds there ("" when I can). */
+export function useSoundboardAccess() {
+  const callId = useVoice((v) => (v.status === "idle" ? undefined : v.channelId ?? undefined));
+  const perms = usePerms(callId);
+  const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
+  const reason = !callId ? "Join a call to use the soundboard"
+    : serverMuted ? "You are muted by a moderator"
+    : !hasPerm(perms, Perm.UseSoundboard) || !hasPerm(perms, Perm.Speak) ? "You cannot play sounds in this call"
+    : "";
+  return { callId, reason };
+}
+
+/** The soundboard as a bottom sheet, for phones (from the call screen's ⋯ menu). Back closes it. */
+export function SoundboardSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { callId, reason } = useSoundboardAccess();
+  const shown = open && !!callId && !reason;
+  useHistoryLayer("soundboard", shown, () => onOpenChange(false));
+  useEffect(() => {
+    if (open && !shown) onOpenChange(false); // left the call or lost the right: don't pop open again later
+  }, [open, shown, onOpenChange]);
+  return (
+    <Drawer open={shown} onOpenChange={onOpenChange}>
+      <DrawerContent className="px-safe pb-safe">
+        <DrawerTitle className="sr-only">Soundboard</DrawerTitle>
+        <DrawerDescription className="sr-only">Play a sound to everyone in the call.</DrawerDescription>
+        <div className="overflow-y-auto p-4">{callId && <Panel callId={callId} />}</div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

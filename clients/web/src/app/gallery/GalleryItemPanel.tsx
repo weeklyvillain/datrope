@@ -21,6 +21,7 @@ import { SidePanel } from "../side-panel/SidePanel";
 import { channelTag, useItemAuthor } from "./FileTile";
 import { itemTitle, type GalleryItem } from "./items";
 import { extension, KIND_SINGULAR } from "./kinds";
+import { enterAction, isTouchOnly } from "@/lib/touch";
 import { attachmentImage } from "@/lib/sized-image";
 
 /** In comments nobody replies to a single message. */
@@ -219,8 +220,9 @@ function FirstComment({ channelId, messageId, onThread }: {
       <div className="flex items-end gap-1.5 rounded-lg border bg-background p-2 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
         <Textarea className="max-h-[30vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0"
           value={text} onChange={(e) => setText(e.target.value)} placeholder="Comment" aria-label="Comment" maxLength={MAX_LENGTH} rows={1}
+          enterKeyHint={isTouchOnly() ? "enter" : undefined}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            if (enterAction({ key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, isComposing: e.nativeEvent.isComposing }, isTouchOnly()) === "send") {
               e.preventDefault();
               submit();
             }

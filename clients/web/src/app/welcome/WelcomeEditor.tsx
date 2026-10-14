@@ -119,7 +119,7 @@ export function WelcomeEditor({ welcome, onClose }: { welcome: Welcome; onClose:
           <Textarea aria-label="Welcome page in Markdown" spellCheck={false} value={markdown}
             onChange={(e) => setMarkdown(e.target.value)}
             onFocus={(e) => (area.current = e.currentTarget)} onSelect={(e) => (area.current = e.currentTarget)} aria-invalid={over || undefined}
-            className="min-h-0 flex-1 resize-none rounded-none border-0 p-4 font-mono text-[13px] leading-relaxed shadow-none field-sizing-fixed focus-visible:ring-0 md:text-[13px]" />
+            className="min-h-0 flex-1 resize-none rounded-none border-0 p-4 font-mono text-[16px] md:text-[13px] leading-relaxed shadow-none field-sizing-fixed focus-visible:ring-0" />
         </section>
         <section aria-label="Preview" className="flex min-h-0 flex-col">
           <div className="flex h-[45px] flex-none items-center border-b bg-card px-3.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Preview</div>

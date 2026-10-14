@@ -11,6 +11,7 @@ import (
 	"github.com/datrope/datrope/server/internal/gateway"
 	"github.com/datrope/datrope/server/internal/integrations"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/push"
 	"github.com/datrope/datrope/server/internal/voice"
 )
 
@@ -34,7 +35,8 @@ type Config struct {
 	// Without a token the dashboard cannot update or restart the server.
 	UpdaterURL   string
 	UpdaterToken string
-	GitHubAPI    string // GitHub's API base for yt-dlp releases; "" is the real one (tests point it at a fake)
+	Push         push.Options // zero value = real Web Push; tests inject a fake sender
+	GitHubAPI    string       // GitHub's API base for yt-dlp releases; "" is the real one (tests point it at a fake)
 }
 
 // musicFromEnv reads the music bot's sources, cache and library size:

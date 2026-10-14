@@ -1,14 +1,19 @@
 import { Perm, hasPerm, unwrap, type Invite } from "@datrope/core";
+import { Ellipsis } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { StackedList, StackedRow } from "@/components/stacked-rows";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSubmit } from "@/hooks/use-submit";
+import { cn } from "@/lib/utils";
 import { GUEST_TTLS, guestTtlShort } from "@/lib/guest";
 import { client, errorText, useApp, usePerms, userName } from "@/session";
 
@@ -54,6 +59,7 @@ export function Invites() {
   const [invites, setInvites] = useState<Invite[]>();
   const [created, setCreated] = useState<string>();
   const [error, setError] = useState<string>();
+  const phone = useIsMobile();
   const load = () => {
     if (!canList) return;
     unwrap(client.api.GET("/api/server/invites")).then((v) => setInvites(v ?? [])).catch((e) => setError(errorText(e)));
@@ -69,7 +75,11 @@ export function Invites() {
         <section className="grid gap-2" aria-labelledby="invites-active">
           <h3 id="invites-active" className="text-sm font-semibold">Active invites</h3>
           <ErrorText error={error} />
-          {invites?.length === 0 ? <p className="text-muted-foreground">No active invites.</p> : (
+          {invites?.length === 0 ? <p className="text-muted-foreground">No active invites.</p> : phone ? (
+            <StackedList label="Active invites">
+              {invites?.map((i) => <InviteRowPhone key={i.code} invite={i} onDeleted={load} onError={setError} />)}
+            </StackedList>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -116,6 +126,41 @@ function InviteRow({ invite: i, onDeleted, onError }: { invite: Invite; onDelete
         <ErrorText error={error} />
       </TableCell>
     </TableRow>
+  );
+}
+
+function InviteRowPhone({ invite: i, onDeleted, onError }: { invite: Invite; onDeleted: () => void; onError: (e: string) => void }) {
+  const creator = useApp((s) => userName(s, i.creator_id));
+  const { copied, error, copy } = useCopy();
+  return (
+    <StackedRow
+      primary={(
+        <span className="flex items-center gap-2">
+          <code className="truncate">{i.code}</code>
+          {i.guest_ttl_seconds ? <Badge variant="secondary">Guest · {guestTtlShort(i.guest_ttl_seconds)}</Badge> : null}
+        </span>
+      )}
+      secondary={`by ${creator} · ${i.uses}${i.max_uses ? ` / ${i.max_uses}` : ""} uses · expires ${i.expires_at ? new Date(i.expires_at).toLocaleString() : "never"}`}
+      actions={(
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger aria-label={`Actions for ${i.code}`}
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground")}>
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => void copy(inviteLink(i.code))}>{copied ? "Copied" : "Copy link"}</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive"
+              onSelect={() => unwrap(client.api.DELETE("/api/invites/{code}", { params: { path: { code: i.code } } }))
+                .then(onDeleted).catch((e) => onError(errorText(e)))}>Delete</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      below={(
+        <>
+          {copied && <p role="status" className="pb-2 text-sm text-muted-foreground">Link copied</p>}
+          <ErrorText error={error} />
+        </>
+      )} />
   );
 }
 

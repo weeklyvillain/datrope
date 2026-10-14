@@ -1,13 +1,18 @@
 import { unwrap, type Settings, type User } from "@datrope/core";
+import { Ellipsis } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { FormField } from "@/components/form-field";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { StackedList, StackedRow } from "@/components/stacked-rows";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSubmit } from "@/hooks/use-submit";
+import { cn } from "@/lib/utils";
 import { client, errorText, useApp } from "@/session";
 
 type Mode = Settings["registration_mode"];
@@ -22,6 +27,7 @@ export function SignUps() {
   const me = useApp((s) => s.me);
   const [users, setUsers] = useState<User[]>();
   const [error, setError] = useState<string>();
+  const phone = useIsMobile();
   const loadUsers = () => {
     unwrap(client.api.GET("/api/admin/users")).then((v) => setUsers(v ?? [])).catch((e) => setError(errorText(e)));
   };
@@ -34,17 +40,23 @@ export function SignUps() {
       <section className="grid gap-2" aria-labelledby="signups-users">
         <h3 id="signups-users" className="text-sm font-semibold">Accounts</h3>
         <ErrorText error={error} />
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead><span className="sr-only">Actions</span></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users?.map((u) => <UserRow key={u.id} u={u} isMe={u.id === me?.id} onChange={loadUsers} />)}
-          </TableBody>
-        </Table>
+        {phone ? (
+          <StackedList label="Accounts">
+            {users?.map((u) => <UserRowPhone key={u.id} u={u} isMe={u.id === me?.id} onChange={loadUsers} />)}
+          </StackedList>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead><span className="sr-only">Actions</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users?.map((u) => <UserRow key={u.id} u={u} isMe={u.id === me?.id} onChange={loadUsers} />)}
+            </TableBody>
+          </Table>
+        )}
       </section>
     </>
   );
@@ -160,5 +172,54 @@ function UserRow({ u, isMe, onChange }: { u: User; isMe: boolean; onChange: () =
         <ErrorText error={error} />
       </TableCell>
     </TableRow>
+  );
+}
+
+function UserRowPhone({ u, isMe, onChange }: { u: User; isMe: boolean; onChange: () => void }) {
+  const [resetting, setResetting] = useState(false);
+  const [password, setPassword] = useState("");
+  const { busy, error, run } = useSubmit();
+  const path = { params: { path: { id: u.id } } };
+  return (
+    <StackedRow
+      primary={<span className="truncate">{u.display_name}{u.is_admin && " (admin)"}{u.disabled && <span className="text-muted-foreground"> · disabled</span>}</span>}
+      secondary={`@${u.username}`}
+      actions={(
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger aria-label={`Actions for ${u.username}`}
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground")}>
+            <Ellipsis />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setResetting(true)}>Reset password</DropdownMenuItem>
+            {!isMe && (
+              <DropdownMenuItem variant={u.disabled ? "default" : "destructive"} disabled={busy} onSelect={() => void run(async () => {
+                await unwrap(client.api.PUT("/api/admin/users/{id}/disabled", { ...path, body: { disabled: !u.disabled } }));
+                onChange();
+              })}>{u.disabled ? "Enable" : "Disable"}</DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      below={(
+        <>
+          {resetting && (
+            <form className="flex flex-wrap items-center gap-2 pb-2" onSubmit={(e) => {
+              e.preventDefault();
+              void run(async () => {
+                await unwrap(client.api.PUT("/api/admin/users/{id}/password", { ...path, body: { password } }));
+                setResetting(false);
+                setPassword("");
+              });
+            }}>
+              <Input type="password" aria-label={`New password for ${u.username}`} value={password} minLength={8} required
+                className="min-w-0 flex-1" onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+              <Button size="sm" type="submit" disabled={busy}>Set</Button>
+              <Button size="sm" variant="outline" onClick={() => setResetting(false)}>Cancel</Button>
+            </form>
+          )}
+          <ErrorText error={error} />
+        </>
+      )} />
   );
 }

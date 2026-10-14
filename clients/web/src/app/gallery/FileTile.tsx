@@ -1,5 +1,6 @@
 import { FileArchive, FileText, File as FileIcon, Hash, Music, Play } from "lucide-react";
 import type { ReactNode } from "react";
+import { claimLongPress, useLongPress } from "@/hooks/use-long-press";
 import { UserAvatar } from "@/components/user-avatar";
 import { attachmentImage } from "@/lib/sized-image";
 import { cn } from "@/lib/utils";
@@ -32,16 +33,17 @@ export function useItemAuthor(item: GalleryItem): ShownAuthor {
   return itemAuthor(item, members) ?? shownAuthor(undefined);
 }
 
-export function FileTile({ item, global, selected, playing, onOpen, onPlay, menu }: {
+export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLongPress, menu }: {
   item: GalleryItem; global: boolean; selected: boolean; playing: boolean;
-  onOpen: () => void; onPlay?: () => void; menu?: ReactNode;
+  onOpen: () => void; onPlay?: () => void; onLongPress?: () => void; menu?: ReactNode;
 }) {
   const { attachment: a, kind } = item;
   const author = useItemAuthor(item);
   const tag = channelTag(item);
   const media = kind === "image" || kind === "video";
+  const press = useLongPress(() => onLongPress?.(), !!onLongPress);
   return (
-    <div className={cn("group relative aspect-square overflow-hidden rounded-md", media ? "bg-muted" : "border bg-card",
+    <div {...press} className={cn("group relative aspect-square overflow-hidden rounded-md", media ? "bg-muted" : "border bg-card",
       (selected || playing) && "ring-2 ring-primary")}>
       <button type="button" onClick={onOpen} aria-label={tileLabel(item, global, displayName(author))}
         className="absolute inset-0 grid outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring">
@@ -83,12 +85,12 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, menu
         </span>
       )}
       {kind === "audio" && onPlay && (
-        <button type="button" onClick={onPlay} aria-label={`Play ${a.filename}`}
-          className="absolute right-2 bottom-2 grid size-8 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-md group-hover:opacity-100 focus-visible:opacity-100">
+        <button type="button" onPointerDown={claimLongPress} onClick={onPlay} aria-label={`Play ${a.filename}`}
+          className="absolute right-2 bottom-2 grid size-8 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 pointer-coarse:opacity-100 shadow-md group-hover:opacity-100 focus-visible:opacity-100">
           <Play className="size-4 fill-current" />
         </button>
       )}
-      {menu && <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">{menu}</div>}
+      {menu && <div onPointerDown={claimLongPress} className="absolute top-1.5 right-1.5 opacity-0 pointer-coarse:top-0 pointer-coarse:right-0 pointer-coarse:grid pointer-coarse:size-[44px] pointer-coarse:place-items-center pointer-coarse:opacity-100 group-hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">{menu}</div>}
     </div>
   );
 }

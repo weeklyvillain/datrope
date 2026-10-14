@@ -3,9 +3,11 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, typ
 import { ChevronLeft, ChevronRight, Download, Maximize, X, ZoomIn, ZoomOut } from "lucide-react";
 import { client } from "../../session";
 import { Button } from "@/components/ui/button";
+import { useHistoryLayer } from "@/hooks/use-history-layer";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { attachmentImage } from "@/lib/sized-image";
+import { pinchZoom, swipeIntent } from "@/lib/viewer-gestures";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
@@ -13,6 +15,8 @@ const STEP = 1.5;
 
 type View = { zoom: number; x: number; y: number };
 const FIT: View = { zoom: 1, x: 0, y: 0 };
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 20;
 
 /** A full-screen gallery of a message's images. `index` is the image shown, or null when closed. */
 export function ImageViewer({ images, index, onIndexChange }:
@@ -20,9 +24,37 @@ export function ImageViewer({ images, index, onIndexChange }:
   const [view, setView] = useState<View>(FIT);
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  /** Active pointers, for pinching. */
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  /** A one-finger touch gesture at fit zoom: where it began, and whether it's still a candidate swipe/tap. */
+  const touch = useRef<{ x: number; y: number; live: boolean } | null>(null);
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  const lastTouchUp = useRef(0);
+  /** How far the image is dragged from the finger while swiping at fit zoom. */
+  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  const reduceMotion = useRef(false);
+
+  function resetGestures() {
+    pointers.current.clear();
+    pinch.current = null;
+    drag.current = null;
+    touch.current = null;
+    lastTap.current = null;
+    setOffset(null);
+  }
   const a = index === null ? undefined : images[index];
 
+  useHistoryLayer("viewer", index !== null, () => onIndexChange(null));
   useEffect(() => setView(FIT), [index]);
+  // Drop gesture state when the viewer closes (or unmounts): a pointer still down then never delivers its up/cancel.
+  useEffect(() => {
+    if (index !== null) return;
+    resetGestures();
+  }, [index]);
+  useEffect(() => resetGestures, []);
 
   /** Zooms to `zoom`, keeping the stage point (px, py) — relative to its centre — still. */
   function zoomTo(zoom: number, px = 0, py = 0) {
@@ -60,22 +92,95 @@ export function ImageViewer({ images, index, onIndexChange }:
     zoomTo(view.zoom * Math.exp(-dy * 0.002), ...fromCentre(e));
   }
 
+  function pinchState() {
+    const [p, q] = [...pointers.current.values()];
+    return { dist: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 };
+  }
+
+  /** Starts panning from the one remaining pointer (re-baselined so a lifted finger causes no jump). */
+  function startPan(p: { x: number; y: number }) {
+    drag.current = { x: p.x - viewRef.current.x, y: p.y - viewRef.current.y };
+  }
+
   function onPointerDown(e: PointerEvent) {
-    if (view.zoom === MIN_ZOOM || e.button !== 0) return;
+    if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX - view.x, y: e.clientY - view.y };
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) reduceMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (pointers.current.size === 2) {
+      pinch.current = { dist: pinchState().dist, zoom: viewRef.current.zoom };
+      drag.current = null;
+      touch.current = null;
+      setOffset(null);
+    } else if (pointers.current.size === 1) {
+      if (viewRef.current.zoom > MIN_ZOOM) startPan({ x: e.clientX, y: e.clientY });
+      if (e.pointerType === "touch") touch.current = { x: e.clientX, y: e.clientY, live: viewRef.current.zoom === MIN_ZOOM };
+    }
   }
 
   function onPointerMove(e: PointerEvent) {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size >= 2 && pinch.current) {
+      const { dist, mx, my } = pinchState();
+      const r = stage.current!.getBoundingClientRect();
+      zoomTo(pinchZoom(pinch.current.zoom, pinch.current.dist, dist), mx - r.left - r.width / 2, my - r.top - r.height / 2);
+      return;
+    }
     const d = drag.current;
     if (d) setView((v) => ({ ...v, x: e.clientX - d.x, y: e.clientY - d.y }));
+    else if (touch.current?.live && !reduceMotion.current)
+      setOffset({ x: e.clientX - touch.current.x, y: Math.max(0, e.clientY - touch.current.y) });
+  }
+
+  function onPointerEnd(e: PointerEvent) {
+    if (!pointers.current.delete(e.pointerId)) return;
+    const cancelled = e.type === "pointercancel";
+    const t = touch.current;
+    if (pointers.current.size === 1) {
+      // Lifted one finger of a pinch: carry on panning from the other, without a jump.
+      pinch.current = null;
+      touch.current = null;
+      if (viewRef.current.zoom > MIN_ZOOM) startPan([...pointers.current.values()][0]);
+      return;
+    }
+    if (pointers.current.size > 1) {
+      // Still pinching with 3+ fingers: re-baseline on the remaining pair so the zoom doesn't jump.
+      pinch.current = { dist: pinchState().dist, zoom: viewRef.current.zoom };
+      return;
+    }
+    pinch.current = null;
+    drag.current = null;
+    touch.current = null;
+    setOffset(null);
+    if (e.pointerType !== "touch") return;
+    lastTouchUp.current = performance.now();
+    if (!t || cancelled) return;
+    const dx = e.clientX - t.x, dy = e.clientY - t.y;
+    if (t.live) {
+      const intent = swipeIntent(dx, dy);
+      if (intent === "next") return go(index! + 1);
+      if (intent === "prev") return go(index! - 1);
+      if (intent === "close") return onIndexChange(null);
+    }
+    if (Math.hypot(dx, dy) > DOUBLE_TAP_PX) { lastTap.current = null; return; }
+    const prev = lastTap.current, now = performance.now();
+    if (prev && now - prev.t <= DOUBLE_TAP_MS && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) <= DOUBLE_TAP_PX) {
+      lastTap.current = null;
+      toggleZoom(e);
+    } else lastTap.current = { t: now, x: e.clientX, y: e.clientY };
+  }
+
+  function toggleZoom(e: { clientX: number; clientY: number }) {
+    if (viewRef.current.zoom > MIN_ZOOM) setView(FIT);
+    else zoomTo(2.5, ...fromCentre(e));
   }
 
   const many = images.length > 1;
   return (
     <Dialog open={!!a} onOpenChange={(open) => { if (!open) onIndexChange(null); }}>
       <DialogContent showCloseButton={false} aria-describedby={undefined} onKeyDown={onKeyDown} onContextMenu={(e) => e.stopPropagation()}
-        className="flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 top-0 left-0 flex-col gap-0 rounded-none border-0 bg-background/95 p-0 shadow-none sm:max-w-none">
+        className="flex h-dvh max-h-none w-screen max-w-none overflow-hidden translate-x-0 translate-y-0 top-0 left-0 flex-col gap-0 rounded-none border-0 bg-background/95 p-0 pt-safe pb-safe px-safe shadow-none sm:max-w-none">
         {a && <>
           <div className="flex items-center gap-1 border-b bg-background/80 px-3 py-2">
             <DialogTitle className="min-w-0 flex-1 truncate text-sm font-medium">{a.filename}</DialogTitle>
@@ -98,12 +203,13 @@ export function ImageViewer({ images, index, onIndexChange }:
           <div ref={stage} className={cn("relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden select-none",
             view.zoom > MIN_ZOOM ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
             onWheel={onWheel} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
-            onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
-            onDoubleClick={(e) => (view.zoom > MIN_ZOOM ? setView(FIT) : zoomTo(2.5, ...fromCentre(e)))}>
+            onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}
+            onDoubleClick={(e) => { if (performance.now() - lastTouchUp.current > 500) toggleZoom(e); }}>
             {/* Keyed so the previous image never lingers while the next one loads. */}
             <img key={a.id} src={client.url(a.url)} alt={a.filename} draggable={false}
-              className="max-h-full max-w-full object-contain will-change-transform"
-              style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }} />
+              className={cn("max-h-full max-w-full object-contain will-change-transform",
+                !offset && view.zoom === MIN_ZOOM && "motion-safe:transition-transform motion-safe:duration-150")}
+              style={{ transform: `translate(${view.x + (offset?.x ?? 0)}px, ${view.y + (offset?.y ?? 0)}px) scale(${view.zoom})` }} />
             {many && <>
               <Button variant="secondary" size="icon-lg" className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full shadow-md"
                 aria-label="Previous image" title="Previous (←)" disabled={index === 0}

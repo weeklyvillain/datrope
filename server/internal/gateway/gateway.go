@@ -169,6 +169,19 @@ func (g *Gateway) StatusOf(userID id.ID) string {
 	return g.displayedLocked(userID)
 }
 
+// Active reports whether the user is using Datrope right now: some open
+// connection whose own status is online or invisible (idle is away).
+func (g *Gateway) Active(userID id.ID) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for s := range g.byUser[userID] {
+		if s.conn != nil && (s.status == StatusOnline || s.status == StatusInvisible) {
+			return true
+		}
+	}
+	return false
+}
+
 // Connections counts sessions with an open WebSocket (not those waiting to be resumed).
 func (g *Gateway) Connections() int {
 	g.mu.Lock()
