@@ -21,7 +21,7 @@ export function ChannelFilter({ value, onChange }: { value: string[]; onChange: 
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <RefButton variant="outline" size="sm" aria-label={`In channel: ${label}`}
-          className={cn("h-7 gap-1.5 text-ui font-normal", value.length > 0 && "border-primary bg-primary/10 text-primary")}>
+          className={cn("h-7 gap-1.5 rounded-full text-ui font-normal", value.length > 0 && "border-primary bg-primary/10 text-primary")}>
           In channel: {label}<ChevronDown className="size-3.5" />
         </RefButton>
       </PopoverTrigger>

@@ -1,7 +1,7 @@
 import { Perm, canCreateInvites, hasPerm, isGated } from "@datrope/core";
-import { ChevronDown, Command, FolderPlus, Images, Plus, Settings, UserPlus } from "lucide-react";
+import { ChevronDown, Command, FolderPlus, Plus, Settings, UserPlus } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useMatch } from "react-router-dom";
+import { useMatch } from "react-router-dom";
 import { useLayerNavigate } from "@/hooks/use-history-layer";
 import { useTitleBarClass, useTitleBarEdges } from "@/hooks/use-title-bar-edges";
 import { ServerIcon } from "@/components/logo";
@@ -91,17 +91,11 @@ export function useRememberVisits() {
   }, [dmId]);
 }
 
-/** The Channels tab body: the Gallery link and the channel tree. */
+/** The Channels tab body: the channel tree. */
 export function ChannelsPane() {
-  const channelId = useMatch("/channels/:channelId")?.params.channelId;
-  const onGallery = !!useMatch("/gallery/*");
+  const channelId = useMatch("/channels/:channelId/*")?.params.channelId;
   return (
     <>
-      <Link to="/gallery" aria-current={onGallery ? "page" : undefined}
-        className={cn("mx-2 mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 pointer-coarse:min-h-[44px] text-muted-foreground no-underline hover:bg-accent hover:text-foreground",
-          onGallery && "bg-accent text-foreground")}>
-        <Images className="size-4" aria-hidden />Gallery
-      </Link>
       <CreateMenu>
         <ChannelTree activeId={channelId} />
       </CreateMenu>

@@ -87,7 +87,7 @@ describe("lazy images", () => {
     expect(tags.length).toBe(src.match(/<img\b/g)?.length ?? 0);
     return tags;
   };
-  it.each(["app/gallery/AlbumsView.tsx", "app/people/ProfileCard.tsx", "app/server-settings/Emoji.tsx"])("%s lazy-loads its images", (f) => {
+  it.each(["app/gallery/AlbumDecks.tsx", "app/people/ProfileCard.tsx", "app/server-settings/Emoji.tsx"])("%s lazy-loads its images", (f) => {
     const src = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
     const imgs = imgTags(src);
     expect(imgs.length).toBeGreaterThan(0);

@@ -128,12 +128,23 @@
             "description": "With contains=: whether the file is in it",
             "type": "boolean"
           },
-          "cover": {
-            "$ref": "#/components/schemas/Attachment",
-            "description": "The newest image you can see; absent in events"
-          },
           "created_at": {
             "format": "date-time",
+            "type": "string"
+          },
+          "deck": {
+            "description": "Up to three of the newest images you can see, newest first; empty in events and in contains= listings",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "gallery_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
             "type": "string"
           },
           "id": {
@@ -182,18 +193,20 @@
           "visibility": {
             "enum": [
               "private",
-              "server"
+              "gallery"
             ],
             "type": "string"
           }
         },
         "required": [
           "id",
+          "gallery_id",
           "title",
           "visibility",
           "owner_id",
           "member_ids",
           "item_count",
+          "deck",
           "created_at",
           "updated_at"
         ],
@@ -210,7 +223,7 @@
           "visibility": {
             "enum": [
               "private",
-              "server"
+              "gallery"
             ],
             "type": "string"
           }
@@ -246,7 +259,7 @@
           "visibility": {
             "enum": [
               "private",
-              "server"
+              "gallery"
             ],
             "type": "string"
           }
@@ -274,13 +287,8 @@
       "Attachment": {
         "additionalProperties": false,
         "properties": {
-          "album_id": {
-            "description": "The album it was uploaded into, for an album upload",
-            "pattern": "^[0-9]+$",
-            "type": "string"
-          },
           "channel_id": {
-            "description": "Where it was posted; absent for an album upload",
+            "description": "Where it was posted",
             "pattern": "^[0-9]+$",
             "type": "string"
           },
@@ -446,6 +454,15 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "gallery_sources": {
+            "description": "Galleries only: which other channels' files it shows besides its own posts",
+            "enum": [
+              "none",
+              "all",
+              "selected"
+            ],
+            "type": "string"
+          },
           "group": {
             "description": "DMs only: a group conversation, which people can leave",
             "type": "boolean"
@@ -495,6 +512,18 @@
           "require_tag": {
             "description": "Forums only: a post needs at least one tag",
             "type": "boolean"
+          },
+          "source_channel_ids": {
+            "description": "Galleries with gallery_sources selected: those channels",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "tags": {
             "description": "Forums: the tags posts can carry. Forum posts: the tags on this post",
@@ -796,6 +825,15 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
+          "gallery_sources": {
+            "description": "Galleries only; default none",
+            "enum": [
+              "none",
+              "all",
+              "selected"
+            ],
+            "type": "string"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
@@ -804,6 +842,19 @@
           "require_tag": {
             "description": "Forums only: a post needs at least one tag",
             "type": "boolean"
+          },
+          "source_channel_ids": {
+            "description": "Galleries with gallery_sources selected",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "tags": {
             "description": "Forums only",
@@ -4459,6 +4510,15 @@
             "description": "Move out of any category",
             "type": "boolean"
           },
+          "gallery_sources": {
+            "description": "Galleries only",
+            "enum": [
+              "none",
+              "all",
+              "selected"
+            ],
+            "type": "string"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
@@ -4473,6 +4533,16 @@
           "require_tag": {
             "description": "Forums only",
             "type": "boolean"
+          },
+          "source_channel_ids": {
+            "description": "Galleries only; replaces the source list",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array"
           },
           "tags": {
             "description": "Forums only; replaces the tag list and strips removed tags from existing posts",
@@ -5784,15 +5854,16 @@
     },
     "/api/albums": {
       "get": {
-        "operationId": "list-albums",
+        "operationId": "list-albums-for-file",
         "parameters": [
           {
-            "description": "An attachment ID: say whether each album holds it",
+            "description": "An attachment ID: the albums you can add it to, and whether each holds it",
             "explode": false,
             "in": "query",
             "name": "contains",
+            "required": true,
             "schema": {
-              "description": "An attachment ID: say whether each album holds it",
+              "description": "An attachment ID: the albums you can add it to, and whether each holds it",
               "type": "string"
             }
           }
@@ -5813,49 +5884,6 @@
               }
             },
             "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "tags": [
-          "albums"
-        ]
-      },
-      "post": {
-        "operationId": "create-album",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AlbumCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Album"
-                }
-              }
-            },
-            "description": "Created"
           },
           "default": {
             "content": {
@@ -7158,6 +7186,110 @@
         ],
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/albums": {
+      "get": {
+        "operationId": "list-gallery-albums",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Album"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "albums"
+        ]
+      },
+      "post": {
+        "operationId": "create-album",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlbumCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Album"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "albums"
         ]
       }
     },
@@ -8654,6 +8786,16 @@
         "operationId": "list-files",
         "parameters": [
           {
+            "description": "A gallery channel ID: its own posts and its sources' files",
+            "explode": false,
+            "in": "query",
+            "name": "gallery",
+            "schema": {
+              "description": "A gallery channel ID: its own posts and its sources' files",
+              "type": "string"
+            }
+          },
+          {
             "description": "Comma-separated: image, video, audio, document, archive, other",
             "explode": false,
             "in": "query",
@@ -8664,12 +8806,12 @@
             }
           },
           {
-            "description": "Comma-separated channel IDs; a channel includes its threads",
+            "description": "Comma-separated channel IDs; narrows a gallery, or is the scope without one. A channel includes its threads",
             "explode": false,
             "in": "query",
             "name": "channel",
             "schema": {
-              "description": "Comma-separated channel IDs; a channel includes its threads",
+              "description": "Comma-separated channel IDs; narrows a gallery, or is the scope without one. A channel includes its threads",
               "type": "string"
             }
           },

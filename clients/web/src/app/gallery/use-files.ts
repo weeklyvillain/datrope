@@ -3,16 +3,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { client, errorText, useApp } from "../../session";
 import type { GalleryFilter } from "./filter";
 import type { GalleryItem } from "./items";
+import { inGallery } from "./sources";
 
-export type GalleryScope = { kind: "global" } | { kind: "channel"; channelId: string } | { kind: "album"; albumId: string };
+export type GalleryScope = { kind: "gallery"; channelId: string } | { kind: "album"; albumId: string; galleryId: string };
 
 const PAGE = 50;
 
 export function paramsFor(scope: GalleryScope, f: GalleryFilter): FilesParams {
   const q = f.q.trim();
   return {
+    ...(scope.kind === "gallery" && { gallery: scope.channelId }),
     kinds: f.kind === "all" ? undefined : [f.kind],
-    channels: scope.kind === "channel" ? [scope.channelId] : scope.kind === "album" ? undefined : f.channels.length ? f.channels : undefined,
+    channels: scope.kind === "gallery" && f.channels.length ? f.channels : undefined,
     q: q || undefined,
     uploader: f.uploader ?? undefined,
   };
@@ -34,7 +36,7 @@ export function patchThread(current: GalleryItem[], d: ThreadUpdate): GalleryIte
 }
 
 /** Pages through /api/files for a scope and filter; a message with files sent, edited or deleted
- *  in a channel this scope covers refetches the first page. */
+ *  in a channel this gallery shows refetches the first page. */
 export function useFiles(scope: GalleryScope, f: GalleryFilter) {
   const params = paramsFor(scope, f);
   const key = JSON.stringify(params);
@@ -98,9 +100,10 @@ export function useFiles(scope: GalleryScope, f: GalleryFilter) {
     const m = data as Message;
     if (!m.attachments?.length) return;
     const ch = channels[m.channel_id];
-    const home = ch?.type === "thread" ? ch.parent_channel_id : m.channel_id;
-    if (scope.kind === "channel" && home !== scope.channelId && m.channel_id !== scope.channelId) return;
     if (ch?.type === "dm") return;
+    const home = ch?.type === "thread" ? ch.parent_channel_id ?? m.channel_id : m.channel_id;
+    const gallery = channels[scope.channelId];
+    if (!gallery || !inGallery(gallery, home)) return;
     const g = gen.current;
     fetchPage({ ...JSON.parse(debouncedKey), limit: PAGE })
       .then((p) => { if (g === gen.current) setItems((cur) => mergeHead(cur, p.items ?? [])); })

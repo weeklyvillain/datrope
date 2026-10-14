@@ -485,6 +485,22 @@ func (c *Client) CreatePrivateChannel(name string) id.ID {
 	return ch
 }
 
+// CreateGallery creates a gallery channel with sources none, all or selected (then sourceIDs);
+// "" leaves the server default.
+func (c *Client) CreateGallery(name, sources string, sourceIDs ...id.ID) id.ID {
+	c.env.T.Helper()
+	body := map[string]any{"name": name, "type": "gallery"}
+	if sources != "" {
+		body["gallery_sources"] = sources
+	}
+	if len(sourceIDs) > 0 {
+		body["source_channel_ids"] = sourceIDs
+	}
+	var ch channels.Channel
+	c.Do(http.MethodPost, "/api/server/channels", body, http.StatusCreated, &ch)
+	return ch.ID
+}
+
 // OpenDM opens (or finds) the direct message with another user.
 func (c *Client) OpenDM(other id.ID) id.ID {
 	c.env.T.Helper()

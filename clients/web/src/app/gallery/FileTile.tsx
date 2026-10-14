@@ -34,8 +34,8 @@ export function useItemAuthor(item: GalleryItem): ShownAuthor {
   return itemAuthor(item, members) ?? shownAuthor(undefined);
 }
 
-export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLongPress, menu }: {
-  item: GalleryItem; global: boolean; selected: boolean; playing: boolean;
+export function FileTile({ item, global, size, selected, playing, onOpen, onPlay, onLongPress, menu }: {
+  item: GalleryItem; global: boolean; size?: { width: number; height: number }; selected: boolean; playing: boolean;
   onOpen: () => void; onPlay?: () => void; onLongPress?: () => void; menu?: ReactNode;
 }) {
   const { attachment: a, kind } = item;
@@ -44,14 +44,14 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLo
   const media = kind === "image" || kind === "video";
   const press = useLongPress(() => onLongPress?.(), !!onLongPress);
   return (
-    <div {...press} className={cn("group relative aspect-square overflow-hidden rounded-md", media ? "bg-muted" : "border bg-card",
-      (selected || playing) && "ring-2 ring-primary")}>
+    <div {...press} style={size} className={cn("group relative overflow-hidden", size ? "flex-none rounded-sm" : "aspect-square rounded-md",
+      media ? "bg-muted" : "border bg-card", (selected || playing) && "ring-2 ring-primary")}>
       <BareButton data-tile="" onClick={onOpen} aria-label={tileLabel(item, global, displayName(author))}
         className="absolute inset-0 grid outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring">
         {media ? (
           kind === "video" && !a.thumbnail_url
             ? <video src={client.url(a.url)} preload="metadata" muted playsInline className="pointer-events-none size-full object-cover" />
-            : <img {...attachmentImage(a, 240, { cover: true })} alt="" loading="lazy" className="size-full object-cover" />
+            : <img {...attachmentImage(a, size ? Math.ceil(Math.max(size.width, size.height)) : 240, { cover: true })} alt="" loading="lazy" className="size-full object-cover" />
         ) : (
           <span className={cn("flex min-h-0 flex-col p-2.5 text-left", global ? "pt-9" : "pt-3")}>
             <span className="grid flex-1 place-items-center" aria-hidden>
@@ -73,7 +73,7 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLo
           </span>
         )}
       </BareButton>
-      {global && tag && (
+      {global && tag && !(size && size.width < 120) && (
         <span className={cn("pointer-events-none absolute top-1.5 left-1.5 inline-flex h-5 max-w-[calc(100%-2.5rem)] items-center gap-0.5 rounded-full pr-2 pl-1 text-caption font-semibold text-foreground",
           media ? "bg-background/85" : "bg-muted")} aria-hidden>
           <Hash className="size-3 flex-none" /><span className="truncate">{tag}</span>

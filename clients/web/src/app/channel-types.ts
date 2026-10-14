@@ -8,7 +8,7 @@ export const CHANNEL_TYPES: { value: CreatableChannelType; label: string; descri
   { value: "webhook", label: "Webhook", description: "Only other apps post, through webhooks. Members reply in threads.", icon: Webhook },
   { value: "announcement", label: "Announcement", description: "Only moderators post. Everyone can react and reply.", icon: Megaphone },
   { value: "forum", label: "Forum", description: "Posts with a title and tags, each with its own replies.", icon: MessagesSquare },
-  { value: "gallery", label: "Gallery", description: "A grid of photos and videos with comments.", icon: Images },
+  { value: "gallery", label: "Gallery", description: "A wall of photos, videos and files, from here or other channels.", icon: Images },
 ];
 
 const ICONS: Record<string, LucideIcon> = {

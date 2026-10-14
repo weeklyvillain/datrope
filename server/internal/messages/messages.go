@@ -25,6 +25,7 @@ import (
 type Channels interface {
 	Access(ctx context.Context, userID, channelID id.ID, need perms.Perms) (*channels.Channel, perms.Perms, error)
 	Readable(ctx context.Context, userID id.ID) ([]id.ID, error)
+	GalleryScope(ctx context.Context, userID, galleryID id.ID) ([]id.ID, error)
 	Get(ctx context.Context, channelID id.ID) (*channels.Channel, error)
 }
 

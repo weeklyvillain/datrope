@@ -1,58 +1,56 @@
-import { Plus } from "lucide-react";
-import { DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
-import { client, errorText } from "../../session";
-import { addAll, useAlbums } from "./albums";
+import { DropdownMenuCheckboxItem, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { ContextMenuItem } from "@/components/ui/context-menu";
+import { client, errorText, useApp } from "../../session";
+import { addAll, useAlbumsForFile } from "./albums";
 
-/** Albums I can add to, as checkboxes for one file: ticking adds it, unticking takes it out. */
-export function AddToAlbumItems({ attachmentId, onNew, onError }: { attachmentId: string; onNew: () => void; onError: (message: string) => void }) {
-  const { albums, loading, reload } = useAlbums(attachmentId);
-  const mine = albums.filter((a) => a.role === "owner" || a.role === "collaborator");
+/** "Lofoten · #photos": albums are named with their gallery, since a file can be in several galleries. */
+export function useAlbumLabel() {
+  const channels = useApp((s) => s.channels);
+  return (a: { title: string; gallery_id: string }) => `${a.title} · #${channels[a.gallery_id]?.name ?? "gallery"}`;
+}
+
+/** Albums I can add one file to, as checkboxes: ticking adds it, unticking takes it out. */
+export function AddToAlbumItems({ attachmentId, onError }: { attachmentId: string; onError: (message: string) => void }) {
+  const { albums, loading, reload } = useAlbumsForFile(attachmentId);
+  const label = useAlbumLabel();
   return (
     <>
-      {loading && mine.length === 0 && <DropdownMenuItem disabled>Loading…</DropdownMenuItem>}
-      {mine.map((a) => (
+      {loading && albums.length === 0 && <DropdownMenuItem disabled>Loading…</DropdownMenuItem>}
+      {!loading && albums.length === 0 && <DropdownMenuItem disabled>No albums here yet</DropdownMenuItem>}
+      {albums.map((a) => (
         <DropdownMenuCheckboxItem key={a.id} checked={!!a.contains} onSelect={(e) => e.preventDefault()}
           onCheckedChange={(on) => void (on ? client.addToAlbum(a.id, attachmentId) : client.removeFromAlbum(a.id, attachmentId)).then(reload, (e) => { onError(errorText(e)); reload(); })}>
-          {a.title}
+          {label(a)}
         </DropdownMenuCheckboxItem>
       ))}
-      {mine.length > 0 && <DropdownMenuSeparator />}
-      <DropdownMenuItem onSelect={onNew}><Plus />New album</DropdownMenuItem>
     </>
   );
 }
 
-/** A message's files into one of my albums, from its right-click menu. */
-export function AddToAlbumContextItems({ attachmentIds, onNew, onError }: { attachmentIds: string[]; onNew: () => void; onError: (message: string) => void }) {
-  const { albums } = useAlbums();
-  const mine = albums.filter((a) => a.role === "owner" || a.role === "collaborator");
+/** A message's files into one of my albums, from its right-click menu. Its files share a channel, so the first one decides. */
+export function AddToAlbumContextItems({ attachmentIds, onError }: { attachmentIds: string[]; onError: (message: string) => void }) {
+  const { albums, loading } = useAlbumsForFile(attachmentIds[0]);
+  const label = useAlbumLabel();
   return (
     <>
-      {mine.map((a) => (
-        <ContextMenuItem key={a.id} onSelect={() => void addAll(a.id, attachmentIds).then((m) => m && onError(m))}>
-          {a.title}
-        </ContextMenuItem>
+      {!loading && albums.length === 0 && <ContextMenuItem disabled>No albums here yet</ContextMenuItem>}
+      {albums.map((a) => (
+        <ContextMenuItem key={a.id} onSelect={() => void addAll(a.id, attachmentIds).then((m) => m && onError(m))}>{label(a)}</ContextMenuItem>
       ))}
-      {mine.length > 0 && <ContextMenuSeparator />}
-      <ContextMenuItem onSelect={onNew}><Plus />New album</ContextMenuItem>
     </>
   );
 }
 
 /** The same list as `AddToAlbumContextItems`, for the message toolbar's "More actions" dropdown. */
-export function AddToAlbumMenuItems({ attachmentIds, onNew, onError }: { attachmentIds: string[]; onNew: () => void; onError: (message: string) => void }) {
-  const { albums } = useAlbums();
-  const mine = albums.filter((a) => a.role === "owner" || a.role === "collaborator");
+export function AddToAlbumMenuItems({ attachmentIds, onError }: { attachmentIds: string[]; onError: (message: string) => void }) {
+  const { albums, loading } = useAlbumsForFile(attachmentIds[0]);
+  const label = useAlbumLabel();
   return (
     <>
-      {mine.map((a) => (
-        <DropdownMenuItem key={a.id} onSelect={() => void addAll(a.id, attachmentIds).then((m) => m && onError(m))}>
-          {a.title}
-        </DropdownMenuItem>
+      {!loading && albums.length === 0 && <DropdownMenuItem disabled>No albums here yet</DropdownMenuItem>}
+      {albums.map((a) => (
+        <DropdownMenuItem key={a.id} onSelect={() => void addAll(a.id, attachmentIds).then((m) => m && onError(m))}>{label(a)}</DropdownMenuItem>
       ))}
-      {mine.length > 0 && <DropdownMenuSeparator />}
-      <DropdownMenuItem onSelect={onNew}><Plus />New album</DropdownMenuItem>
     </>
   );
 }

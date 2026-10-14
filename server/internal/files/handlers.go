@@ -19,7 +19,7 @@ import (
 // multipartOverhead is the room allowed for form headers around the file.
 const multipartOverhead = 1 << 20
 
-// UploadHandler serves POST /api/attachments?channel_id=<id> or ?album_id=<id>
+// UploadHandler serves POST /api/attachments?channel_id=<id>
 // with the file in a multipart field named "file". It must run behind auth.RequireHTTP.
 func (s *Service) UploadHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,31 +35,15 @@ func (s *Service) UploadHandler() http.Handler {
 func (s *Service) upload(w http.ResponseWriter, r *http.Request) (*Attachment, error) {
 	ctx := r.Context()
 	me := auth.Current(ctx).User.ID
-	var h home
-	var limit int64
-	if raw := r.URL.Query().Get("album_id"); raw != "" && s.albums != nil {
-		albumID, err := httpx.ParseID(raw, "album")
-		if err != nil {
-			return nil, err
-		}
-		if err := s.albums.CheckUpload(ctx, me, albumID); err != nil {
-			return nil, err
-		}
-		set, err := s.settings.Settings(ctx)
-		if err != nil {
-			return nil, err
-		}
-		h.albumID, limit = &albumID, set.MaxUploadBytes
-	} else {
-		channelID, err := httpx.ParseID(r.URL.Query().Get("channel_id"), "channel")
-		if err != nil {
-			return nil, err
-		}
-		if limit, err = s.UploadLimit(ctx, me, channelID); err != nil {
-			return nil, err
-		}
-		h.channelID = &channelID
+	channelID, err := httpx.ParseID(r.URL.Query().Get("channel_id"), "channel")
+	if err != nil {
+		return nil, err
 	}
+	limit, err := s.UploadLimit(ctx, me, channelID)
+	if err != nil {
+		return nil, err
+	}
+	h := home{channelID: &channelID}
 	r.Body = http.MaxBytesReader(w, r.Body, limit+multipartOverhead)
 	mr, err := r.MultipartReader()
 	if err != nil {
@@ -81,11 +65,7 @@ func (s *Service) upload(w http.ResponseWriter, r *http.Request) (*Attachment, e
 		if err != nil {
 			return nil, uploadError(err, limit)
 		}
-		a, err := s.save(ctx, h, me, cleanFilename(part.FileName()), staged, nil)
-		if err == nil && h.albumID != nil {
-			s.albums.Uploaded(ctx, *h.albumID, a.ID, me)
-		}
-		return a, err
+		return s.save(ctx, h, me, cleanFilename(part.FileName()), staged, nil)
 	}
 }
 

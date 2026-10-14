@@ -2,13 +2,12 @@ package albums
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/datrope/datrope/server/internal/httpx"
 	"github.com/datrope/datrope/server/internal/id"
@@ -27,12 +26,9 @@ type filesQuery struct {
 	limit    int
 }
 
-// listFiles lists an album's files the caller can see, newest upload first.
+// listFiles lists an album's files its gallery shows the caller, newest upload first.
 func (s *Service) listFiles(ctx context.Context, userID, albumID id.ID, fq filesQuery) (*messages.FilesPage, error) {
-	if _, _, err := s.access(ctx, userID, albumID); err != nil {
-		return nil, err
-	}
-	scope, err := s.channels.Readable(ctx, userID)
+	_, _, sc, err := s.access(ctx, userID, albumID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,15 +37,8 @@ func (s *Service) listFiles(ctx context.Context, userID, albumID id.ID, fq files
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
 	}
-	al := add(albumID)
-	sc := add(id.Int64s(scope))
-	// Attachments are aliased a, as messages.KindSQL expects. A file is shown when it is this
-	// album's upload, or a sent, undeleted file in a channel (or a thread of one) the caller reads.
-	conds := []string{
-		"i.album_id = " + al,
-		"(a.album_id = " + al + " OR (m.id IS NOT NULL AND NOT m.deleted AND (a.channel_id = ANY(" + sc + ")" +
-			" OR (c.type = 'thread' AND c.parent_channel_id = ANY(" + sc + ")))))",
-	}
+	// Attachments are aliased a, as messages.KindSQL expects.
+	conds := []string{"i.album_id = " + add(albumID), "NOT m.deleted", fmt.Sprintf(inScopeSQL, "a", add(id.Int64s(sc)))}
 	if len(fq.kinds) > 0 {
 		conds = append(conds, messages.KindSQL+" = ANY("+add(fq.kinds)+")")
 	}
@@ -59,14 +48,14 @@ func (s *Service) listFiles(ctx context.Context, userID, albumID id.ID, fq files
 	if fq.text != "" {
 		p := add(fq.text)
 		conds = append(conds, "(a.filename ILIKE '%' || "+add(likeEscaper.Replace(fq.text))+" || '%'"+
-			" OR to_tsvector('simple', coalesce(m.content, '')) @@ plainto_tsquery('simple', "+p+"))")
+			" OR to_tsvector('simple', m.content) @@ plainto_tsquery('simple', "+p+"))")
 	}
 	if fq.before != nil {
 		conds = append(conds, "a.id < "+add(*fq.before))
 	}
 	rows, err := s.db.Query(ctx, `SELECT a.id, `+messages.KindSQL+`
 		FROM album_items i JOIN attachments a ON a.id = i.attachment_id
-		LEFT JOIN messages m ON m.id = a.message_id LEFT JOIN channels c ON c.id = a.channel_id
+		JOIN messages m ON m.id = a.message_id JOIN channels c ON c.id = a.channel_id
 		WHERE `+strings.Join(conds, " AND ")+` ORDER BY a.id DESC LIMIT `+add(fq.limit+1), args...)
 	if err != nil {
 		return nil, err
@@ -96,25 +85,27 @@ func (s *Service) listFiles(ctx context.Context, userID, albumID id.ID, fq files
 	return page, nil
 }
 
-// add puts a sent channel file the caller can read (not a DM's) into the album.
+// add puts a file the album's gallery shows the caller into the album. A file the caller can read
+// elsewhere is NOT_IN_GALLERY; one they can't read (or unsent) is a missing attachment.
 func (s *Service) add(ctx context.Context, userID, albumID, attachmentID id.ID) error {
-	if _, _, err := s.editable(ctx, userID, albumID); err != nil {
-		return err
-	}
-	scope, err := s.channels.Readable(ctx, userID)
+	_, sc, err := s.editable(ctx, userID, albumID)
 	if err != nil {
 		return err
 	}
-	var ok bool
-	err = s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM attachments t JOIN channels c ON c.id = t.channel_id
-		JOIN messages m ON m.id = t.message_id
-		WHERE t.id = $1 AND NOT m.deleted AND c.type <> 'dm'
-			AND (t.channel_id = ANY($2) OR (c.type = 'thread' AND c.parent_channel_id = ANY($2))))`,
-		attachmentID, id.Int64s(scope)).Scan(&ok)
+	ok, err := s.inScope(ctx, attachmentID, sc)
 	if err != nil {
 		return err
 	}
 	if !ok {
+		readable, err := s.channels.Readable(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if elsewhere, err := s.inScope(ctx, attachmentID, readable); err != nil {
+			return err
+		} else if elsewhere {
+			return httpx.BadRequest("NOT_IN_GALLERY", "that file isn't in this album's gallery")
+		}
 		return httpx.NotFound("attachment")
 	}
 	if err := s.checkRoom(ctx, albumID); err != nil {
@@ -131,23 +122,9 @@ func (s *Service) add(ctx context.Context, userID, albumID, attachmentID id.ID) 
 	return nil
 }
 
-// take removes an item: a channel file just leaves the album; an album upload is deleted.
+// take removes an item from the album; the file stays where it was posted.
 func (s *Service) take(ctx context.Context, userID, albumID, attachmentID id.ID) error {
 	if _, _, err := s.editable(ctx, userID, albumID); err != nil {
-		return err
-	}
-	var sum, thumb string
-	err := s.db.QueryRow(ctx, `DELETE FROM attachments WHERE id = $1 AND album_id = $2 RETURNING sha256, coalesce(thumb_sha256, '')`,
-		attachmentID, albumID).Scan(&sum, &thumb)
-	switch {
-	case err == nil:
-		s.itemsChanged(ctx, albumID)
-		sums := []string{sum}
-		if thumb != "" {
-			sums = append(sums, thumb)
-		}
-		return s.files.RemoveBlobs(ctx, sums)
-	case !errors.Is(err, pgx.ErrNoRows):
 		return err
 	}
 	tag, err := s.db.Exec(ctx, `DELETE FROM album_items WHERE album_id = $1 AND attachment_id = $2`, albumID, attachmentID)
@@ -159,11 +136,6 @@ func (s *Service) take(ctx context.Context, userID, albumID, attachmentID id.ID)
 	}
 	s.itemsChanged(ctx, albumID)
 	return nil
-}
-
-// Uploaded implements files.Albums: an upload went into the album.
-func (s *Service) Uploaded(ctx context.Context, albumID, attachmentID, userID id.ID) {
-	s.itemsChanged(ctx, albumID)
 }
 
 func (s *Service) itemsChanged(ctx context.Context, albumID id.ID) {

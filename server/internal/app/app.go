@@ -40,6 +40,7 @@ type App struct {
 	API      huma.API
 	Bus      *events.Bus
 	Files    *files.Service // nil when built without a database
+	Channels *channels.Service
 	Voice    *voice.Service // nil when built without a database
 	Messages *messages.Service
 	Webhooks *webhooks.Service // nil when built without a database
@@ -79,6 +80,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	a.Communities = commSvc
 
 	chanSvc := channels.NewService(pool, a.Bus, commSvc, authSvc)
+	a.Channels = chanSvc
 	commSvc.SetChannelSeeder(chanSvc)
 	if pool != nil { // nil only for `datrope openapi`
 		// An instance upgraded with users but no communities gets its server now.
@@ -232,9 +234,6 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 
 	albumSvc := albums.NewService(pool, a.Bus, chanSvc, commSvc, filesSvc, msgSvc)
 	albums.Register(api, albumSvc)
-	if filesSvc != nil {
-		filesSvc.SetAlbums(albumSvc)
-	}
 
 	pushSvc := push.NewService(pool, a.Bus, push.Deps{
 		Audience: audience{communities: commSvc, channels: chanSvc}, Channels: chanSvc,

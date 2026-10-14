@@ -4,25 +4,25 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { client, errorText, useApp, usePerms } from "../../session";
-import { AlbumDialog } from "./AlbumDialog";
-import { addAll, useAlbums } from "./albums";
-import { AlbumAddFailed, fileActions, NewPlaylistWith } from "./FileMenu";
+import { useAlbumLabel } from "./AddToAlbum";
+import { useAlbumsForFile } from "./albums";
+import { fileActions, NewPlaylistWith } from "./FileMenu";
 import type { GalleryItem } from "./items";
 
 type View = "menu" | "playlist" | "album";
 
-function AlbumRows({ item, onNew, onError }: { item: GalleryItem; onNew: () => void; onError: (m: string) => void }) {
-  const { albums, loading, reload } = useAlbums(item.attachment.id);
-  const mine = albums.filter((a) => a.role === "owner" || a.role === "collaborator");
+function AlbumRows({ item, onError }: { item: GalleryItem; onError: (m: string) => void }) {
+  const { albums, loading, reload } = useAlbumsForFile(item.attachment.id);
+  const label = useAlbumLabel();
   return (
     <>
-      {loading && mine.length === 0 && <ActionSheetItem disabled onSelect={() => undefined}>Loading…</ActionSheetItem>}
-      {mine.map((a) => (
+      {loading && albums.length === 0 && <ActionSheetItem disabled onSelect={() => undefined}>Loading…</ActionSheetItem>}
+      {!loading && albums.length === 0 && <ActionSheetItem disabled onSelect={() => undefined}>No albums here yet</ActionSheetItem>}
+      {albums.map((a) => (
         <ActionSheetItem key={a.id} icon={a.contains ? <Check /> : <span />}
           onSelect={() => void (a.contains ? client.removeFromAlbum(a.id, item.attachment.id) : client.addToAlbum(a.id, item.attachment.id))
-            .then(reload, (e) => { onError(errorText(e)); reload(); })}>{a.title}</ActionSheetItem>
+            .then(reload, (e) => { onError(errorText(e)); reload(); })}>{label(a)}</ActionSheetItem>
       ))}
-      <ActionSheetItem icon={<Plus />} onSelect={onNew}>New album</ActionSheetItem>
     </>
   );
 }
@@ -50,13 +50,11 @@ function PlaylistRows({ item, onNew, onDone, onError }: { item: GalleryItem; onN
 export function TileSheet({ item, items, onClose }: { item: GalleryItem | null; items: GalleryItem[]; onClose: () => void }) {
   const nav = useNavigate();
   const [view, setView] = useState<View>("menu");
-  const [dialog, setDialog] = useState<"playlist" | "album">();
+  const [dialog, setDialog] = useState<"playlist">();
   const [error, setError] = useState<string>();
-  const [albumError, setAlbumError] = useState<string>();
   const onError = useCallback((m: string) => setError(m), []);
   useEffect(() => { if (item) { setView("menu"); setError(undefined); } }, [item]);
   if (!item) return null;
-  const library = !item.attachment.album_id; // an album upload can't join a playlist or another album
   const done = () => { setDialog(undefined); onClose(); };
   const acts = fileActions(item, items, nav);
   const act = (id: string) => {
@@ -65,7 +63,7 @@ export function TileSheet({ item, items, onClose }: { item: GalleryItem | null; 
   };
   return (
     <>
-      <ActionSheet open={!dialog && !albumError} onOpenChange={(o) => !o && onClose()}
+      <ActionSheet open={!dialog} onOpenChange={(o) => !o && onClose()}
         title={view === "menu" ? "File actions" : view === "playlist" ? "Add to playlist" : "Add to album"}
         header={<p className="m-0 truncate px-4 pt-1 pb-2 text-sm text-muted-foreground">{item.attachment.filename}</p>}>
         {error && <p role="alert" className="m-0 px-3 py-2 text-sm text-destructive">{error}</p>}
@@ -73,21 +71,18 @@ export function TileSheet({ item, items, onClose }: { item: GalleryItem | null; 
           <>
             {act("play")}
             {act("queue")}
-            {item.kind === "audio" && library && <ActionSheetItem icon={<Plus />} onSelect={() => setView("playlist")}>Add to playlist</ActionSheetItem>}
-            {library && <ActionSheetItem icon={<Images />} onSelect={() => setView("album")}>Add to album</ActionSheetItem>}
+            {item.kind === "audio" && <ActionSheetItem icon={<Plus />} onSelect={() => setView("playlist")}>Add to playlist</ActionSheetItem>}
+            <ActionSheetItem icon={<Images />} onSelect={() => setView("album")}>Add to album</ActionSheetItem>
             {act("message")}
             {act("download")}
           </>
         ) : view === "playlist" ? (
           <PlaylistRows item={item} onNew={() => setDialog("playlist")} onDone={onClose} onError={onError} />
         ) : (
-          <AlbumRows item={item} onNew={() => setDialog("album")} onError={onError} />
+          <AlbumRows item={item} onError={onError} />
         )}
       </ActionSheet>
       {dialog === "playlist" && <NewPlaylistWith item={item} onClose={done} />}
-      {dialog === "album" && <AlbumDialog onClose={done}
-        onSaved={(a) => { setDialog(undefined); void addAll(a.id, [item.attachment.id]).then((m) => m ? setAlbumError(m) : onClose()); }} />}
-      {albumError && <AlbumAddFailed message={albumError} onClose={() => { setAlbumError(undefined); onClose(); }} />}
     </>
   );
 }

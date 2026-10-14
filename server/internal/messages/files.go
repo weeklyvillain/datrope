@@ -16,8 +16,7 @@ import (
 )
 
 // FileItem is one file in a gallery or album: the attachment, its message and where it was posted
-// (a thread's file carries the thread; clients tag it with parent_name). An album upload has no
-// message or channel.
+// (a thread's file carries the thread; clients tag it with parent_name).
 type FileItem struct {
 	Attachment files.Attachment `json:"attachment"`
 	Message    *Message         `json:"message,omitempty"`
@@ -62,27 +61,34 @@ var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 type FilesQuery struct {
 	Kinds    []string
-	Channels []id.ID // nil: every readable channel
+	Gallery  *id.ID  // the gallery's scope; else Channels (required then)
+	Channels []id.ID // narrows the scope; with no Gallery, the scope is these readable channels
 	Uploader *id.ID
 	Text     string
 	Before   *id.ID
 	Limit    int
 }
 
-// Files lists the files userID can read outside DMs, newest first (spec: global gallery).
+// Files lists the files userID can read outside DMs in a gallery's scope or in the given channels, newest first.
 func (s *Service) Files(ctx context.Context, userID id.ID, fq FilesQuery) (*FilesPage, error) {
-	scope, err := s.channels.Readable(ctx, userID)
+	var scope []id.ID
+	var err error
+	if fq.Gallery != nil {
+		scope, err = s.channels.GalleryScope(ctx, userID, *fq.Gallery)
+	} else {
+		scope, err = s.channels.Readable(ctx, userID)
+	}
 	if err != nil {
 		return nil, err
 	}
 	if fq.Channels != nil {
-		readable := map[id.ID]bool{}
+		in := map[id.ID]bool{}
 		for _, c := range scope {
-			readable[c] = true
+			in[c] = true
 		}
 		var narrowed []id.ID
 		for _, c := range fq.Channels {
-			if readable[c] {
+			if in[c] {
 				narrowed = append(narrowed, c)
 			}
 		}
@@ -148,8 +154,8 @@ func (s *Service) Files(ctx context.Context, userID id.ID, fq FilesQuery) (*File
 	return page, nil
 }
 
-// FileItems hydrates listed files, in order: each with its message and channel, or (album uploads)
-// without. Files deleted since they were listed are left out.
+// FileItems hydrates listed files, in order, each with its message and channel. Files deleted since
+// they were listed are left out.
 func (s *Service) FileItems(ctx context.Context, hits []FileHit) ([]FileItem, error) {
 	out := []FileItem{}
 	if len(hits) == 0 {
@@ -229,8 +235,9 @@ func parseIDList(raw, what string) ([]id.ID, error) {
 func registerFiles(api huma.API, s *Service, op func(string, string, string, int) huma.Operation) {
 	huma.Register(api, op("list-files", http.MethodGet, "/api/files", 0),
 		func(ctx context.Context, in *struct {
+			Gallery  string `query:"gallery" doc:"A gallery channel ID: its own posts and its sources' files"`
 			Kind     string `query:"kind" doc:"Comma-separated: image, video, audio, document, archive, other"`
-			Channel  string `query:"channel" doc:"Comma-separated channel IDs; a channel includes its threads"`
+			Channel  string `query:"channel" doc:"Comma-separated channel IDs; narrows a gallery, or is the scope without one. A channel includes its threads"`
 			Uploader string `query:"uploader"`
 			Q        string `query:"q" maxLength:"100" doc:"Matches file names and captions"`
 			Before   string `query:"before" doc:"next_cursor from the previous page"`
@@ -239,6 +246,9 @@ func registerFiles(api huma.API, s *Service, op func(string, string, string, int
 			me := auth.Current(ctx).User.ID
 			if !s.searchLimit.Allow(me.String()) {
 				return nil, httpx.RateLimited()
+			}
+			if in.Gallery == "" && in.Channel == "" {
+				return nil, httpx.BadRequest("SCOPE_REQUIRED", "pass gallery or channel")
 			}
 			fq := FilesQuery{Text: strings.TrimSpace(in.Q), Limit: min(max(in.Limit, 1), filesPageMax)}
 			if in.Kind != "" {
@@ -253,6 +263,13 @@ func registerFiles(api huma.API, s *Service, op func(string, string, string, int
 			var err error
 			if fq.Channels, err = parseIDList(in.Channel, "channel"); err != nil {
 				return nil, err
+			}
+			if in.Gallery != "" {
+				g, err := httpx.ParseID(in.Gallery, "channel")
+				if err != nil {
+					return nil, err
+				}
+				fq.Gallery = &g
 			}
 			if in.Uploader != "" {
 				u, err := id.Parse(in.Uploader)

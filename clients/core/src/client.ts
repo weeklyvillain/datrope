@@ -21,7 +21,7 @@ export interface ClientOptions {
 /** A crop in source pixels, sent with an uncropped GIF avatar or banner. */
 export type ImageCrop = { x: number; y: number; w: number; h: number };
 
-export type FilesParams = { kinds?: FileKind[]; channels?: string[]; uploader?: string; q?: string; before?: string; limit?: number };
+export type FilesParams = { gallery?: string; kinds?: FileKind[]; channels?: string[]; uploader?: string; q?: string; before?: string; limit?: number };
 
 function imageForm(image: Blob, name: string, crop?: ImageCrop): FormData {
   const form = new FormData();
@@ -539,6 +539,7 @@ export class DatropeClient {
   /** Files in channels the caller can read (not DMs), newest first. */
   async files(p: FilesParams = {}): Promise<FilesPage> {
     const query: Record<string, string | number> = {};
+    if (p.gallery) query.gallery = p.gallery;
     if (p.kinds?.length) query.kind = p.kinds.join(",");
     if (p.channels?.length) query.channel = p.channels.join(",");
     if (p.uploader) query.uploader = p.uploader;
@@ -548,17 +549,22 @@ export class DatropeClient {
     return unwrap(this.api.GET("/api/files", { params: { query } }));
   }
 
-  /** Albums the caller can see, most recently changed first; with contains, each says whether it holds that file. */
-  async albums(contains?: string): Promise<Album[]> {
-    return unwrap(this.api.GET("/api/albums", { params: { query: contains ? { contains } : {} } })) as Promise<Album[]>;
+  /** A gallery's albums the caller can see, most recently changed first, each with its deck. */
+  async galleryAlbums(galleryId: string): Promise<Album[]> {
+    return unwrap(this.api.GET("/api/channels/{id}/albums", { params: { path: { id: galleryId } } })) as Promise<Album[]>;
+  }
+
+  /** The albums the caller can add this file to (their gallery shows it); each says whether it holds it. */
+  async albumsForFile(attachmentId: string): Promise<Album[]> {
+    return unwrap(this.api.GET("/api/albums", { params: { query: { contains: attachmentId } } })) as Promise<Album[]>;
   }
 
   async album(id: string): Promise<Album> {
     return unwrap(this.api.GET("/api/albums/{albumID}", { params: { path: { albumID: id } } }));
   }
 
-  async createAlbum(body: { title: string; visibility: AlbumVisibility }): Promise<Album> {
-    return unwrap(this.api.POST("/api/albums", { body }));
+  async createAlbum(galleryId: string, body: { title: string; visibility: AlbumVisibility }): Promise<Album> {
+    return unwrap(this.api.POST("/api/channels/{id}/albums", { params: { path: { id: galleryId } }, body }));
   }
 
   async updateAlbum(id: string, body: { title?: string; visibility?: AlbumVisibility }): Promise<Album> {
@@ -578,7 +584,7 @@ export class DatropeClient {
   }
 
   /** An album's files the caller can see, newest upload first. */
-  async albumFiles(id: string, p: Omit<FilesParams, "channels"> = {}): Promise<FilesPage> {
+  async albumFiles(id: string, p: Omit<FilesParams, "channels" | "gallery"> = {}): Promise<FilesPage> {
     const query: Record<string, string | number> = {};
     if (p.kinds?.length) query.kind = p.kinds.join(",");
     if (p.uploader) query.uploader = p.uploader;
@@ -594,10 +600,6 @@ export class DatropeClient {
 
   async removeFromAlbum(id: string, attachmentId: string): Promise<void> {
     await unwrap(this.api.DELETE("/api/albums/{albumID}/files/{attachmentID}", { params: { path: { albumID: id, attachmentID: attachmentId } } }));
-  }
-
-  async uploadToAlbum(id: string, file: Blob, filename: string): Promise<Attachment> {
-    return (await this.multipart("POST", `/api/attachments?album_id=${encodeURIComponent(id)}`, file, filename)) as Attachment;
   }
 
   /** Where a library track's audio is served, for the browser's own player. */
