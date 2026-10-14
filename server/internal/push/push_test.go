@@ -1,9 +1,12 @@
 package push_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"net/http"
 	"testing"
 
@@ -113,6 +116,25 @@ func TestManifest(t *testing.T) {
 	require.Equal(t, "/", m.StartURL)
 	require.Equal(t, "standalone", m.Display)
 	require.Equal(t, "/icons/pwa-192x192.png", m.Icons[0].Src)
+
+	// With a server icon, the app uses it at exact sizes Android can install.
+	alice.UploadTo(http.MethodPut, "/api/server/icon", "icon.png", testPNG(t, 1254, 1254), http.StatusOK)
+	_, raw = env.Anon().Raw(http.MethodGet, "/manifest.webmanifest", nil, "", http.StatusOK)
+	require.NoError(t, json.Unmarshal(raw, &m))
+	require.Len(t, m.Icons, 3)
+	for _, ic := range m.Icons {
+		require.Regexp(t, `^/api/server/icon/(192|512|maskable-512)\.png\?v=[0-9a-f]{12}$`, ic.Src)
+		require.Equal(t, "image/png", ic.Type)
+		require.NotEqual(t, "any", ic.Sizes)
+		env.Anon().Raw(http.MethodGet, ic.Src, nil, "", http.StatusOK)
+	}
+	require.Equal(t, "maskable", m.Icons[2].Purpose)
+}
+
+func testPNG(t *testing.T, w, h int) []byte {
+	var buf bytes.Buffer
+	require.NoError(t, png.Encode(&buf, image.NewNRGBA(image.Rect(0, 0, w, h))))
+	return buf.Bytes()
 }
 
 func TestEndpointMustBeKnownPushService(t *testing.T) {

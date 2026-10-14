@@ -108,6 +108,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			mux.Handle("DELETE /api/server/"+kind, authSvc.RequireHTTP(filesSvc.ServerImageDelete(kind)))
 			mux.Handle("GET /api/server/"+kind, filesSvc.ServerImageDownload())
 		}
+		mux.Handle("GET /api/server/icon/{name}", filesSvc.ServerAppIcon())
 		mux.Handle("POST /api/server/images", authSvc.RequireHTTP(filesSvc.ServerImageUpload("page")))
 		mux.Handle("GET /api/server/images/{id}", filesSvc.ServerImageDownload())
 		filesSvc.AddBlobTable("emoji", "sha256") // before Start: the first sweep must know every blob table

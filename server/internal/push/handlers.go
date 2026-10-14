@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -78,6 +79,21 @@ type manifest struct {
 // background is --background in clients/web/src/styles.css.
 const background = "#131313"
 
+// serverIcons lists the server icon's app sizes (files.ServerAppIcon) in place
+// of Datrope's. Android builds the installed app from them; a full-size upload
+// listed as "any" is the likely reason it never reached the app drawer.
+func serverIcons(iconURL string) []manifestIcon {
+	v := ""
+	if u, err := url.Parse(iconURL); err == nil {
+		v = "?v=" + url.QueryEscape(u.Query().Get("v"))
+	}
+	return []manifestIcon{
+		{Src: "/api/server/icon/192.png" + v, Sizes: "192x192", Type: "image/png"},
+		{Src: "/api/server/icon/512.png" + v, Sizes: "512x512", Type: "image/png"},
+		{Src: "/api/server/icon/maskable-512.png" + v, Sizes: "512x512", Type: "image/png", Purpose: "maskable"},
+	}
+}
+
 // ManifestHandler serves the PWA manifest, named after this instance's server
 // so two installed servers on one phone stay apart.
 func (s *Service) ManifestHandler() http.Handler {
@@ -93,7 +109,7 @@ func (s *Service) ManifestHandler() http.Handler {
 				name = sv.Name
 			}
 			if sv.IconURL != nil {
-				icons = append(icons, manifestIcon{Src: *sv.IconURL, Sizes: "any"})
+				icons = serverIcons(*sv.IconURL)
 			}
 		}
 		w.Header().Set("Content-Type", "application/manifest+json")
