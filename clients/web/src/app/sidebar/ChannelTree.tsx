@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, CheckCheck, Link2, Phone, Settings } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCheck, Ellipsis, Link2, Phone, Settings } from "lucide-react";
 import {
   createContext, useContext, useEffect, useMemo, useRef, useState,
   type CSSProperties, type HTMLAttributes, type ReactNode, type Ref,
@@ -16,13 +16,18 @@ import { Link, useNavigate } from "react-router-dom";
 import { useLayerNavigate } from "@/hooks/use-history-layer";
 import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";
-import { Button } from "@/components/ui/button";
+import { RefButton } from "@/components/ref-button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useArrowNav } from "@/hooks/use-arrow-nav";
 import { useCollapsed } from "@/lib/collapsed";
 import { TOUCH_ROW } from "@/lib/touch";
 import { cn } from "@/lib/utils";
+import { restoreFocus } from "@/lib/focus";
 import { client, errorText, isUnread, useApp, userName } from "../../session";
 import { channelIcon, isUnreadType } from "../channel-types";
 import { CategoryDialog, DeleteCategoryDialog } from "../dialogs/CategoryDialog";
@@ -89,6 +94,7 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
   const [settingsFor, setSettingsFor] = useState<string>();
   const [dialog, setDialog] = useState<{ action: Exclude<CategoryAction, "up" | "down">; category: Category }>();
   const [error, setError] = useState<string>();
+  const treeRef = useRef<HTMLDivElement>(null);
   const errorTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(errorTimer.current), []);
   const droppedAt = useRef(0);
@@ -208,6 +214,7 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     },
     justDropped: () => Date.now() - droppedAt.current < 300,
   };
+  useArrowNav(treeRef, "[data-tree-item]", { companions: "[data-row-action]" });
   const draggedCat = drag && kindOf(drag.id) === "cat" ? categories?.[rawId(drag.id)] : undefined;
   const draggedUser = drag && kindOf(drag.id) === "vm" ? userName(client.store.getState(), rawId(drag.id)) : undefined;
 
@@ -215,7 +222,7 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     <TreeContext.Provider value={tree}>
       <DndContext sensors={sensors} collisionDetection={collision} accessibility={{ announcements }}
         onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => setDrag(undefined)}>
-        <div className="select-none p-2">
+        <div ref={treeRef} className="select-none p-2">
           {view.welcomeId && <ul className="list-none"><ChannelRow id={view.welcomeId} /></ul>}
           <Group group={NONE} ids={view.groups[NONE] ?? []} />
           <SortableContext items={view.cats.map((c) => `cat:${c}`)} strategy={verticalListSortingStrategy}>
@@ -374,6 +381,7 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
   const drop = useDroppable({ id: `vc:${id}`, disabled: dragKind !== "vm" || ch?.type !== "voice" });
   const unread = useApp((s) => isUnreadType(s.channels[id]?.type) && isUnread(s.readStates[id]));
   const canConnect = useApp((s) => hasPerm(myChannelPerms(s, id), Perm.ConnectVoice));
+  const trigger = useRef<HTMLDivElement | null>(null);
   const nav = useLayerNavigate();
   const lastMessageId = useApp((s) => s.readStates[id]?.lastMessageId);
   if (!ch) return null;
@@ -382,9 +390,15 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
     <li ref={itemRef} style={style} className={className}>
       <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>
-        <div ref={drop.setNodeRef}
+        <div ref={(el) => { drop.setNodeRef(el); trigger.current = el; }}
           className={cn("group flex items-center rounded-md hover:bg-accent", TOUCH_ROW, active && "bg-accent", drop.isOver && "bg-accent ring-1 ring-primary")}>
-          <Link to={`/channels/${id}`} aria-current={active ? "page" : undefined} {...handle}
+          <Link to={`/channels/${id}`} aria-current={active ? "page" : undefined} {...handle} data-tree-item=""
+            onKeyDown={(e) => {
+              handle?.onKeyDown?.(e);
+              if (e.key !== "ArrowLeft" || e.defaultPrevented) return;
+              const header = e.currentTarget.closest('[role="group"]')?.querySelector<HTMLElement>("[data-tree-item][aria-expanded]");
+              if (header) { e.preventDefault(); header.focus(); }
+            }}
             onClick={(e) => {
               if (justDropped()) return e.preventDefault();
               if (ch.type === "voice" && canConnect) void voice.join(id); // clicking a voice channel joins it
@@ -394,14 +408,39 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
             <ChannelIcon ch={ch} />
             <span className="truncate"><EmojiText text={ch.name} /></span>
           </Link>
-          {manageable.includes(id) && (
-            <Button variant="ghost" size="icon-xs" aria-label={`Settings for ${ch.name}`} title="Channel settings"
-              className="mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
-              onClick={() => openSettings(id)}><Settings /></Button>
-          )}
+          {/* Not modal: its items open dialogs, which a modal menu would fight for focus. */}
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <RefButton variant="ghost" size="icon-xs" aria-label={`Options for ${ch.name}`} data-row-action=""
+                className="mr-1 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 data-[state=open]:opacity-100">
+                <Ellipsis />
+              </RefButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52" onContextMenu={(e) => e.stopPropagation()}>
+              {unread && lastMessageId && (
+                <DropdownMenuItem onSelect={() => void client.ack(id, lastMessageId).catch(() => undefined)}><CheckCheck />Mark as read</DropdownMenuItem>
+              )}
+              {ch.type === "voice" && canConnect && (
+                <DropdownMenuItem onSelect={() => { nav(`/channels/${id}`); void voice.join(id); }}><Phone />Join voice</DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => void navigator.clipboard?.writeText(`${location.origin}/channels/${id}`).catch(() => undefined)}><Link2 />Copy link</DropdownMenuItem>
+              {manageable.includes(id) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => openSettings(id)}><Settings />Channel settings</DropdownMenuItem>
+                  {ch.type !== "welcome" && (
+                    <>
+                      <DropdownMenuItem disabled={!canMoveChannel(id, -1)} onSelect={() => moveChannelBy(id, -1)}><ArrowUp />Move up</DropdownMenuItem>
+                      <DropdownMenuItem disabled={!canMoveChannel(id, 1)} onSelect={() => moveChannelBy(id, 1)}><ArrowDown />Move down</DropdownMenuItem>
+                    </>
+                  )}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <ContextMenuContent className="w-52" onCloseAutoFocus={(e) => restoreFocus(e, trigger.current)}>
           {unread && lastMessageId && (
             <ContextMenuItem onSelect={() => void client.ack(id, lastMessageId).catch(() => undefined)}><CheckCheck />Mark as read</ContextMenuItem>
           )}

@@ -129,4 +129,36 @@ describe("eventDispatcher", () => {
     for (const m of [null, "visible", 1, {}, { event: 2 }, { event: "open_notification", payload: {} }]) d.dispatch(m);
     expect(cb).not.toHaveBeenCalled();
   });
+
+  it("claims the title bar and sends window actions", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    await d.claimTitleBar(true);
+    d.windowAction("toggle_maximize");
+    d.startDrag();
+    await tick();
+    expect(f.calls).toContainEqual(["desktop_title_bar", { claimed: true }]);
+    expect(f.calls).toContainEqual(["desktop_window", { action: "toggle_maximize" }]);
+    expect(f.calls).toContainEqual(["desktop_start_drag", undefined]);
+  });
+
+  it("only re-sends the claim when it changes", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    const first = d.claimTitleBar(true);
+    expect(d.claimTitleBar(true)).toBe(first);
+    await d.claimTitleBar(false);
+    await first;
+    expect(f.calls.filter(([c]) => c === "desktop_title_bar")).toHaveLength(2);
+  });
+
+  it("rejects the claim on a shell without the command, and tries again next time", async () => {
+    const f = fake();
+    const d = new Desktop(f.t);
+    f.failWith("command desktop_title_bar not found");
+    await expect(d.claimTitleBar(true)).rejects.toBe("command desktop_title_bar not found");
+    f.failWith(undefined);
+    await expect(d.claimTitleBar(true)).resolves.toBeUndefined();
+    expect(f.calls.filter(([c]) => c === "desktop_title_bar")).toHaveLength(2);
+  });
 });

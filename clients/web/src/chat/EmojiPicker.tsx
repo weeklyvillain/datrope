@@ -12,6 +12,7 @@ import { useLatch } from "@/hooks/use-latch";
 import { sizedImage } from "@/lib/sized-image";
 import { isTouchOnly } from "@/lib/touch";
 import { recordEmoji } from "./recent-emoji";
+import { BareButton } from "@/components/bare-button";
 
 export type EmojiValue = { unicode: string } | { custom: Emoji };
 
@@ -252,12 +253,12 @@ const EmojiRow = memo(function EmojiRow({ cells, first, top, active, onActive, o
       {cells.map((cell, j) => {
         const i = first + j;
         return (
-          <button key={i} type="button" data-cell={i} tabIndex={i === active || (active < 0 && i === 0 && first === 0) ? 0 : -1}
+          <BareButton key={i} data-cell={i} tabIndex={i === active || (active < 0 && i === 0 && first === 0) ? 0 : -1}
             aria-label={cell.label} title={cell.label}
-            className="grid size-10 place-items-center rounded-md text-2xl leading-none outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="grid size-10 place-items-center rounded-md text-2xl leading-none outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
             onFocus={() => onActive(i)} onClick={() => onPick(cell.value)}>
             {cell.show}
-          </button>
+          </BareButton>
         );
       })}
     </div>

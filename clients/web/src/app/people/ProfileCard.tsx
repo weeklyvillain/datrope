@@ -1,4 +1,5 @@
 import type { PublicUser, Role } from "@datrope/core";
+import { Copy } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
 import { RoleBadge } from "@/components/role-badge";
@@ -70,7 +71,7 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
   return (
     <div>
       <div className={cn("overflow-hidden", panel ? "h-24" : "h-16")} style={{ background: roleColor(sv, userId) ?? avatarColor(userId) }}>
-        {user.banner_url && <img {...sizedImage(user.banner_url, 512)} alt="" className="size-full object-cover" />}
+        {user.banner_url && <img {...sizedImage(user.banner_url, 512)} loading="lazy" alt="" className="size-full object-cover" />}
       </div>
       <div className={cn("pb-4", panel ? "px-5" : "px-4")}>
         <div className="-mt-10 w-fit">
@@ -82,6 +83,10 @@ export function ProfileCard({ userId, variant, preview, fallback, onAction, role
             <div className={cn("truncate font-bold text-foreground", panel ? "text-[20px]" : "text-[18px]")}>{name}</div>
             <div className="truncate text-sm text-muted-foreground">{sub}</div>
           </div>
+          {!preview && (
+            <Button size="icon-sm" variant="ghost" aria-label="Copy user ID" title="Copy user ID" className="text-muted-foreground"
+              onClick={() => void navigator.clipboard?.writeText(userId).catch(() => undefined)}><Copy /></Button>
+          )}
           {panel && actions}
         </div>
         {user.custom_status && <p className="mt-2 text-sm wrap-anywhere"><EmojiText text={user.custom_status} /></p>}

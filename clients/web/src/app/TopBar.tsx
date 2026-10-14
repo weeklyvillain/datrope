@@ -2,8 +2,14 @@ import { MoreVertical } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { RefButton } from "@/components/ref-button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLayoutTier } from "@/hooks/use-layout-tier";
+import { useTitleBarClass, useTitleBarEdges } from "@/hooks/use-title-bar-edges";
+import { ChannelsButton } from "./ChannelsButton";
 import { InboxButton } from "./InboxButton";
+import { ServersButton } from "./WindowControls";
 import { BackButton } from "./mobile/ScreenHeader";
 import { SearchBox } from "./search/SearchBox";
 
@@ -19,19 +25,22 @@ export function TopBar({ actions, phoneActions, onTitleClick, tools = true, chil
 }) {
   const mobile = useIsMobile();
   const [menu, setMenu] = useState(false);
+  const narrow = useLayoutTier() === "narrow";
+  const edges = useTitleBarEdges();
+  const bandClass = useTitleBarClass(header);
   if (mobile && phoneActions) {
     return (
       <header className={header}>
         <BackButton className="-ml-1 max-md:size-[44px]" />
         {onTitleClick ? (
           // The title's heading stays a heading: a button can't contain one, so it lies over the title instead.
-          <div className="relative flex min-h-[44px] min-w-0 flex-1 items-center gap-2 [&>h2]:min-w-0 [&>h2]:shrink [&>h2]:truncate">
+          <div className="relative flex min-h-[44px] min-w-0 flex-1 items-center gap-2 [&>:is(h1,h2)]:min-w-0 [&>:is(h1,h2)]:shrink [&>:is(h1,h2)]:truncate">
             {children}
             <button type="button" aria-label="Open channel info" onClick={onTitleClick}
               className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
         ) : (
-          <div className="flex min-w-0 flex-1 items-center gap-2 [&>h2]:min-w-0 [&>h2]:shrink [&>h2]:truncate">{children}</div>
+          <div className="flex min-w-0 flex-1 items-center gap-2 [&>:is(h1,h2)]:min-w-0 [&>:is(h1,h2)]:shrink [&>:is(h1,h2)]:truncate">{children}</div>
         )}
         <div className="flex flex-none items-center gap-1">
           {tools && <SearchBox />}
@@ -50,11 +59,13 @@ export function TopBar({ actions, phoneActions, onTitleClick, tools = true, chil
     );
   }
   return (
-    <header className={header}>
+    <header ref={edges} data-titlebar-drag className={bandClass}>
       <BackButton className="-ml-1 md:hidden" />
-      <div className="flex min-w-0 flex-1 items-center gap-2 [&>h2]:min-w-0 [&>h2]:shrink [&>h2]:truncate">{children}</div>
+      {narrow && <ServersButton />}
+      {narrow && <ChannelsButton />}
+      <div className="flex min-w-0 flex-1 items-center gap-2 [&>:is(h1,h2)]:min-w-[12ch] [&>:is(h1,h2)]:shrink [&>:is(h1,h2)]:truncate">{children}</div>
       <div className="flex flex-none items-center gap-1">
-        {actions}
+        {narrow && phoneActions ? <MoreMenu actions={phoneActions} /> : actions}
         {tools && (
           <>
             <InboxButton />
@@ -63,5 +74,21 @@ export function TopBar({ actions, phoneActions, onTitleClick, tools = true, chil
         )}
       </div>
     </header>
+  );
+}
+
+/** Narrow desktop windows: a view's buttons as one ⋯ menu. */
+function MoreMenu({ actions }: { actions: PhoneAction[] }) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <RefButton variant="ghost" size="icon-sm" aria-label="More actions" className="text-muted-foreground"><MoreVertical /></RefButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        {actions.map((a) => (
+          <DropdownMenuItem key={a.label} variant={a.destructive ? "destructive" : "default"} onSelect={a.onSelect}>{a.icon}{a.label}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

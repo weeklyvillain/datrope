@@ -40,7 +40,7 @@ function Reactor({ userId }: { userId: string }) {
   const name = useApp((s) => userName(s, userId));
   const avatarUrl = useApp((s) => s.server?.members[userId]?.user.avatar_url);
   return (
-    <div className="flex min-h-[44px] items-center gap-3 px-3 text-[15px]">
+    <div className="flex min-h-[44px] items-center gap-3 px-3 text-body">
       <UserAvatar user={{ id: userId, username: name, avatar_url: avatarUrl }} size="md" />
       <span className="truncate">{name}</span>
     </div>

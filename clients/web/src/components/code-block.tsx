@@ -24,7 +24,7 @@ export function CodeBlock({ code, lang, lineNumbers = false, title, actions, cop
   );
   const count = lineNumbers ? code.split("\n").length : 0;
   return (
-    <div className={cn("code-block overflow-hidden rounded-lg border bg-sidebar text-[13px]", className)}>
+    <div className={cn("code-block overflow-hidden rounded-lg border bg-sidebar text-ui", className)}>
       <div className="flex items-center gap-2 border-b bg-card py-1 pl-3 pr-1 text-xs text-muted-foreground">
         <span className="flex min-w-0 flex-1 items-center gap-2">{title ?? lang ?? "text"}</span>
         {actions}

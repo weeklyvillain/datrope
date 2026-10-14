@@ -14,6 +14,7 @@ import { SelfRolePicker } from "./SelfRolePicker";
 import { WelcomeEditor } from "./WelcomeEditor";
 import { WelcomeMarkdown } from "./WelcomeMarkdown";
 import { sizedImage } from "@/lib/sized-image";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 /** The welcome channel: banner, server name and description, the page, and the rules gate. */
 export function WelcomeView({ channelId }: { channelId: string }) {
@@ -61,7 +62,7 @@ export function WelcomeView({ channelId }: { channelId: string }) {
         <article className="mx-auto grid max-w-[760px] gap-6 px-4 pb-12 md:px-8">
           <ServerHeading />
           {loadError ? <ErrorText error={loadError} />
-            : !welcome ? <p className="text-muted-foreground">Loading…</p>
+            : !welcome ? <ListSkeleton className="p-0" />
             : !blank ? <WelcomeMarkdown markdown={welcome.markdown} />
             : canEdit ? (
               <div className="grid justify-items-center gap-3 rounded-lg border border-dashed p-8 text-center">

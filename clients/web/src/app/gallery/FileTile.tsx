@@ -8,6 +8,7 @@ import { client, displayName, formatBytes, useApp } from "../../session";
 import { shownAuthor, type ShownAuthor } from "../message-author";
 import { extension, KIND_SINGULAR } from "./kinds";
 import { itemAuthor, itemTitle, type GalleryItem } from "./items";
+import { BareButton } from "@/components/bare-button";
 
 /** Where a file was posted, as tagged: a thread's file shows its parent channel; undefined for album uploads. */
 export function channelTag(item: GalleryItem): string | undefined {
@@ -45,7 +46,7 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLo
   return (
     <div {...press} className={cn("group relative aspect-square overflow-hidden rounded-md", media ? "bg-muted" : "border bg-card",
       (selected || playing) && "ring-2 ring-primary")}>
-      <button type="button" onClick={onOpen} aria-label={tileLabel(item, global, displayName(author))}
+      <BareButton data-tile="" onClick={onOpen} aria-label={tileLabel(item, global, displayName(author))}
         className="absolute inset-0 grid outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring">
         {media ? (
           kind === "video" && !a.thumbnail_url
@@ -59,21 +60,21 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLo
                   <Music className="size-7" />
                 </span>
               ) : (
-                <span className="relative grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-[11px] font-bold text-foreground">
+                <span className="relative grid h-16 w-13 place-items-end justify-center rounded-md bg-secondary pb-2 text-caption font-bold text-foreground">
                   {kind === "archive" ? <FileArchive className="absolute top-2 size-5" /> : kind === "document" ? <FileText className="absolute top-2 size-5" /> : <FileIcon className="absolute top-2 size-5" />}
                   {extension(a.filename)}
                 </span>
               )}
             </span>
-            <span className="line-clamp-2 text-[13px] leading-tight font-semibold wrap-anywhere text-foreground">{a.filename}</span>
-            <span className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            <span className="line-clamp-2 text-ui leading-tight font-semibold wrap-anywhere text-foreground">{a.filename}</span>
+            <span className="mt-0.5 truncate text-caption text-muted-foreground">
               {playing ? "Playing · " : ""}{formatBytes(a.size)} · {displayName(author)}
             </span>
           </span>
         )}
-      </button>
+      </BareButton>
       {global && tag && (
-        <span className={cn("pointer-events-none absolute top-1.5 left-1.5 inline-flex h-5 max-w-[calc(100%-2.5rem)] items-center gap-0.5 rounded-full pr-2 pl-1 text-[11px] font-semibold text-foreground",
+        <span className={cn("pointer-events-none absolute top-1.5 left-1.5 inline-flex h-5 max-w-[calc(100%-2.5rem)] items-center gap-0.5 rounded-full pr-2 pl-1 text-caption font-semibold text-foreground",
           media ? "bg-background/85" : "bg-muted")} aria-hidden>
           <Hash className="size-3 flex-none" /><span className="truncate">{tag}</span>
         </span>
@@ -85,10 +86,10 @@ export function FileTile({ item, global, selected, playing, onOpen, onPlay, onLo
         </span>
       )}
       {kind === "audio" && onPlay && (
-        <button type="button" onPointerDown={claimLongPress} onClick={onPlay} aria-label={`Play ${a.filename}`}
+        <BareButton onPointerDown={claimLongPress} onClick={onPlay} aria-label={`Play ${a.filename}`}
           className="absolute right-2 bottom-2 grid size-8 place-items-center rounded-full bg-primary text-primary-foreground opacity-0 pointer-coarse:opacity-100 shadow-md group-hover:opacity-100 focus-visible:opacity-100">
           <Play className="size-4 fill-current" />
-        </button>
+        </BareButton>
       )}
       {menu && <div onPointerDown={claimLongPress} className="absolute top-1.5 right-1.5 opacity-0 pointer-coarse:top-0 pointer-coarse:right-0 pointer-coarse:grid pointer-coarse:size-[44px] pointer-coarse:place-items-center pointer-coarse:opacity-100 group-hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">{menu}</div>}
     </div>

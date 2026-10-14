@@ -59,19 +59,60 @@ impl Rect {
 /// Where the chrome, the server webviews and the open drawer go in a `w` x `h` window: (chrome, page, drawer).
 /// The drawer covers the page's left edge without moving it; it is `None` (hidden) outside drawer mode. In full
 /// mode the page rect doesn't matter: server webviews are hidden.
-pub fn layout_rects(mode: ChromeMode, w: f64, h: f64) -> (Rect, Rect, Option<Rect>) {
-    let bar = Rect::new(0.0, 0.0, w, TOP_BAR_HEIGHT);
-    let page = Rect::new(0.0, TOP_BAR_HEIGHT, w, h - TOP_BAR_HEIGHT);
+/// `bar` is the shell bar's height above the selected server's page: 0 once that page draws the title bar itself.
+pub fn layout_rects(mode: ChromeMode, w: f64, h: f64, bar: f64) -> (Rect, Rect, Option<Rect>) {
+    let chrome = Rect::new(0.0, 0.0, w, bar);
+    let page = Rect::new(0.0, bar, w, h - bar);
     match mode {
-        ChromeMode::Closed => (bar, page, None),
-        ChromeMode::Drawer => (bar, page, Some(drawer_rect(h))),
+        ChromeMode::Closed => (chrome, page, None),
+        ChromeMode::Drawer => (chrome, page, Some(drawer_rect(h, bar))),
         ChromeMode::Full => (Rect::new(0.0, 0.0, w, h), page, None),
     }
 }
 
-/// The open drawer in a window `h` high.
-fn drawer_rect(h: f64) -> Rect {
-    Rect::new(0.0, TOP_BAR_HEIGHT, DRAWER_WIDTH, h - TOP_BAR_HEIGHT)
+/// The open drawer in a window `h` high, below a shell bar `bar` high.
+fn drawer_rect(h: f64, bar: f64) -> Rect {
+    Rect::new(0.0, bar, DRAWER_WIDTH, h - bar)
+}
+
+/// The shell bar's height above a server page: none once that page draws the title bar itself.
+pub fn bar_height(inner: &Inner, label: &str) -> f64 {
+    bar_for(&inner.claimed, label)
+}
+
+fn bar_for(claimed: &HashSet<String>, label: &str) -> f64 {
+    if claimed.contains(label) {
+        0.0
+    } else {
+        TOP_BAR_HEIGHT
+    }
+}
+
+/// Whether the chrome webview shows: always in full mode, otherwise only while there is a shell bar to draw.
+pub fn rail_visible(mode: ChromeMode, bar: f64) -> bool {
+    mode == ChromeMode::Full || bar > 0.0
+}
+
+/// The shell bar's height above the selected server's page.
+fn selected_bar(inner: &Inner) -> f64 {
+    inner
+        .selected
+        .as_deref()
+        .map_or(TOP_BAR_HEIGHT, |id| bar_height(inner, &server_label(id)))
+}
+
+/// Unread and mentions on every server but `id`: the badge on that page's Servers button.
+pub fn others_badge(inner: &Inner, id: &str) -> Badge {
+    inner
+        .store
+        .servers
+        .iter()
+        .filter(|s| s.id != id)
+        .map(|s| inner.badges.get(&s.id))
+        .fold(Badge::default(), |acc, b| Badge {
+            unread: acc.unread || b.unread,
+            mentions: acc.mentions.saturating_add(b.mentions),
+        })
 }
 
 /// The x positions of a slide from `from` to `to` in `steps` steps (at least one), easing out (cubic): fast
@@ -133,6 +174,14 @@ pub struct Inner {
     /// Each server page's channel from `desktop_subscribe`, by webview label: the only way the shell talks to
     /// server pages (they get no event permissions, so they can't emit to or listen in on each other).
     pub channels: HashMap<String, Channel<serde_json::Value>>,
+    /// Server webview labels whose page draws the title bar itself (`desktop_title_bar`); cleared on page load.
+    pub claimed: HashSet<String>,
+    /// Limits the window and drag commands server pages call.
+    pub window_limiter: RateLimiter,
+    /// Limits `desktop_set_theme`.
+    pub theme_limiter: RateLimiter,
+    /// The theme each claimed page asked the shell to apply, by webview label.
+    pub themes: HashMap<String, std::collections::BTreeMap<String, String>>,
 }
 
 impl Inner {
@@ -155,21 +204,27 @@ impl Inner {
             update_ready: false,
             visible: None,
             channels: HashMap::new(),
+            claimed: HashSet::new(),
+            window_limiter: RateLimiter::new(30, Duration::from_secs(10)),
+            theme_limiter: RateLimiter::new(10, Duration::from_secs(10)),
+            themes: HashMap::new(),
         }
     }
 
     /// A server page started loading a new document (reload, sign-out, navigation, the offline page), so what the
     /// old one reported no longer holds: it leaves its call, loses its channel and its badge. Returns the
-    /// push-to-talk updates to apply and whether the badge changed.
-    pub fn page_reset(&mut self, label: &str) -> (Vec<PttUpdate>, bool) {
+    /// push-to-talk updates to apply, whether the badge changed and whether the page title bar claim ended.
+    pub fn page_reset(&mut self, label: &str) -> (Vec<PttUpdate>, bool, bool) {
         let (_, updates) = voice_change(&mut self.voice, &mut self.ptt, label, false);
         self.channels.remove(label);
+        let claim_removed = self.claimed.remove(label);
+        self.themes.remove(label);
         let badge_changed = server_id(label).is_some_and(|id| {
             let was = self.badges.get(id);
             self.badges.set(id, Badge::default());
             was != Badge::default()
         });
-        (updates, badge_changed)
+        (updates, badge_changed, claim_removed)
     }
 
     /// The mode in effect: with no servers the chrome always takes the whole window.
@@ -211,6 +266,17 @@ pub struct RailState {
     pub mode: ChromeMode,
     pub maximized: bool,
     pub platform: &'static str,
+    /// The selected server's page draws the title bar, so the shell bar has no height.
+    pub bar_hidden: bool,
+    /// The selected server's colour tokens for the app's own screens; empty if it sent none.
+    pub theme: std::collections::BTreeMap<String, String>,
+}
+
+/// The colour tokens server `id` sent (empty if none).
+pub fn theme_of(inner: &Inner, id: Option<&str>) -> std::collections::BTreeMap<String, String> {
+    id.and_then(|id| inner.themes.get(&server_label(id)))
+        .cloned()
+        .unwrap_or_default()
 }
 
 pub fn rail_state(inner: &Inner) -> RailState {
@@ -237,6 +303,8 @@ pub fn rail_state(inner: &Inner) -> RailState {
         mode: inner.chrome_mode(),
         maximized: inner.maximized,
         platform: platform(),
+        bar_hidden: selected_bar(inner) == 0.0,
+        theme: theme_of(inner, inner.selected.as_deref()),
     }
 }
 
@@ -245,6 +313,34 @@ pub fn emit_rail_state(app: &AppHandle) {
     let state = rail_state(&app.state::<Shell>().0.lock().unwrap());
     for label in [RAIL, DRAWER] {
         let _ = app.emit_to(EventTarget::webview(label), "rail_state", &state);
+    }
+    send_chrome_state(app);
+}
+
+/// The `chrome` event payload for the claimed page `label`; none for anything but a server page.
+pub fn chrome_state_for(inner: &Inner, label: &str) -> Option<serde_json::Value> {
+    let o = others_badge(inner, server_id(label)?);
+    Some(serde_json::json!({
+        "maximized": inner.maximized,
+        "updateReady": inner.update_ready,
+        "platform": platform(),
+        "others": { "unread": o.unread, "mentions": o.mentions },
+    }))
+}
+
+/// Tells every page that draws the title bar what its buttons show: maximized, update ready, the other servers' badge.
+pub fn send_chrome_state(app: &AppHandle) {
+    let messages: Vec<(String, serde_json::Value)> = {
+        let shell = app.state::<Shell>();
+        let inner = shell.0.lock().unwrap();
+        inner
+            .claimed
+            .iter()
+            .filter_map(|label| Some((label.clone(), chrome_state_for(&inner, label)?)))
+            .collect()
+    };
+    for (label, payload) in messages {
+        send_to_page(app, &label, "chrome", payload);
     }
 }
 
@@ -398,7 +494,7 @@ pub fn apply_memory_levels(app: &AppHandle) {
     let _ = app;
 }
 
-fn main_window(app: &AppHandle) -> Option<Window> {
+pub fn main_window(app: &AppHandle) -> Option<Window> {
     app.get_window(MAIN)
 }
 
@@ -511,7 +607,8 @@ pub fn create_drawer_webview(app: &AppHandle) -> tauri::Result<()> {
         inner.drawer_x = -DRAWER_WIDTH;
     }
     let size = content_size(&window)?;
-    let r = drawer_rect(size.height);
+    let bar = selected_bar(&app.state::<Shell>().0.lock().unwrap());
+    let r = drawer_rect(size.height, bar);
     let wv = window.add_child(
         chrome_webview(app, DRAWER, "drawer.html"),
         LogicalPosition::new(-DRAWER_WIDTH, r.y),
@@ -539,16 +636,16 @@ pub fn slide_drawer(app: &AppHandle, open: bool, animate: bool) {
     let Some(wv) = app.get_webview(DRAWER) else {
         return;
     };
-    let (slide, from) = {
+    let (slide, from, bar) = {
         let shell = app.state::<Shell>();
         let mut inner = shell.0.lock().unwrap();
         inner.drawer_slide += 1;
-        (inner.drawer_slide, inner.drawer_x)
+        (inner.drawer_slide, inner.drawer_x, selected_bar(&inner))
     };
     let to = if open { 0.0 } else { -DRAWER_WIDTH };
     let animate = animate && from != to;
     if open {
-        let _ = wv.set_position(LogicalPosition::new(from, TOP_BAR_HEIGHT));
+        let _ = wv.set_position(LogicalPosition::new(from, bar));
         let _ = wv.show();
         let _ = wv.set_focus();
     }
@@ -567,7 +664,7 @@ pub fn slide_drawer(app: &AppHandle, open: bool, animate: bool) {
             if !drawer_step(&app, slide, x) {
                 return;
             }
-            let _ = wv.set_position(LogicalPosition::new(x, TOP_BAR_HEIGHT));
+            let _ = wv.set_position(LogicalPosition::new(x, bar));
         }
         // Again at the end: a slide out that lost the race may have hidden it after this one showed it.
         let _ = if open { wv.show() } else { wv.hide() };
@@ -590,6 +687,10 @@ pub const SERVER_PERMISSIONS: &[&str] = &[
     "allow-desktop-server-info",
     "allow-desktop-screen-pick",
     "allow-desktop-screen-stop",
+    "allow-desktop-title-bar",
+    "allow-desktop-window",
+    "allow-desktop-start-drag",
+    "allow-desktop-set-theme",
 ];
 
 fn add_server_capability(app: &AppHandle, label: &str, origin: &str) -> tauri::Result<()> {
@@ -618,11 +719,29 @@ pub fn app_base(app: &AppHandle) -> Url {
     base.parse().expect("static url")
 }
 
+/// Percent-encodes everything but unreserved characters.
+fn encode_fragment(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() * 2);
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
 pub fn offline_url(app: &AppHandle, s: &Server) -> Option<Url> {
     let mut url = app_base(app).join("offline.html").ok()?;
     url.query_pairs_mut()
         .append_pair("id", &s.id)
         .append_pair("host", &host_of(&s.url));
+    let theme = theme_of(&app.state::<Shell>().0.lock().unwrap(), Some(&s.id));
+    if !theme.is_empty() {
+        let json = serde_json::to_string(&theme).ok()?;
+        url.set_fragment(Some(&format!("theme={}", encode_fragment(&json))));
+    }
     Some(url)
 }
 
@@ -683,7 +802,7 @@ pub fn add_server_webview(app: &AppHandle, s: &Server) -> tauri::Result<()> {
     }
 
     let size = content_size(&window)?;
-    let (_, page, _) = layout_rects(ChromeMode::Closed, size.width, size.height);
+    let (_, page, _) = layout_rects(ChromeMode::Closed, size.width, size.height, TOP_BAR_HEIGHT);
     let wv = window.add_child(
         b,
         LogicalPosition::new(page.x, page.y),
@@ -703,7 +822,8 @@ pub fn mic_allowed(origin: &str, url: Option<Url>) -> bool {
 /// sign-out, navigating away), so leave it on its behalf and free the push-to-talk key. Its screen share stops too.
 fn page_started(app: &AppHandle, label: &str) {
     crate::screen::page_gone(app, label);
-    let (updates, badge_changed) = app.state::<Shell>().0.lock().unwrap().page_reset(label);
+    let (updates, badge_changed, claim_removed) =
+        app.state::<Shell>().0.lock().unwrap().page_reset(label);
     for update in &updates {
         if let Some(l) = &update.release {
             crate::ptt::release(app, l);
@@ -712,8 +832,13 @@ fn page_started(app: &AppHandle, label: &str) {
             crate::ptt::unregister(app, k);
         }
     }
-    if badge_changed {
+    if claim_removed {
+        let _ = layout(app);
+    }
+    if badge_changed || claim_removed {
         emit_rail_state(app);
+    }
+    if badge_changed {
         crate::tray::refresh(app);
     }
 }
@@ -774,23 +899,39 @@ pub fn layout(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     };
     let size = content_size(&window)?;
-    let (mode, drawer_x) = {
+    let (mode, drawer_x, bar, claimed) = {
         let shell = app.state::<Shell>();
         let inner = shell.0.lock().unwrap();
-        (inner.chrome_mode(), inner.drawer_x)
+        (
+            inner.chrome_mode(),
+            inner.drawer_x,
+            selected_bar(&inner),
+            inner.claimed.clone(),
+        )
     };
-    let (chrome, page, drawer) = layout_rects(mode, size.width, size.height);
+    let (chrome, _, drawer) = layout_rects(mode, size.width, size.height, bar);
     let drawer = Rect {
         x: drawer_x,
-        ..drawer.unwrap_or_else(|| drawer_rect(size.height))
+        ..drawer.unwrap_or_else(|| drawer_rect(size.height, bar))
     };
     for wv in window.webviews() {
         let r = match wv.label() {
             RAIL => chrome,
             DRAWER => drawer,
             PICKER => Rect::new(0.0, 0.0, size.width, size.height),
-            _ => page,
+            label => {
+                let b = bar_for(&claimed, label);
+                Rect::new(0.0, b, size.width, size.height - b)
+            }
         };
+        if wv.label() == RAIL {
+            // Nothing to show while the selected page draws the title bar itself (full mode always shows it).
+            if !rail_visible(mode, bar) {
+                wv.hide()?;
+                continue;
+            }
+            wv.show()?;
+        }
         wv.set_position(LogicalPosition::new(r.x, r.y))?;
         wv.set_size(LogicalSize::new(r.w, r.h))?;
     }
@@ -882,6 +1023,7 @@ pub fn select(app: &AppHandle, id: &str, animate: bool) {
         }
         drawer
     };
+    let _ = layout(app);
     apply_visibility(app);
     if closed_drawer {
         slide_drawer(app, false, animate);
@@ -952,13 +1094,45 @@ mod tests {
     }
 
     #[test]
+    fn rail_state_carries_the_selected_servers_theme() {
+        let mut inner = Inner::new(
+            Store::default(),
+            "x/servers.json".into(),
+            "x/webviews".into(),
+        );
+        let a = inner
+            .store
+            .add("https://a.example".into(), "A".into())
+            .unwrap();
+        let b = inner
+            .store
+            .add("https://b.example".into(), "B".into())
+            .unwrap();
+        let theme =
+            |c: &str| std::collections::BTreeMap::from([("background".to_string(), c.to_string())]);
+        inner.themes.insert(server_label(&a.id), theme("#111111"));
+        inner.themes.insert(server_label(&b.id), theme("#222222"));
+        inner.selected = Some(b.id.clone());
+        assert_eq!(rail_state(&inner).theme, theme("#222222"));
+        inner.selected = None;
+        assert!(rail_state(&inner).theme.is_empty());
+        assert_eq!(
+            encode_fragment(r##"{"a":"#fff"}"##),
+            "%7B%22a%22%3A%22%23fff%22%7D"
+        );
+    }
+
+    #[test]
     fn layout_rects_per_mode() {
         let (w, h) = (1000.0, 600.0);
         let bar = Rect::new(0.0, 0.0, w, TOP_BAR_HEIGHT);
         let page = Rect::new(0.0, TOP_BAR_HEIGHT, w, h - TOP_BAR_HEIGHT);
-        assert_eq!(layout_rects(ChromeMode::Closed, w, h), (bar, page, None));
         assert_eq!(
-            layout_rects(ChromeMode::Drawer, w, h),
+            layout_rects(ChromeMode::Closed, w, h, TOP_BAR_HEIGHT),
+            (bar, page, None)
+        );
+        assert_eq!(
+            layout_rects(ChromeMode::Drawer, w, h, TOP_BAR_HEIGHT),
             (
                 bar,
                 page,
@@ -971,12 +1145,115 @@ mod tests {
             ),
             "the drawer covers the page's left edge; the page keeps its place and size"
         );
-        let (full, _, drawer) = layout_rects(ChromeMode::Full, w, h);
+        let (full, _, drawer) = layout_rects(ChromeMode::Full, w, h, TOP_BAR_HEIGHT);
         assert_eq!(full, Rect::new(0.0, 0.0, w, h));
         assert_eq!(drawer, None);
-        let (_, tiny, tiny_drawer) = layout_rects(ChromeMode::Drawer, 100.0, 20.0);
+        let (_, tiny, tiny_drawer) = layout_rects(ChromeMode::Drawer, 100.0, 20.0, TOP_BAR_HEIGHT);
         assert!(tiny.w >= 0.0 && tiny.h >= 0.0, "never negative");
         assert!(tiny_drawer.unwrap().h >= 0.0, "never negative");
+    }
+
+    #[test]
+    fn layout_rects_with_a_claimed_page() {
+        let (w, h) = (1000.0, 600.0);
+        let (bar, page, drawer) = layout_rects(ChromeMode::Drawer, w, h, 0.0);
+        assert_eq!(bar.h, 0.0, "no shell bar when the page draws it");
+        assert_eq!(page, Rect::new(0.0, 0.0, w, h), "the page fills the window");
+        assert_eq!(
+            drawer,
+            Some(Rect::new(0.0, 0.0, DRAWER_WIDTH, h)),
+            "the drawer starts at the top"
+        );
+        let (full, _, _) = layout_rects(ChromeMode::Full, w, h, 0.0);
+        assert_eq!(
+            full,
+            Rect::new(0.0, 0.0, w, h),
+            "dialogs still take the whole window"
+        );
+    }
+
+    #[test]
+    fn unclaimed_pages_keep_the_shell_bar() {
+        let mut inner = Inner::new(
+            Store::default(),
+            "x/servers.json".into(),
+            "x/webviews".into(),
+        );
+        assert_eq!(bar_height(&inner, "server-a"), TOP_BAR_HEIGHT);
+        inner.claimed.insert("server-a".into());
+        assert_eq!(bar_height(&inner, "server-a"), 0.0);
+        assert!(inner.page_reset("server-a").2, "the claim ended");
+        assert_eq!(
+            bar_height(&inner, "server-a"),
+            TOP_BAR_HEIGHT,
+            "a reload must claim again"
+        );
+    }
+
+    #[test]
+    fn the_chrome_shows_only_with_a_bar_or_in_full_mode() {
+        assert!(rail_visible(ChromeMode::Full, 0.0));
+        assert!(rail_visible(ChromeMode::Full, TOP_BAR_HEIGHT));
+        assert!(rail_visible(ChromeMode::Closed, TOP_BAR_HEIGHT));
+        assert!(rail_visible(ChromeMode::Drawer, TOP_BAR_HEIGHT));
+        assert!(!rail_visible(ChromeMode::Closed, 0.0));
+        assert!(!rail_visible(ChromeMode::Drawer, 0.0));
+    }
+
+    #[test]
+    fn others_badge_sums_the_other_servers() {
+        let mut inner = Inner::new(
+            Store::default(),
+            "x/servers.json".into(),
+            "x/webviews".into(),
+        );
+        let a = inner
+            .store
+            .add("https://a.example".into(), "A".into())
+            .unwrap();
+        let b = inner
+            .store
+            .add("https://b.example".into(), "B".into())
+            .unwrap();
+        let c = inner
+            .store
+            .add("https://c.example".into(), "C".into())
+            .unwrap();
+        inner.badges.set(
+            &a.id,
+            Badge {
+                unread: true,
+                mentions: 2,
+            },
+        );
+        inner.badges.set(
+            &b.id,
+            Badge {
+                unread: true,
+                mentions: 1,
+            },
+        );
+        inner.badges.set(
+            &c.id,
+            Badge {
+                unread: false,
+                mentions: 0,
+            },
+        );
+        assert_eq!(
+            others_badge(&inner, &a.id),
+            Badge {
+                unread: true,
+                mentions: 1
+            }
+        );
+        assert_eq!(
+            others_badge(&inner, &c.id),
+            Badge {
+                unread: true,
+                mentions: 3
+            }
+        );
     }
 
     #[test]
@@ -1042,8 +1319,9 @@ mod tests {
                 mentions: 2,
             },
         );
-        let (updates, badge_changed) = inner.page_reset("server-a");
+        let (updates, badge_changed, claim_removed) = inner.page_reset("server-a");
         assert!(badge_changed);
+        assert!(!claim_removed);
         assert_eq!(inner.badges.get("a"), Badge::default());
         assert_eq!(inner.voice.in_call(), None);
         assert_eq!(updates.len(), 1);
@@ -1055,7 +1333,7 @@ mod tests {
             "the key no longer routes anywhere"
         );
 
-        let (updates, badge_changed) = inner.page_reset("server-a");
+        let (updates, badge_changed, _) = inner.page_reset("server-a");
         assert!(!badge_changed, "a fresh page with no badge changes nothing");
         assert_eq!(updates, [PttUpdate::default()]);
     }

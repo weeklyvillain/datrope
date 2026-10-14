@@ -63,7 +63,7 @@ export function WelcomeMarkdown({ markdown, preview = false }: { markdown: strin
     else groups.push({ kind: "cards", cards: [b] });
   }
   return (
-    <div className="min-w-0 leading-relaxed text-foreground">
+    <div className="min-w-0 max-w-[80ch] leading-relaxed text-foreground">
       {groups.map((g, i) =>
         g.kind === "markdown" ? (
           <Markdown key={i} remarkPlugins={[remarkGfm, [remarkChat, SPOILERS]]} components={components}>{g.text}</Markdown>
@@ -95,5 +95,5 @@ function ChannelCard({ name, description, preview }: { name: string; description
     </Card>
   );
   if (!id || preview) return body;
-  return <Link to={`/channels/${id}`} className="rounded-lg text-foreground no-underline outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">{body}</Link>;
+  return <Link to={`/channels/${id}`} className="rounded-lg text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring">{body}</Link>;
 }

@@ -45,7 +45,7 @@ export function Look() {
             return (
               <RadioGroupPrimitive.Item key={p} value={p} aria-label={label}
                 style={{ "--swatch": accent } as CSSProperties}
-                className="grid justify-items-start gap-2.5 rounded-lg border bg-card p-3 text-left outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:border-[var(--swatch)] data-[state=checked]:ring-1 data-[state=checked]:ring-[var(--swatch)]">
+                className="grid justify-items-start gap-2.5 rounded-lg border bg-card p-3 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=checked]:border-[var(--swatch)] data-[state=checked]:ring-1 data-[state=checked]:ring-[var(--swatch)]">
                 <span className="flex gap-1" aria-hidden>
                   <span className="size-7 rounded-full bg-[var(--swatch)]" />
                   <span className="size-7 rounded-full bg-[var(--swatch)] opacity-25" />

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAudioPrefs } from "../../voice/audio-prefs";
 import { setPttFromUi } from "../../voice/ptt";
+import { BareButton } from "@/components/bare-button";
 
 /** Push to talk on a touch screen: talk while the button is held. Shown only in push-to-talk mode. */
 export function HoldToTalk({ small = false, className }: { small?: boolean; className?: string }) {
@@ -28,10 +29,10 @@ export function HoldToTalk({ small = false, className }: { small?: boolean; clas
   }, []);
   if (!ptt) return null;
   return (
-    <button type="button" aria-label="Hold to talk" aria-pressed={held}
+    <BareButton aria-label="Hold to talk" aria-pressed={held}
       className={cn("grid flex-none touch-none place-items-center rounded-full border select-none [-webkit-touch-callout:none]",
         held ? "border-online bg-online text-background" : "bg-muted text-foreground",
-        small ? "size-[44px] [&_svg]:size-5" : "size-[64px] [&_svg]:size-7", className)}
+        small ? "size-[44px]" : "size-[64px]", className)}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         set(true);
@@ -42,7 +43,7 @@ export function HoldToTalk({ small = false, className }: { small?: boolean; clas
       onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); set(true); } }}
       onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") set(false); }}
       onBlur={() => set(false)}>
-      <Mic />
-    </button>
+      <Mic className={small ? "size-5" : "size-7"} />
+    </BareButton>
   );
 }

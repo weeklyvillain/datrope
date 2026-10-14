@@ -3,10 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Button } from "@/components/ui/button";
 import { retryDelay } from "./retry";
+import { applyTheme, parseThemeFragment } from "./theme";
 import "./rail.css";
 
 const params = new URLSearchParams(location.search);
 const id = params.get("id") ?? "";
+applyTheme(parseThemeFragment(location.hash, (v) => CSS.supports("color", v)));
 const host = params.get("host") ?? "the server";
 
 function Offline() {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorText } from "@/components/error-text";
 import { useSubmit } from "@/hooks/use-submit";
@@ -46,7 +47,7 @@ export function AvatarCropDialog({ file, kind = "avatar", onClose, onDone }: { f
           <DialogDescription>Drag the image to move it.</DialogDescription>
         </DialogHeader>
         <div tabIndex={0} aria-label={kind === "banner" ? "Banner position" : "Avatar position"}
-          className="relative mx-auto touch-none cursor-grab select-none overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="relative mx-auto touch-none cursor-grab select-none overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
           style={{ width: spec.viewW, height: spec.viewH }}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
@@ -81,13 +82,8 @@ export function AvatarCropDialog({ file, kind = "avatar", onClose, onDone }: { f
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">Zoom</span>
-          <input type="range" min={1} max={3} step={0.01} value={crop.zoom} aria-label="Zoom"
-            onChange={(e) => update({ ...crop, zoom: Number(e.target.value) })}
-            className={cn(
-              "h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-muted accent-primary",
-              "[&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary",
-              "[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-primary",
-            )} />
+          <Slider min={1} max={3} step={0.01} value={[crop.zoom]} aria-label="Zoom"
+            onValueChange={([x]) => update({ ...crop, zoom: x })} className="flex-1" />
         </div>
         <ErrorText error={loadError ?? error} />
         <DialogFooter>

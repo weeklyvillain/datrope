@@ -39,3 +39,20 @@ export function AddToAlbumContextItems({ attachmentIds, onNew, onError }: { atta
     </>
   );
 }
+
+/** The same list as `AddToAlbumContextItems`, for the message toolbar's "More actions" dropdown. */
+export function AddToAlbumMenuItems({ attachmentIds, onNew, onError }: { attachmentIds: string[]; onNew: () => void; onError: (message: string) => void }) {
+  const { albums } = useAlbums();
+  const mine = albums.filter((a) => a.role === "owner" || a.role === "collaborator");
+  return (
+    <>
+      {mine.map((a) => (
+        <DropdownMenuItem key={a.id} onSelect={() => void addAll(a.id, attachmentIds).then((m) => m && onError(m))}>
+          {a.title}
+        </DropdownMenuItem>
+      ))}
+      {mine.length > 0 && <DropdownMenuSeparator />}
+      <DropdownMenuItem onSelect={onNew}><Plus />New album</DropdownMenuItem>
+    </>
+  );
+}

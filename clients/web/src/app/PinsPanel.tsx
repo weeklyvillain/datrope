@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Attachments } from "./MessageList";
 import { shownAuthor } from "./message-author";
 import { WebhookBadge } from "./WebhookAuthor";
+import { ListSkeleton } from "@/components/loading-skeleton";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" });
 
@@ -49,8 +51,8 @@ function PinsList({ pins, error, canUnpin, onJump }: { pins?: Message[]; error?:
   return (
     <>
       <ErrorText error={error} />
-      {!pins && !error && <p className="m-0 p-4 text-center text-sm text-muted-foreground">Loading…</p>}
-      {pins?.length === 0 && <p className="m-0 p-4 text-center text-sm text-muted-foreground">No pinned messages yet.</p>}
+      {!pins && !error && <ListSkeleton />}
+      {pins?.length === 0 && <Empty className="p-6 md:p-6"><EmptyHeader><EmptyMedia variant="icon"><Pin /></EmptyMedia><EmptyTitle>No pinned messages yet</EmptyTitle><EmptyDescription>Pin one from its menu to keep it here.</EmptyDescription></EmptyHeader></Empty>}
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {pins?.map((m) => <PinRow key={m.id} m={m} canUnpin={canUnpin} onJump={() => onJump(m.id)} />)}
       </ul>

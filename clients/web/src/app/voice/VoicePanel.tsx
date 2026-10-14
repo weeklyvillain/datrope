@@ -4,6 +4,8 @@ import { useRef, useState, type ComponentProps } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { keyLabel, shortcutKeys, type ShortcutId } from "@/lib/shortcuts";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -76,7 +78,7 @@ export function MuteControl(style: ControlStyle) {
   const perms = usePerms(inVoice ? v.channelId : undefined);
   const canSpeak = !inVoice || (hasPerm(perms, Perm.Speak) && !serverMuted);
   return (
-    <Control label="Mute" tip={serverMuted && inVoice ? "Muted by a moderator" : v.muted ? "Unmute" : "Mute"} {...style}
+    <Control label="Mute" shortcut="mute" tip={serverMuted && inVoice ? "Muted by a moderator" : v.muted ? "Unmute" : "Mute"} {...style}
       pressed={v.muted || !canSpeak} disabled={!canSpeak} onPressedChange={(on) => void voice.setMuted(on)}>
       {v.muted || !canSpeak ? <MicOff className="text-destructive" /> : <Mic />}
     </Control>
@@ -86,7 +88,7 @@ export function MuteControl(style: ControlStyle) {
 export function DeafenControl(style: ControlStyle) {
   const deafened = useVoice((x) => x.deafened);
   return (
-    <Control label="Deafen" tip={deafened ? "Undeafen" : "Deafen"} {...style} pressed={deafened}
+    <Control label="Deafen" shortcut="deafen" tip={deafened ? "Undeafen" : "Deafen"} {...style} pressed={deafened}
       onPressedChange={(on) => void voice.setDeafened(on)}>
       {deafened ? <HeadphoneOff className="text-destructive" /> : <Headphones />}
     </Control>
@@ -146,7 +148,7 @@ export function ShareScreenControl({ variant = "outline", size = "sm", ...style 
 }
 
 /** A toggle button with a tooltip. `label` is its accessible name; `tip` says what clicking does. */
-export function Control({ label, tip, className, ...props }: ComponentProps<typeof Toggle> & { label: string; tip: string }) {
+export function Control({ label, tip, shortcut, className, ...props }: ComponentProps<typeof Toggle> & { label: string; tip: string; shortcut?: ShortcutId }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -154,7 +156,10 @@ export function Control({ label, tip, className, ...props }: ComponentProps<type
           <Toggle aria-label={label} variant="outline" size="sm" className={cn("w-full", className)} {...props} />
         </span>
       </TooltipTrigger>
-      <TooltipContent>{tip}</TooltipContent>
+      <TooltipContent>
+        {tip}
+        {shortcut && <KbdGroup className="ml-2">{shortcutKeys(shortcut).map((k) => <Kbd key={k}>{keyLabel(k)}</Kbd>)}</KbdGroup>}
+      </TooltipContent>
     </Tooltip>
   );
 }

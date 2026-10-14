@@ -24,7 +24,7 @@ export function ActionSheetItem({ icon, children, onSelect, destructive, disable
 }) {
   return (
     <button type="button" role="menuitem" disabled={disabled} onClick={onSelect}
-      className={cn("flex min-h-[48px] items-center gap-3 rounded-md px-3 text-left text-[15px] hover:bg-accent focus-visible:bg-accent disabled:opacity-50 [&_svg]:size-5",
+      className={cn("flex min-h-[48px] items-center gap-3 rounded-md px-3 text-left text-body hover:bg-accent focus-visible:bg-accent disabled:opacity-50 [&_svg]:size-5",
         destructive ? "text-destructive" : "text-foreground")}>
       {icon}{children}
     </button>

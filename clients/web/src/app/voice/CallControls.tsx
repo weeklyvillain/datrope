@@ -1,6 +1,7 @@
 import { Perm, hasPerm } from "@datrope/core";
 import { Ellipsis, LayoutGrid, Monitor, PhoneOff, ScreenShare, ScreenShareOff, Volume2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useArrowNav } from "@/hooks/use-arrow-nav";
 import { useShallow } from "zustand/react/shallow";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,14 @@ export type LayoutControl = { layout: VoiceLayout; canStage: boolean; toggle: ()
 export function CallControls({ layout }: { layout?: LayoutControl }) {
   const phone = useIsMobile();
   if (phone) return <PhoneCallControls layout={layout} />;
+  return <DesktopCallControls />;
+}
+
+function DesktopCallControls() {
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useArrowNav(toolbarRef, "button:not(:disabled)", { orientation: "horizontal" });
   return (
-    <div role="toolbar" aria-label="Call controls" className="flex flex-wrap items-center justify-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div ref={toolbarRef} role="toolbar" aria-label="Call controls" className="flex flex-wrap items-center justify-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <MuteControl variant="outline" className={toggle} />
       <DeafenControl variant="outline" className={toggle} />
       <CameraControl className={toggle} />

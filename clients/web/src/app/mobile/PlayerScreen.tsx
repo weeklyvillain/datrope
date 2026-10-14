@@ -88,7 +88,7 @@ function Body() {
             {upNext.map((t, i) => (
               <li key={t.key} className="flex min-h-[48px] items-center gap-2 rounded-md">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px]">{t.title}</span>
+                  <span className="block truncate text-body">{t.title}</span>
                   {t.subtitle && <span className="block truncate text-xs text-muted-foreground">{t.subtitle}</span>}
                 </span>
                 <TrackMenu track={t} index={queue.index + 1 + i} first={i === 0} last={i === upNext.length - 1} className="size-[44px]" />

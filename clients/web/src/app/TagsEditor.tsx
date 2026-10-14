@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { BareButton } from "@/components/bare-button";
 
 /** Tag chips with remove buttons and an input that adds on Enter. */
 export function TagsEditor({ value, onChange, max = 20, id }: { value: string[]; onChange: (v: string[]) => void; max?: number; id?: string }) {
@@ -21,10 +22,10 @@ export function TagsEditor({ value, onChange, max = 20, id }: { value: string[];
             <li key={t}>
               <Badge variant="secondary" className="gap-1 pr-1">
                 {t}
-                <button type="button" aria-label={`Remove ${t}`} onClick={() => onChange(value.filter((x) => x !== t))}
-                  className="grid size-4 place-items-center rounded-full outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                <BareButton aria-label={`Remove ${t}`} onClick={() => onChange(value.filter((x) => x !== t))}
+                  className="grid size-4 place-items-center rounded-full outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
                   <X aria-hidden className="size-3" />
-                </button>
+                </BareButton>
               </Badge>
             </li>
           ))}

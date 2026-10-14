@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { appendUnique, attachError, masonry, requestTickets } from "@/chat/gifs";
 import { client } from "@/session";
+import { ListSkeleton } from "@/components/loading-skeleton";
 
 const COLUMNS = 3;
 const DEBOUNCE_MS = 300;
@@ -144,7 +145,7 @@ export function GifDialog({ channelId, query: initial, onPick, onClose }: {
                   <Button variant="outline" onClick={() => results.load(results.items.length > 0 ? results.next : undefined)}>Retry</Button>
                 </div>
               )}
-              {results.loading && <p role="status" className="py-6 text-center text-muted-foreground">Loading…</p>}
+              {results.loading && <ListSkeleton rows={3} />}
               {!results.loading && !results.failed && results.items.length === 0 && (
                 <p className="py-6 text-center text-muted-foreground">No GIFs found</p>
               )}

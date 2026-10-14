@@ -55,7 +55,7 @@ export function MusicTile({ channelId, size, speaking = false, onOpen }: {
           <p className={cn("w-full truncate font-semibold", strip ? "text-xs" : "text-sm")}>{cur ? cur.title : "Nothing playing"}</p>
           {cur?.artist && !strip && <p className="w-full truncate text-xs text-muted-foreground">{cur.artist}</p>}
           {cur && state.loading && (
-            <p className={cn("flex w-full items-center justify-center gap-1.5 text-muted-foreground", strip ? "text-[10px]" : "text-xs")}>
+            <p className={cn("flex w-full items-center justify-center gap-1.5 text-muted-foreground", strip ? "text-caption" : "text-xs")}>
               <Spinner className="size-3" aria-hidden />Loading…
             </p>
           )}

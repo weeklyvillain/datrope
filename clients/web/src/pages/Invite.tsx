@@ -77,7 +77,7 @@ export function InvitePage() {
             className="relative -mt-11 box-border rounded-[22px] border-[6px] border-card" />
           <div className="-mt-2 grid gap-2">
             <h1 className="grid gap-2">
-              <span className="text-[13px] font-semibold tracking-wider text-primary uppercase">You're invited to join</span>{" "}
+              <span className="text-ui font-semibold tracking-wider text-primary uppercase">You're invited to join</span>{" "}
               <span className="text-[32px] leading-[1.15] font-bold tracking-tight text-balance text-foreground">{server.name}</span>
             </h1>
             {server.description && <p className="text-muted-foreground">{server.description}</p>}
