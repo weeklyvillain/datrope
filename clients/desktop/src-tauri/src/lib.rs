@@ -38,7 +38,11 @@ pub fn run() {
     builder
         .setup(|app| {
             let config = app.path().app_config_dir()?;
-            let data_root = app.path().app_local_data_dir()?.join("webviews");
+            let local = app.path().app_local_data_dir()?;
+            // The chrome's own WebView2 folder from before it shared the servers' one.
+            #[cfg(windows)]
+            let _ = std::fs::remove_dir_all(local.join("EBWebView"));
+            let data_root = local.join("webviews");
             let path = config.join("servers.json");
             let (store, corrupt) = servers::Store::load(&path);
             // An unreadable list says nothing about which data directories are still in use.
