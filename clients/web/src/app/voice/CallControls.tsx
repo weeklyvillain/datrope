@@ -11,6 +11,7 @@ import { canShareScreen } from "@/lib/media-support";
 import { usePerms } from "../../session";
 import { useVoice, voice } from "../../voice/voice";
 import { HoldToTalk } from "../mobile/HoldToTalk";
+import { WatchControl } from "../watch/WatchControl";
 import { GoLiveDialog } from "./GoLiveDialog";
 import { SoundboardButton, SoundboardSheet, useSoundboardAccess } from "./SoundboardPanel";
 import { CameraControl, DeafenControl, MuteControl, ShareScreenControl } from "./VoicePanel";
@@ -38,6 +39,7 @@ function DesktopCallControls() {
       <DeafenControl variant="outline" className={toggle} />
       <CameraControl className={toggle} />
       {canShareScreen() && <ShareScreenControl className={toggle} />}
+      <WatchControl className={toggle} />
       <SoundboardButton side="top" className={round} />
       <span className="h-7 w-px bg-border" aria-hidden />
       <Tooltip>

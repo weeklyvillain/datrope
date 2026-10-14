@@ -9,6 +9,17 @@ const PARROT_PNG = fileURLToPath(new URL("./fixtures/parrot.png", import.meta.ur
 // The Ocean palette's accent (#4aa3ff) as getComputedStyle reports it.
 const OCEAN = "rgb(74, 163, 255)";
 
+// Stands in for YouTube's IFrame API in the watch-together step: no network, and playback is just a clock.
+const FAKE_YT = `window.YT = { Player: class {
+  constructor(el, o) { this.t = o.playerVars.start || 0; this.s = -1; this.at = 0; el.dataset.fakeYt = o.videoId; setTimeout(() => o.events.onReady({ target: this }), 0); }
+  time() { return this.s === 1 ? this.t + (Date.now() - this.at) / 1000 : this.t; }
+  playVideo() { if (this.s !== 1) { this.at = Date.now(); this.s = 1; } }
+  pauseVideo() { this.t = this.time(); this.s = 2; }
+  seekTo(t) { this.t = t; this.at = Date.now(); }
+  getCurrentTime() { return this.time(); } getPlayerState() { return this.s; } getDuration() { return 600; }
+  setVolume() {} mute() {} unMute() {} destroy() {}
+} }; window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIReady();`;
+
 // A solid-colour RGB PNG of the given size (for the banner upload).
 function solidPng(width: number, height: number): Buffer {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
@@ -391,7 +402,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   const aliceMain = alice.getByRole("main", { name: "Lounge" });
   await expect(aliceMain.getByText("alice's screen", { exact: true })).toBeVisible();
   const bobLounge = bob.getByRole("main", { name: "Lounge" });
-  await bobLounge.getByRole("button", { name: "Watch" }).click();
+  await bobLounge.getByRole("button", { name: "Watch", exact: true }).click();
   await expect(bobLounge.getByText("alice's screen", { exact: true })).toBeVisible();
   await expect(bobLounge.getByText("Loading alice's screen...")).toHaveCount(0); // the video arrived
   // The local capture's MediaStreamTrack id changes on a swap; the LiveKit publication (and bob's subscription) stays.
@@ -415,6 +426,31 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await menu.getByRole("button", { name: "Stop streaming" }).click();
   await expect(aliceMain.getByText("alice's screen", { exact: true })).toHaveCount(0);
   await expect(bobLounge.getByText("alice's screen", { exact: true })).toHaveCount(0);
+
+  // Watch together: alice starts a YouTube video from the call controls; it takes bob's stage and shows in the sidebar;
+  // bob pauses and alice is told; alice stops it for everyone.
+  for (const p of [alice, bob]) {
+    await p.route("https://www.youtube.com/iframe_api", (r) => r.fulfill({ contentType: "text/javascript", body: FAKE_YT }));
+  }
+  await aliceControls.getByRole("button", { name: "Watch together" }).click();
+  const watchDialog = alice.getByRole("dialog", { name: "Watch together" });
+  await watchDialog.getByLabel("Video link").fill("https://example.com/not-a-video");
+  await watchDialog.getByRole("button", { name: "Start watching" }).click();
+  await expect(watchDialog.getByRole("alert")).toContainText("paste a YouTube video");
+  await watchDialog.getByLabel("Video link").fill("https://youtu.be/dQw4w9WgXcQ");
+  await watchDialog.getByRole("button", { name: "Start watching" }).click();
+  await expect(watchDialog).toHaveCount(0);
+  const bobWatch = bobLounge.getByRole("region", { name: "Watch together" });
+  await expect(bobWatch).toBeVisible();
+  await expect(bob.getByRole("list", { name: "In voice: Lounge" }).getByText(/^Watching · /)).toBeVisible();
+  await bobWatch.hover();
+  await bobWatch.getByRole("button", { name: "Pause" }).click();
+  const aliceWatch = aliceMain.getByRole("region", { name: "Watch together" });
+  await expect(aliceWatch.getByRole("status")).toHaveText("bob paused");
+  await expect(aliceWatch.getByRole("button", { name: "Play" })).toBeVisible(); // paused: the controls stay up
+  await aliceWatch.getByRole("button", { name: "Stop" }).click();
+  await expect(bobWatch).toHaveCount(0);
+  await expect(bob.getByRole("list", { name: "In voice: Lounge" }).getByText(/^Watching · /)).toHaveCount(0);
 
   // Soundboard: alice plays Boop; bob sees the chip on alice's tile.
   await aliceControls.getByRole("button", { name: "Soundboard" }).click();

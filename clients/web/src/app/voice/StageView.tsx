@@ -14,19 +14,20 @@ import { Tile, type TileSize } from "./Tile";
 export const isWatchedScreen = (e: Entry, watching: string[]) =>
   e.tile?.source === "screen" && !e.tile.local && watching.includes(e.userId);
 
-/** The first watched screen share large, everyone else (and other watched shares) in a strip below. */
-export function StageView({ entries, speaking, watching, chip, bot, compact }: {
+/** The shared video or the first watched screen share large, everyone else (and other watched shares) in a strip below. */
+export function StageView({ entries, speaking, watching, chip, bot, watch, compact }: {
   entries: Entry[];
   speaking: string[];
   watching: string[];
   chip?: (e: Entry) => ReactNode;
   bot?: (size: TileSize) => ReactNode; // the music bot's tile, while it is in the call
+  watch?: (size: TileSize) => ReactNode; // the shared video, while one is on: it takes the stage
   compact?: boolean;
 }) {
-  const main = entries.find((e) => isWatchedScreen(e, watching));
+  const main = watch ? undefined : entries.find((e) => isWatchedScreen(e, watching));
   const rest = entries.filter((e) => e !== main);
   const ref = useRef<HTMLDivElement>(null);
-  if (!main) return null;
+  if (!main && !watch) return null;
   const fullscreen = () => {
     // Denied: nothing to do. Unsupported (iPhone Safari): no button.
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -34,13 +35,15 @@ export function StageView({ entries, speaking, watching, chip, bot, compact }: {
   };
   return (
     <div className={cn("grid gap-3", compact ? "h-[40vh] min-h-56 grid-rows-[minmax(0,1fr)_5rem]" : "h-full min-h-96 grid-rows-[minmax(0,1fr)_8rem]")}>
-      <Tile key={entryKey(main)} userId={main.userId} tile={main.tile} size="large" watching rootRef={ref} chip={chip?.(main)}>
-        <div className="absolute right-2.5 top-2.5 flex gap-1.5">
-          {canFullscreen() && <Button variant="secondary" size="icon-sm" aria-label="Full screen" onClick={fullscreen}><Maximize /></Button>}
-          <Button variant="secondary" size="sm" onClick={() => voice.watch(main.userId, false)}><EyeOff /> Stop watching</Button>
-        </div>
-        <ScreenAudio userId={main.userId} />
-      </Tile>
+      {main ? (
+        <Tile key={entryKey(main)} userId={main.userId} tile={main.tile} size="large" watching rootRef={ref} chip={chip?.(main)}>
+          <div className="absolute right-2.5 top-2.5 flex gap-1.5">
+            {canFullscreen() && <Button variant="secondary" size="icon-sm" aria-label="Full screen" onClick={fullscreen}><Maximize /></Button>}
+            <Button variant="secondary" size="sm" onClick={() => voice.watch(main.userId, false)}><EyeOff /> Stop watching</Button>
+          </div>
+          <ScreenAudio userId={main.userId} />
+        </Tile>
+      ) : watch?.("large")}
       <div className="flex min-h-0 gap-3 overflow-x-auto py-1">
         {rest.map((e) => (
           <Tile key={entryKey(e)} userId={e.userId} tile={e.tile} size="strip" speaking={speaking.includes(e.userId)}

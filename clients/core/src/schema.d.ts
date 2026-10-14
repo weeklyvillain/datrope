@@ -388,6 +388,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{channelID}/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-watch"];
+        put?: never;
+        post: operations["start-watch"];
+        delete: operations["stop-watch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/watch/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["pause-watch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/watch/play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["play-watch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/watch/seek": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["seek-watch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{id}": {
         parameters: {
             query?: never;
@@ -2773,6 +2837,13 @@ export interface components {
             channel: components["schemas"]["ChannelRef"];
             message: components["schemas"]["Message"];
         };
+        SeekRequest: {
+            /**
+             * Format: double
+             * @description Seconds into the video
+             */
+            position: number;
+        };
         SelfStateRequest: {
             self_deaf?: boolean;
             self_mute?: boolean;
@@ -2929,6 +3000,10 @@ export interface components {
             sound_id: string;
             /** @description Snowflake ID as a decimal string */
             user_id: string;
+        };
+        StartRequest: {
+            /** @description A YouTube video, or a Twitch channel or VOD */
+            url: string;
         };
         StreamAlert: {
             /** @description A Twitch login, a YouTube channel ID or a feed URL */
@@ -3178,6 +3253,46 @@ export interface components {
         VoteRequest: {
             /** @description The chosen answers by position; empty removes the vote */
             positions: number[] | null;
+        };
+        WatchState: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /** @enum {string} */
+            kind: "youtube" | "twitch_live" | "twitch_vod";
+            /** @enum {string} */
+            last_action: "start" | "play" | "pause" | "seek";
+            /** @description Snowflake ID as a decimal string */
+            last_actor: string;
+            paused: boolean;
+            /**
+             * Format: double
+             * @description Seconds into the video at updated_at; always 0 for a live stream
+             */
+            position: number;
+            /** @description Snowflake ID as a decimal string */
+            started_by: string;
+            /** @description Filled in shortly after starting, when the site has one */
+            title?: string;
+            /**
+             * Format: int64
+             * @description Server time (Unix ms) of position
+             */
+            updated_at: number;
+            /** @description The canonical link */
+            url: string;
+            /** @description The YouTube video ID, the Twitch login, or the Twitch VOD ID */
+            video_id: string;
+        };
+        WatchUpdate: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /**
+             * Format: int64
+             * @description Server time (Unix ms) when this was sent, to work out the position with
+             */
+            server_now: number;
+            /** @description Absent when nothing is on */
+            state?: components["schemas"]["WatchState"];
         };
         Webhook: {
             /** @description Absent when it has none; clients draw the webhook icon */
@@ -4257,6 +4372,198 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchUpdate"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "start-watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchUpdate"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "stop-watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "pause-watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchUpdate"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "play-watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchUpdate"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "seek-watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeekRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchUpdate"];
+                };
             };
             /** @description Error */
             default: {

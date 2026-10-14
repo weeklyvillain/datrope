@@ -31,6 +31,7 @@ import (
 	"github.com/datrope/datrope/server/internal/push"
 	"github.com/datrope/datrope/server/internal/system"
 	"github.com/datrope/datrope/server/internal/voice"
+	"github.com/datrope/datrope/server/internal/watch"
 	"github.com/datrope/datrope/server/internal/webhooks"
 )
 
@@ -47,6 +48,7 @@ type App struct {
 	// Integrations polls Twitch, YouTube and Spotify; tests call Poll directly.
 	Integrations *integrations.Service
 	Music        *music.Service   // nil when built without a database
+	Watch        *watch.Service   // nil when built without a database
 	Gateway      *gateway.Gateway // nil when built without a database
 	Audit        *audit.Service   // nil when built without a database
 	Push         *push.Service    // nil when built without a database
@@ -210,6 +212,14 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		mux.Handle("GET /api/music/tracks/{trackID}/audio", authSvc.RequireHTTP(musicSvc.AudioHandler()))
 		a.closers = append(a.closers, musicSvc.Close)
 		a.Music = musicSvc
+	}
+
+	watchSvc := watch.NewService(a.Bus, chanSvc, voiceSvc)
+	watch.Register(api, watchSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		watchSvc.SetTitles(linkpreview.New(pool))
+		a.closers = append(a.closers, watchSvc.Close)
+		a.Watch = watchSvc
 	}
 
 	auditSvc := audit.NewService(pool, commSvc, authSvc)

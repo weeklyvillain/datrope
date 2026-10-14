@@ -3,7 +3,7 @@ import { mentionsMe } from "./mentions";
 import type { ConnectionStatus } from "./gateway";
 import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
-  Activity, Attachment, Category, MusicPlaylist, MusicState, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
+  Activity, Attachment, Category, MusicPlaylist, MusicState, WatchState, WatchUpdate, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
   PostDeleted, PostUpdate, ThreadListItem, ThreadUpdate, VoiceState, Welcome,
 } from "./types";
 
@@ -51,6 +51,9 @@ export interface State {
   activities: Record<string, Activity>; // by user ID: live on Twitch, listening on Spotify
   music: Record<string, MusicState>; // by voice channel ID, once loaded or announced
   playlists: Record<string, MusicPlaylist> | null; // the server's saved playlists, by ID; null until loaded
+  watch: Record<string, WatchState | null>; // by voice channel ID: null when nothing is on; absent until loaded or announced
+  watchStamp: Record<string, number>; // by voice channel ID: server_now of the last WATCH_UPDATE applied, to drop stale ones
+  serverOffset: number; // server clock minus local clock (ms), from the last WATCH_UPDATE
 }
 
 export const initialState: State = {
@@ -73,6 +76,9 @@ export const initialState: State = {
   activities: {},
   music: {},
   playlists: null,
+  watch: {},
+  watchStamp: {},
+  serverOffset: 0,
 };
 
 export const createAppStore = () => createStore<State>(() => initialState);
@@ -115,6 +121,8 @@ export function applyReady(s: State, r: Ready): State {
     emoji: byKey(r.emoji ?? [], (e) => e.id),
     sounds: byKey(r.sounds ?? [], (x) => x.id),
     mentions: initialState.mentions,
+    watch: {}, // stale after a reconnect; the voice UI re-fetches what it shows
+    watchStamp: {},
     presences: Object.fromEntries((r.presences ?? []).map((p) => [p.user_id, p.status])),
     activities: byKey(r.activities ?? [], (a) => a.user_id),
     readStates: Object.fromEntries(
@@ -360,6 +368,17 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
     case "MUSIC_UPDATE": {
       const m = data as MusicState;
       return { ...s, music: { ...s.music, [m.channel_id]: m } };
+    }
+    case "WATCH_UPDATE": {
+      const w = data as WatchUpdate;
+      const last = s.watchStamp[w.channel_id];
+      if (last !== undefined && w.server_now < last) return s; // arrived out of order
+      return {
+        ...s,
+        watch: { ...s.watch, [w.channel_id]: w.state ?? null },
+        watchStamp: { ...s.watchStamp, [w.channel_id]: w.server_now },
+        serverOffset: w.server_now - Date.now(),
+      };
     }
     case "MUSIC_PLAYLIST_UPDATE": {
       const p = data as MusicPlaylist;
