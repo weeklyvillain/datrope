@@ -6,7 +6,7 @@ import {
 } from "./store";
 import type {
   Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
-  ThreadListItem, User, Webhook, WebhookWithURL,
+  ThreadListItem, User, Webhook, WebhookWithURL, WatchUpdate,
 } from "./types";
 
 export interface ClientOptions {
@@ -353,6 +353,34 @@ export class DatropeClient {
 
   async setMusicRepeat(channelId: string, mode: RepeatMode) {
     await unwrap(this.api.PUT("/api/channels/{channelID}/music/repeat", { params: { path: { channelID: channelId } }, body: { mode } }));
+  }
+
+  /** Loads what a voice channel watches together. */
+  async getWatch(channelId: string): Promise<WatchUpdate> {
+    const w = await unwrap(this.api.GET("/api/channels/{channelID}/watch", { params: { path: { channelID: channelId } } }));
+    this.apply("WATCH_UPDATE", w);
+    return w;
+  }
+
+  /** Starts watching a link together in a voice channel the caller is in, replacing what was on. */
+  async startWatch(channelId: string, url: string) {
+    this.apply("WATCH_UPDATE", await unwrap(this.api.POST("/api/channels/{channelID}/watch", { params: { path: { channelID: channelId } }, body: { url } })));
+  }
+
+  async watchPlay(channelId: string) {
+    this.apply("WATCH_UPDATE", await unwrap(this.api.POST("/api/channels/{channelID}/watch/play", { params: { path: { channelID: channelId } } })));
+  }
+
+  async watchPause(channelId: string) {
+    this.apply("WATCH_UPDATE", await unwrap(this.api.POST("/api/channels/{channelID}/watch/pause", { params: { path: { channelID: channelId } } })));
+  }
+
+  async watchSeek(channelId: string, position: number) {
+    this.apply("WATCH_UPDATE", await unwrap(this.api.POST("/api/channels/{channelID}/watch/seek", { params: { path: { channelID: channelId } }, body: { position } })));
+  }
+
+  async stopWatch(channelId: string) {
+    await unwrap(this.api.DELETE("/api/channels/{channelID}/watch", { params: { path: { channelID: channelId } } }));
   }
 
   /** Empties the queue; the current track plays on. */

@@ -1,6 +1,6 @@
 import { Perm, hasPerm, sidebarChannelIds, voiceMembers } from "@datrope/core";
 import { useDraggable } from "@dnd-kit/core";
-import { HeadphoneOff, MicOff, Music, Video } from "lucide-react";
+import { HeadphoneOff, MicOff, Music, Tv, Video } from "lucide-react";
 import { useEffect, useState, type PointerEventHandler, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { UserAvatar } from "@/components/user-avatar";
@@ -37,6 +37,14 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
   useEffect(() => {
     if (occupied && !musicLoaded) void client.loadMusic(channelId).catch(() => undefined);
   }, [occupied, musicLoaded, channelId]);
+  const watchLoaded = useApp((s) => s.watch[channelId] !== undefined);
+  const watchTitle = useApp((s) => {
+    const w = s.watch[channelId];
+    return w ? w.title || (w.kind === "twitch_live" ? w.video_id : w.url) : undefined;
+  });
+  useEffect(() => {
+    if (occupied && !watchLoaded) void client.getWatch(channelId).catch(() => undefined);
+  }, [occupied, watchLoaded, channelId]);
   if (!occupied) return null;
   const canMute = hasPerm(perms, Perm.MuteMembers);
   const canMove = hasPerm(perms, Perm.MoveMembers);
@@ -106,6 +114,12 @@ export function VoiceMembers({ channelId, name }: { channelId: string; name: str
               <AdjustedBadge userId={bot} />
             </span>
           </PersonMenu>
+        </li>
+      )}
+      {watchTitle !== undefined && (
+        <li className="flex items-center gap-2 px-1 py-1 text-sm text-primary" title={`Watching ${watchTitle}`}>
+          <Tv className="size-3.5 flex-none" aria-hidden />
+          <span className="truncate">Watching · {watchTitle}</span>
         </li>
       )}
       {error && <li className="px-2 text-xs text-destructive" role="alert">{error}</li>}

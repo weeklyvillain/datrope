@@ -12,13 +12,14 @@ export interface Entry {
 
 export const entryKey = (e: Entry) => e.tile?.id ?? e.userId;
 
-/** Every participant and screen share in a responsive grid, then the music bot, plus the invite tile in a small call. */
-export function GridView({ entries, speaking, watching, chip, bot, inviteTo, compact }: {
+/** The shared video, every participant and screen share in a responsive grid, then the music bot, plus the invite tile in a small call. */
+export function GridView({ entries, speaking, watching, chip, bot, watch, inviteTo, compact }: {
   entries: Entry[];
   speaking: string[];
   watching: string[];
   chip?: (e: Entry) => ReactNode;
   bot?: (size: TileSize) => ReactNode; // the music bot's tile, while it is in the call
+  watch?: (size: TileSize) => ReactNode; // the shared video, while one is on
   inviteTo?: string; // channel name; set when the invite tile may show
   compact?: boolean;
 }) {
@@ -27,6 +28,7 @@ export function GridView({ entries, speaking, watching, chip, bot, inviteTo, com
       watching={watching.includes(e.userId)} chip={chip?.(e)} />
   ));
   if (bot) tiles.push(<Fragment key="bot">{bot("grid")}</Fragment>);
+  if (watch) tiles.unshift(<Fragment key="watch">{watch("grid")}</Fragment>);
   const invite = inviteTo !== undefined && <InviteTile channelName={inviteTo} />;
   if (compact) {
     return <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">{tiles}{invite}</div>;

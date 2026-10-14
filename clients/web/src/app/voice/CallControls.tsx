@@ -2,6 +2,7 @@ import { PhoneOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { voice } from "../../voice/voice";
+import { WatchControl } from "../watch/WatchControl";
 import { SoundboardButton } from "./SoundboardPanel";
 import { CameraControl, DeafenControl, MuteControl, ShareScreenControl } from "./VoicePanel";
 
@@ -16,6 +17,7 @@ export function CallControls() {
       <DeafenControl variant="outline" className={toggle} />
       <CameraControl className={toggle} />
       <ShareScreenControl className={toggle} />
+      <WatchControl className={toggle} />
       <SoundboardButton side="top" className={round} />
       <span className="h-7 w-px bg-border" aria-hidden />
       <Tooltip>

@@ -76,6 +76,8 @@ export type StreamAlert = Schemas["StreamAlert"];
 export type Connection = Schemas["Connection"];
 export type MusicState = Schemas["MusicState"];
 export type MusicTrack = Schemas["MusicTrack"];
+export type WatchState = Schemas["WatchState"];
+export type WatchUpdate = Schemas["WatchUpdate"];
 export type LibraryTrack = Schemas["LibraryTrack"];
 export type Library = Schemas["Library"];
 export type QueueRequest = Schemas["QueueRequest"];
@@ -124,6 +126,7 @@ export interface EventMap {
   MUSIC_UPDATE: Schemas["MusicState"];
   MUSIC_PLAYLIST_UPDATE: Schemas["MusicPlaylist"];
   MUSIC_PLAYLIST_DELETE: Schemas["PlaylistDeleted"];
+  WATCH_UPDATE: WatchUpdate;
 }
 
 export type SystemStats = Schemas["SystemStats"];
