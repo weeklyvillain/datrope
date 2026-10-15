@@ -19,7 +19,7 @@ func TestFirstUserCreatesTheServer(t *testing.T) {
 	s := alice.Server()
 	require.Equal(t, "Datrope", s.Name)
 	require.Equal(t, alice.User.ID, s.OwnerID)
-	require.Equal(t, "emerald", s.Palette)
+	require.Equal(t, "#2ecc71", s.AccentColor)
 	require.Len(t, s.Roles, 1)
 	require.Equal(t, s.ID, s.Roles[0].ID, "@everyone shares the server's ID")
 	require.Equal(t, perms.Default, s.Roles[0].Permissions)
@@ -64,15 +64,16 @@ func TestUpdateServer(t *testing.T) {
 	ws, _ := bob.Connect()
 
 	var s communities.Server
-	alice.Do(http.MethodPatch, "/api/server", map[string]any{"name": "The Basement", "description": "Board games and links", "palette": "ocean"}, http.StatusOK, &s)
+	alice.Do(http.MethodPatch, "/api/server", map[string]any{"name": "The Basement", "description": "Board games and links", "accent_color": "#1a237e"}, http.StatusOK, &s)
 	require.Equal(t, "The Basement", s.Name)
-	require.Equal(t, "ocean", s.Palette)
+	require.Equal(t, "#1a237e", s.AccentColor)
 	var ev communities.Server
 	ws.ExpectDispatch("SERVER_UPDATE", &ev)
 	require.Equal(t, "Board games and links", ev.Description)
 
 	bob.Fail(http.MethodPatch, "/api/server", map[string]any{"name": "Mine"}, http.StatusForbidden, "MISSING_PERMISSION")
-	alice.Fail(http.MethodPatch, "/api/server", map[string]any{"palette": "beige"}, http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Fail(http.MethodPatch, "/api/server", map[string]any{"accent_color": "beige"}, http.StatusBadRequest, "VALIDATION_FAILED")
+	alice.Fail(http.MethodPatch, "/api/server", map[string]any{"accent_color": "#1A237E"}, http.StatusBadRequest, "VALIDATION_FAILED")
 	alice.Fail(http.MethodPatch, "/api/server", map[string]any{"name": "   "}, http.StatusBadRequest, "VALIDATION_FAILED")
 }
 
@@ -179,7 +180,7 @@ func TestServerPreview(t *testing.T) {
 	var p communities.ServerPreview
 	env.Anon().Do(http.MethodGet, "/api/server/preview", nil, http.StatusOK, &p)
 	require.Equal(t, "Datrope", p.Name)
-	require.Equal(t, "emerald", p.Palette)
+	require.Equal(t, "#2ecc71", p.AccentColor)
 	require.Equal(t, 2, p.MemberCount)
 	require.Equal(t, 0, p.OnlineCount)
 

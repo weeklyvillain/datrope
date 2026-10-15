@@ -12,4 +12,9 @@ describe("theme pref", () => {
     expect(sanitize("toString")).toBe("datrope");
     expect(sanitize(3)).toBe("datrope");
   });
+
+  it("keeps a custom theme reference", () => {
+    expect(sanitize("custom:abc")).toBe("custom:abc");
+    expect(sanitize("custom:")).toBe("datrope");
+  });
 });

@@ -2,14 +2,19 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { DEFAULT_THEME, THEMES, type ThemeId } from "./themes";
 
+/** A built-in theme, or "custom:<id>" for one of my custom themes. */
+export type ThemePref = ThemeId | `custom:${string}`;
+
 const KEY = "datrope.theme";
 
-/** A known theme ID, else the default. */
-export function sanitize(raw: unknown): ThemeId {
-  return typeof raw === "string" && Object.hasOwn(THEMES, raw) ? (raw as ThemeId) : DEFAULT_THEME;
+/** A known theme ID or a custom theme reference, else the default. */
+export function sanitize(raw: unknown): ThemePref {
+  if (typeof raw !== "string") return DEFAULT_THEME;
+  if (/^custom:.+/.test(raw)) return raw as ThemePref;
+  return Object.hasOwn(THEMES, raw) ? (raw as ThemeId) : DEFAULT_THEME;
 }
 
-function load(): ThemeId {
+function load(): ThemePref {
   try {
     const raw = localStorage.getItem(KEY);
     return raw === null ? DEFAULT_THEME : sanitize(JSON.parse(raw));
@@ -18,7 +23,7 @@ function load(): ThemeId {
   }
 }
 
-const themePref = createStore<{ theme: ThemeId }>(() => ({ theme: load() }));
+const themePref = createStore<{ theme: ThemePref }>(() => ({ theme: load() }));
 
 themePref.subscribe((s) => {
   try {
@@ -29,7 +34,8 @@ themePref.subscribe((s) => {
 });
 
 export const useThemeId = () => useStore(themePref, (s) => s.theme);
-export const setTheme = (theme: ThemeId) => themePref.setState({ theme });
+export const setTheme = (theme: ThemePref) => themePref.setState({ theme });
+export const themePrefNow = () => themePref.getState().theme;
 
 // Another tab picked a theme: follow it.
 if (typeof window !== "undefined") {

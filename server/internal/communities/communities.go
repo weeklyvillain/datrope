@@ -39,15 +39,12 @@ type ChannelSeeder interface {
 	SeedCommunity(ctx context.Context, tx pgx.Tx, communityID id.ID) error
 }
 
-// Palettes a server can use; the client maps each to its accent colour.
-var Palettes = []string{"emerald", "ocean", "violet", "amber", "rose", "mint"}
-
 // Server is the instance's one community.
 type Server struct {
 	ID          id.ID     `json:"id" doc:"Also the ID of the @everyone role"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Palette     string    `json:"palette" enum:"emerald,ocean,violet,amber,rose,mint"`
+	AccentColor string    `json:"accent_color" pattern:"^#[0-9a-f]{6}$" doc:"The server's accent colour; clients lighten it if it is too dark to read"`
 	OwnerID     id.ID     `json:"owner_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	IconURL     *string   `json:"icon_url,omitempty"`
@@ -152,8 +149,8 @@ func (s *Service) ServerID(ctx context.Context) (id.ID, error) {
 
 func (s *Service) Server(ctx context.Context) (*Server, error) {
 	var sv Server
-	err := s.db.QueryRow(ctx, `SELECT id, name, description, palette, owner_id, created_at, rules_gate FROM communities WHERE is_server`).
-		Scan(&sv.ID, &sv.Name, &sv.Description, &sv.Palette, &sv.OwnerID, &sv.CreatedAt, &sv.RulesGate)
+	err := s.db.QueryRow(ctx, `SELECT id, name, description, accent_color, owner_id, created_at, rules_gate FROM communities WHERE is_server`).
+		Scan(&sv.ID, &sv.Name, &sv.Description, &sv.AccentColor, &sv.OwnerID, &sv.CreatedAt, &sv.RulesGate)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

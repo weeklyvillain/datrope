@@ -18,7 +18,7 @@ import (
 type UpdateServerRequest struct {
 	Name        *string `json:"name,omitempty" minLength:"1" maxLength:"100"`
 	Description *string `json:"description,omitempty" maxLength:"300"`
-	Palette     *string `json:"palette,omitempty" enum:"emerald,ocean,violet,amber,rose,mint"`
+	AccentColor *string `json:"accent_color,omitempty" pattern:"^#[0-9a-f]{6}$"`
 }
 
 type CreateInviteRequest struct {
@@ -116,8 +116,8 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			if _, err := s.db.Exec(ctx, `
-				UPDATE communities SET name = COALESCE($2, name), description = COALESCE($3, description), palette = COALESCE($4, palette)
-				WHERE id = $1`, a.CommunityID, name, in.Body.Description, in.Body.Palette); err != nil {
+				UPDATE communities SET name = COALESCE($2, name), description = COALESCE($3, description), accent_color = COALESCE($4, accent_color)
+				WHERE id = $1`, a.CommunityID, name, in.Body.Description, in.Body.AccentColor); err != nil {
 				return nil, err
 			}
 			sv, err := s.Server(ctx)
@@ -129,7 +129,7 @@ func Register(api huma.API, s *Service) {
 			}
 			cs := audit.Diff(nil, "name", old.Name, sv.Name)
 			cs = audit.Diff(cs, "description", old.Description, sv.Description)
-			cs = audit.Diff(cs, "palette", old.Palette, sv.Palette)
+			cs = audit.Diff(cs, "accent_color", old.AccentColor, sv.AccentColor)
 			if len(cs) > 0 {
 				if err := audit.Record(ctx, s.db, audit.ServerUpdate, 0, audit.LogDetails{Changes: cs}); err != nil {
 					return nil, err

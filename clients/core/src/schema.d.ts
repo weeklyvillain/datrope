@@ -2764,6 +2764,8 @@ export interface components {
             voice_states: components["schemas"]["VoiceState"][] | null;
         };
         ReadyServer: {
+            /** @description The server's accent colour; clients lighten it if it is too dark to read */
+            accent_color: string;
             banner_url?: string;
             /** @description Empty for a member held at the rules gate */
             categories: components["schemas"]["Category"][] | null;
@@ -2779,8 +2781,6 @@ export interface components {
             name: string;
             /** @description Snowflake ID as a decimal string */
             owner_id: string;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
             roles: components["schemas"]["Role"][] | null;
             /** @description New members see only the welcome page until they accept the rules */
             rules_gate: boolean;
@@ -2892,6 +2892,8 @@ export interface components {
             title?: string;
         };
         Server: {
+            /** @description The server's accent colour; clients lighten it if it is too dark to read */
+            accent_color: string;
             banner_url?: string;
             /** Format: date-time */
             created_at: string;
@@ -2902,8 +2904,6 @@ export interface components {
             name: string;
             /** @description Snowflake ID as a decimal string */
             owner_id: string;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
             /** @description New members see only the welcome page until they accept the rules */
             rules_gate: boolean;
         };
@@ -2911,6 +2911,7 @@ export interface components {
             muted: boolean;
         };
         ServerPreview: {
+            accent_color: string;
             banner_url?: string;
             /** Format: date-time */
             created_at: string;
@@ -2924,8 +2925,6 @@ export interface components {
              * @description Members who are online or idle
              */
             online_count: number;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
         };
         ServerUpdate: {
             /** @description DATROPE_UPDATER_TOKEN is set */
@@ -2934,6 +2933,8 @@ export interface components {
             status?: components["schemas"]["GitStatus"];
         };
         ServerWithRoles: {
+            /** @description The server's accent colour; clients lighten it if it is too dark to read */
+            accent_color: string;
             banner_url?: string;
             /** Format: date-time */
             created_at: string;
@@ -2944,8 +2945,6 @@ export interface components {
             name: string;
             /** @description Snowflake ID as a decimal string */
             owner_id: string;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
             roles: components["schemas"]["Role"][] | null;
             /** @description New members see only the welcome page until they accept the rules */
             rules_gate: boolean;
@@ -3219,10 +3218,9 @@ export interface components {
             self_assignable?: boolean;
         };
         UpdateServerRequest: {
+            accent_color?: string;
             description?: string;
             name?: string;
-            /** @enum {string} */
-            palette?: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
         };
         UpdateSettingsRequest: {
             /** @description Write-only: responses report klipy_configured instead. Empty removes the key. */

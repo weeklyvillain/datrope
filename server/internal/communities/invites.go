@@ -40,7 +40,7 @@ type InvitePreview struct {
 type ServerPreview struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Palette     string    `json:"palette" enum:"emerald,ocean,violet,amber,rose,mint"`
+	AccentColor string    `json:"accent_color" pattern:"^#[0-9a-f]{6}$"`
 	IconURL     *string   `json:"icon_url,omitempty"`
 	BannerURL   *string   `json:"banner_url,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -60,7 +60,7 @@ func (s *Service) serverPreview(ctx context.Context) (*ServerPreview, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := ServerPreview{Name: sv.Name, Description: sv.Description, Palette: sv.Palette, IconURL: sv.IconURL,
+	p := ServerPreview{Name: sv.Name, Description: sv.Description, AccentColor: sv.AccentColor, IconURL: sv.IconURL,
 		BannerURL: sv.BannerURL, CreatedAt: sv.CreatedAt, MemberCount: len(ids)}
 	if s.presence != nil {
 		for _, uid := range ids {
