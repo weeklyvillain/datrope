@@ -37,6 +37,10 @@ type Config struct {
 	UpdaterToken string
 	Push         push.Options // zero value = real Web Push; tests inject a fake sender
 	GitHubAPI    string       // GitHub's API base for yt-dlp releases; "" is the real one (tests point it at a fake)
+	// Slot is blue or green when the server runs as an update slot (deploy/README.md, "Updates"):
+	// it then runs background jobs only while SlotFile names it. Empty: always live.
+	Slot     string
+	SlotFile string
 }
 
 // musicFromEnv reads the music bot's sources, cache and library size:
@@ -84,6 +88,8 @@ func ConfigFromEnv() (Config, error) {
 		},
 		UpdaterURL:   strings.TrimSuffix(os.Getenv("DATROPE_UPDATER_URL"), "/"),
 		UpdaterToken: os.Getenv("DATROPE_UPDATER_TOKEN"),
+		Slot:         os.Getenv("DATROPE_SLOT"),
+		SlotFile:     os.Getenv("DATROPE_SLOT_FILE"),
 		Music:        music.Config{FFmpeg: os.Getenv("DATROPE_FFMPEG"), YtDlp: os.Getenv("DATROPE_YTDLP")},
 	}
 	if c.Addr == "" {
@@ -91,6 +97,9 @@ func ConfigFromEnv() (Config, error) {
 	}
 	if c.DataDir == "" {
 		c.DataDir = "/data"
+	}
+	if c.SlotFile == "" {
+		c.SlotFile = "/switch/slot"
 	}
 	if c.UpdaterToken != "" && c.UpdaterURL == "" {
 		c.UpdaterURL = "http://updater:8090"

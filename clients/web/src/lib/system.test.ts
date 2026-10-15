@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@datrope/core";
-import { formatBytes, formatDuration, classifyPollError, nextPoll, sparklinePoints, updatesAvailable } from "./system";
+import { formatBytes, formatDuration, classifyPollError, nextPoll, sparklinePoints, stageLabel, updatesAvailable, type PollResult } from "./system";
 
 describe("formatBytes", () => {
   it("picks a unit", () => {
@@ -87,5 +87,29 @@ describe("classifyPollError", () => {
     expect(classifyPollError(new ApiError(503, "UPDATER_NOT_CONFIGURED", "Updater is off"))).toEqual({ error: "Updater is off" });
     expect(classifyPollError(new ApiError(403, "FORBIDDEN", "Not allowed"))).toEqual({ error: "Not allowed" });
     expect(classifyPollError(new ApiError(500, "INTERNAL", "Boom"))).toEqual({ error: "Boom" });
+  });
+});
+
+describe("stageLabel", () => {
+  it("names the running step", () => {
+    expect(stageLabel({ phase: "running", lines: [], next: 0, stage: 4, stages: 8, stageTitle: "start new server" }))
+      .toEqual({ label: "Step 4 of 8 — Start new server", percent: 37.5 });
+  });
+  it("is full when done", () => {
+    expect(stageLabel({ phase: "succeeded", lines: [], next: 0, stage: 8, stages: 8, stageTitle: "restart the updater" })?.percent).toBe(100);
+  });
+  it("is null before the first poll", () => {
+    expect(stageLabel({ phase: "running", lines: [], next: 0 })).toBeNull();
+  });
+});
+
+describe("nextPoll stages", () => {
+  it("copies the stage from the job", () => {
+    const v = nextPoll({ phase: "running", lines: [], next: 0 }, {
+      log: { job: { id: "1", status: "running", started_at: "", stage: 2, stages: 8, stage_title: "build" }, lines: [], next: 0 },
+    } as PollResult);
+    expect(v.stage).toBe(2);
+    expect(v.stages).toBe(8);
+    expect(v.stageTitle).toBe("build");
   });
 });

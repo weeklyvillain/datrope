@@ -122,6 +122,7 @@ type change struct {
 }
 
 type Service struct {
+	active   func() bool // nil: always live; see SetActive
 	cfg      Config
 	rooms    *Rooms // nil when voice is off
 	bus      *events.Bus
@@ -143,6 +144,7 @@ type Service struct {
 	seq     uint64             // counts changes (clocks can be too coarse to order them)
 
 	poke      chan struct{}       // asks the background loop to reconcile
+	resync    chan struct{}       // asks the background loop to re-read LiveKit, then reconcile
 	outMu     sync.Mutex          // guards signedOut and revoked (see onEvent)
 	signedOut map[id.ID]time.Time // when each user was signed out everywhere
 	revoked   map[id.ID]time.Time // when each revoked session was revoked
@@ -157,7 +159,7 @@ func NewService(cfg Config, bus *events.Bus, ch Channels, ranks Ranks) *Service 
 	s := &Service{
 		cfg: cfg, bus: bus, channels: ch, ranks: ranks,
 		users: map[id.ID]*participant{}, pending: map[id.ID]pendingJoin{}, moves: map[id.ID]movePass{}, changed: map[id.ID]change{},
-		poke: make(chan struct{}, 1), signedOut: map[id.ID]time.Time{}, revoked: map[id.ID]time.Time{},
+		poke: make(chan struct{}, 1), resync: make(chan struct{}, 1), signedOut: map[id.ID]time.Time{}, revoked: map[id.ID]time.Time{},
 		ctx: ctx, cancel: cancel, soundLimit: ratelimit.New(30, 1),
 	}
 	if cfg.Enabled() {
@@ -197,12 +199,17 @@ func (s *Service) run() {
 			s.refresh(true)
 		case <-s.poke:
 			s.refresh(false)
+		case <-s.resync:
+			s.refresh(true)
 		}
 	}
 }
 
 // refresh optionally re-reads LiveKit, then enforces permissions.
 func (s *Service) refresh(sync bool) {
+	if !s.isActive() {
+		return
+	}
 	if sync {
 		if err := s.Sync(s.ctx); err != nil && s.ctx.Err() == nil {
 			slog.Error("voice: sync with livekit", "err", err)

@@ -142,3 +142,35 @@ func TestJobIDsStayAboveStoredOnes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, StatusSucceeded, log.Job.Status)
 }
+
+func TestJobStages(t *testing.T) {
+	j, err := OpenJobs(t.TempDir())
+	require.NoError(t, err)
+	var id string
+	seen := []UpdateJob{}
+	gate := make(chan struct{})
+	look := func(context.Context, io.Writer) error {
+		<-gate
+		l, err := j.Log(id, 0)
+		if err != nil {
+			return err
+		}
+		seen = append(seen, l.Job)
+		return nil
+	}
+	final := &Step{Title: "last", Run: func(context.Context, io.Writer) error { return nil }}
+	id, err = j.Start([]Step{{Title: "one", Run: look}, {Title: "two", Run: look}}, final)
+	require.NoError(t, err)
+	close(gate)
+	j.Wait()
+	require.Len(t, seen, 2)
+	require.Equal(t, 1, seen[0].Stage)
+	require.Equal(t, "one", seen[0].StageTitle)
+	require.Equal(t, 2, seen[1].Stage)
+	require.Equal(t, 3, seen[1].Stages)
+	l, err := j.Log(id, 0)
+	require.NoError(t, err)
+	require.Equal(t, StatusSucceeded, l.Job.Status)
+	require.Equal(t, 3, l.Job.Stage)
+	require.Equal(t, "last", l.Job.StageTitle)
+}

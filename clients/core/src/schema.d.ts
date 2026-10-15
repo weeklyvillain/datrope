@@ -2747,6 +2747,8 @@ export interface components {
         Ready: {
             /** @description What people who share the server are doing on linked accounts */
             activities: components["schemas"]["Activity"][] | null;
+            /** @description The commit the server was built from; dev for local builds */
+            build: string;
             dms: components["schemas"]["Channel"][] | null;
             /** @description The server custom emoji; empty when the user is not a member */
             emoji: components["schemas"]["Emoji"][] | null;
@@ -3168,6 +3170,17 @@ export interface components {
             /** Format: date-time */
             finished_at?: string;
             id: string;
+            /**
+             * Format: int64
+             * @description 1-based index of the running (or last) step
+             */
+            stage: number;
+            stage_title?: string;
+            /**
+             * Format: int64
+             * @description How many steps the job has, the updater's restart included
+             */
+            stages: number;
             /** Format: date-time */
             started_at: string;
             /** @enum {string} */

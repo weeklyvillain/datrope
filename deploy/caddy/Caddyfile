@@ -12,10 +12,11 @@
 		reverse_proxy livekit:7880
 	}
 
-	@backend path /api/* /ws /manifest.webmanifest
+	@backend path /api/* /ws /manifest.webmanifest /healthz
 	handle @backend {
 		# The server sets its own headers, including the strict CSP on file downloads.
-		reverse_proxy server:8080
+		# reverse_proxy to the live server slot, written by the updater.
+		import /switch/upstream.caddy
 	}
 
 	handle {
@@ -26,8 +27,20 @@
 		# The service worker must be re-checked on every launch so updates arrive.
 		@sw path /sw.js
 		header @sw Cache-Control "no-cache"
-		root * /srv
+		# root at the live web build in the web volume, written by the updater.
+		import /switch/root.caddy
 		try_files {path} /index.html
 		file_server
+	}
+}
+
+# LiveKit's webhooks, from inside the compose network only (this port is not published): they
+# reach whichever server slot is live, like the site above.
+http://:8081 {
+	handle /api/voice/webhook {
+		import /switch/upstream.caddy
+	}
+	handle {
+		respond 404
 	}
 }

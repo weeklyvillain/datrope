@@ -45,6 +45,9 @@ func (s *Service) StartGuestSweep() {
 		t := time.NewTicker(time.Minute)
 		defer t.Stop()
 		sweep := func(now time.Time) {
+			if !s.isActive() {
+				return
+			}
 			if _, err := s.SweepGuests(context.Background(), now); err != nil {
 				slog.Error("communities: guest sweep", "err", err)
 			}

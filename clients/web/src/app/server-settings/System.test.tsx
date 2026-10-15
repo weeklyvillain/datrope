@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { SystemStats } from "@datrope/core";
-import { SystemView } from "./System";
+import { SystemView, restartWarning } from "./System";
 
 vi.mock("@/session", () => ({ client: {} }));
 
@@ -36,5 +36,13 @@ describe("SystemView", () => {
   it("shows why the updater did not answer", () => {
     const html = renderToStaticMarkup(<SystemView stats={stats({ updater_error: "updater unreachable", containers: [] })} onRestart={() => {}} />);
     expect(html).toContain("updater unreachable");
+  });
+});
+
+describe("restartWarning", () => {
+  it("warns that restarting a server slot disconnects everyone", () => {
+    expect(restartWarning("server-blue")).toContain("Everyone is disconnected");
+    expect(restartWarning("server-green")).toContain("Everyone is disconnected");
+    expect(restartWarning("imgproxy")).toBe("The imgproxy container stops and starts again.");
   });
 });

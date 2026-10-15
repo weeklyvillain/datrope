@@ -51,7 +51,10 @@ export function updatesAvailable(u: SystemUpdates): number {
 
 export type JobPhase = "running" | "restarting" | "succeeded" | "failed";
 /** sha: the commit the stack runs after a successful update, once the status is refreshed. */
-export interface JobView { phase: JobPhase; lines: string[]; next: number; message?: string; sha?: string }
+export interface JobView {
+  phase: JobPhase; lines: string[]; next: number; message?: string; sha?: string;
+  stage?: number; stages?: number; stageTitle?: string; // the updater's step, for the progress bar
+}
 export type PollResult = { log: UpdateJobLog } | { transient: true } | { error: string };
 
 /**
@@ -74,5 +77,16 @@ export function nextPoll(prev: JobView, result: PollResult): JobView {
   const { log } = result;
   const s = log.job.status;
   const phase: JobPhase = s === "succeeded" ? "succeeded" : s === "failed" ? "failed" : "running";
-  return { phase, lines: [...prev.lines, ...(log.lines ?? [])], next: log.next };
+  return {
+    phase, lines: [...prev.lines, ...(log.lines ?? [])], next: log.next,
+    stage: log.job.stage, stages: log.job.stages, stageTitle: log.job.stage_title,
+  };
+}
+
+/** "Step 4 of 8 — Start new server" and how far along the update is (finished steps). */
+export function stageLabel(v: JobView): { label: string; percent: number } | null {
+  if (!v.stage || !v.stages) return null;
+  const title = v.stageTitle ? v.stageTitle[0].toUpperCase() + v.stageTitle.slice(1) : "";
+  const done = v.phase === "succeeded" ? v.stages : v.stage - 1;
+  return { label: `Step ${v.stage} of ${v.stages}${title ? ` — ${title}` : ""}`, percent: (done / v.stages) * 100 };
 }

@@ -37,7 +37,7 @@ export default defineConfig({
       "/api": `http://${server}`,
       "/manifest.webmanifest": `http://${server}`,
       "/ws": { target: `ws://${server}`, ws: true },
-      // Production has Caddy strip the same prefix (deploy/Caddyfile).
+      // Production has Caddy strip the same prefix (deploy/caddy/Caddyfile).
       "/livekit": { target: `http://${livekit}`, ws: true, rewrite: (p) => p.replace(/^\/livekit/, "") },
     },
   },

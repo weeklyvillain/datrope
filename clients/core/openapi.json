@@ -3192,6 +3192,10 @@
               "null"
             ]
           },
+          "build": {
+            "description": "The commit the server was built from; dev for local builds",
+            "type": "string"
+          },
           "dms": {
             "items": {
               "$ref": "#/components/schemas/Channel"
@@ -3264,6 +3268,7 @@
         },
         "required": [
           "session_id",
+          "build",
           "user",
           "dms",
           "presences",
@@ -4584,6 +4589,19 @@
           "id": {
             "type": "string"
           },
+          "stage": {
+            "description": "1-based index of the running (or last) step",
+            "format": "int64",
+            "type": "integer"
+          },
+          "stage_title": {
+            "type": "string"
+          },
+          "stages": {
+            "description": "How many steps the job has, the updater's restart included",
+            "format": "int64",
+            "type": "integer"
+          },
           "started_at": {
             "format": "date-time",
             "type": "string"
@@ -4600,7 +4618,9 @@
         "required": [
           "id",
           "status",
-          "started_at"
+          "started_at",
+          "stage",
+          "stages"
         ],
         "type": "object"
       },

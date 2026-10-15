@@ -145,7 +145,7 @@ You need a machine with **Docker** and **Docker Compose**, and a **domain** poin
 
 Caddy gets a TLS certificate for your domain automatically. If voice cannot connect, text chat keeps working.
 
-To update, run `git pull && docker compose up -d --build` in `deploy/`. Database migrations run when the server starts.
+To update, use Server settings → Updates, or run `git pull && docker compose exec updater /updater deploy` in `deploy/`: the new server starts next to the old one and takes over once it is healthy. Database migrations run when the server starts.
 
 [`deploy/README.md`](deploy/README.md) covers the rest: backups and restores, the music bot, Twitch, YouTube and Spotify setup, and upgrade notes.
 

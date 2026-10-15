@@ -81,6 +81,13 @@ function Meter({ title, value, detail, series }: { title: string; value: number;
 const pct = (used: number, total: number) => (total > 0 ? (used / total) * 100 : 0);
 
 /** The page body for given stats (rendered on its own in tests). */
+/** What restarting a container does; the server slots (server-blue, server-green) take everyone down. */
+export function restartWarning(service: string): string {
+  return service.startsWith("server-")
+    ? "Everyone is disconnected for a few seconds and reconnects on their own."
+    : `The ${service} container stops and starts again.`;
+}
+
 export function SystemView({ stats, onRestart }: { stats: SystemStats; onRestart: (service: string) => void }) {
   const { host } = stats;
   const s = host.latest;
@@ -169,9 +176,7 @@ function ContainerTable({ containers, onRestart }: { containers: ContainerInfo[]
                       <AlertDialogHeader>
                         <AlertDialogTitle>Restart {c.service}?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          {c.service === "server"
-                            ? "Everyone is disconnected for a few seconds and reconnects on their own."
-                            : `The ${c.service} container stops and starts again.`}
+                          {restartWarning(c.service)}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

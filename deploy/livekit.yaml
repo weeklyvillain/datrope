@@ -18,6 +18,6 @@ room:
 webhook:
   api_key: datrope
   urls:
-    - http://server:8080/api/voice/webhook
+    - http://caddy:8081/api/voice/webhook
 logging:
   level: info
