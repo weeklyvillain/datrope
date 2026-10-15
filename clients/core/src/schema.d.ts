@@ -949,6 +949,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-notes"];
+        put?: never;
+        post: operations["create-note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{noteID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-note"];
+        put?: never;
+        post?: never;
+        delete: operations["delete-note"];
+        options?: never;
+        head?: never;
+        patch: operations["update-note"];
+        trace?: never;
+    };
     "/api/push/key": {
         parameters: {
             query?: never;
@@ -2554,6 +2586,52 @@ export interface components {
             title: string;
             /** @description The page it came from; absent for uploads and for Spotify tracks not yet found */
             url?: string;
+        };
+        Note: {
+            /** @description A Tiptap (ProseMirror) document */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description The plain text of content */
+            text: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NoteCreate: {
+            /** @description Sent together with text */
+            content?: {
+                [key: string]: unknown;
+            };
+            /** @description Sent together with content */
+            text?: string;
+            title?: string;
+        };
+        NoteDeleted: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+        };
+        NoteSummary: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description The start of the note's text */
+            preview: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NoteUpdate: {
+            /** @description Sent together with text */
+            content?: {
+                [key: string]: unknown;
+            };
+            /** @description Sent together with content */
+            text?: string;
+            title?: string;
         };
         Override: {
             /** Format: int64 */
@@ -6193,6 +6271,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-notes": {
+        parameters: {
+            query?: {
+                /** @description Only notes whose title or text contains this */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteSummary"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
                 };
             };
             /** @description Error */

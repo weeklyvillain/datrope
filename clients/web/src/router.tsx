@@ -3,6 +3,7 @@ import { AppShell } from "./app/AppShell";
 import { DMView } from "./app/DMView";
 import { ChannelRoute, GalleryAlbumRoute, Home } from "./app/Home";
 import { MentionsRoute, YouRoute } from "./app/mobile/PhoneRoutes";
+import { NotesView } from "./app/notes/NotesView";
 import { RequireSession } from "./app/RequireSession";
 import { ServerSettings } from "./app/server-settings/ServerSettings";
 import { UserSettingsRoute } from "./app/settings/UserSettingsPage";
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([{
             { path: "channels/:channelId/albums/:albumId", element: <GalleryAlbumRoute /> },
             { path: "gallery/*", element: <Navigate to="/" replace /> },
             { path: "messages/:channelId?", element: <DMView /> },
+            { path: "notes/:noteId?", element: <NotesView /> },
             { path: "mentions", element: <MentionsRoute /> },
             { path: "you/:section?", element: <YouRoute /> },
             { path: "settings/:section?", element: <UserSettingsRoute /> },

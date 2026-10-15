@@ -1154,6 +1154,34 @@ test("albums live in a gallery: collect a file, upload into the album, share it 
   await expect(bobAlbum.getByRole("button", { name: "Upload" })).toHaveCount(0);
 });
 
+test("personal notes: write a note, it survives a reload, then delete it", async ({ browser }) => {
+  const alice = await (await browser.newContext()).newPage();
+  await signIn(alice, "alice");
+
+  await alice.getByRole("tab", { name: "Notes" }).click();
+  await alice.getByRole("button", { name: "New note" }).click();
+  await expect(alice).toHaveURL(/\/notes\/\d+$/);
+  const noteLink = alice.getByRole("navigation", { name: "Notes", exact: true }).locator(`a[href="${new URL(alice.url()).pathname}"]`);
+  await alice.getByLabel("Title").fill("Raid roster");
+  await alice.getByRole("textbox", { name: "Note" }).click();
+  await alice.keyboard.type("Bring flasks");
+  await alice.getByRole("button", { name: "Checklist" }).click();
+  await alice.keyboard.type("Tank");
+  await expect(alice.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+
+  await alice.reload();
+  await expect(alice.getByLabel("Title")).toHaveValue("Raid roster");
+  await expect(alice.getByRole("textbox", { name: "Note" })).toContainText("Bring flasks");
+  await expect(alice.getByRole("textbox", { name: "Note" }).locator('ul[data-type="taskList"]')).toContainText("Tank");
+  await expect(noteLink).toContainText("Raid roster");
+
+  await alice.getByRole("button", { name: "Note options" }).click();
+  await alice.getByRole("menuitem", { name: "Delete note" }).click();
+  await alice.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(alice).toHaveURL(/\/notes$/);
+  await expect(noteLink).toHaveCount(0);
+});
+
 // Runs after the first test: bob is a member.
 test("unknown pages and channels land on error pages inside the app", async ({ browser }) => {
   const bob = await (await browser.newContext()).newPage();
