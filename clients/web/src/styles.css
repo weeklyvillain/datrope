@@ -192,6 +192,15 @@ img.emoji {
   vertical-align: -0.3em;
   width: 1.375em;
 }
+/* RichInput's placeholder: an empty contenteditable shows it like a textarea would. Floated with no height so the
+   caret stays at the start of the line instead of after the placeholder text. */
+.rich-input[data-empty]:not([data-composing])::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
 
 /* A message jumped to (jumpTo in src/app/MessageList.tsx): a short highlight that fades out. */
 .message-flash { animation: message-flash 1.5s ease-out; }

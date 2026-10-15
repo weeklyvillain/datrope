@@ -116,7 +116,7 @@ test("Delete then Confirm moves focus to a neighbour", async ({ page }) => {
   const onNeighbour = () => page.evaluate((id) => {
     const el = document.activeElement;
     const r = el?.closest("[data-message-row]");
-    return (!!r && r.id !== id) || el === document.querySelector('textarea[aria-label="Message"]');
+    return (!!r && r.id !== id) || el === document.querySelector('[data-composer][aria-label="Message"]');
   }, deleted);
   await expect.poll(onNeighbour).toBe(true);
   await page.waitForTimeout(600);
@@ -232,7 +232,7 @@ test("shortcuts: sheet, channel switching, type to focus", async ({ page }) => {
   await expect(title).toHaveText(/# general/);
   await page.locator("body").click({ position: { x: 600, y: 300 } });
   await page.keyboard.type("h");
-  await expect(composer(page)).toHaveValue("h");
+  await expect(composer(page)).toHaveText("h");
 });
 
 test("settings open as a page and Esc returns to chat", async ({ page }) => {

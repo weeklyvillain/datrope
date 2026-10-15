@@ -967,6 +967,11 @@
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
+          },
+          "tz": {
+            "description": "The sender's IANA time zone",
+            "maxLength": 64,
+            "type": "string"
           }
         },
         "required": [
@@ -2183,6 +2188,10 @@
           },
           "title": {
             "description": "Announcements only",
+            "type": "string"
+          },
+          "tz": {
+            "description": "The sender's IANA time zone, for showing times they wrote in the reader's zone",
             "type": "string"
           },
           "webhook": {
@@ -3711,6 +3720,11 @@
           "title": {
             "description": "Announcements only",
             "maxLength": 100,
+            "type": "string"
+          },
+          "tz": {
+            "description": "The sender's IANA time zone",
+            "maxLength": 64,
             "type": "string"
           }
         },

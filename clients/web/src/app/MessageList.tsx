@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichInput } from "@/chat/RichInput";
 import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
 import { PollCard } from "@/chat/PollCard";
@@ -28,6 +28,7 @@ import { messageKeyAction, type MessageKey } from "@/lib/message-keys";
 import { buildItems, indexOfMessage, navTarget, neighbourRow, prependedCount, type Item } from "@/lib/message-items";
 import { shouldKeepFocus } from "@/lib/focus";
 import { clockTime, fullStamp, headStamp } from "@/lib/message-time";
+import { useClockPref } from "@/lib/clock-pref";
 import { useLongPress } from "@/hooks/use-long-press";
 import { useSwipeReply } from "@/hooks/use-swipe-reply";
 import { recordEmoji } from "@/chat/recent-emoji";
@@ -96,10 +97,10 @@ export function focusRow(scroller: HTMLElement | null, id: string) {
 /** The composer that goes with the list `from` is in (a thread's or post's own box), else the channel's. */
 const composer = (from?: Element | null) => {
   for (let el = from?.parentElement; el; el = el.parentElement) {
-    const box = el.querySelector<HTMLTextAreaElement>("textarea[role=combobox]");
+    const box = el.querySelector<HTMLElement>("[data-composer]");
     if (box) return box;
   }
-  return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]');
+  return document.querySelector<HTMLElement>('[data-composer][aria-label="Message"]');
 };
 
 /** Each mounted list, by channel: what jumpTo and "Jump to present" scroll with. */
@@ -616,6 +617,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const [profileOpen, setProfileOpen] = useState(false);
   const avatarRef = useRef<HTMLButtonElement>(null);
   const row = useRef<HTMLElement>(null);
+  useClockPref(); // re-render the stamps when the clock setting changes
   const [editing, setEditing] = useState(false);
   const stopEditing = () => { setEditing(false); requestAnimationFrame(() => row.current?.focus({ preventScroll: true })); };
   const [draft, setDraft] = useState(m.content);
@@ -819,9 +821,9 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
                   }
                 }} />
             )}
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} aria-label="Edit message" autoFocus className="pointer-coarse:select-text"
+            <RichInput value={draft} onChange={(v) => setDraft(v)} maxLength={4000} aria-label="Edit message" autoFocus
+              variant="input" className="h-auto min-h-16 py-2 md:text-title pointer-coarse:select-text"
               enterKeyHint={isTouchOnly() ? "enter" : undefined}
-              onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   e.preventDefault();
@@ -850,7 +852,8 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           </div>
         ) : m.content || m.edited_at ? (
           <div id={`message-${m.id}-text`} className={cn("wrap-anywhere max-w-[80ch]", m.pending && "opacity-60")}>
-            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} roles={m.pending ? undefined : m.mention_roles ?? undefined} everyone={!!m.mention_everyone} />
+            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} roles={m.pending ? undefined : m.mention_roles ?? undefined} everyone={!!m.mention_everyone}
+              time={m.pending ? undefined : { sentAt: m.created_at, tz: m.tz ?? undefined }} />
             {/* Grouped rows have no header, so "(edited)" follows the text. */}
             {grouped && m.edited_at && <span className="edited text-xs text-muted-foreground"> (edited)</span>}
           </div>

@@ -547,7 +547,7 @@ it("createPost sends the forum post body and returns the post", async () => {
     return HttpResponse.json(item, { status: 201 });
   }));
   const post = await readyClient().createPost("400", { title: "Hello", content: "body", tags: ["bug"], attachments: [attachment] });
-  expect(seen).toEqual({ id: "400", body: { title: "Hello", content: "body", tags: ["bug"], attachment_ids: ["900"] } });
+  expect(seen).toEqual({ id: "400", body: { title: "Hello", content: "body", tags: ["bug"], attachment_ids: ["900"], tz: expect.any(String) } });
   expect(post.channel.id).toBe("600");
 });
 

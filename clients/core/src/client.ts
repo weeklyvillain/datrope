@@ -219,6 +219,7 @@ export class DatropeClient {
       params: { path: { id: forumId } },
       body: {
         title: post.title, content: post.content,
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
         ...(post.tags && post.tags.length > 0 ? { tags: post.tags } : {}),
         ...(post.attachments && post.attachments.length > 0 ? { attachment_ids: post.attachments.map((a) => a.id) } : {}),
       },
@@ -631,6 +632,7 @@ export class DatropeClient {
         params: { path: { id: channelId } },
         body: {
           content, nonce,
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
           ...(attachments.length > 0 ? { attachment_ids: attachments.map((a) => a.id) } : {}),
           ...(replyTo ? { reply_to_id: replyTo.id } : {}),
           ...(title ? { title } : {}),

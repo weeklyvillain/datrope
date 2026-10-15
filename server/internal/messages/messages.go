@@ -72,6 +72,7 @@ type Message struct {
 	MentionEveryone bool                 `json:"mention_everyone,omitempty" doc:"The message pings everyone who can read it"`
 	MentionRoles    []id.ID              `json:"mention_roles" doc:"Roles the message pinged; their members are mentioned"`
 	Kind            string               `json:"kind,omitempty" enum:"member_leave" doc:"Set on system messages: member_leave means the author left the group DM"`
+	TZ              string               `json:"tz,omitempty" doc:"The sender's IANA time zone, for showing times they wrote in the reader's zone"`
 
 	replyToID *id.ID
 }
@@ -116,17 +117,18 @@ func NewService(pool *pgxpool.Pool, bus *events.Bus, c Channels, u Users, a Atta
 }
 
 const messageCols = `id, channel_id, author_id, content, edited_at, deleted, reply_to_id, mentions, embed, pinned_at,
-	webhook_id, author_name, author_avatar_sha256, embeds, title, kind, mention_everyone, mention_roles`
+	webhook_id, author_name, author_avatar_sha256, embeds, title, kind, mention_everyone, mention_roles, tz`
 
 func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 	var m Message
 	var authorID, webhookID, replyTo *int64
 	var mentions, mentionRoles []int64
+	var tz *string
 	var embed, embeds []byte
 	var authorName string
 	var avatar *string
 	dest := append([]any{&m.ID, &m.ChannelID, &authorID, &m.Content, &m.EditedAt, &m.Deleted, &replyTo, &mentions, &embed, &m.PinnedAt,
-		&webhookID, &authorName, &avatar, &embeds, &m.Title, &m.Kind, &m.MentionEveryone, &mentionRoles}, extra...)
+		&webhookID, &authorName, &avatar, &embeds, &m.Title, &m.Kind, &m.MentionEveryone, &mentionRoles, &tz}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return nil, err
 	}
@@ -147,6 +149,9 @@ func scanMessage(row pgx.Row, extra ...any) (*Message, error) {
 		if avatar != nil {
 			m.Webhook.AvatarURL = imageURL(m.ID, *avatar)
 		}
+	}
+	if tz != nil {
+		m.TZ = *tz
 	}
 	m.Pinned = m.PinnedAt != nil
 	m.replyToID = id.FromNullable(replyTo)

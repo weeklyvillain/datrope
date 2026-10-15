@@ -2023,6 +2023,8 @@ export interface components {
             /** @description From the forum tags */
             tags?: string[] | null;
             title: string;
+            /** @description The sender's IANA time zone */
+            tz?: string;
         };
         CreateRoleRequest: {
             /** @enum {string} */
@@ -2394,6 +2396,8 @@ export interface components {
             thread?: components["schemas"]["ThreadSummary"];
             /** @description Announcements only */
             title?: string;
+            /** @description The sender's IANA time zone, for showing times they wrote in the reader's zone */
+            tz?: string;
             /** @description Who a webhook message shows as; absent for people's messages */
             webhook?: components["schemas"]["WebhookAuthor"];
         };
@@ -2890,6 +2894,8 @@ export interface components {
             reply_to_id?: string;
             /** @description Announcements only */
             title?: string;
+            /** @description The sender's IANA time zone */
+            tz?: string;
         };
         Server: {
             banner_url?: string;
