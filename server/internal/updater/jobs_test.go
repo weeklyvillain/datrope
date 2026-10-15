@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -173,4 +174,26 @@ func TestJobStages(t *testing.T) {
 	require.Equal(t, StatusSucceeded, l.Job.Status)
 	require.Equal(t, 3, l.Job.Stage)
 	require.Equal(t, "last", l.Job.StageTitle)
+}
+
+// The final step replaces the updater, which ends `updater deploy` sessions following the job.
+// Handover leaves them time to read "succeeded" first.
+func TestJobHandoverBeforeFinal(t *testing.T) {
+	j, err := OpenJobs(t.TempDir())
+	require.NoError(t, err)
+	j.Handover = 80 * time.Millisecond
+	var id string
+	var waited time.Duration
+	final := &Step{Title: "last", Run: func(context.Context, io.Writer) error {
+		l, err := j.Log(id, 0)
+		if err != nil {
+			return err
+		}
+		waited = time.Since(*l.Job.FinishedAt)
+		return nil
+	}}
+	id, err = j.Start([]Step{{Title: "one", Run: func(context.Context, io.Writer) error { return nil }}}, final)
+	require.NoError(t, err)
+	j.Wait()
+	require.GreaterOrEqual(t, waited, j.Handover)
 }

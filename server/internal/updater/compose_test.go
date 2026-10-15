@@ -203,3 +203,32 @@ func TestUpdateStepsRepairsInterruptedSwitch(t *testing.T) {
 	require.GreaterOrEqual(t, reload, 0, "Caddy is reloaded to match the files")
 	require.Less(t, reload, start, "before blue is recreated")
 }
+
+// Traffic already moved when the old slot fails to stop: the update stands, and the commit the
+// live slot runs is recorded.
+func TestUpdateStepsStopOldFailureKeepsTheUpdate(t *testing.T) {
+	f := slotFake("healthy")
+	f.fail = map[string]bool{"stop server-blue": true}
+	sw := liveBlue(t)
+	deployed := filepath.Join(t.TempDir(), "deployed")
+	c := Compose{Dir: "/r/deploy", Project: "datrope", Run: f.run, Switch: sw, Probe: probeBuild("ccc")}
+	steps, _ := UpdateSteps(&Git{Dir: "/r", Run: f.run, DeployedFile: deployed}, c)
+	var log strings.Builder
+	for _, s := range steps {
+		require.NoError(t, s.Run(context.Background(), &log), s.Title)
+	}
+	require.Equal(t, "ccc\n", read(t, deployed))
+	require.Contains(t, log.String(), "could not stop server-blue")
+}
+
+// A slot that fails to start is stopped again, so a half-started container does not linger.
+func TestUpdateStepsFailedStartStopsTheSlot(t *testing.T) {
+	f := slotFake("healthy")
+	f.fail = map[string]bool{"up -d --no-deps server-green": true}
+	c := Compose{Dir: "/r/deploy", Project: "datrope", Run: f.run, Switch: liveBlue(t), Probe: probeBuild("ccc")}
+	steps, _ := UpdateSteps(&Git{Dir: "/r", Run: f.run}, c)
+	failed, err := runUntilFail(steps)
+	require.Error(t, err)
+	require.Equal(t, "start new server", failed)
+	require.True(t, strings.HasSuffix(f.calls[len(f.calls)-1], "stop server-green"), f.calls[len(f.calls)-1])
+}

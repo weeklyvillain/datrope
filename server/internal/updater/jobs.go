@@ -55,6 +55,10 @@ type UpdateJobLog struct {
 // Jobs runs one job at a time and keeps each job's status (<id>.json) and output (<id>.log) in
 // dir, so a restarted updater can still report how the last update ended.
 type Jobs struct {
+	// Handover is the pause between recording success and running the final step, which replaces
+	// the updater: `updater deploy` polls once a second and must see "succeeded" before that.
+	Handover time.Duration
+
 	dir string
 	wg  sync.WaitGroup
 
@@ -206,6 +210,7 @@ func (j *Jobs) run(job UpdateJob, steps []Step, final *Step) {
 	if final != nil {
 		job.Stage, job.StageTitle = job.Stages, final.Title
 		_ = j.write(job)
+		time.Sleep(j.Handover)
 		fmt.Fprintf(w, "==> %s\n", final.Title)
 		if err := final.Run(ctx, w); err != nil {
 			fmt.Fprintf(w, "!! %s failed: %v (the rest of the update is done)\n", final.Title, err)

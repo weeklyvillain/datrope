@@ -140,6 +140,7 @@ func runServer() error {
 	if err != nil {
 		return err
 	}
+	jobs.Handover = 3 * time.Second // deploy polls every second
 	git := &updater.Git{Dir: repo, As: as, Run: updater.ExecCmd, DeployedFile: deployedFile}
 	go git.RunDaily(ctx)
 

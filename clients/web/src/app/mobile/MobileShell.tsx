@@ -42,7 +42,7 @@ export function MobileShell() {
         <div role="status" className={cn("fixed left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background", pillBottom)}>
           Reconnecting…
         </div>
-      ) : <UpdateBanner className={pillBottom} />}
+      ) : <UpdateBanner className={gated || root ? pillBottom : "top-[calc(var(--safe-top,env(safe-area-inset-top,0px))+0.5rem)]"} />}
     </div>
   );
 }

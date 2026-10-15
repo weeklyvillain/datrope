@@ -138,7 +138,11 @@ func UpdateSteps(g *Git, c Compose) (steps []Step, final *Step) {
 			if err := c.cmd(ctx, w, "up", "-d", "--no-deps", "--remove-orphans", "postgres", "imgproxy", "livekit"); err != nil {
 				return err
 			}
-			return c.cmd(ctx, w, "up", "-d", "--no-deps", "server-"+next)
+			if err := c.cmd(ctx, w, "up", "-d", "--no-deps", "server-"+next); err != nil {
+				stopNext(ctx, w) // it may have been created, or even started
+				return err
+			}
+			return nil
 		}},
 		{Title: "wait until healthy", Run: func(ctx context.Context, w io.Writer) error {
 			if err := c.WaitHealthy(ctx, w, "server-"+next, build, probe, timeout, 2*time.Second); err != nil {
@@ -165,8 +169,10 @@ func UpdateSteps(g *Git, c Compose) (steps []Step, final *Step) {
 			return nil
 		}},
 		{Title: "stop old server", Run: func(ctx context.Context, w io.Writer) error {
+			// Traffic already moved: an old slot that will not stop does not undo the update (it
+			// is standby now and runs no jobs). Say so and stop it by hand.
 			if err := c.cmd(ctx, w, "stop", "server-"+live); err != nil {
-				return err
+				fmt.Fprintf(w, "could not stop server-%s: %v (stop it with docker compose stop server-%s)\n", live, err, live)
 			}
 			// The live slot now runs HEAD. Failing to record that does not undo the update.
 			if err := g.markDeployed(ctx); err != nil {
