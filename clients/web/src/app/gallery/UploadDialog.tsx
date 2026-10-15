@@ -1,4 +1,4 @@
-import { File as FileIcon, Film, ImagePlus, Loader2, X } from "lucide-react";
+import { File as FileIcon, Film, ImagePlus, Loader2, X } from "@/components/icons";
 import { useId, useRef, useState } from "react";
 import { client, formatBytes } from "../../session";
 import { ErrorText } from "@/components/error-text";

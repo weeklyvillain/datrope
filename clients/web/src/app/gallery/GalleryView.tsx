@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm } from "@datrope/core";
-import { FilterX, Images, Search, SlidersHorizontal, Upload, X } from "lucide-react";
+import { FilterX, Images, Search, SlidersHorizontal, Upload, X } from "@/components/icons";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { client, displayName, isUnread, useApp, usePerms } from "../../session";

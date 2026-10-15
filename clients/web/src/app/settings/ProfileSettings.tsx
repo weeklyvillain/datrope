@@ -1,5 +1,5 @@
 import type { PresenceStatus } from "@datrope/core";
-import { Plus, X } from "lucide-react";
+import { Plus, X } from "@/components/icons";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

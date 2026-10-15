@@ -1,4 +1,4 @@
-import { SignalHigh, SignalLow, SignalMedium, SignalZero, type LucideIcon } from "lucide-react";
+import { SignalHigh, SignalLow, SignalMedium, SignalZero, type AnimatedIcon } from "@/components/icons";
 import { useShallow } from "zustand/react/shallow";
 import { voiceMembers } from "@datrope/core";
 import { RefButton } from "@/components/ref-button";
@@ -13,7 +13,7 @@ import type { Rating, Sample } from "../../voice/stats";
 import { useVoice } from "../../voice/voice";
 import { SignalBars } from "./SignalBars";
 
-const LOOK: Record<Rating, { icon: LucideIcon; color: string; word: string }> = {
+const LOOK: Record<Rating, { icon: AnimatedIcon; color: string; word: string }> = {
   good: { icon: SignalHigh, color: "text-online hover:text-online", word: "good" },
   ok: { icon: SignalMedium, color: "text-idle hover:text-idle", word: "okay" },
   poor: { icon: SignalLow, color: "text-destructive hover:text-destructive", word: "poor" },

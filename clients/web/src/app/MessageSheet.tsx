@@ -1,5 +1,5 @@
 import type { ClientMessage } from "@datrope/core";
-import { Copy, FileX, Images, Infinity as InfinityIcon, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Timer, Trash2 } from "lucide-react";
+import { Copy, FileX, Images, Infinity as InfinityIcon, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Timer, Trash2 } from "@/components/icons";
 import { useState, type ReactNode } from "react";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { quickReactions } from "@/chat/recent-emoji";

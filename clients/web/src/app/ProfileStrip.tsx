@@ -1,5 +1,5 @@
 import type { PresenceStatus } from "@datrope/core";
-import { Settings } from "lucide-react";
+import { Settings } from "@/components/icons";
 import { useId, useRef, useState } from "react";
 import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
 import { EmojiText } from "@/chat/EmojiText";

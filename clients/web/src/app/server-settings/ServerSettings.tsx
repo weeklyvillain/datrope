@@ -1,8 +1,8 @@
 import { Perm, hasPerm, type State, type User } from "@datrope/core";
 import {
   Activity, Ban, BookOpen, Database, Hash, Moon, Palette, Plug, RefreshCw, ScrollText, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
-  type LucideIcon,
-} from "lucide-react";
+  type AnimatedIcon,
+} from "@/components/icons";
 import { type ReactNode } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -40,7 +40,7 @@ export interface SettingsSection {
   id: string;
   label: string;
   group: Group;
-  icon: LucideIcon;
+  icon: AnimatedIcon;
   visible: (perms: number, me: User) => boolean;
   element?: ReactNode;
   to?: (s: State) => string | undefined;

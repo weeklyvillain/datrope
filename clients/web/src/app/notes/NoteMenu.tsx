@@ -1,4 +1,4 @@
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "@/components/icons";
 import { useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";

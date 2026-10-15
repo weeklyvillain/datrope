@@ -1,5 +1,5 @@
 import type { NoteSummary } from "@datrope/core";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search } from "@/components/icons";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";

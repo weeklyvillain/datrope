@@ -1,5 +1,5 @@
 import { operatorValue, setOperator, sidebarChannelIds, type PublicUser, type SearchFilters } from "@datrope/core";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X } from "@/components/icons";
 import { forwardRef, useId, type ComponentProps } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { displayName, useApp } from "../../session";

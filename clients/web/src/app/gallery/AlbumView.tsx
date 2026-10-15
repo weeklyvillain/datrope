@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm, type Album } from "@datrope/core";
-import { ArrowLeft, Globe, Lock, LogOut, Settings, Trash2 } from "lucide-react";
+import { ArrowLeft, Globe, Lock, LogOut, Settings, Trash2 } from "@/components/icons";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";

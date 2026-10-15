@@ -1,4 +1,4 @@
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus } from "@/components/icons";
 import { useId, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";

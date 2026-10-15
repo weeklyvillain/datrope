@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { MessagesSquare, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { MessagesSquare, Plus, Search, SlidersHorizontal } from "@/components/icons";
 import { useEffect, useId, useMemo, useState } from "react";
 import { client, errorText, isUnread, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";

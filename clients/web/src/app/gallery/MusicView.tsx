@@ -1,4 +1,4 @@
-import { FilterX, LayoutGrid, List, Play, Shuffle } from "lucide-react";
+import { FilterX, LayoutGrid, List, Play, Shuffle } from "@/components/icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";

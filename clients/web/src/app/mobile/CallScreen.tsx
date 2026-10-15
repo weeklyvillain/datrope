@@ -1,4 +1,4 @@
-import { MessageSquare, Music, Users, Volume2 } from "lucide-react";
+import { MessageSquare, Music, Users, Volume2 } from "@/components/icons";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { EmojiText } from "@/chat/EmojiText";

@@ -1,6 +1,6 @@
 import { Perm, hasPerm, sidebarChannelIds, voiceMembers } from "@datrope/core";
 import { useDraggable } from "@dnd-kit/core";
-import { HeadphoneOff, MicOff, Music, Tv, Video } from "lucide-react";
+import { HeadphoneOff, MicOff, Music, Tv, Video } from "@/components/icons";
 import { useEffect, useState, type PointerEventHandler, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { UserAvatar } from "@/components/user-avatar";

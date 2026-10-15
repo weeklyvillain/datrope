@@ -2,7 +2,7 @@ import { ApiError, compareIds, mentionsMe, myRoleIds, unwrap, type Attachment, t
 import { useShallow } from "zustand/react/shallow";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Virtuoso, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
-import { Copy, FileX, Hand, Images, Infinity as InfinityIcon, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Timer, Trash2 } from "lucide-react";
+import { Copy, FileX, Hand, Images, Infinity as InfinityIcon, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Timer, Trash2 } from "@/components/icons";
 import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";

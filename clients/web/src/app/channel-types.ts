@@ -1,8 +1,8 @@
-import { BookOpen, Hash, Images, Megaphone, MessagesSquare, Volume2, Webhook, type LucideIcon } from "lucide-react";
+import { BookOpen, Hash, Images, Megaphone, MessagesSquare, Volume2, Webhook, type AnimatedIcon } from "@/components/icons";
 
 export type CreatableChannelType = "text" | "voice" | "webhook" | "announcement" | "forum" | "gallery";
 
-export const CHANNEL_TYPES: { value: CreatableChannelType; label: string; description: string; icon: LucideIcon }[] = [
+export const CHANNEL_TYPES: { value: CreatableChannelType; label: string; description: string; icon: AnimatedIcon }[] = [
   { value: "text", label: "Text", description: "Chat, share links and files.", icon: Hash },
   { value: "voice", label: "Voice", description: "Talk, share your screen and camera.", icon: Volume2 },
   { value: "webhook", label: "Webhook", description: "Only other apps post, through webhooks. Members reply in threads.", icon: Webhook },
@@ -11,13 +11,13 @@ export const CHANNEL_TYPES: { value: CreatableChannelType; label: string; descri
   { value: "gallery", label: "Gallery", description: "A wall of photos, videos and files, from here or other channels.", icon: Images },
 ];
 
-const ICONS: Record<string, LucideIcon> = {
+const ICONS: Record<string, AnimatedIcon> = {
   welcome: BookOpen,
   ...Object.fromEntries(CHANNEL_TYPES.map((t) => [t.value, t.icon])),
 };
 
 /** The sidebar and link-card icon for a channel type; Hash for anything else (dm, thread, unknown). */
-export function channelIcon(type: string): LucideIcon {
+export function channelIcon(type: string): AnimatedIcon {
   return ICONS[type] ?? Hash;
 }
 

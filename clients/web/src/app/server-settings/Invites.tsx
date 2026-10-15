@@ -1,5 +1,5 @@
 import { Perm, hasPerm, unwrap, type Invite } from "@datrope/core";
-import { Ellipsis } from "lucide-react";
+import { Ellipsis } from "@/components/icons";
 import { useEffect, useId, useRef, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Badge } from "@/components/ui/badge";

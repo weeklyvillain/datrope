@@ -1,5 +1,5 @@
 import type { Attachment } from "@datrope/core";
-import { FileX } from "lucide-react";
+import { FileX } from "@/components/icons";
 import { formatBytes } from "@/session";
 
 /** A file the size rules (or someone) deleted: its name stays in the message, the contents are gone. */

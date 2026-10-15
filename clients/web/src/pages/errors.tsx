@@ -1,4 +1,4 @@
-import { LockIcon, SearchXIcon, TriangleAlertIcon, WifiOffIcon } from "lucide-react";
+import { LockIcon, SearchXIcon, TriangleAlertIcon, WifiOffIcon } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useRouteError } from "react-router-dom";
 import { ErrorState } from "@/components/error-state";

@@ -1,5 +1,5 @@
 import type { SevenTVEmote } from "@datrope/core";
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";

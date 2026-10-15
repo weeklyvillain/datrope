@@ -1,5 +1,5 @@
 import { customEmojiId, type ClientMessage, type Reaction } from "@datrope/core";
-import { SmilePlus } from "lucide-react";
+import { SmilePlus } from "@/components/icons";
 import { useCallback, useEffect, useState, type MouseEvent, type PointerEvent } from "react";
 import { useLongPress } from "@/hooks/use-long-press";
 import { useLatch } from "@/hooks/use-latch";

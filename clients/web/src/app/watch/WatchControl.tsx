@@ -1,4 +1,4 @@
-import { Tv } from "lucide-react";
+import { Tv } from "@/components/icons";
 import { useState } from "react";
 import { useApp } from "../../session";
 import { useVoice } from "../../voice/voice";

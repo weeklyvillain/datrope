@@ -1,7 +1,7 @@
 import { useEditorState, type Editor } from "@tiptap/react";
 import {
-  Bold, Code, Heading1, Heading2, Italic, Link as LinkIcon, List, ListChecks, ListOrdered, Quote, SquareCode, Strikethrough, type LucideIcon,
-} from "lucide-react";
+  Bold, Code, Heading1, Heading2, Italic, Link as LinkIcon, List, ListChecks, ListOrdered, Quote, SquareCode, Strikethrough, type AnimatedIcon,
+} from "@/components/icons";
 import { useState, type MouseEvent } from "react";
 import { Toolbar } from "radix-ui";
 import { RefToggle } from "@/components/ref-toggle";
@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 /** Toolbar buttons keep the caret in the editor: no blur (and no save flush) between press and format. */
 const keepFocus = (e: MouseEvent) => e.preventDefault();
 
-type Mark = { label: string; icon: LucideIcon; active: (e: Editor) => boolean; run: (e: Editor) => void };
+type Mark = { label: string; icon: AnimatedIcon; active: (e: Editor) => boolean; run: (e: Editor) => void };
 
 const MARKS: Mark[] = [
   { label: "Bold", icon: Bold, active: (e) => e.isActive("bold"), run: (e) => e.chain().focus().toggleBold().run() },

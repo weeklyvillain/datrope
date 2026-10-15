@@ -1,5 +1,5 @@
 import { Perm, hasPerm, type Message } from "@datrope/core";
-import { ChevronLeft, ChevronRight, Download, Maximize2, SendHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Maximize2, SendHorizontal, X } from "@/components/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { client, displayName, formatBytes, roleColor, useApp, usePerms } from "../../session";

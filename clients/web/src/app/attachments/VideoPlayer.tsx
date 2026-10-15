@@ -1,6 +1,6 @@
 import type { Attachment } from "@datrope/core";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Download, Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Download, Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "@/components/icons";
 import { client } from "../../session";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";

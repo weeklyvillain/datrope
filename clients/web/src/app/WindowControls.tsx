@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Copy, Menu, Minus, RefreshCw, Square, X } from "lucide-react";
+import { Copy, Menu, Minus, RefreshCw, Square, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { desktop } from "../desktop";
