@@ -27,7 +27,8 @@ if [ -n "${BG_OVERRIDE:-}" ]; then
   files="$files -f docker-compose.bg.yml"
 fi
 cd "$tmp/repo/deploy"
-C="docker compose -p $P $files --profile updater"
+# The green profile too, so that down also removes the slot the update started.
+C="docker compose -p $P $files --profile updater --profile green"
 curl_opts="-ksf --max-time 5"
 cleanup() {
   [ "${BG_JOIN:-}" = 1 ] && docker network disconnect "${P}_default" "$(hostname)" >/dev/null 2>&1
