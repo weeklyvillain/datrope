@@ -7,7 +7,7 @@ type TwitchPlayer = {
   setVolume(volume: number): void; setMuted(muted: boolean): void;
   addEventListener(event: string, cb: () => void): void;
 };
-type TwitchNamespace = { Player: { new (elementId: string, options: object): TwitchPlayer; READY: string; OFFLINE: string } };
+type TwitchNamespace = { Player: { new (elementId: string, options: object): TwitchPlayer; READY: string; PLAYING: string; OFFLINE: string } };
 
 declare global {
   interface Window {
@@ -38,6 +38,7 @@ export const createTwitch: CreatePlayer = async (mount, st, start, events) => {
     ...(live ? { channel: st.video_id } : { video: `v${st.video_id}`, time: twitchTime(start) }),
   });
   p.addEventListener(T.Player.READY, () => events.onReady());
+  p.addEventListener(T.Player.PLAYING, () => events.onPlaying());
   if (live) p.addEventListener(T.Player.OFFLINE, () => events.onError(`${st.video_id} is offline.`));
   return {
     play: () => p.play(),
