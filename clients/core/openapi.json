@@ -3466,6 +3466,11 @@
       "ReadyServer": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "description": "The server's accent colour; clients lighten it if it is too dark to read",
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
           "afk_channel_id": {
             "description": "Voice channel idle members are moved to",
             "pattern": "^[0-9]+$",
@@ -3537,17 +3542,6 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
-          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/Role"
@@ -3570,7 +3564,7 @@
           "id",
           "name",
           "description",
-          "palette",
+          "accent_color",
           "owner_id",
           "created_at",
           "rules_gate",
@@ -3929,6 +3923,11 @@
       "Server": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "description": "The server's accent colour; clients lighten it if it is too dark to read",
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
           "afk_channel_id": {
             "description": "Voice channel idle members are moved to",
             "pattern": "^[0-9]+$",
@@ -3971,17 +3970,6 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
-          },
           "rules_gate": {
             "description": "New members see only the welcome page until they accept the rules",
             "type": "boolean"
@@ -3991,7 +3979,7 @@
           "id",
           "name",
           "description",
-          "palette",
+          "accent_color",
           "owner_id",
           "created_at",
           "rules_gate",
@@ -4014,6 +4002,10 @@
       "ServerPreview": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
           "banner_url": {
             "type": "string"
           },
@@ -4038,23 +4030,12 @@
             "description": "Members who are online or idle",
             "format": "int64",
             "type": "integer"
-          },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
           }
         },
         "required": [
           "name",
           "description",
-          "palette",
+          "accent_color",
           "created_at",
           "member_count",
           "online_count"
@@ -4083,6 +4064,11 @@
       "ServerWithRoles": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "description": "The server's accent colour; clients lighten it if it is too dark to read",
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
           "afk_channel_id": {
             "description": "Voice channel idle members are moved to",
             "pattern": "^[0-9]+$",
@@ -4125,17 +4111,6 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
-          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/Role"
@@ -4155,7 +4130,7 @@
           "id",
           "name",
           "description",
-          "palette",
+          "accent_color",
           "owner_id",
           "created_at",
           "rules_gate",
@@ -5119,6 +5094,10 @@
       "UpdateServerRequest": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
           "afk_channel_id": {
             "description": "A voice channel of this server; empty clears it",
             "type": "string"
@@ -5140,17 +5119,6 @@
           "name": {
             "maxLength": 100,
             "minLength": 1,
-            "type": "string"
-          },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
             "type": "string"
           }
         },

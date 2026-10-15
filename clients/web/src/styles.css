@@ -58,6 +58,11 @@
   --syntax-type: #e5c07b;
   --syntax-variable: #e06c75;
   --syntax-meta: #56b6c2;
+  /* Colour picker: a handle that shows on any colour, and the hue spectrum. */
+  --picker-handle: #ffffff;
+  --picker-halo: rgb(0 0 0 / 0.6);
+  --hue-spectrum: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  --hue-wheel: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
 }
 
 @theme inline {
@@ -95,6 +100,8 @@
   --color-mention: var(--mention);
   --color-mention-foreground: var(--mention-foreground);
   --color-online: var(--online);
+  --color-picker-handle: var(--picker-handle);
+  --color-picker-halo: var(--picker-halo);
   --color-idle: var(--idle);
   --color-offline: var(--offline);
   --color-avatar-1: var(--avatar-1);

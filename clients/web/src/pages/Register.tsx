@@ -25,7 +25,7 @@ function StrengthMeter({ score }: { score: number }) {
 function FirstRunSteps() {
   const steps = [
     ["Create the admin account", "This account owns the server."],
-    ["Name it and pick a look", "Icon, banner, palette and the welcome page."],
+    ["Name it and pick a look", "Icon, banner, colour and the welcome page."],
     ["Invite people", "Send a link; they land on a page like this one."],
   ];
   return (
