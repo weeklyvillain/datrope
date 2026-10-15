@@ -28,6 +28,7 @@ import (
 	"github.com/datrope/datrope/server/internal/linkpreview"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/music"
+	"github.com/datrope/datrope/server/internal/notes"
 	"github.com/datrope/datrope/server/internal/push"
 	"github.com/datrope/datrope/server/internal/system"
 	"github.com/datrope/datrope/server/internal/voice"
@@ -234,6 +235,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 
 	albumSvc := albums.NewService(pool, a.Bus, chanSvc, commSvc, filesSvc, msgSvc)
 	albums.Register(api, albumSvc)
+	notes.Register(api, notes.NewService(pool, a.Bus))
 
 	pushSvc := push.NewService(pool, a.Bus, push.Deps{
 		Audience: audience{communities: commSvc, channels: chanSvc}, Channels: chanSvc,

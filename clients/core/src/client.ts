@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
+  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, Note, NoteSummary, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL, WatchUpdate,
 } from "./types";
 
@@ -404,6 +404,27 @@ export class DatropeClient {
     const created = await unwrap(this.api.POST("/api/server/music/playlists", { body }));
     this.apply("MUSIC_PLAYLIST_UPDATE", created);
     return created;
+  }
+
+  /** My notes, newest first; q filters on title and text. Events (NOTE_*) keep a loaded list current. */
+  async listNotes(q?: string): Promise<NoteSummary[]> {
+    return (await unwrap(this.api.GET("/api/notes", { params: { query: q ? { q } : {} } }))) ?? [];
+  }
+
+  async createNote(body: { title?: string; content?: Record<string, unknown>; text?: string } = {}): Promise<Note> {
+    return unwrap(this.api.POST("/api/notes", { body }));
+  }
+
+  async getNote(noteId: string): Promise<Note> {
+    return unwrap(this.api.GET("/api/notes/{noteID}", { params: { path: { noteID: noteId } } }));
+  }
+
+  async updateNote(noteId: string, body: { title?: string; content?: Record<string, unknown>; text?: string }): Promise<Note> {
+    return unwrap(this.api.PATCH("/api/notes/{noteID}", { params: { path: { noteID: noteId } }, body }));
+  }
+
+  async deleteNote(noteId: string) {
+    await unwrap(this.api.DELETE("/api/notes/{noteID}", { params: { path: { noteID: noteId } } }));
   }
 
   async renamePlaylist(playlistId: string, title: string) {

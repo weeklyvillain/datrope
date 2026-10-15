@@ -2402,6 +2402,123 @@
         ],
         "type": "object"
       },
+      "Note": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "additionalProperties": {},
+            "description": "A Tiptap (ProseMirror) document",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "text": {
+            "description": "The plain text of content",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "text",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "NoteCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "additionalProperties": {},
+            "description": "Sent together with text",
+            "type": "object"
+          },
+          "text": {
+            "description": "Sent together with content",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "NoteDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "NoteSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "preview": {
+            "description": "The start of the note's text",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "preview",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "NoteUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "additionalProperties": {},
+            "description": "Sent together with text",
+            "type": "object"
+          },
+          "text": {
+            "description": "Sent together with content",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Override": {
         "additionalProperties": false,
         "properties": {
@@ -9269,6 +9386,236 @@
         ]
       }
     },
+    "/api/notes": {
+      "get": {
+        "operationId": "list-notes",
+        "parameters": [
+          {
+            "description": "Only notes whose title or text contains this",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Only notes whose title or text contains this",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoteSummary"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      },
+      "post": {
+        "operationId": "create-note",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/notes/{noteID}": {
+      "delete": {
+        "operationId": "delete-note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      },
+      "get": {
+        "operationId": "get-note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      },
+      "patch": {
+        "operationId": "update-note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      }
+    },
     "/api/push/key": {
       "get": {
         "operationId": "get-push-key",
@@ -12318,6 +12665,15 @@
     },
     "MusicState": {
       "$ref": "#/components/schemas/MusicState"
+    },
+    "Note": {
+      "$ref": "#/components/schemas/Note"
+    },
+    "NoteDeleted": {
+      "$ref": "#/components/schemas/NoteDeleted"
+    },
+    "NoteSummary": {
+      "$ref": "#/components/schemas/NoteSummary"
     },
     "PlaylistDeleted": {
       "$ref": "#/components/schemas/PlaylistDeleted"
