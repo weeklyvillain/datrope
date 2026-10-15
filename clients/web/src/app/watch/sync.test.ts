@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DRIFT_S, describeAction, expectedPosition, formatTime, reconcile } from "./sync";
+import { DRIFT_S, describeAction, describeWaiting, expectedPosition, formatTime, held, isReady, nextReport, reconcile, stallDetector } from "./sync";
 
-const yt = { kind: "youtube", paused: false, position: 10, updated_at: 1_000_000, last_action: "play" } as const;
+const yt = { kind: "youtube", paused: false, position: 10, updated_at: 1_000_000, last_action: "play", waiting: [] as string[] } as const;
 
 describe("expectedPosition", () => {
   it("adds the time since the update while playing, on the server's clock", () => {
@@ -58,5 +58,119 @@ describe("describeAction", () => {
     expect(describeAction({ ...yt, last_action: "play" }, "Anna")).toBe("Anna resumed");
     expect(describeAction({ ...yt, last_action: "pause" }, "bob")).toBe("bob paused");
     expect(describeAction({ ...yt, last_action: "seek", position: 761 }, "Max")).toBe("Max skipped to 12:41");
+  });
+});
+
+describe("held", () => {
+  it("is paused, or waiting for anyone", () => {
+    expect(held(yt)).toBe(false);
+    expect(held({ ...yt, paused: true })).toBe(true);
+    expect(held({ ...yt, waiting: ["11"] })).toBe(true);
+  });
+  it("freezes the expected position while waiting", () => {
+    expect(expectedPosition({ ...yt, waiting: ["11"] }, 1_009_000, 0)).toBe(10);
+  });
+});
+
+describe("isReady", () => {
+  const l = { time: 10, duration: 600, buffering: false, loadedAhead: 3 };
+  it("needs READY_AHEAD_S loaded and no buffering", () => {
+    expect(isReady(l)).toBe(true);
+    expect(isReady({ ...l, loadedAhead: 2.9 })).toBe(false);
+    expect(isReady({ ...l, buffering: true })).toBe(false);
+  });
+  it("is ready near the end, and when the player cannot tell (Twitch, live)", () => {
+    expect(isReady({ ...l, time: 599.2, loadedAhead: 0.8 })).toBe(true);
+    expect(isReady({ ...l, loadedAhead: undefined })).toBe(true);
+    expect(isReady({ ...l, loadedAhead: undefined, buffering: true })).toBe(false);
+  });
+});
+
+describe("nextReport", () => {
+  const base = { seq: 5, now: 0, buffering: false, ready: false, waitingOnMe: false, held: false };
+  it("reports a stall only after STALL_MS, once", () => {
+    let r = nextReport({ seq: 5 }, { ...base, buffering: true });
+    expect(r.send).toBeUndefined();
+    r = nextReport(r.tracker, { ...base, buffering: true, now: 500 });
+    expect(r.send).toBeUndefined();
+    r = nextReport(r.tracker, { ...base, buffering: true, now: 750 });
+    expect(r.send).toBe(true);
+    r = nextReport(r.tracker, { ...base, buffering: true, now: 1250 });
+    expect(r.send).toBeUndefined();
+  });
+  it("forgets a short blip", () => {
+    let r = nextReport({ seq: 5 }, { ...base, buffering: true });
+    r = nextReport(r.tracker, { ...base, now: 500 });
+    r = nextReport(r.tracker, { ...base, buffering: true, now: 1000 });
+    expect(r.send).toBeUndefined();
+  });
+  it("does not report stalls while the room is held", () => {
+    let r = nextReport({ seq: 5 }, { ...base, buffering: true, held: true });
+    r = nextReport(r.tracker, { ...base, buffering: true, held: true, now: 2000 });
+    expect(r.send).toBeUndefined();
+  });
+  it("reports ready when the room waits for me", () => {
+    let r = nextReport({ seq: 5 }, { ...base, waitingOnMe: true, held: true });
+    expect(r.send).toBeUndefined();
+    r = nextReport(r.tracker, { ...base, waitingOnMe: true, held: true, ready: true, now: 500 });
+    expect(r.send).toBe(false);
+    r = nextReport(r.tracker, { ...base, waitingOnMe: true, held: true, ready: true, now: 1000 });
+    expect(r.send).toBeUndefined();
+  });
+  it("resends after RESEND_MS when the server has not caught up", () => {
+    let r = nextReport({ seq: 5 }, { ...base, waitingOnMe: true, ready: true });
+    expect(r.send).toBe(false);
+    r = nextReport(r.tracker, { ...base, waitingOnMe: true, ready: true, now: 2000 });
+    expect(r.send).toBe(false);
+    let s = nextReport({ seq: 5 }, { ...base, buffering: true });
+    s = nextReport(s.tracker, { ...base, buffering: true, now: 750 });
+    expect(s.send).toBe(true);
+    s = nextReport(s.tracker, { ...base, buffering: true, now: 2750 });
+    expect(s.send).toBe(true);
+  });
+  it("says ready once per seq even when nobody waits for me, so the server knows I have a player", () => {
+    let r = nextReport({ seq: 5 }, { ...base, ready: true });
+    expect(r.send).toBe(false);
+    r = nextReport(r.tracker, { ...base, ready: true, now: 5000 });
+    expect(r.send).toBeUndefined(); // not waited for: no resend
+    r = nextReport(r.tracker, { ...base, buffering: true, now: 5500 });
+    r = nextReport(r.tracker, { ...base, buffering: true, now: 6250 });
+    expect(r.send).toBe(true);
+    r = nextReport(r.tracker, { ...base, ready: true, now: 7000 });
+    expect(r.send).toBe(false); // ready again after a stall, even though excused viewers are never waited for
+  });
+  it("starts over on a new seq", () => {
+    let r = nextReport({ seq: 5 }, { ...base, waitingOnMe: true, ready: true });
+    expect(r.send).toBe(false);
+    r = nextReport(r.tracker, { ...base, seq: 6, waitingOnMe: true, ready: true, now: 100 });
+    expect(r.send).toBe(false);
+    expect(r.tracker.seq).toBe(6);
+  });
+});
+
+describe("stallDetector", () => {
+  it("is stalled when time moves under 0.25 s across a second of playing", () => {
+    const d = stallDetector();
+    expect(d(false, 10, 0)).toBe(false);
+    expect(d(false, 10.1, 500)).toBe(false); // under a second: keep the last answer
+    expect(d(false, 10.1, 1000)).toBe(true);
+    expect(d(false, 11.1, 2000)).toBe(false);
+  });
+  it("is never stalled while paused, and starts over after", () => {
+    const d = stallDetector();
+    d(false, 10, 0);
+    expect(d(true, 10, 1000)).toBe(false);
+    expect(d(false, 10, 1500)).toBe(false);
+  });
+});
+
+describe("describeWaiting", () => {
+  const names: Record<string, string> = { "10": "Anna", "11": "Bo" };
+  const name = (id: string) => names[id] ?? id;
+  it("names others, says Loading when only me, empty when nobody", () => {
+    expect(describeWaiting([], "10", name)).toBe("");
+    expect(describeWaiting(["10"], "10", name)).toBe("Loading…");
+    expect(describeWaiting(["10", "11"], "10", name)).toBe("Waiting for Bo…");
+    expect(describeWaiting(["10", "11"], "12", name)).toBe("Waiting for Anna, Bo…");
   });
 });

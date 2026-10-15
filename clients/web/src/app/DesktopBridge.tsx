@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { desktop } from "../desktop";
+import { desktop, linkToOpen } from "../desktop";
 import { client, useApp } from "../session";
 import { audioPrefs } from "../voice/audio-prefs";
 import { voice } from "../voice/voice";
@@ -52,6 +52,27 @@ export function DesktopBridge() {
     return () => {
       clearTimeout(t);
       mo.disconnect();
+    };
+  }, []);
+
+  // Links leave the app through the shell: the webview's new-window hook alone is not reliable on every platform.
+  useEffect(() => {
+    if (!desktop) return;
+    const d = desktop;
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]");
+      if (!(a instanceof HTMLAnchorElement)) return;
+      const url = linkToOpen(a, location.origin, e.button);
+      if (!url) return;
+      e.preventDefault();
+      d.openUrl(url);
+    };
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("auxclick", onClick, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("auxclick", onClick, true);
     };
   }, []);
 

@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -12,9 +14,10 @@ import (
 )
 
 type UpdateSettingsRequest struct {
-	RegistrationMode *string `json:"registration_mode,omitempty" enum:"invite_only,open,admin_only"`
-	MaxUploadBytes   *int64  `json:"max_upload_bytes,omitempty" minimum:"1048576" maximum:"10737418240"`
-	KlipyAPIKey      *string `json:"klipy_api_key,omitempty" maxLength:"200" doc:"Write-only: responses report klipy_configured instead. Empty removes the key."`
+	RegistrationMode *string    `json:"registration_mode,omitempty" enum:"invite_only,open,admin_only"`
+	MaxUploadBytes   *int64     `json:"max_upload_bytes,omitempty" minimum:"1048576" maximum:"10737418240"`
+	UploadTTLRules   *[]TTLRule `json:"upload_ttl_rules,omitempty" maxItems:"5"`
+	KlipyAPIKey      *string    `json:"klipy_api_key,omitempty" maxLength:"200" doc:"Write-only: responses report klipy_configured instead. Empty removes the key."`
 
 	// App credentials, write-only like the Klipy key. A client ID and secret are set together; empty removes both.
 	Twitch  *AppCredentials `json:"twitch,omitempty" doc:"Twitch app credentials (stream alerts, Twitch connections)"`
@@ -67,6 +70,18 @@ func registerAdmin(api huma.API, s *Service) {
 			}
 			if in.Body.MaxUploadBytes != nil {
 				set.MaxUploadBytes = *in.Body.MaxUploadBytes
+			}
+			if in.Body.UploadTTLRules != nil {
+				rules := *in.Body.UploadTTLRules
+				seen := map[int64]bool{}
+				for _, r := range rules {
+					if seen[r.MinBytes] {
+						return nil, httpx.BadRequest("VALIDATION_FAILED", "two rules have the same size")
+					}
+					seen[r.MinBytes] = true
+				}
+				slices.SortFunc(rules, func(a, b TTLRule) int { return cmp.Compare(a.MinBytes, b.MinBytes) })
+				set.UploadTTLRules = rules
 			}
 			if err := s.store.UpdateSettings(ctx, set); err != nil {
 				return nil, err

@@ -30,6 +30,12 @@ export function dropMessage(current: GalleryItem[], messageId: string): GalleryI
   return current.filter((c) => c.message?.id !== messageId);
 }
 
+/** A message update marked some of its files expired: they leave the wall. */
+export function dropExpired(current: GalleryItem[], m: Message): GalleryItem[] {
+  const gone = new Set((m.attachments ?? []).filter((a) => a.expired).map((a) => a.id));
+  return gone.size ? current.filter((c) => !gone.has(c.attachment.id)) : current;
+}
+
 /** A thread started or changed on a message: its files carry the new summary. */
 export function patchThread(current: GalleryItem[], d: ThreadUpdate): GalleryItem[] {
   return current.map((c) => (c.message?.id === d.message_id && c.message ? { ...c, message: { ...c.message, thread: d.thread } } : c));
@@ -87,6 +93,7 @@ export function useFiles(scope: GalleryScope, f: GalleryFilter) {
       setItems((cur) => patchThread(cur, data as ThreadUpdate));
       return;
     }
+    if (type === "MESSAGE_UPDATE") setItems((cur) => dropExpired(cur, data as Message));
     if (scope.kind === "album") {
       if (type === "ALBUM_ITEMS_UPDATE" && (data as { album_id: string }).album_id === scope.albumId) {
         const g = ++gen.current; // also drops any in-flight page that would append onto the replaced list

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { restoreFocus } from "@/lib/focus";
 import { isUnread, lastVisited, rememberVisit, useApp, usePerms } from "../session";
 import { DMList } from "./DMList";
+import { NotesPane } from "./notes/NotesPane";
 import { toggleCommands } from "./palette/command-store";
 import { SidebarFooter } from "./SidebarFooter";
 import { ServersButton } from "./WindowControls";
@@ -32,15 +33,19 @@ export function ServerSidebar({ className }: { className?: string }) {
   const nav = useLayerNavigate();
   const dmId = useMatch("/messages/:channelId")?.params.channelId;
   const inMessages = !!useMatch("/messages/*");
+  const noteId = useMatch("/notes/:noteId")?.params.noteId;
+  const inNotes = !!useMatch("/notes/*");
   const gated = useApp(isGated);
   const dmUnread = useApp((s) => s.dmIds.some((id) => isUnread(s.readStates[id])));
   const dmIds = useApp((s) => s.dmIds);
   useRememberVisits();
 
-  const tab = inMessages ? "messages" : "channels";
+  const tab = inMessages ? "messages" : inNotes ? "notes" : "channels";
   const switchTab = (to: string) => {
     if (to === "channels") {
       nav("/"); // Home opens the last channel visited, else the first text channel
+    } else if (to === "notes") {
+      nav("/notes");
     } else {
       const last = lastVisited("dm");
       nav(last && dmIds.includes(last) ? `/messages/${last}` : "/messages");
@@ -48,10 +53,10 @@ export function ServerSidebar({ className }: { className?: string }) {
   };
 
   return (
-    <nav className={cn("flex w-60 flex-none flex-col border-r bg-sidebar", className)} aria-label={tab === "messages" ? "Direct messages" : "Channels"}>
+    <nav className={cn("flex w-60 flex-none flex-col border-r bg-sidebar", className)} aria-label={tab === "messages" ? "Direct messages" : tab === "notes" ? "Notes sidebar" : "Channels"}>
       <ServerHeader />
       <Tabs value={tab} onValueChange={switchTab} className="min-h-0 flex-1 gap-0">
-        <TabsList className="grid h-auto w-auto grid-cols-2 gap-1 bg-transparent px-2 pt-2 pb-0">
+        <TabsList className="grid h-auto w-auto grid-cols-3 gap-1 bg-transparent px-2 pt-2 pb-0">
           <TabsTrigger value="channels" className={TAB}>Channels</TabsTrigger>
           <TabsTrigger value="messages" disabled={gated} className={TAB}>
             Messages
@@ -62,12 +67,16 @@ export function ServerSidebar({ className }: { className?: string }) {
               </>
             )}
           </TabsTrigger>
+          <TabsTrigger value="notes" disabled={gated} className={TAB}>Notes</TabsTrigger>
         </TabsList>
         <TabsContent value="channels" className="min-h-0 overflow-y-auto overscroll-y-contain">
           <ChannelsPane />
         </TabsContent>
         <TabsContent value="messages" className="flex min-h-0 flex-col">
           <DMList activeId={dmId} />
+        </TabsContent>
+        <TabsContent value="notes" className="flex min-h-0 flex-col">
+          <NotesPane activeId={noteId} />
         </TabsContent>
       </Tabs>
       <SidebarFooter />

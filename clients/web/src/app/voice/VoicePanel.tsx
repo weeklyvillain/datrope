@@ -16,6 +16,7 @@ import { ConnectionQuality } from "./ConnectionQuality";
 import { GoLiveDialog } from "./GoLiveDialog";
 import { SoundboardButton } from "./SoundboardPanel";
 import { StreamMenuContent } from "./StreamMenu";
+import { isAFKChannel, liveAFKId } from "../../voice/afk";
 import { nativeScreenAvailable } from "../../voice/native-screen";
 import { streamPrefs } from "../../voice/stream-prefs";
 import { useVoice, voice } from "../../voice/voice";
@@ -24,7 +25,7 @@ const STATUS = { connecting: "Connecting…", connected: "Voice connected", reco
 
 /** Voice status and controls at the bottom of the sidebar, while in a call (or after it failed). */
 export function VoicePanel() {
-  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, error: x.error })));
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, error: x.error, retry: x.retry, notice: x.notice })));
   const ch = useApp((s) => (v.channelId ? s.channels[v.channelId] : undefined));
   const me = useApp((s) => s.me);
   if (v.status === "idle" && !v.error) return null;
@@ -43,9 +44,10 @@ export function VoicePanel() {
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <p className={cn("text-sm font-semibold", v.status === "connected" ? "text-online" : "text-idle")} role="status">
-                {STATUS[v.status]}
+                {v.status === "reconnecting" && v.retry ? `Disconnected · reconnecting… (attempt ${v.retry})` : STATUS[v.status]}
               </p>
               <Link to={href} aria-label={`Go to ${where}`} className="block truncate text-xs text-muted-foreground">{where}</Link>
+              {v.notice && <p className="text-xs text-muted-foreground" role="status">{v.notice}</p>}
             </div>
             {v.status === "connected" && <ConnectionQuality />}
             <Tooltip>
@@ -71,14 +73,21 @@ export function VoicePanel() {
 type ControlStyle = Pick<ComponentProps<typeof Toggle>, "className" | "variant" | "size">;
 
 /** My microphone. In a call, muting follows the channel's SPEAK permission and server mute; outside one it is a saved choice. */
+/** Whether a channel is its server's AFK channel (while that is set and exists). Nobody talks or shares there. */
+const useIsAFK = (channelId: string | undefined) =>
+  useApp((s) => isAFKChannel(liveAFKId(s.server?.server.afk_channel_id ?? undefined, s.channels), channelId));
+
+const AFK_NO_SHARE = "Nobody can share in the AFK channel";
+
 export function MuteControl(style: ControlStyle) {
   const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, muted: x.muted })));
   const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
+  const afk = useIsAFK(v.channelId);
   const inVoice = v.status !== "idle" && !!v.channelId;
   const perms = usePerms(inVoice ? v.channelId : undefined);
-  const canSpeak = !inVoice || (hasPerm(perms, Perm.Speak) && !serverMuted);
+  const canSpeak = !inVoice || (hasPerm(perms, Perm.Speak) && !serverMuted && !afk);
   return (
-    <Control label="Mute" shortcut="mute" tip={serverMuted && inVoice ? "Muted by a moderator" : v.muted ? "Unmute" : "Mute"} {...style}
+    <Control label="Mute" shortcut="mute" tip={serverMuted && inVoice ? "Muted by a moderator" : afk && inVoice ? "Nobody can talk in the AFK channel" : v.muted ? "Unmute" : "Mute"} {...style}
       pressed={v.muted || !canSpeak} disabled={!canSpeak} onPressedChange={(on) => void voice.setMuted(on)}>
       {v.muted || !canSpeak ? <MicOff className="text-destructive" /> : <Mic />}
     </Control>
@@ -97,9 +106,10 @@ export function DeafenControl(style: ControlStyle) {
 
 export function CameraControl({ variant = "outline", size = "sm", ...style }: ControlStyle) {
   const v = useVoice(useShallow((x) => ({ channelId: x.channelId, camera: x.camera })));
-  const canStream = hasPerm(usePerms(v.channelId), Perm.Stream);
+  const afk = useIsAFK(v.channelId);
+  const canStream = hasPerm(usePerms(v.channelId), Perm.Stream) && !afk;
   return (
-    <Control label="Camera" tip={v.camera ? "Turn camera off" : "Turn camera on"} variant={variant} size={size} {...style}
+    <Control label="Camera" tip={afk ? AFK_NO_SHARE : v.camera ? "Turn camera off" : "Turn camera on"} variant={variant} size={size} {...style}
       pressed={v.camera} disabled={!canStream} onPressedChange={() => void voice.toggleCamera()}>
       {v.camera ? <Video /> : <VideoOff />}
     </Control>
@@ -109,7 +119,8 @@ export function CameraControl({ variant = "outline", size = "sm", ...style }: Co
 /** Go Live when not sharing; the stream settings menu while sharing. */
 export function ShareScreenControl({ variant = "outline", size = "sm", ...style }: ControlStyle) {
   const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, screen: x.screen })));
-  const canStream = hasPerm(usePerms(v.channelId), Perm.Stream);
+  const afk = useIsAFK(v.channelId);
+  const canStream = hasPerm(usePerms(v.channelId), Perm.Stream) && !afk;
   const [goLive, setGoLive] = useState(false);
   const [menu, setMenu] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
@@ -120,7 +131,7 @@ export function ShareScreenControl({ variant = "outline", size = "sm", ...style 
       <Popover open={menu && v.screen} onOpenChange={setMenu}>
         <PopoverAnchor asChild>
           <div ref={anchor} className="flex">
-            <Control label="Share screen" tip={v.screen ? "Stream settings" : "Share your screen"} variant={variant} size={size} {...style}
+            <Control label="Share screen" tip={afk ? AFK_NO_SHARE : v.screen ? "Stream settings" : "Share your screen"} variant={variant} size={size} {...style}
               pressed={v.screen} aria-haspopup="dialog" aria-expanded={v.screen ? menu : goLive}
               disabled={!canStream} onPressedChange={() => {
                 if (v.screen) setMenu((m) => !m);

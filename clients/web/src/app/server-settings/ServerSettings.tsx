@@ -1,6 +1,6 @@
 import { Perm, hasPerm, type State, type User } from "@datrope/core";
 import {
-  Activity, Ban, BookOpen, Database, Hash, Palette, Plug, RefreshCw, ScrollText, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
+  Activity, Ban, BookOpen, Database, Hash, Moon, Palette, Plug, RefreshCw, ScrollText, Settings, Shield, Smile, Ticket, UserPlus, Users, Volume2,
   type AnimatedIcon,
 } from "@/components/icons";
 import { type ReactNode } from "react";
@@ -25,6 +25,7 @@ import { Soundboard } from "./Soundboard";
 import { System } from "./System";
 import { Badge } from "@/components/ui/badge";
 import { SettingsLayout } from "@/components/settings-layout";
+import { VoiceAFK } from "./VoiceAFK";
 import { Updates } from "./Updates";
 import { Uploads } from "./Uploads";
 import { useUpdateCount } from "./use-update-count";
@@ -52,6 +53,7 @@ const admin = (_: number, me: User) => me.is_admin;
 export const sections: SettingsSection[] = [
   { id: "overview", label: "Overview", group: "Server", icon: Settings, visible: can(Perm.ManageServer), element: <Overview /> },
   { id: "look", label: "Look", group: "Server", icon: Palette, visible: can(Perm.ManageServer), element: <Look /> },
+  { id: "voice", label: "Voice", group: "Server", icon: Moon, visible: can(Perm.ManageServer), element: <VoiceAFK /> },
   {
     id: "welcome", label: "Welcome page", group: "Server", icon: BookOpen, visible: can(Perm.ManageServer),
     to: (s) => {

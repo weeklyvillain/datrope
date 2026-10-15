@@ -56,6 +56,7 @@ export type AuditEntry = Schemas["LogEntry"];
 export type AuditChange = Schemas["LogChange"];
 export type VoiceState = Schemas["VoiceState"];
 export type VoiceMove = Schemas["VoiceMove"];
+export type VoicePing = Schemas["VoicePing"];
 export type JoinVoiceResponse = Schemas["JoinResponse"];
 
 export type ChannelRef = Schemas["ChannelRef"];
@@ -88,6 +89,8 @@ export type PlaylistItem = Schemas["PlaylistItem"];
 export type PlaylistDetail = Schemas["PlaylistDetail"];
 export type PlaylistAdd = Schemas["PlaylistAdd"];
 export type PlaylistAddResult = Schemas["PlaylistAddResult"];
+export type NoteSummary = Schemas["NoteSummary"];
+export type Note = Schemas["Note"];
 
 /** Gateway DISPATCH payloads by event type. */
 export interface EventMap {
@@ -116,6 +119,8 @@ export interface EventMap {
   USER_UPDATE: PublicUser;
   VOICE_STATE_UPDATE: VoiceState;
   VOICE_MOVE: VoiceMove;
+  VOICE_PING: VoicePing;
+  VOICE_TEAMS: Schemas["TeamsDraw"];
   MESSAGE_REACTION_ADD: ReactionEvent;
   MESSAGE_REACTION_REMOVE: ReactionEvent;
   POLL_UPDATE: PollUpdate;
@@ -127,6 +132,9 @@ export interface EventMap {
   MUSIC_PLAYLIST_UPDATE: Schemas["MusicPlaylist"];
   MUSIC_PLAYLIST_DELETE: Schemas["PlaylistDeleted"];
   WATCH_UPDATE: WatchUpdate;
+  NOTE_CREATE: NoteSummary;
+  NOTE_UPDATE: Note;
+  NOTE_DELETE: Schemas["NoteDeleted"];
 }
 
 export type SystemStats = Schemas["SystemStats"];

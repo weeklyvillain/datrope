@@ -27,7 +27,7 @@ func TestAdminSettings(t *testing.T) {
 	var set auth.Settings
 	admin.Do(http.MethodPatch, "/api/admin/settings",
 		map[string]any{"registration_mode": "admin_only"}, http.StatusOK, &set)
-	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeAdminOnly, MaxUploadBytes: 52428800}, set)
+	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeAdminOnly, MaxUploadBytes: 52428800, UploadTTLRules: []auth.TTLRule{}}, set)
 
 	admin.Do(http.MethodPatch, "/api/admin/settings", map[string]any{"max_upload_bytes": 2097152}, http.StatusOK, &set)
 	require.Equal(t, auth.ModeAdminOnly, set.RegistrationMode, "omitted fields are unchanged")
@@ -117,7 +117,7 @@ func TestKlipyKeyIsWriteOnly(t *testing.T) {
 	require.NotContains(t, string(raw), key)
 	var set auth.Settings
 	require.NoError(t, json.Unmarshal(raw, &set))
-	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeOpen, MaxUploadBytes: 52428800, KlipyConfigured: true}, set)
+	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeOpen, MaxUploadBytes: 52428800, KlipyConfigured: true, UploadTTLRules: []auth.TTLRule{}}, set)
 
 	var stored string
 	require.NoError(t, env.Pool.QueryRow(context.Background(), `SELECT klipy_api_key FROM instance_settings`).Scan(&stored))

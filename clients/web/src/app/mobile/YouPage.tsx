@@ -1,5 +1,5 @@
 import { hasPerm, type PresenceStatus } from "@datrope/core";
-import { Settings } from "@/components/icons";
+import { NotebookPen, Settings } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { EmojiText } from "@/chat/EmojiText";
@@ -75,6 +75,9 @@ function YouHome({ sections }: { sections: ReturnType<typeof visibleSections> })
               {p.label}
             </BareButton>
           ))}
+        </div>
+        <div className="pt-5">
+          <SettingsList label="Your notes" rows={[{ id: "notes", label: "Notes", icon: NotebookPen, to: "/notes" }]} />
         </div>
         {GROUPS.map((g) => (
           <div key={g}>

@@ -8,7 +8,6 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/form-field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { useSubmit } from "@/hooks/use-submit";
 import { avatarColor } from "@/lib/avatar-color";
@@ -16,6 +15,7 @@ import { PLATFORMS, describeLink, isBareLink, isHttpsLink, linkIcon } from "@/li
 import { RefButton } from "@/components/ref-button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
+import { RichInput, type RichInputHandle } from "@/chat/RichInput";
 import { choosePresence, client, roleColor, useApp } from "../../session";
 import { ProfileCard } from "../people/ProfileCard";
 import { AvatarCropDialog } from "./AvatarCropDialog";
@@ -41,6 +41,8 @@ export function ProfileSettings() {
   const statusId = useId();
   const aboutId = useId();
   const customStatusId = useId();
+  const customStatusRef = useRef<RichInputHandle>(null);
+  const aboutRef = useRef<RichInputHandle>(null);
   const linksId = useId();
   const me = useApp((s) => s.me);
   const presence = useApp((s) => s.presence);
@@ -129,18 +131,19 @@ export function ProfileSettings() {
             <FormField className="w-auto min-w-48 flex-1" label="Pronouns" placeholder="they/them" value={pronouns} onChange={(e) => setPronouns(limit(e.target.value, 40))} />
           </div>
           <Field>
-            <FieldLabel htmlFor={customStatusId}>Custom status</FieldLabel>
+            <FieldLabel id={`${customStatusId}-label`} onClick={() => customStatusRef.current?.focus()}>Custom status</FieldLabel>
             <div className="flex items-center gap-1">
-              <Input id={customStatusId} placeholder="What are you up to?" value={customStatus} onChange={(e) => setCustomStatus(limit(e.target.value, 80))} />
-              <EmojiInsertButton fieldId={customStatusId} label="Add emoji to custom status" value={customStatus} onChange={(v) => setCustomStatus(limit(v, 80))} />
+              <RichInput ref={customStatusRef} id={customStatusId} aria-labelledby={`${customStatusId}-label`} singleLine variant="input" maxLength={80} lengthUnit="codepoint"
+                placeholder="What are you up to?" value={customStatus} onChange={(v) => setCustomStatus(limit(v, 80))} />
+              <EmojiInsertButton field={customStatusRef} label="Add emoji to custom status" value={customStatus} onChange={(v) => setCustomStatus(limit(v, 80))} />
             </div>
           </Field>
           <Field>
-            <FieldLabel htmlFor={aboutId}>About me</FieldLabel>
+            <FieldLabel id={`${aboutId}-label`} onClick={() => aboutRef.current?.focus()}>About me</FieldLabel>
             <div className="flex items-start gap-1">
-              <Textarea id={aboutId} value={about} aria-describedby={`${aboutId}-count`}
-                onChange={(e) => setAbout(limit(e.target.value, ABOUT_MAX))} />
-              <EmojiInsertButton fieldId={aboutId} label="Add emoji to About me" value={about} onChange={(v) => setAbout(limit(v, ABOUT_MAX))} />
+              <RichInput ref={aboutRef} id={aboutId} aria-labelledby={`${aboutId}-label`} aria-describedby={`${aboutId}-count`} variant="input" maxLength={ABOUT_MAX} lengthUnit="codepoint"
+                className="min-h-16 h-auto py-2" value={about} onChange={(v) => setAbout(limit(v, ABOUT_MAX))} />
+              <EmojiInsertButton field={aboutRef} label="Add emoji to About me" value={about} onChange={(v) => setAbout(limit(v, ABOUT_MAX))} />
             </div>
             <span id={`${aboutId}-count`} className="text-right text-xs text-muted-foreground">{Array.from(about).length} / {ABOUT_MAX}</span>
           </Field>

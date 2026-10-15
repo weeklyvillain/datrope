@@ -686,6 +686,18 @@ pub fn desktop_start_drag(app: AppHandle, webview: Webview) -> Result<(), String
         .map_err(|e| e.to_string())
 }
 
+/// A link the server page wants opened in the system browser (the page routes link clicks here).
+#[tauri::command]
+pub fn desktop_open_url(app: AppHandle, webview: Webview, url: String) -> Result<(), String> {
+    visible_caller(&app, &webview)?; // a hidden server page cannot open browser tabs, and calls are rate limited
+    let target: tauri::Url = url.parse().map_err(|_| "invalid url".to_string())?;
+    if shell::open_external(&target) {
+        Ok(())
+    } else {
+        Err("unsupported link".into())
+    }
+}
+
 /// A server page's colour tokens for the app's own screens. Invalid payloads are ignored whole.
 #[tauri::command]
 pub fn desktop_set_theme(
