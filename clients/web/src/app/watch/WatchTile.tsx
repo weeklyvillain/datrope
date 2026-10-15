@@ -36,7 +36,7 @@ function useTicker(on: boolean) {
 export function WatchTile({ channelId, size }: { channelId: string; size: TileSize }) {
   const host = useRef<HTMLDivElement>(null);
   const here = useVoice((v) => v.channelId === channelId && v.status === "connected");
-  const { st, player, error, blocked, unblock } = useWatchSync(channelId, host, here);
+  const { st, player, error, blocked, unblock, open } = useWatchSync(channelId, host, here);
   const meId = useApp((s) => s.me?.id);
   const offset = useApp((s) => s.serverOffset);
   const actor = useApp((s) => (st ? userName(s, st.last_actor) : ""));
@@ -76,7 +76,7 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
     <section aria-label="Watch together" className={cn("group relative overflow-hidden rounded-xl border bg-sidebar", box[size])}>
       <div ref={host} className="absolute inset-0 [&>*]:size-full [&_iframe]:size-full" />
       {/* Covers the embed: its own controls would change playback for me alone. */}
-      <div className="absolute inset-0" aria-hidden />
+      {!open && <div className="absolute inset-0" aria-hidden />}
       <div className="absolute left-2.5 top-2.5 flex max-w-[70%] items-center gap-1.5">
         {live && <Badge variant="destructive">LIVE</Badge>}
         {!strip && <span className="truncate rounded-md bg-background/80 px-2 py-0.5 text-xs text-foreground">{st.title || st.url}</span>}
@@ -92,7 +92,13 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
           <p className="text-xs text-muted-foreground">Join the call to watch together.</p>
         </div>
       )}
-      {blocked && (
+      {blocked && open && (
+        <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-background/90 px-3 py-2 text-xs text-foreground">
+          {!strip && <span>Twitch may ask you to confirm in the player first.</span>}
+          <Button size="sm" variant="outline" onClick={unblock}><Play aria-hidden />Click to sync</Button>
+        </div>
+      )}
+      {blocked && !open && (
         <Button variant="ghost" onClick={unblock} className="absolute inset-0 h-auto rounded-none bg-background/70 text-foreground hover:bg-background/60">
           <Play className="size-5" aria-hidden />Click to sync
         </Button>

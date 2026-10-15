@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { EmojiText } from "@/chat/EmojiText";
 import { Topic } from "../ChannelView";
-import { EmptyView } from "../EmptyView";
+import { NoAccess } from "../../pages/errors";
 import { SearchPanel } from "../search/SearchPanel";
 import { ScreenHeader } from "../mobile/ScreenHeader";
 import { TopBar } from "../TopBar";
@@ -109,7 +109,7 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
     return () => io.disconnect();
   }, [hasMore, loadMore, error]);
 
-  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  if (!ch) return <NoAccess inShell />;
   const canUpload = canPost(ch, perms) && hasPerm(perms, Perm.AttachFiles);
   const selected = panel?.kind === "media" ? panel : undefined;
   const filtered = filter.kind !== "all" || filter.q.trim() !== "" || filter.uploader !== null || filter.channels.length > 0;

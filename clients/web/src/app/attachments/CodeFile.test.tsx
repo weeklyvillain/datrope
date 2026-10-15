@@ -12,7 +12,7 @@ vi.mock("@/session", () => ({
 
 const file: Attachment = {
   id: "5", channel_id: "3", filename: "main.go", content_type: "text/plain; charset=utf-8", size: 120, inline: false,
-  url: "/api/attachments/5",
+  url: "/api/attachments/5", keep: false, expired: false,
 };
 const lines = (n: number) => Array.from({ length: n }, (_, i) => `// line ${i}`).join("\r\n") + "\r\n";
 

@@ -16,6 +16,7 @@ export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>,
   const [player, setPlayer] = useState<WatchPlayer>();
   const [error, setError] = useState<string>();
   const [blocked, setBlocked] = useState(false);
+  const [started, setStarted] = useState(false); // the current video has played at least once
   const stRef = useRef(st);
   stRef.current = st;
   const offsetRef = useRef(offset);
@@ -35,12 +36,18 @@ export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>,
     let made: WatchPlayer | undefined;
     setError(undefined);
     setBlocked(false);
+    setStarted(false);
     const mount = document.createElement("div"); // the player replaces it; React never owns it
     el.appendChild(mount);
     createPlayer(mount, cur, expectedPosition(cur, Date.now(), offsetRef.current), {
       onReady: () => {
         ready = true;
         if (made && !gone) setPlayer(made);
+      },
+      onPlaying: () => {
+        if (gone) return;
+        setStarted(true);
+        setBlocked(false); // playing after all, e.g. once Twitch's gate was clicked through
       },
       onError: (m) => {
         if (!gone) setError(m);
@@ -112,5 +119,9 @@ export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>,
     setBlocked(false);
   };
 
-  return { st, player, error, blocked, unblock };
+  // Twitch can open on a gate (mature content) that only a click inside its player clears; until the video first
+  // plays, clicks go through to it.
+  const open = st?.kind !== "youtube" && !started;
+
+  return { st, player, error, blocked, unblock, open };
 }

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -38,6 +39,19 @@ func (s *Service) Claim(ctx context.Context, tx pgx.Tx, messageID, channelID, up
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	set, err := s.settings.Settings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if d, ok := TTLFor(set.UploadTTLRules, out[i].Size); ok {
+			at := time.Now().Add(d)
+			if _, err := tx.Exec(ctx, `UPDATE attachments SET expires_at = $2 WHERE id = $1`, out[i].ID, at); err != nil {
+				return nil, err
+			}
+			out[i].ExpiresAt = &at
+		}
 	}
 	if len(out) != len(unique) {
 		return nil, httpx.BadRequest("ATTACHMENT_INVALID", "an attachment is missing, already sent, or was uploaded elsewhere")

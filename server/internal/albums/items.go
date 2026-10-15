@@ -38,7 +38,7 @@ func (s *Service) listFiles(ctx context.Context, userID, albumID id.ID, fq files
 		return "$" + strconv.Itoa(len(args))
 	}
 	// Attachments are aliased a, as messages.KindSQL expects.
-	conds := []string{"i.album_id = " + add(albumID), "NOT m.deleted", fmt.Sprintf(inScopeSQL, "a", add(id.Int64s(sc)))}
+	conds := []string{"i.album_id = " + add(albumID), "a.expired_at IS NULL", "NOT m.deleted", fmt.Sprintf(inScopeSQL, "a", add(id.Int64s(sc)))}
 	if len(fq.kinds) > 0 {
 		conds = append(conds, messages.KindSQL+" = ANY("+add(fq.kinds)+")")
 	}

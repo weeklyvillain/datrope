@@ -2,6 +2,7 @@ import { isGated, sidebarChannelIds, type State } from "@datrope/core";
 import { Navigate, useParams } from "react-router-dom";
 import { ServerIcon } from "@/components/logo";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { NoAccess } from "../pages/errors";
 import { lastVisited, useApp } from "../session";
 import { AnnouncementView } from "./announcement/AnnouncementView";
 import { ChannelView } from "./ChannelView";
@@ -75,6 +76,6 @@ export function ChannelRoute() {
     case "dm":
       return <Navigate to={`/messages/${channelId}`} replace />;
     default:
-      return <EmptyView>This channel is not available.</EmptyView>;
+      return <NoAccess inShell />;
   }
 }

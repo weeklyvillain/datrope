@@ -114,7 +114,7 @@ func (s *Service) Search(ctx context.Context, userID id.ID, raw string, cursor *
 		conds = append(conds, "m.content ~* 'https?://'")
 	}
 	if q.Has == "file" {
-		conds = append(conds, "EXISTS (SELECT 1 FROM attachments a WHERE a.message_id = m.id)")
+		conds = append(conds, "EXISTS (SELECT 1 FROM attachments a WHERE a.message_id = m.id AND a.expired_at IS NULL)")
 	}
 	if before != nil {
 		conds = append(conds, "m.id < "+add(*before))

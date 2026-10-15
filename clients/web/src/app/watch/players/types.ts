@@ -18,6 +18,7 @@ export interface WatchPlayer {
 
 export interface PlayerEvents {
   onReady(): void;
+  onPlaying(): void; // the video started playing (any gate the site put up has been passed)
   onError(message: string): void;
 }
 
