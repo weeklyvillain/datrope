@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { setClockPref, useClockPref, type ClockPref } from "@/lib/clock-pref";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/session";
 import { activeVars, customPref, MAX_CUSTOM_THEMES, removeCustomTheme, resolveTheme, useCustomThemes, type CustomTheme } from "@/theme/custom";
@@ -25,6 +26,7 @@ export function AppearanceSettings() {
   const [deleting, setDeleting] = useState<CustomTheme>();
   const full = customs.length >= MAX_CUSTOM_THEMES;
 
+  const clock = useClockPref();
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">Themes stay on this device. Dark themes from slackthemes.net, or make your own from one colour.</p>
@@ -82,6 +84,17 @@ export function AppearanceSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <div className="grid gap-2 pt-4">
+        <p className="text-sm font-medium">Clock</p>
+        <p className="text-sm text-muted-foreground">How times show in messages, including times people write ("9pm") converted to your time zone. Your time zone is sent with your messages so others see your times in theirs.</p>
+        <RadioGroup aria-label="Clock" value={clock} onValueChange={(v) => setClockPref(v as ClockPref)} className="flex gap-4">
+          {([["auto", "Automatic"], ["12", "12-hour"], ["24", "24-hour"]] as const).map(([v, label]) => (
+            <Label key={v} htmlFor={`clock-${v}`} className="flex items-center gap-2 font-normal">
+              <RadioGroupItem id={`clock-${v}`} value={v} /> {label}
+            </Label>
+          ))}
+        </RadioGroup>
+      </div>
     </div>
   );
 }

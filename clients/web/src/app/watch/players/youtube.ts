@@ -56,6 +56,9 @@ export const createYouTube: CreatePlayer = async (mount, st, start, events) => {
     playerVars: { autoplay: st.paused ? 0 : 1, controls: 0, disablekb: 1, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3, start: Math.floor(start) },
     events: {
       onReady: () => events.onReady(),
+      onStateChange: (e: { data: number }) => {
+        if (e.data === PLAYING) events.onPlaying();
+      },
       onError: (e: { data: number }) => events.onError(ERRORS[e.data] ?? "The video cannot play."),
     },
   });

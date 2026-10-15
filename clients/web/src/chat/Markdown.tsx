@@ -10,6 +10,7 @@ import { useApp } from "@/session";
 import { remarkChat, type ChatOptions } from "./remarkChat";
 import { useEmojiData } from "./emoji-data";
 import { sizedImage } from "@/lib/sized-image";
+import { TimeMention } from "./TimeMention";
 
 // Everything else (headings, images, tables, rules, raw HTML) renders as its text.
 const ALLOWED = ["p", "br", "strong", "em", "del", "code", "pre", "blockquote", "ul", "ol", "li", "a", "span", "img", "mark"];
@@ -55,6 +56,10 @@ const components: Components = {
     if (className === "mention" && typeof userId === "string") {
       return <MentionTrigger userId={userId} me={"data-me" in p}>{children}</MentionTrigger>;
     }
+    if (className === "time-mention") {
+      const q = p as Record<string, unknown>;
+      return <TimeMention iso={String(q["data-time"])} src={String(q["data-src"])} zone={q["data-zone"] as string | undefined} written={"data-written" in q} />;
+    }
     return <span className={className} {...p}>{children}</span>;
   },
 };
@@ -95,8 +100,9 @@ export function MarkdownView({ text, options: base, inline = false, highlight }:
 /** Renders a message's content. `mentions` are the user IDs the server parsed from it;
  *  when given, only those users are highlighted. `roles` are the role IDs the server resolved;
  *  a pill is marked as mine only for those. */
-export function Markdown({ text, mentions, roles, everyone = false, inline, highlight }: {
+export function Markdown({ text, mentions, roles, everyone = false, inline, highlight, time }: {
   text: string; mentions?: string[]; roles?: string[]; everyone?: boolean; inline?: boolean; highlight?: string[];
+  time?: { sentAt: string; tz?: string }; // the message's send time: written times become chips
 }) {
   const emoji = useApp((s) => s.emoji);
   const members = useApp((s) => s.server?.members);
@@ -107,6 +113,8 @@ export function Markdown({ text, mentions, roles, everyone = false, inline, high
   const mentionKey = mentions?.join(",");
   const rolesKey = roles?.join(",");
   const highlightKey = highlight?.join(" ");
+  const sentAt = time?.sentAt;
+  const tz = time?.tz;
   const options = useMemo<ChatOptions>(() => {
     const mentioned = mentionKey === undefined ? null : new Set(mentionKey.split(","));
     return {
@@ -125,7 +133,8 @@ export function Markdown({ text, mentions, roles, everyone = false, inline, high
       meId,
       everyone,
       highlight: highlightKey ? highlightKey.split(" ") : undefined,
+      time: sentAt ? { sentAt, tz } : undefined,
     };
-  }, [emoji, members, allRoles, mine, meId, data, mentionKey, rolesKey, highlightKey, everyone]);
+  }, [emoji, members, allRoles, mine, meId, data, mentionKey, rolesKey, highlightKey, everyone, sentAt, tz]);
   return <MarkdownView text={text} options={options} inline={inline} />;
 }

@@ -42,6 +42,14 @@
   --avatar-6: #6e2a3f;
   --avatar-7: #4b5a2a;
   --avatar-8: #3f3f6e;
+  --team-1: #5dade2;
+  --team-2: #f5b041;
+  --team-3: #af7ac5;
+  --team-4: #58d68d;
+  --team-5: #ec7063;
+  --team-6: #48c9b0;
+  --team-7: #f4d03f;
+  --team-8: #a6acaf;
   --syntax-keyword: #c678dd;
   --syntax-string: #98c379;
   --syntax-number: #d19a66;
@@ -104,6 +112,14 @@
   --color-avatar-6: var(--avatar-6);
   --color-avatar-7: var(--avatar-7);
   --color-avatar-8: var(--avatar-8);
+  --color-team-1: var(--team-1);
+  --color-team-2: var(--team-2);
+  --color-team-3: var(--team-3);
+  --color-team-4: var(--team-4);
+  --color-team-5: var(--team-5);
+  --color-team-6: var(--team-6);
+  --color-team-7: var(--team-7);
+  --color-team-8: var(--team-8);
   --color-syntax-keyword: var(--syntax-keyword);
   --color-syntax-string: var(--syntax-string);
   --color-syntax-number: var(--syntax-number);
@@ -198,6 +214,15 @@ img.emoji {
   object-fit: contain;
   vertical-align: -0.3em;
   width: 1.375em;
+}
+/* RichInput's placeholder: an empty contenteditable shows it like a textarea would. Floated with no height so the
+   caret stays at the start of the line instead of after the placeholder text. */
+.rich-input[data-empty]:not([data-composing])::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
 /* A message jumped to (jumpTo in src/app/MessageList.tsx): a short highlight that fades out. */

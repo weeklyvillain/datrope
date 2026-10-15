@@ -9,7 +9,7 @@ import type { Message, Ready, VoiceState, WatchState } from "./types";
 
 const bob = { id: "2", username: "bob", display_name: "Bob", custom_status: "" };
 
-const server = { id: "1", name: "Datrope", description: "", accent_color: "#2ecc71", owner_id: "10", created_at: "", rules_gate: false } as const;
+const server = { id: "1", name: "Datrope", description: "", accent_color: "#2ecc71", owner_id: "10", created_at: "", rules_gate: false, afk_timeout_seconds: 900 } as const;
 const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | Perm.SendMessages, position: 0, hoist: false, self_assignable: false, mentionable: false, description: "" };
 const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff", self_assignable: false, mentionable: false, description: "" } as const;
 const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };

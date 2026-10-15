@@ -1,12 +1,12 @@
 import { unwrap } from "@datrope/core";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
+import { RichInput, type RichInputHandle } from "@/chat/RichInput";
 import { ErrorText } from "@/components/error-text";
-import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -26,6 +26,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
   const nav = useNavigate();
   const id = useId();
   const nameId = useId();
+  const nameRef = useRef<RichInputHandle>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<CreatableChannelType>("text");
   const [tags, setTags] = useState(["Feature", "Bug", "Question"]);
@@ -43,6 +44,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
         </DialogHeader>
         <form className="grid gap-3" onSubmit={(e) => {
           e.preventDefault();
+          if (!name.trim()) return;
           void run(async () => {
             const ch = await unwrap(client.api.POST("/api/server/channels", { body: { name, type, ...(category && { category_id: category }), ...(type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }), ...(type === "gallery" && sourcesBody(sources)) } }));
             client.apply("CHANNEL_CREATE", ch);
@@ -64,10 +66,12 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
             ))}
           </RadioGroup>
           <Field>
-            <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+            <FieldLabel id={`${nameId}-label`} onClick={() => nameRef.current?.focus()}>Name</FieldLabel>
             <div className="flex items-center gap-1">
-              <Input id={nameId} value={name} onChange={(e) => setName(e.target.value)} placeholder={PLACEHOLDERS[type]} required maxLength={100} autoFocus />
-              <EmojiInsertButton fieldId={nameId} label="Insert emoji" value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
+              <RichInput ref={nameRef} id={nameId} aria-labelledby={`${nameId}-label`} singleLine variant="input" maxLength={100}
+                placeholder={PLACEHOLDERS[type]} autoFocus
+                value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
+              <EmojiInsertButton field={nameRef} label="Insert emoji" value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
             </div>
           </Field>
           {categories.length > 0 && (
@@ -96,7 +100,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
           )}
           <ErrorText error={error} />
           <DialogFooter>
-            <Button type="submit" disabled={busy || (type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Create</Button>
+            <Button type="submit" disabled={busy || !name.trim() || (type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Create</Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
           </DialogFooter>
         </form>

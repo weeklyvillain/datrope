@@ -131,6 +131,11 @@ func TestPlaylistFiles(t *testing.T) {
 	alice.Do(http.MethodPost, pl+"/items", map[string]any{"attachment_id": open.ID}, http.StatusCreated, nil)
 	alice.Do(http.MethodPost, pl+"/items", map[string]any{"attachment_id": hidden.ID}, http.StatusCreated, nil)
 	alice.Fail(http.MethodPost, pl+"/items", map[string]any{"attachment_id": notes.ID}, http.StatusBadRequest, "NOT_AUDIO")
+	// An expired file can no longer be added.
+	gone := alice.Upload(general, "gone-song.mp3", tone(t, "2", "mp3"), http.StatusCreated)
+	alice.SendWith(general, "", gone.ID)
+	alice.Do(http.MethodDelete, "/api/attachments/"+gone.ID.String(), nil, http.StatusNoContent, nil)
+	alice.Fail(http.MethodPost, pl+"/items", map[string]any{"attachment_id": gone.ID}, http.StatusNotFound, "NOT_FOUND")
 	// bob may not add a file he cannot read, even to his own playlist.
 	var bobs struct{ music.PlaylistDetail }
 	bob.Do(http.MethodPost, "/api/server/music/playlists", map[string]any{"title": "Bob's"}, http.StatusCreated, &bobs)

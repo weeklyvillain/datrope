@@ -13,5 +13,6 @@ export function TrackVideo({ track, mirror }: { track: LocalVideoTrack | RemoteV
       track.detach(el);
     };
   }, [track]);
-  return <video ref={ref} className={cn("size-full object-contain", mirror && "-scale-x-100")} autoPlay playsInline muted />;
+  // Out of the tile's grid flow: an auto grid row would otherwise size to the video's own height and crop it.
+  return <video ref={ref} className={cn("absolute inset-0 size-full object-contain", mirror && "-scale-x-100")} autoPlay playsInline muted />;
 }
