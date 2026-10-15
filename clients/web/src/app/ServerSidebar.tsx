@@ -1,5 +1,5 @@
 import { Perm, canCreateInvites, hasPerm, isGated } from "@datrope/core";
-import { ChevronDown, Command, FolderPlus, Plus, Settings, UserPlus } from "lucide-react";
+import { ChevronDown, Command, FolderPlus, Plus, Settings, UserPlus } from "@/components/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMatch } from "react-router-dom";
 import { useLayerNavigate } from "@/hooks/use-history-layer";

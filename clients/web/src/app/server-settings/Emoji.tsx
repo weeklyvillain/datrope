@@ -1,5 +1,5 @@
 import { ApiError, emojiList, type Emoji as EmojiT, type SevenTVEmote } from "@datrope/core";
-import { Smile, Trash2, Upload, X } from "lucide-react";
+import { Smile, Trash2, Upload, X } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ErrorText } from "@/components/error-text";

@@ -1,4 +1,4 @@
-import { Music, Pause, PhoneOff, Play, X } from "lucide-react";
+import { Music, Pause, PhoneOff, Play, X } from "@/components/icons";
 import { useEffect, useId } from "react";
 import { useLocation } from "react-router-dom";
 import { useStore } from "zustand";

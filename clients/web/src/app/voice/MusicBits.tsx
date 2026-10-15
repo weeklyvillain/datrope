@@ -1,4 +1,4 @@
-import { Link2, Music } from "lucide-react";
+import { Link2, Music } from "@/components/icons";
 import type { ReactNode } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,

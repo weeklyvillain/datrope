@@ -2,7 +2,7 @@ import { Perm, hasPerm, type MusicPlaylist, type PlaylistDetail, type PlaylistIt
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowLeft, GripVertical, ListMusic, MoreHorizontal, Music, Play, Plus, Shuffle } from "lucide-react";
+import { ArrowLeft, GripVertical, ListMusic, MoreHorizontal, Music, Play, Plus, Shuffle } from "@/components/icons";
 import { useEffect, useId, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";

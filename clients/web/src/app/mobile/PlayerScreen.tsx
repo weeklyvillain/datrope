@@ -1,4 +1,4 @@
-import { ChevronDown, Music, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X } from "lucide-react";
+import { ChevronDown, Music, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X } from "@/components/icons";
 import { useEffect } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";

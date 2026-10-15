@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeftRight, Pause, Play, Square, Volume2, VolumeX } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Badge } from "@/components/ui/badge";

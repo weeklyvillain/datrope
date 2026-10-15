@@ -1,5 +1,5 @@
 import { Perm, hasPerm, type ReplyRef } from "@datrope/core";
-import { LayoutGrid, MessageSquare, Music, Volume2 } from "lucide-react";
+import { LayoutGrid, MessageSquare, Music, Volume2 } from "@/components/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";

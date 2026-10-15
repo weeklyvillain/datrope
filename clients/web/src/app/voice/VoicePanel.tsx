@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { HeadphoneOff, Headphones, Mic, MicOff, PhoneOff, ScreenShare, ScreenShareOff, Video, VideoOff } from "lucide-react";
+import { HeadphoneOff, Headphones, Mic, MicOff, PhoneOff, ScreenShare, ScreenShareOff, Video, VideoOff } from "@/components/icons";
 import { useRef, useState, type ComponentProps } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";

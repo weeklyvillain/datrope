@@ -1,5 +1,5 @@
 import { Perm, hasPerm, unwrap, type Library, type LibraryTrack, type MusicState, type RepeatMode } from "@datrope/core";
-import { ListMusic, ListPlus, ListX, Pause, Play, Plus, Repeat, Repeat1, Shuffle, SkipForward, Square, Trash2, Upload, X } from "lucide-react";
+import { ListMusic, ListPlus, ListX, Pause, Play, Plus, Repeat, Repeat1, Shuffle, SkipForward, Square, Trash2, Upload, X } from "@/components/icons";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";

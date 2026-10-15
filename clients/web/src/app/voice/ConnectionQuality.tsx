@@ -1,4 +1,4 @@
-import { SignalHigh, SignalLow, SignalMedium, SignalZero, type LucideIcon } from "lucide-react";
+import { SignalHigh, SignalLow, SignalMedium, SignalZero, type AnimatedIcon } from "@/components/icons";
 import { RefButton } from "@/components/ref-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -6,7 +6,7 @@ import { isTouchOnly } from "@/lib/touch";
 import type { Rating } from "../../voice/stats";
 import { useVoice } from "../../voice/voice";
 
-const LOOK: Record<Rating, { icon: LucideIcon; color: string; word: string }> = {
+const LOOK: Record<Rating, { icon: AnimatedIcon; color: string; word: string }> = {
   good: { icon: SignalHigh, color: "text-online hover:text-online", word: "good" },
   ok: { icon: SignalMedium, color: "text-idle hover:text-idle", word: "okay" },
   poor: { icon: SignalLow, color: "text-destructive hover:text-destructive", word: "poor" },

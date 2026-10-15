@@ -1,4 +1,4 @@
-import { Bell, Hash, Megaphone, MessageSquare, Pin, Settings, User, Users } from "lucide-react";
+import { Bell, Hash, Megaphone, MessageSquare, Pin, Settings, User, Users } from "@/components/icons";
 import { Markdown } from "@/chat/Markdown";
 import { EmojiText } from "@/chat/EmojiText";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";

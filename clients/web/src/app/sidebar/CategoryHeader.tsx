@@ -1,5 +1,5 @@
 import type { Category } from "@datrope/core";
-import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Ellipsis, Pencil, Plus, Trash2 } from "@/components/icons";
 import { useRef, type HTMLAttributes, type Ref } from "react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,

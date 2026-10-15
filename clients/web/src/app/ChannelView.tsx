@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "lucide-react";
+import { Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "@/components/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";

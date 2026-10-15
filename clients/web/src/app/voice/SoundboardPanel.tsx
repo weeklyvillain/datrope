@@ -1,5 +1,5 @@
 import { Perm, hasPerm, soundList, type Sound } from "@datrope/core";
-import { Plus, Star, Volume2 } from "lucide-react";
+import { Plus, Star, Volume2 } from "@/components/icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";

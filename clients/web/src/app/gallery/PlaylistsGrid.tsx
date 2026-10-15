@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { ListMusic, Plus } from "lucide-react";
+import { ListMusic, Plus } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";

@@ -1,5 +1,5 @@
 import { Perm, hasPerm, unwrap } from "@datrope/core";
-import { UserPlus } from "lucide-react";
+import { UserPlus } from "@/components/icons";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { client, errorText, useApp, usePerms } from "../../session";

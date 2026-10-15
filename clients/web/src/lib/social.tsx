@@ -1,4 +1,4 @@
-import { Globe } from "lucide-react";
+import { Globe } from "@/components/icons";
 import type { ReactElement } from "react";
 import { BrandIcon, hasBrandIcon } from "./brand-icons";
 

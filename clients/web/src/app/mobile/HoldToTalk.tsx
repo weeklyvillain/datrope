@@ -1,4 +1,4 @@
-import { Mic } from "lucide-react";
+import { Mic } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAudioPrefs } from "../../voice/audio-prefs";

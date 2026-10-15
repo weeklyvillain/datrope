@@ -1,11 +1,11 @@
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronRight, type AnimatedIcon } from "@/components/icons";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 export const ROW = "flex min-h-[48px] w-full items-center gap-3 border-b px-4 text-left text-sm";
 
-export type SettingsRow = { id: string; label: string; icon: LucideIcon; to?: string; state?: unknown; value?: ReactNode; soon?: string };
+export type SettingsRow = { id: string; label: string; icon: AnimatedIcon; to?: string; state?: unknown; value?: ReactNode; soon?: string };
 
 /** 48 px rows: icon, label, optional current value, chevron. Rows without a destination are disabled. */
 export function SettingsList({ rows, label }: { rows: SettingsRow[]; label: string }) {

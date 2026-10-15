@@ -4,7 +4,7 @@ import { client, errorText } from "../../session";
 import { ErrorText } from "@/components/error-text";
 import { ThreadSummaryLine } from "../ThreadSummary";
 import { byActivity } from "../threads";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare } from "@/components/icons";
 import { ListSkeleton } from "@/components/loading-skeleton";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { BareButton } from "@/components/bare-button";

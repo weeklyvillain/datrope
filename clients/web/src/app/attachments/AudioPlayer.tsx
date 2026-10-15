@@ -1,6 +1,6 @@
 import type { Attachment } from "@datrope/core";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Download, Pause, Play } from "lucide-react";
+import { Download, Pause, Play } from "@/components/icons";
 import { client, formatBytes } from "../../session";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

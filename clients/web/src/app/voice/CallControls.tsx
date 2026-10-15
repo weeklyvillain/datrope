@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { Ellipsis, LayoutGrid, Monitor, PhoneOff, ScreenShare, ScreenShareOff, Volume2 } from "lucide-react";
+import { Ellipsis, LayoutGrid, Monitor, PhoneOff, ScreenShare, ScreenShareOff, Volume2 } from "@/components/icons";
 import { useRef, useState } from "react";
 import { useArrowNav } from "@/hooks/use-arrow-nav";
 import { useShallow } from "zustand/react/shallow";

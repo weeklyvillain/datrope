@@ -1,5 +1,5 @@
 import type { PlaylistDetail } from "@datrope/core";
-import { ArrowLeft, Play, Shuffle, Volume2 } from "lucide-react";
+import { ArrowLeft, Play, Shuffle, Volume2 } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";

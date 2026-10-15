@@ -1,5 +1,5 @@
 import type { Attachment } from "@datrope/core";
-import { CirclePlus, Code, Reply, Send, Smile, X } from "lucide-react";
+import { CirclePlus, Code, Reply, Send, Smile, X } from "@/components/icons";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { client, displayName, errorText, formatBytes, useApp, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";

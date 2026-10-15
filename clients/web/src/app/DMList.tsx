@@ -1,4 +1,4 @@
-import { LogOut, MessageCircle, SquarePen } from "lucide-react";
+import { LogOut, MessageCircle, SquarePen } from "@/components/icons";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArrowNav } from "@/hooks/use-arrow-nav";

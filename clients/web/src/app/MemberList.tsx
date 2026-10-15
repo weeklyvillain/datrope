@@ -1,5 +1,5 @@
 import type { Member, Role } from "@datrope/core";
-import { Copy, MessageCircle, UserRound, X } from "lucide-react";
+import { Copy, MessageCircle, UserRound, X } from "@/components/icons";
 import { forwardRef, useMemo, useRef, type ComponentProps, type MutableRefObject, type ReactNode } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
 import { useNavigate, type NavigateFunction } from "react-router-dom";

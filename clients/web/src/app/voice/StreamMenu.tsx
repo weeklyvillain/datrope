@@ -1,4 +1,4 @@
-import { MonitorUp, ScreenShareOff } from "lucide-react";
+import { MonitorUp, ScreenShareOff } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { saveStreamPrefs, type StreamSettings } from "../../voice/stream-prefs";

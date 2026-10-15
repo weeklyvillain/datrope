@@ -1,5 +1,5 @@
 import { hasPerm, Perm, SELF_ASSIGN_POWER, unwrap, type Member, type Role } from "@datrope/core";
-import { Lock, TriangleAlert, X } from "lucide-react";
+import { Lock, TriangleAlert, X } from "@/components/icons";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { useId, useMemo, useState, type CSSProperties } from "react";
 import { ErrorText } from "@/components/error-text";

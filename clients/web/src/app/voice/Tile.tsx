@@ -1,4 +1,4 @@
-import { Eye, EyeOff, HeadphoneOff, MicOff, Settings2 } from "lucide-react";
+import { Eye, EyeOff, HeadphoneOff, MicOff, Settings2 } from "@/components/icons";
 import { useState, type ReactNode, type Ref } from "react";
 import { UserAvatar, type AvatarSize } from "@/components/user-avatar";
 import { useUser } from "@/hooks/use-user";

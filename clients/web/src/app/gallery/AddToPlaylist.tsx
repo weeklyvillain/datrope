@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { client, errorText, useApp, usePerms } from "../../session";

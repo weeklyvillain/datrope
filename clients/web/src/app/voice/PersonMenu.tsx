@@ -1,4 +1,4 @@
-import { EyeOff, MoreHorizontal, Volume1, VolumeX } from "lucide-react";
+import { EyeOff, MoreHorizontal, Volume1, VolumeX } from "@/components/icons";
 import { useId, useState, type ReactNode } from "react";
 import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";

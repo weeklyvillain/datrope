@@ -1,4 +1,4 @@
-import { Webhook as WebhookIcon } from "lucide-react";
+import { Webhook as WebhookIcon } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { AvatarSize } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";

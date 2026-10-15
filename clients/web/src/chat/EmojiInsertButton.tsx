@@ -1,4 +1,4 @@
-import { Smile } from "lucide-react";
+import { Smile } from "@/components/icons";
 import { RefButton } from "@/components/ref-button";
 import { EmojiPicker, emojiText } from "./EmojiPicker";
 

@@ -1,5 +1,5 @@
 import type { Embed } from "@datrope/core";
-import { Play, X } from "lucide-react";
+import { Play, X } from "@/components/icons";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BrandIcon } from "@/lib/brand-icons";

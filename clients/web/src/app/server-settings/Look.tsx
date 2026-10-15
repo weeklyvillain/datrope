@@ -1,5 +1,5 @@
 import { unwrap } from "@datrope/core";
-import { Hash } from "lucide-react";
+import { Hash } from "@/components/icons";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { useRef, useState, type CSSProperties } from "react";
 import { ErrorText } from "@/components/error-text";

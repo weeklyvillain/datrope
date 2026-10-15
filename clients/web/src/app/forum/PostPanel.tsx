@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { MessagesSquare, Pencil, Trash2 } from "lucide-react";
+import { MessagesSquare, Pencil, Trash2 } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { client, outranksUser, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";

@@ -1,5 +1,5 @@
 import { unwrap, type InstanceInfo } from "@datrope/core";
-import { CheckIcon, Loader2Icon } from "lucide-react";
+import { CheckIcon, Loader2Icon } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { client, deviceName } from "../session";
