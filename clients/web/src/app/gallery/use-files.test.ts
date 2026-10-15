@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_FILTER } from "./filter";
 vi.mock("../../session", () => ({ client: {}, errorText: String, useApp: () => ({}) }));
 
-import { dropMessage, mergeHead, paramsFor, patchThread } from "./use-files";
+import { dropExpired, dropMessage, mergeHead, paramsFor, patchThread } from "./use-files";
 
 const it_ = (att: string, msg = `m${att}`) => ({ attachment: { id: att }, message: { id: msg } }) as unknown as FileItem;
 const ids = (xs: FileItem[]) => xs.map((x) => x.attachment.id);
@@ -21,6 +21,17 @@ describe("mergeHead", () => {
 describe("dropMessage", () => {
   it("removes every file of a deleted message", () => {
     expect(ids(dropMessage([it_("1", "m"), it_("2", "m"), it_("3")], "m"))).toEqual(["3"]);
+  });
+});
+
+describe("dropExpired", () => {
+  it("removes the files a message update marks expired and keeps the rest", () => {
+    const m = { id: "m", attachments: [{ id: "1", expired: true }, { id: "2", expired: false }] } as never;
+    expect(ids(dropExpired([it_("1", "m"), it_("2", "m"), it_("3")], m))).toEqual(["2", "3"]);
+  });
+  it("returns the same list when nothing expired", () => {
+    const cur = [it_("1", "m")];
+    expect(dropExpired(cur, { id: "m", attachments: [{ id: "1", expired: false }] } as never)).toBe(cur);
   });
 });
 

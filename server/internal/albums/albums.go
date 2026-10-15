@@ -206,9 +206,13 @@ func (s *Service) owned(ctx context.Context, userID, albumID id.ID) (*row, error
 	return a, nil
 }
 
+// itemCountSQL counts album a's files that haven't expired, matching what its listing shows.
+const itemCountSQL = `(SELECT count(*) FROM album_items i JOIN attachments t ON t.id = i.attachment_id
+	WHERE i.album_id = a.id AND t.expired_at IS NULL)`
+
 func (s *Service) checkRoom(ctx context.Context, albumID id.ID) error {
 	var n int
-	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM album_items WHERE album_id = $1`, albumID).Scan(&n); err != nil {
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM album_items i JOIN attachments t ON t.id = i.attachment_id WHERE i.album_id = $1 AND t.expired_at IS NULL`, albumID).Scan(&n); err != nil {
 		return err
 	}
 	if n >= maxItems {
@@ -224,10 +228,10 @@ func (s *Service) list(ctx context.Context, userID, galleryID id.ID) ([]Album, e
 		return nil, err
 	}
 	rows, err := s.db.Query(ctx, `SELECT `+rowCols+`,
-		(SELECT count(*) FROM album_items i WHERE i.album_id = a.id),
+		`+itemCountSQL+`,
 		ARRAY(SELECT t.id FROM album_items i JOIN attachments t ON t.id = i.attachment_id
 			JOIN messages m ON m.id = t.message_id JOIN channels c ON c.id = t.channel_id
-			WHERE i.album_id = a.id AND t.inline AND NOT m.deleted AND `+fmt.Sprintf(inScopeSQL, "t", "$3")+`
+			WHERE i.album_id = a.id AND t.inline AND t.expired_at IS NULL AND NOT m.deleted AND `+fmt.Sprintf(inScopeSQL, "t", "$3")+`
 			ORDER BY t.id DESC LIMIT `+fmt.Sprint(deckSize)+`)
 		FROM albums a
 		WHERE a.gallery_id = $2 AND (a.visibility = 'gallery' OR a.owner_id = $1
@@ -286,7 +290,7 @@ func (s *Service) listForFile(ctx context.Context, userID, attachmentID id.ID) (
 		return out, err
 	}
 	rows, err := s.db.Query(ctx, `SELECT `+rowCols+`,
-		(SELECT count(*) FROM album_items i WHERE i.album_id = a.id),
+		`+itemCountSQL+`,
 		EXISTS (SELECT 1 FROM album_items i WHERE i.album_id = a.id AND i.attachment_id = $2)
 		FROM albums a
 		WHERE a.owner_id = $1 OR EXISTS (SELECT 1 FROM album_members m WHERE m.album_id = a.id AND m.user_id = $1)
@@ -345,7 +349,7 @@ func (s *Service) inScope(ctx context.Context, attachmentID id.ID, scope []id.ID
 	var ok bool
 	err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM attachments t JOIN channels c ON c.id = t.channel_id
 		JOIN messages m ON m.id = t.message_id
-		WHERE t.id = $1 AND NOT m.deleted AND `+fmt.Sprintf(inScopeSQL, "t", "$2")+`)`,
+		WHERE t.id = $1 AND t.expired_at IS NULL AND NOT m.deleted AND `+fmt.Sprintf(inScopeSQL, "t", "$2")+`)`,
 		attachmentID, id.Int64s(scope)).Scan(&ok)
 	return ok, err
 }
@@ -526,7 +530,7 @@ func (s *Service) touchAndPublish(ctx context.Context, albumID id.ID, before *ro
 		return err
 	}
 	var count int
-	r, err := scanRow(s.db.QueryRow(ctx, `SELECT `+rowCols+`, (SELECT count(*) FROM album_items i WHERE i.album_id = a.id)
+	r, err := scanRow(s.db.QueryRow(ctx, `SELECT `+rowCols+`, `+itemCountSQL+`
 		FROM albums a WHERE a.id = $1`, albumID), &count)
 	if err != nil {
 		return err
