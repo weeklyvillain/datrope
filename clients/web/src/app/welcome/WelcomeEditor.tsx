@@ -1,5 +1,5 @@
 import { sidebarChannelIds, unwrap, type Welcome } from "@datrope/core";
-import { BookOpen, Hash, ImagePlus } from "lucide-react";
+import { BookOpen, Hash, ImagePlus } from "@/components/icons";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";

@@ -1,5 +1,5 @@
 import type { Album } from "@datrope/core";
-import { Lock, Plus } from "lucide-react";
+import { Lock, Plus } from "@/components/icons";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BareButton } from "@/components/bare-button";

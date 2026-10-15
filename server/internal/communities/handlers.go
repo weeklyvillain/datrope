@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/datrope/datrope/server/internal/audit"
 	"github.com/datrope/datrope/server/internal/auth"
@@ -16,9 +18,11 @@ import (
 )
 
 type UpdateServerRequest struct {
-	Name        *string `json:"name,omitempty" minLength:"1" maxLength:"100"`
-	Description *string `json:"description,omitempty" maxLength:"300"`
-	Palette     *string `json:"palette,omitempty" enum:"emerald,ocean,violet,amber,rose,mint"`
+	Name              *string `json:"name,omitempty" minLength:"1" maxLength:"100"`
+	Description       *string `json:"description,omitempty" maxLength:"300"`
+	AccentColor       *string `json:"accent_color,omitempty" pattern:"^#[0-9a-f]{6}$"`
+	AFKChannelID      *string `json:"afk_channel_id,omitempty" doc:"A voice channel of this server; empty clears it"`
+	AFKTimeoutSeconds *int    `json:"afk_timeout_seconds,omitempty" enum:"300,900,1800,3600"`
 }
 
 type CreateInviteRequest struct {
@@ -40,6 +44,14 @@ type actor struct {
 	CommunityID id.ID // the server's ID
 	Member      PermMember
 	Base        perms.Perms
+}
+
+// idString is an optional ID for the audit log ("" when unset).
+func idString(v *id.ID) string {
+	if v == nil {
+		return ""
+	}
+	return v.String()
 }
 
 func errNotMember() *httpx.Error {
@@ -111,13 +123,34 @@ func Register(api huma.API, s *Service) {
 				}
 				name = &n
 			}
+			afkSet := in.Body.AFKChannelID != nil
+			var afk *id.ID
+			if afkSet && *in.Body.AFKChannelID != "" {
+				cid, err := httpx.ParseID(*in.Body.AFKChannelID, "channel")
+				if err != nil {
+					return nil, err
+				}
+				var typ string
+				err = s.db.QueryRow(ctx, `SELECT type FROM channels WHERE id = $1 AND community_id = $2`, cid, a.CommunityID).Scan(&typ)
+				if errors.Is(err, pgx.ErrNoRows) {
+					return nil, httpx.NotFound("channel")
+				}
+				if err != nil {
+					return nil, err
+				}
+				if typ != "voice" {
+					return nil, httpx.BadRequest("NOT_VOICE_CHANNEL", "the AFK channel must be a voice channel")
+				}
+				afk = &cid
+			}
 			old, err := s.Server(ctx)
 			if err != nil {
 				return nil, err
 			}
 			if _, err := s.db.Exec(ctx, `
-				UPDATE communities SET name = COALESCE($2, name), description = COALESCE($3, description), palette = COALESCE($4, palette)
-				WHERE id = $1`, a.CommunityID, name, in.Body.Description, in.Body.Palette); err != nil {
+				UPDATE communities SET name = COALESCE($2, name), description = COALESCE($3, description), accent_color = COALESCE($4, accent_color),
+					afk_timeout_seconds = COALESCE($5, afk_timeout_seconds), afk_channel_id = CASE WHEN $6 THEN $7 ELSE afk_channel_id END
+				WHERE id = $1`, a.CommunityID, name, in.Body.Description, in.Body.AccentColor, in.Body.AFKTimeoutSeconds, afkSet, afk); err != nil {
 				return nil, err
 			}
 			sv, err := s.Server(ctx)
@@ -129,7 +162,9 @@ func Register(api huma.API, s *Service) {
 			}
 			cs := audit.Diff(nil, "name", old.Name, sv.Name)
 			cs = audit.Diff(cs, "description", old.Description, sv.Description)
-			cs = audit.Diff(cs, "palette", old.Palette, sv.Palette)
+			cs = audit.Diff(cs, "accent_color", old.AccentColor, sv.AccentColor)
+			cs = audit.Diff(cs, "afk_channel", idString(old.AFKChannelID), idString(sv.AFKChannelID))
+			cs = audit.Diff(cs, "afk_timeout", strconv.Itoa(old.AFKTimeoutSeconds), strconv.Itoa(sv.AFKTimeoutSeconds))
 			if len(cs) > 0 {
 				if err := audit.Record(ctx, s.db, audit.ServerUpdate, 0, audit.LogDetails{Changes: cs}); err != nil {
 					return nil, err

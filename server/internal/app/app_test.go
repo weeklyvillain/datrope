@@ -15,9 +15,14 @@ func TestHealthz(t *testing.T) {
 	env := apptest.New(t)
 	resp, err := http.Get(env.Server.URL + "/healthz")
 	require.NoError(t, err)
-	resp.Body.Close()
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.NotEmpty(t, resp.Header.Get("X-Request-ID"))
+	var body struct {
+		Build string `json:"build"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	require.Equal(t, "dev", body.Build)
 }
 
 func TestOpenAPIIsServed(t *testing.T) {
@@ -37,7 +42,7 @@ func TestOpenAPIHasEventSchemas(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(b, &doc))
 	for _, name := range []string{"Ready", "ReadyServer", "Hello", "PresenceUpdate", "PublicUser", "Message",
-		"MessageDeleted", "TypingStart", "ChannelDeleted", "MemberRemoved", "RoleDeleted", "Server", "VoiceState", "VoiceMove"} {
+		"MessageDeleted", "TypingStart", "ChannelDeleted", "MemberRemoved", "RoleDeleted", "Server", "VoiceState", "VoiceMove", "VoicePing", "TeamsDraw"} {
 		_, ok := doc.Components.Schemas[name]
 		require.True(t, ok, "missing schema %s", name)
 	}

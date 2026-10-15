@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp } from "@/components/icons";
 import { useRef, type KeyboardEvent, type WheelEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

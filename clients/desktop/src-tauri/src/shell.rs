@@ -691,6 +691,7 @@ pub const SERVER_PERMISSIONS: &[&str] = &[
     "allow-desktop-window",
     "allow-desktop-start-drag",
     "allow-desktop-set-theme",
+    "allow-desktop-open-url",
 ];
 
 fn add_server_capability(app: &AppHandle, label: &str, origin: &str) -> tauri::Result<()> {
@@ -858,10 +859,12 @@ pub fn send_to_page(app: &AppHandle, label: &str, event: &str, payload: serde_js
     }
 }
 
-fn open_external(target: &Url) {
-    if matches!(target.scheme(), "http" | "https" | "mailto") {
-        let _ = tauri_plugin_opener::open_url(target.as_str(), None::<&str>);
+/// Opens `target` in the system's default handler; only http, https and mailto. Whether it was handed off.
+pub fn open_external(target: &Url) -> bool {
+    if !matches!(target.scheme(), "http" | "https" | "mailto") {
+        return false;
     }
+    tauri_plugin_opener::open_url(target.as_str(), None::<&str>).is_ok()
 }
 
 /// Checks the server answers; if not, shows the offline page in its webview and greys out its rail icon.
@@ -1296,6 +1299,7 @@ mod tests {
     #[test]
     fn server_pages_get_no_core_permissions() {
         assert!(SERVER_PERMISSIONS.contains(&"allow-desktop-subscribe"));
+        assert!(SERVER_PERMISSIONS.contains(&"allow-desktop-open-url"));
         assert!(
             SERVER_PERMISSIONS.iter().all(|p| !p.starts_with("core:")),
             "no events: pages talk to the shell only through commands and their channel"

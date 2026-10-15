@@ -22,7 +22,7 @@ func (s *Service) attachmentTrack(ctx context.Context, aid id.ID) (MusicTrack, e
 	var filename, contentType, sum, chType string
 	var channelID id.ID
 	err := s.db.QueryRow(ctx, `SELECT a.filename, a.content_type, a.sha256, a.channel_id, c.type
-		FROM attachments a JOIN channels c ON c.id = a.channel_id WHERE a.id = $1 AND a.message_id IS NOT NULL`, aid).
+		FROM attachments a JOIN channels c ON c.id = a.channel_id WHERE a.id = $1 AND a.message_id IS NOT NULL AND a.expired_at IS NULL`, aid).
 		Scan(&filename, &contentType, &sum, &channelID, &chType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MusicTrack{}, httpx.NotFound("attachment")

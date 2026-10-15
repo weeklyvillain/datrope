@@ -1,5 +1,5 @@
 import { Perm, hasPerm, isGated, sidebarChannelIds } from "@datrope/core";
-import { BookOpen, Pencil } from "lucide-react";
+import { BookOpen, Pencil } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";

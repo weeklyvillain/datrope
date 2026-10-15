@@ -26,6 +26,7 @@ type SendRequest struct {
 	AttachmentIDs []id.ID      `json:"attachment_ids,omitempty" maxItems:"10" doc:"Uploads (POST /api/attachments) to send with the message"`
 	ReplyToID     *id.ID       `json:"reply_to_id,omitempty" doc:"Reply to this message (same channel)"`
 	Poll          *PollRequest `json:"poll,omitempty" doc:"Makes the message a poll; content may then be empty"`
+	TZ            string       `json:"tz,omitempty" maxLength:"64" doc:"The sender's IANA time zone"`
 }
 
 type EditRequest struct {
@@ -67,6 +68,7 @@ func Register(api huma.API, s *Service) {
 		return ch, p, err
 	}
 
+	registerAttachmentActions(api, s, op)
 	registerReactions(api, s, op, access)
 	registerPolls(api, s, op, access)
 	registerPins(api, s, op, access)
@@ -176,13 +178,17 @@ func Register(api huma.API, s *Service) {
 			m := &Message{ID: id.New(), ChannelID: ch.ID, Author: &author, Title: title, Content: content, Nonce: in.Body.Nonce, Mentions: mentions,
 				MentionEveryone: everyone, MentionRoles: roles, replyToID: in.Body.ReplyToID}
 			m.CreatedAt = m.ID.Time()
+			tz := cleanTZ(in.Body.TZ)
+			if tz != nil {
+				m.TZ = *tz
+			}
 			tx, err := s.db.Begin(ctx)
 			if err != nil {
 				return nil, err
 			}
 			defer tx.Rollback(ctx)
-			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, reply_to_id, mentions, title, mention_everyone, mention_roles) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-				m.ID, m.ChannelID, u.ID, m.Content, in.Body.ReplyToID, id.Int64s(mentions), m.Title, everyone, id.Int64s(roles)); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, reply_to_id, mentions, title, mention_everyone, mention_roles, tz) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+				m.ID, m.ChannelID, u.ID, m.Content, in.Body.ReplyToID, id.Int64s(mentions), m.Title, everyone, id.Int64s(roles), tz); err != nil {
 				return nil, err
 			}
 			if m.Attachments, err = s.attachments.Claim(ctx, tx, m.ID, ch.ID, u.ID, in.Body.AttachmentIDs); err != nil {

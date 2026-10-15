@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice connection stats</title>
+<style>
+/* Tokens copied from clients/web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --popover: #1c1c1c; --primary: #2ecc71;
+  --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a; --border: #424242; --sidebar: #0d0d0d;
+  --online: #2ecc71; --idle: #d39b14; --destructive: #ef5b4c;
+  --avatar-1: #34495e; --avatar-2: #5b3a6e; --avatar-3: #2d5a46; --avatar-4: #6e4b2a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1.frame { margin: 0; padding: 18px 16px 4px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); }
+p.note { margin: 0; padding: 4px 16px 14px; font-size: 13px; color: var(--muted-foreground); max-width: 920px; }
+.row3 { display: flex; flex-wrap: wrap; gap: 28px; padding: 8px 16px 32px; align-items: flex-start; }
+.col { display: grid; gap: 10px; width: 320px; }
+.col h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.col p { margin: 0; font-size: 12px; color: var(--muted-foreground); }
+.pop { background: var(--popover); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.5); display: grid; gap: 10px; }
+.head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 999px; background: var(--online); }
+.k { font-size: 12px; color: var(--muted-foreground); }
+.v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.metric { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: end; }
+svg { display: block; width: 100%; }
+.peer { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
+.av { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; font-size: 11px; font-weight: 600; flex: none; }
+.peer .ms { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted-foreground); font-size: 12px; }
+.chip { display: inline-flex; gap: 6px; align-items: center; padding: 2px 8px; border-radius: 6px; background: rgba(13,13,13,.8); font-size: 12px; }
+.tile { position: relative; height: 150px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); display: grid; place-items: center; }
+.tile .np { position: absolute; left: 8px; bottom: 8px; }
+.tile .tip { position: absolute; right: 8px; top: 8px; }
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 28px; }
+.bars i { flex: 1; border-radius: 1px; }
+.tabs { display: flex; gap: 4px; }
+.tabs b { font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; background: var(--muted); }
+.tabs b.on { background: var(--foreground); color: var(--background); }
+.sub { font-size: 11px; color: var(--muted-foreground); }
+.legend { display: flex; gap: 10px; font-size: 11px; color: var(--muted-foreground); }
+.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; background: var(--c); vertical-align: -1px; }
+</style>
+</head>
+<body>
+<h1 class="frame">Voice connection · stats + ping to others (item 4)</h1>
+<p class="note">Three very different panels. Each opens from the existing connection-quality indicator in the voice panel. Each also shows <b>how a peer's ping appears</b>, either on a call tile or in the in-call members list. Peer numbers are "their ping to the server" plus "≈ to you", the sum of both pings (it's an SFU, so there is no direct path). The data is synthetic; refresh to reroll.</p>
+
+<div class="row3">
+  <div class="col">
+    <h2>A · Three sparklines</h2>
+    <p>Ping, jitter and loss, each with its own line, the current value and the 30 s average. Calm and scannable, the same idea as the System page's sparklines.</p>
+    <div class="pop" id="a"></div>
+    <div class="tile"><span class="av" style="background:var(--avatar-2);width:56px;height:56px;font-size:20px">M</span>
+      <span class="chip np">maja</span><span class="chip tip">42 ms · ≈85 ms to you</span></div>
+  </div>
+
+  <div class="col">
+    <h2>B · One combined chart</h2>
+    <p>One chart: the ping line, a shaded jitter band around it, and red ticks along the bottom for lost packets. Dense, with the relationships visible at a glance. Peers appear as a list under the chart.</p>
+    <div class="pop" id="b"></div>
+  </div>
+
+  <div class="col">
+    <h2>C · Signal bars + tabs</h2>
+    <p>A big quality verdict on top, then the metrics as 30 bars, one per second, coloured by threshold. Tabs switch between You and Others. More "game overlay" in feel.</p>
+    <div class="pop" id="c"></div>
+    <div class="peer" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
+      <span class="av" style="background:var(--avatar-3)">O</span> olle <span class="ms">▂▄▆ 63 ms</span></div>
+  </div>
+</div>
+
+<script>
+const N = 30;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ping = Array.from({ length: N }, (_, i) => Math.round(38 + Math.sin(i / 4) * 6 + rnd(-4, 9) + (i === 21 ? 40 : 0)));
+const jitter = ping.map(() => +rnd(1, 9).toFixed(1));
+const loss = ping.map((_, i) => (i === 21 || i === 22 ? +rnd(2, 6).toFixed(1) : Math.random() < .08 ? +rnd(.5, 1.5).toFixed(1) : 0));
+const avg = (a) => (a.reduce((x, y) => x + y, 0) / a.length);
+const peers = [["maja", 2, 42], ["olle", 3, 63], ["sara", 4, 118]];
+const mine = ping[N - 1];
+
+function spark(vals, max, color, h = 34) {
+  const pts = vals.map((v, i) => `${(i / (N - 1)) * 300},${h - (Math.min(v, max) / max) * (h - 4) - 2}`).join(" ");
+  return `<svg viewBox="0 0 300 ${h}" height="${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const metric = (k, cur, unit, a, svg) =>
+  `<div class="metric"><span class="k">${k}</span><span><span class="v">${cur}${unit}</span> <span class="sub">avg ${a}${unit}</span></span></div>${svg}`;
+
+document.getElementById("a").innerHTML = `
+  <div class="head"><span class="dot"></span>Connection: good <span class="sub" style="margin-left:auto">last 30 s</span></div>
+  ${metric("Ping", mine, " ms", Math.round(avg(ping)), spark(ping, 120, "var(--primary)"))}
+  ${metric("Jitter", jitter[N - 1], " ms", avg(jitter).toFixed(1), spark(jitter, 20, "var(--idle)"))}
+  ${metric("Packet loss", loss[N - 1], " %", avg(loss).toFixed(1), spark(loss, 10, "var(--destructive)"))}`;
+
+(function b() {
+  const h = 110, max = 130;
+  const y = (v) => h - 14 - (Math.min(v, max) / max) * (h - 24);
+  const x = (i) => (i / (N - 1)) * 300;
+  const up = ping.map((p, i) => `${x(i)},${y(p + jitter[i])}`), down = ping.map((p, i) => `${x(i)},${y(Math.max(0, p - jitter[i]))}`).reverse();
+  const ticks = loss.map((l, i) => l ? `<rect x="${x(i) - 2}" y="${h - 10}" width="4" height="${4 + l * 1.2}" fill="var(--destructive)" transform="translate(0,-${l * 1.2})"/>` : "").join("");
+  document.getElementById("b").innerHTML = `
+    <div class="head"><span class="dot"></span>${mine} ms <span class="sub">· jitter ${jitter[N - 1]} ms · loss ${loss[N - 1]} %</span></div>
+    <svg viewBox="0 0 300 ${h}" height="${h}" preserveAspectRatio="none">
+      <line x1="0" x2="300" y1="${y(100)}" y2="${y(100)}" stroke="var(--border)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+      <polygon points="${up.concat(down).join(" ")}" fill="var(--primary)" opacity=".18"/>
+      <polyline points="${ping.map((p, i) => `${x(i)},${y(p)}`).join(" ")}" fill="none" stroke="var(--primary)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      ${ticks}
+    </svg>
+    <div class="legend"><span style="--c:var(--primary)">ping</span><span style="--c:color-mix(in srgb,var(--primary) 35%,transparent)">jitter</span><span style="--c:var(--destructive)">loss</span><span style="margin-left:auto">100 ms ┄</span></div>
+    <div style="border-top:1px solid var(--border);padding-top:6px">
+      ${peers.map(([n, c, ms]) => `<div class="peer"><span class="av" style="background:var(--avatar-${c})">${n[0].toUpperCase()}</span>${n}<span class="ms">${ms} ms · ≈${ms + mine} to you</span></div>`).join("")}
+    </div>`;
+})();
+
+(function c() {
+  const color = (v, warn, bad) => v >= bad ? "var(--destructive)" : v >= warn ? "var(--idle)" : "var(--online)";
+  const bars = (vals, max, warn, bad) => `<div class="bars">${vals.map((v) => `<i style="height:${Math.max(8, Math.min(v / max, 1) * 100)}%;background:${color(v, warn, bad)}"></i>`).join("")}</div>`;
+  document.getElementById("c").innerHTML = `
+    <div class="tabs"><b class="on">You</b><b>Others · 3</b></div>
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:24px;font-weight:700;color:var(--online)">Good</span><span class="sub">${mine} ms to server</span></div>
+    <div class="metric"><span class="k">Ping</span><span class="v">${mine} ms</span></div>${bars(ping, 150, 100, 200)}
+    <div class="metric"><span class="k">Jitter</span><span class="v">${jitter[N - 1]} ms</span></div>${bars(jitter, 20, 15, 30)}
+    <div class="metric"><span class="k">Loss</span><span class="v">${loss[N - 1]} %</span></div>${bars(loss.map((l) => l || .3), 10, 2, 5)}`;
+})();
+</script>
+</body>
+</html>

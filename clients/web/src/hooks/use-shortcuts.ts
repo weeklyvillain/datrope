@@ -61,7 +61,7 @@ export function useShortcuts(enabled: boolean) {
         if (hasOpenLayer()) return;
         if (NAV.has(id)) {
           // Editable fields keep Alt+arrows (word and paragraph moves), except the empty main message box.
-          const box = target instanceof HTMLTextAreaElement && target.getAttribute("aria-label") === "Message" && target.value === "";
+          const box = target instanceof HTMLElement && target.matches('[data-composer][aria-label="Message"]') && target.hasAttribute("data-empty");
           if (isEditableTarget(target) && !box) return;
           const to = step(pathname, id.endsWith("next") ? 1 : -1, id.startsWith("unread"));
           if (!to) return;
@@ -80,7 +80,7 @@ export function useShortcuts(enabled: boolean) {
       if (hasOpenLayer()) return;
       if (isTypeToFocus(e, target)) {
         // The key lands in the box: focus it without preventing the keypress.
-        document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]')?.focus();
+        document.querySelector<HTMLElement>('[data-composer][aria-label="Message"]')?.focus();
       } else if (e.key === "Escape" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         const m = /^\/(?:channels|messages)\/([^/]+)/.exec(pathname);
         if (m && !target?.closest?.("input,textarea,select,[contenteditable],[data-message-row]")) emitPresent(m[1]);

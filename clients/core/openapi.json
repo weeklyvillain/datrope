@@ -296,6 +296,15 @@
             "description": "Detected from the contents, not the name",
             "type": "string"
           },
+          "expired": {
+            "description": "Deleted by the size rules or by hand; the message stays",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "description": "When the file will be deleted (size rules); absent: kept",
+            "format": "date-time",
+            "type": "string"
+          },
           "filename": {
             "type": "string"
           },
@@ -314,6 +323,10 @@
           },
           "inline": {
             "description": "An image the client may show in the message",
+            "type": "boolean"
+          },
+          "keep": {
+            "description": "Someone chose to keep it past the size rules",
             "type": "boolean"
           },
           "size": {
@@ -337,7 +350,9 @@
           "content_type",
           "size",
           "inline",
-          "url"
+          "url",
+          "keep",
+          "expired"
         ],
         "type": "object"
       },
@@ -386,6 +401,25 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "BufferingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "buffering": {
+            "description": "True while my player loads, false once it can play",
+            "type": "boolean"
+          },
+          "seq": {
+            "description": "The watch's seq this answers",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "buffering"
+        ],
         "type": "object"
       },
       "Category": {
@@ -966,6 +1000,11 @@
           "title": {
             "maxLength": 100,
             "minLength": 1,
+            "type": "string"
+          },
+          "tz": {
+            "description": "The sender's IANA time zone",
+            "maxLength": 64,
             "type": "string"
           }
         },
@@ -1703,6 +1742,19 @@
         ],
         "type": "object"
       },
+      "KeepRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "keep": {
+            "description": "true: never delete it by the size rules; false: let them apply again (counted from now)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "keep"
+        ],
+        "type": "object"
+      },
       "Library": {
         "additionalProperties": false,
         "properties": {
@@ -2218,6 +2270,10 @@
             "description": "Announcements only",
             "type": "string"
           },
+          "tz": {
+            "description": "The sender's IANA time zone, for showing times they wrote in the reader's zone",
+            "type": "string"
+          },
           "webhook": {
             "$ref": "#/components/schemas/WebhookAuthor",
             "description": "Who a webhook message shows as; absent for people's messages"
@@ -2435,6 +2491,123 @@
         ],
         "type": "object"
       },
+      "Note": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "additionalProperties": {},
+            "description": "A Tiptap (ProseMirror) document",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "text": {
+            "description": "The plain text of content",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "content",
+          "text",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "NoteCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "additionalProperties": {},
+            "description": "Sent together with text",
+            "type": "object"
+          },
+          "text": {
+            "description": "Sent together with content",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "NoteDeleted": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "NoteSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "preview": {
+            "description": "The start of the note's text",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "preview",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "NoteUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "additionalProperties": {},
+            "description": "Sent together with text",
+            "type": "object"
+          },
+          "text": {
+            "description": "Sent together with content",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Override": {
         "additionalProperties": false,
         "properties": {
@@ -2486,6 +2659,21 @@
         "required": [
           "allow",
           "deny"
+        ],
+        "type": "object"
+      },
+      "PingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "rtt_ms": {
+            "format": "int64",
+            "maximum": 10000,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rtt_ms"
         ],
         "type": "object"
       },
@@ -3229,6 +3417,10 @@
               "null"
             ]
           },
+          "build": {
+            "description": "The commit the server was built from; dev for local builds",
+            "type": "string"
+          },
           "dms": {
             "items": {
               "$ref": "#/components/schemas/Channel"
@@ -3301,6 +3493,7 @@
         },
         "required": [
           "session_id",
+          "build",
           "user",
           "dms",
           "presences",
@@ -3315,6 +3508,27 @@
       "ReadyServer": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "description": "The server's accent colour; clients lighten it if it is too dark to read",
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
+          "afk_channel_id": {
+            "description": "Voice channel idle members are moved to",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "afk_timeout_seconds": {
+            "description": "Seconds without speaking before the move",
+            "enum": [
+              300,
+              900,
+              1800,
+              3600
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
           "banner_url": {
             "type": "string"
           },
@@ -3370,17 +3584,6 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
-          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/Role"
@@ -3403,10 +3606,11 @@
           "id",
           "name",
           "description",
-          "palette",
+          "accent_color",
           "owner_id",
           "created_at",
-          "rules_gate"
+          "rules_gate",
+          "afk_timeout_seconds"
         ],
         "type": "object"
       },
@@ -3880,6 +4084,11 @@
             "description": "Announcements only",
             "maxLength": 100,
             "type": "string"
+          },
+          "tz": {
+            "description": "The sender's IANA time zone",
+            "maxLength": 64,
+            "type": "string"
           }
         },
         "type": "object"
@@ -3887,6 +4096,27 @@
       "Server": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "description": "The server's accent colour; clients lighten it if it is too dark to read",
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
+          "afk_channel_id": {
+            "description": "Voice channel idle members are moved to",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "afk_timeout_seconds": {
+            "description": "Seconds without speaking before the move",
+            "enum": [
+              300,
+              900,
+              1800,
+              3600
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
           "banner_url": {
             "type": "string"
           },
@@ -3913,17 +4143,6 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
-          },
           "rules_gate": {
             "description": "New members see only the welcome page until they accept the rules",
             "type": "boolean"
@@ -3933,10 +4152,11 @@
           "id",
           "name",
           "description",
-          "palette",
+          "accent_color",
           "owner_id",
           "created_at",
-          "rules_gate"
+          "rules_gate",
+          "afk_timeout_seconds"
         ],
         "type": "object"
       },
@@ -3955,6 +4175,10 @@
       "ServerPreview": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
           "banner_url": {
             "type": "string"
           },
@@ -3979,23 +4203,12 @@
             "description": "Members who are online or idle",
             "format": "int64",
             "type": "integer"
-          },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
           }
         },
         "required": [
           "name",
           "description",
-          "palette",
+          "accent_color",
           "created_at",
           "member_count",
           "online_count"
@@ -4024,6 +4237,27 @@
       "ServerWithRoles": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "description": "The server's accent colour; clients lighten it if it is too dark to read",
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
+          "afk_channel_id": {
+            "description": "Voice channel idle members are moved to",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "afk_timeout_seconds": {
+            "description": "Seconds without speaking before the move",
+            "enum": [
+              300,
+              900,
+              1800,
+              3600
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
           "banner_url": {
             "type": "string"
           },
@@ -4050,17 +4284,6 @@
             "pattern": "^[0-9]+$",
             "type": "string"
           },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
-            "type": "string"
-          },
           "roles": {
             "items": {
               "$ref": "#/components/schemas/Role"
@@ -4080,10 +4303,11 @@
           "id",
           "name",
           "description",
-          "palette",
+          "accent_color",
           "owner_id",
           "created_at",
-          "rules_gate"
+          "rules_gate",
+          "afk_timeout_seconds"
         ],
         "type": "object"
       },
@@ -4146,6 +4370,16 @@
           "twitch_configured": {
             "description": "Twitch app credentials are set (never returned)",
             "type": "boolean"
+          },
+          "upload_ttl_rules": {
+            "description": "Size tiers after which sent files are deleted; empty: files are kept",
+            "items": {
+              "$ref": "#/components/schemas/TTLRule"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
@@ -4153,7 +4387,8 @@
           "max_upload_bytes",
           "klipy_configured",
           "twitch_configured",
-          "spotify_configured"
+          "spotify_configured",
+          "upload_ttl_rules"
         ],
         "type": "object"
       },
@@ -4541,6 +4776,125 @@
         ],
         "type": "object"
       },
+      "TTLRule": {
+        "additionalProperties": false,
+        "properties": {
+          "min_bytes": {
+            "format": "int64",
+            "minimum": 1048576,
+            "type": "integer"
+          },
+          "ttl_hours": {
+            "format": "int64",
+            "maximum": 8760,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min_bytes",
+          "ttl_hours"
+        ],
+        "type": "object"
+      },
+      "TeamsDraw": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "bench": {
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "by": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "per_team": {
+            "description": "0: an even split",
+            "format": "int64",
+            "type": "integer"
+          },
+          "teams": {
+            "items": {
+              "items": {
+                "description": "Snowflake ID as a decimal string",
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "channel_id",
+          "by",
+          "teams",
+          "bench",
+          "per_team",
+          "at"
+        ],
+        "type": "object"
+      },
+      "TeamsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "per_team": {
+            "description": "Players per team; 0 or absent splits everyone evenly",
+            "format": "int64",
+            "maximum": 50,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "teams": {
+            "format": "int64",
+            "maximum": 8,
+            "minimum": 2,
+            "type": "integer"
+          },
+          "user_ids": {
+            "description": "Who is in the draw; all must be in the call",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 2,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "teams",
+          "user_ids"
+        ],
+        "type": "object"
+      },
       "ThreadListItem": {
         "additionalProperties": false,
         "properties": {
@@ -4752,6 +5106,19 @@
           "id": {
             "type": "string"
           },
+          "stage": {
+            "description": "1-based index of the running (or last) step",
+            "format": "int64",
+            "type": "integer"
+          },
+          "stage_title": {
+            "type": "string"
+          },
+          "stages": {
+            "description": "How many steps the job has, the updater's restart included",
+            "format": "int64",
+            "type": "integer"
+          },
           "started_at": {
             "format": "date-time",
             "type": "string"
@@ -4768,7 +5135,9 @@
         "required": [
           "id",
           "status",
-          "started_at"
+          "started_at",
+          "stage",
+          "stages"
         ],
         "type": "object"
       },
@@ -4913,6 +5282,24 @@
       "UpdateServerRequest": {
         "additionalProperties": false,
         "properties": {
+          "accent_color": {
+            "pattern": "^#[0-9a-f]{6}$",
+            "type": "string"
+          },
+          "afk_channel_id": {
+            "description": "A voice channel of this server; empty clears it",
+            "type": "string"
+          },
+          "afk_timeout_seconds": {
+            "enum": [
+              300,
+              900,
+              1800,
+              3600
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
           "description": {
             "maxLength": 300,
             "type": "string"
@@ -4920,17 +5307,6 @@
           "name": {
             "maxLength": 100,
             "minLength": 1,
-            "type": "string"
-          },
-          "palette": {
-            "enum": [
-              "emerald",
-              "ocean",
-              "violet",
-              "amber",
-              "rose",
-              "mint"
-            ],
             "type": "string"
           }
         },
@@ -4965,6 +5341,13 @@
           "twitch": {
             "$ref": "#/components/schemas/AppCredentials",
             "description": "Twitch app credentials (stream alerts, Twitch connections)"
+          },
+          "upload_ttl_rules": {
+            "items": {
+              "$ref": "#/components/schemas/TTLRule"
+            },
+            "maxItems": 5,
+            "type": "array"
           }
         },
         "type": "object"
@@ -5084,6 +5467,31 @@
         ],
         "type": "object"
       },
+      "VoicePing": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "rtt_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "user_id",
+          "rtt_ms"
+        ],
+        "type": "object"
+      },
       "VoiceState": {
         "additionalProperties": false,
         "properties": {
@@ -5184,6 +5592,11 @@
             "format": "double",
             "type": "number"
           },
+          "seq": {
+            "description": "Changes with every start, play, pause and seek; buffering reports name the seq they answer",
+            "format": "int64",
+            "type": "integer"
+          },
           "started_by": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -5205,6 +5618,15 @@
           "video_id": {
             "description": "The YouTube video ID, the Twitch login, or the Twitch VOD ID",
             "type": "string"
+          },
+          "waiting": {
+            "description": "Viewers the room waits for while their players load; the position holds while any are listed",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5217,7 +5639,9 @@
           "updated_at",
           "started_by",
           "last_actor",
-          "last_action"
+          "last_action",
+          "seq",
+          "waiting"
         ],
         "type": "object"
       },
@@ -6484,6 +6908,97 @@
         ]
       }
     },
+    "/api/attachments/{id}": {
+      "delete": {
+        "operationId": "remove-attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      },
+      "patch": {
+        "operationId": "keep-attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "messages"
+        ]
+      }
+    },
     "/api/auth/login": {
       "post": {
         "operationId": "login",
@@ -7008,6 +7523,54 @@
               }
             },
             "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/watch/buffering": {
+      "post": {
+        "operationId": "report-watch-buffering",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BufferingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "default": {
             "content": {
@@ -9434,6 +9997,236 @@
         },
         "tags": [
           "server"
+        ]
+      }
+    },
+    "/api/notes": {
+      "get": {
+        "operationId": "list-notes",
+        "parameters": [
+          {
+            "description": "Only notes whose title or text contains this",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Only notes whose title or text contains this",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoteSummary"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      },
+      "post": {
+        "operationId": "create-note",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/notes/{noteID}": {
+      "delete": {
+        "operationId": "delete-note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      },
+      "get": {
+        "operationId": "get-note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
+        ]
+      },
+      "patch": {
+        "operationId": "update-note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "notes"
         ]
       }
     },
@@ -12155,6 +12948,34 @@
         ]
       }
     },
+    "/api/voice/afk": {
+      "post": {
+        "operationId": "go-afk",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
     "/api/voice/members/{userID}": {
       "delete": {
         "operationId": "disconnect-voice-member",
@@ -12259,6 +13080,44 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ServerMuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/ping": {
+      "post": {
+        "operationId": "voice-ping",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PingRequest"
               }
             }
           },
@@ -12398,6 +13257,54 @@
               }
             },
             "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/api/voice/{id}/teams": {
+      "post": {
+        "operationId": "draw-teams",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "default": {
             "content": {
@@ -12603,6 +13510,15 @@
     "MusicState": {
       "$ref": "#/components/schemas/MusicState"
     },
+    "Note": {
+      "$ref": "#/components/schemas/Note"
+    },
+    "NoteDeleted": {
+      "$ref": "#/components/schemas/NoteDeleted"
+    },
+    "NoteSummary": {
+      "$ref": "#/components/schemas/NoteSummary"
+    },
     "PlaylistDeleted": {
       "$ref": "#/components/schemas/PlaylistDeleted"
     },
@@ -12636,6 +13552,9 @@
     "SoundboardPlay": {
       "$ref": "#/components/schemas/SoundboardPlay"
     },
+    "TeamsDraw": {
+      "$ref": "#/components/schemas/TeamsDraw"
+    },
     "ThreadUpdate": {
       "$ref": "#/components/schemas/ThreadUpdate"
     },
@@ -12644,6 +13563,9 @@
     },
     "VoiceMove": {
       "$ref": "#/components/schemas/VoiceMove"
+    },
+    "VoicePing": {
+      "$ref": "#/components/schemas/VoicePing"
     },
     "VoiceState": {
       "$ref": "#/components/schemas/VoiceState"

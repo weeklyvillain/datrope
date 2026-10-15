@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { MessagesSquare, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { MessagesSquare, Plus, Search, SlidersHorizontal } from "@/components/icons";
 import { useEffect, useId, useMemo, useState } from "react";
 import { client, errorText, isUnread, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";
@@ -20,7 +20,7 @@ import { ForumFilterSheet } from "./ForumFilterSheet";
 import { PostDialog } from "./PostDialog";
 import { PostPanel } from "./PostPanel";
 import { EmojiText } from "@/chat/EmojiText";
-import { EmptyView } from "../EmptyView";
+import { NoAccess } from "../../pages/errors";
 import { PostRow } from "./PostRow";
 import { ListSkeleton } from "@/components/loading-skeleton";
 
@@ -66,7 +66,7 @@ export function ForumView({ channelId }: { channelId: string }) {
 
   const shown = useMemo(() => filterPosts(posts ?? [], { query, tag, sort }), [posts, query, tag, sort]);
 
-  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  if (!ch) return <NoAccess inShell />;
   const canStart = hasPerm(perms, Perm.SendMessages) && hasPerm(perms, Perm.CreateThreads);
   const openPost = panel?.kind === "post" ? panel.postId : undefined;
   return (

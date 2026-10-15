@@ -1,5 +1,5 @@
 import { channelRef } from "@datrope/core";
-import { AlarmClock, X } from "lucide-react";
+import { AlarmClock, X } from "@/components/icons";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

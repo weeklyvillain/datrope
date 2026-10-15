@@ -1,5 +1,5 @@
 import type { ThreadListItem } from "@datrope/core";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare } from "@/components/icons";
 import { displayName } from "../../session";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";

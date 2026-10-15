@@ -1,5 +1,5 @@
 import { unwrap, type Settings, type User } from "@datrope/core";
-import { Ellipsis } from "lucide-react";
+import { Ellipsis } from "@/components/icons";
 import { useEffect, useId, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { FormField } from "@/components/form-field";

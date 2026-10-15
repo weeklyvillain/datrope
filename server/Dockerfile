@@ -4,7 +4,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/datrope ./cmd/datrope \
+ARG DATROPE_BUILD=dev
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/datrope/datrope/server/internal/version.Build=${DATROPE_BUILD}" -o /out/datrope ./cmd/datrope \
  && mkdir -p /out/data/files
 
 # Alpine rather than distroless: the music bot runs ffmpeg (decoding to Opus)

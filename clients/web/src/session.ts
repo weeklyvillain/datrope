@@ -5,6 +5,7 @@ import {
 import { useStore } from "zustand";
 import { useEffect, useState } from "react";
 import { myRank, outranks } from "@/lib/hierarchy";
+import { clearResume } from "./voice/resume";
 
 const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 
@@ -14,7 +15,10 @@ let wasGuest = false;
 export const client = new DatropeClient({
   baseUrl: "",
   wsUrl,
-  onSignedOut: () => window.location.assign(wasGuest ? "/guest-ended" : "/login"),
+  onSignedOut: () => {
+    clearResume(sessionStorage); // a call must not resume for whoever signs in next in this tab
+    window.location.assign(wasGuest ? "/guest-ended" : "/login");
+  },
 });
 
 client.store.subscribe((s) => {
@@ -100,7 +104,9 @@ export function dmName(ch: Channel | undefined, meId: string | undefined): strin
 
 /** Ends this device's session and returns to the sign-in page. */
 export async function signOut() {
-  // Dynamic: notify/push imports `client` from this module.
+  // Dynamic: notify/push and voice import `client` from this module.
+  const { voice } = await import("./voice/voice");
+  voice.leave(); // hangs up and forgets the call, so the next sign-in in this tab does not rejoin it
   const { disablePush } = await import("./notify/push");
   await disablePush().catch(() => undefined); // the server drops it with the session anyway; this frees the browser's
   await unwrap(client.api.POST("/api/auth/logout"));

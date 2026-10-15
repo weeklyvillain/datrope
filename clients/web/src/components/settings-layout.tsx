@@ -1,4 +1,4 @@
-import { ArrowLeft, type LucideIcon } from "lucide-react";
+import { ArrowLeft, type AnimatedIcon } from "@/components/icons";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ServersButton } from "@/app/WindowControls";
@@ -11,7 +11,7 @@ export const NAV = "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-mute
 export interface SettingsItem {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon: AnimatedIcon;
   /** A link target; without it (and without `soon`) the item is a button that calls `onSelect`. */
   to?: string;
   onSelect?: () => void;

@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm } from "@datrope/core";
-import { FilterX, Images, Search, SlidersHorizontal, Upload, X } from "lucide-react";
+import { FilterX, Images, Search, SlidersHorizontal, Upload, X } from "@/components/icons";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { client, displayName, isUnread, useApp, usePerms } from "../../session";
@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { EmojiText } from "@/chat/EmojiText";
 import { Topic } from "../ChannelView";
-import { EmptyView } from "../EmptyView";
+import { NoAccess } from "../../pages/errors";
 import { SearchPanel } from "../search/SearchPanel";
 import { RemindersPanel } from "../reminders/RemindersPanel";
 import { ScreenHeader } from "../mobile/ScreenHeader";
@@ -110,7 +110,7 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
     return () => io.disconnect();
   }, [hasMore, loadMore, error]);
 
-  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  if (!ch) return <NoAccess inShell />;
   const canUpload = canPost(ch, perms) && hasPerm(perms, Perm.AttachFiles);
   const selected = panel?.kind === "media" ? panel : undefined;
   const filtered = filter.kind !== "all" || filter.q.trim() !== "" || filter.uploader !== null || filter.channels.length > 0;

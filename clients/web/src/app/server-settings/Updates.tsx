@@ -8,9 +8,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmit } from "@/hooks/use-submit";
-import { classifyPollError, needsRebuild, nextPoll, type JobView, type PollResult } from "@/lib/system";
+import { classifyPollError, needsRebuild, nextPoll, stageLabel, type JobView, type PollResult } from "@/lib/system";
 import { client } from "@/session";
 
 const JOB_POLL_MS = 1000;
@@ -176,9 +177,10 @@ export function UpdatesView({ updates, busy, job, onCheck, onUpdateServer, onUpd
                     <AlertDialogHeader>
                       <AlertDialogTitle>{st.behind > 0 ? "Update the server?" : "Rebuild the server?"}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {st.behind > 0 ? `Pulls ${plural(st.behind, "commit")}, rebuilds` : "Rebuilds"} and restarts everything.
-                        Building takes a few minutes; everyone is disconnected for a moment at the end. If the pull fails
-                        nothing changes. If the build fails, the old containers keep running and you can try again.
+                        {st.behind > 0 ? `Pulls ${plural(st.behind, "commit")}, builds` : "Builds"} and starts the new server
+                        next to the running one, then switches over once it is healthy. Building takes a few minutes; at the
+                        switch everyone reconnects once. If anything fails before the switch, the running server stays and
+                        you can try again.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -228,12 +230,19 @@ function JobLog({ job }: { job: JobView }) {
   const updated = job.sha ? `Updated to ${short(job.sha)}` : "Updated";
   const label = { running: "Updating…", restarting: "Restarting…", succeeded: updated, failed: "Update failed" }[job.phase];
   const busy = job.phase === "running" || job.phase === "restarting";
+  const progress = stageLabel(job);
   return (
     <div className="grid min-w-0 gap-2">
       <p role="status" className={job.phase === "failed" ? "text-destructive" : undefined}>
         {busy && <Spinner className="mr-2 inline size-4" />}
         {job.message ?? label}
       </p>
+      {progress && (
+        <div className="grid gap-1.5">
+          <p className="text-sm text-muted-foreground">{progress.label}</p>
+          <Progress value={progress.percent} aria-label="Update progress" />
+        </div>
+      )}
       {job.phase === "succeeded" && (
         <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
           Reload the page to load the new version.

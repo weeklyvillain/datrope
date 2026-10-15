@@ -1,4 +1,4 @@
-import { Music, Pause, PhoneOff, Play, X } from "lucide-react";
+import { Music, Pause, PhoneOff, Play, X } from "@/components/icons";
 import { useEffect, useId } from "react";
 import { useLocation } from "react-router-dom";
 import { useStore } from "zustand";
@@ -65,14 +65,14 @@ export function MiniBars({ compact = false, aboveComposer = false }: { compact?:
 
 /** The call: channel, status and who's in it; mute, hold to talk, disconnect. Tapping it opens the call screen. */
 function VoicePart({ compact = false }: { compact?: boolean }) {
-  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status })));
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, retry: x.retry })));
   const ch = useApp((s) => (v.channelId ? s.channels[v.channelId] : undefined));
   const me = useApp((s) => s.me?.id);
   const count = useApp((s) => Object.values(s.voice).filter((p) => p.channel_id === v.channelId).length);
   const navigate = useLayerNavigate();
   const name = !ch ? "Voice" : ch.type === "dm" ? dmName(ch, me) : ch.name;
   const href = !ch ? "/" : ch.type === "dm" ? `/messages/${ch.id}` : `/channels/${ch.id}`;
-  const status = v.status === "connected" ? `Voice connected · ${count}` : v.status === "idle" ? "" : STATUS[v.status];
+  const status = v.status === "connected" ? `Voice connected · ${count}` : v.status === "idle" ? "" : v.status === "reconnecting" && v.retry ? `Reconnecting… (${v.retry})` : STATUS[v.status];
   return (
     <section aria-label="Voice call" className={cn("flex min-w-0 items-center gap-1", compact ? cn("min-h-[56px] flex-1 px-2", voiceTint) : "flex-1")}>
       <BareButton aria-label={`Open call: ${name}`} className={body} onClick={() => navigate(href)}>

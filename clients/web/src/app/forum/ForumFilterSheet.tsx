@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search } from "@/components/icons";
 import { useId } from "react";
 import { ActionSheet } from "@/components/action-sheet";
 import { Input } from "@/components/ui/input";

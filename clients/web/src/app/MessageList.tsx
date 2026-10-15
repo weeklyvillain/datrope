@@ -2,7 +2,7 @@ import { ApiError, compareIds, mentionsMe, myRoleIds, unwrap, type Attachment, t
 import { useShallow } from "zustand/react/shallow";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Virtuoso, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
-import { AlarmClock, Copy, Hand, Images, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
+import { AlarmClock, Copy, FileX, Hand, Images, Infinity as InfinityIcon, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Timer, Trash2 } from "@/components/icons";
 import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
@@ -15,18 +15,24 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichInput } from "@/chat/RichInput";
 import { Markdown } from "@/chat/Markdown";
 import { Reactions, useBriefError } from "@/chat/Reactions";
 import { PollCard } from "@/chat/PollCard";
 import { WheelCard } from "@/chat/WheelCard";
 import { parseWheel } from "@/chat/wheel";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 import { messageKeyAction, type MessageKey } from "@/lib/message-keys";
 import { buildItems, indexOfMessage, navTarget, neighbourRow, prependedCount, type Item } from "@/lib/message-items";
 import { shouldKeepFocus } from "@/lib/focus";
 import { clockTime, fullStamp, headStamp } from "@/lib/message-time";
+import { useClockPref } from "@/lib/clock-pref";
 import { useLongPress } from "@/hooks/use-long-press";
 import { useSwipeReply } from "@/hooks/use-swipe-reply";
 import { recordEmoji } from "@/chat/recent-emoji";
@@ -61,6 +67,8 @@ import { GifMedia } from "./attachments/GifMedia";
 import { ImageViewer } from "./attachments/ImageViewer";
 import { clearEditRequest, onEditLast, onEditRequest, onPresent, requestEdit } from "./chat-events";
 import { VideoPlayer } from "./attachments/VideoPlayer";
+import { ExpiredFile } from "./attachments/ExpiredFile";
+import { expiresLabel, fileFlags } from "./attachments/expiry";
 import { MemberRoleIcon } from "@/components/role-icon";
 import { fitBox, mediaKind, showable } from "./attachments/media";
 import { attachmentImage } from "@/lib/sized-image";
@@ -100,10 +108,10 @@ export function focusRow(scroller: HTMLElement | null, id: string) {
 /** The composer that goes with the list `from` is in (a thread's or post's own box), else the channel's. */
 const composer = (from?: Element | null) => {
   for (let el = from?.parentElement; el; el = el.parentElement) {
-    const box = el.querySelector<HTMLTextAreaElement>("textarea[role=combobox]");
+    const box = el.querySelector<HTMLElement>("[data-composer]");
     if (box) return box;
   }
-  return document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]');
+  return document.querySelector<HTMLElement>('[data-composer][aria-label="Message"]');
 };
 
 /** Each mounted list, by channel: what jumpTo and "Jump to present" scroll with. */
@@ -620,6 +628,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const [profileOpen, setProfileOpen] = useState(false);
   const avatarRef = useRef<HTMLButtonElement>(null);
   const row = useRef<HTMLElement>(null);
+  useClockPref(); // re-render the stamps when the clock setting changes
   const [editing, setEditing] = useState(false);
   const stopEditing = () => { setEditing(false); requestAnimationFrame(() => row.current?.focus({ preventScroll: true })); };
   const [draft, setDraft] = useState(m.content);
@@ -695,6 +704,14 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   useEffect(() => onEditRequest(m.id, () => onEditRef.current?.()), [m.id]);
   const onPin = canPin ? () => void (m.pinned ? client.unpin(m.channel_id, m.id) : client.pin(m.channel_id, m.id)).catch((e) => setError(errorText(e))) : undefined;
   const onDelete = canDelete ? () => { confirmed.current = false; setConfirming(true); } : undefined;
+  // Whoever may delete the message may also keep its files or remove them.
+  const fileOps = canDelete && !m.pending && (m.attachments?.length ?? 0) > 0;
+  const flags = fileFlags(m.attachments ?? []);
+  const [removing, setRemoving] = useState(false);
+  const keepFiles = (keep: boolean) => void Promise.all((m.attachments ?? []).filter((a) => !a.expired && (keep ? a.expires_at && !a.keep : a.keep))
+    .map((a) => client.keepAttachment(a.id, keep))).catch((e) => setError(errorText(e)));
+  const removeFiles = () => void Promise.all((m.attachments ?? []).filter((a) => !a.expired).map((a) => client.removeAttachment(a.id)))
+    .catch((e) => setError(errorText(e)));
   const actionable = !m.pending && !m.deleted && !editing;
   // Radix skips its menu (and its preventDefault) while the trigger is disabled, so links, media and
   // selected text keep the native menu: decide on pointerdown, which precedes contextmenu.
@@ -706,9 +723,11 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const touchy = canLongPress();
   const sheetMounted = useLatch(sheet);
   const pickerMounted = useLatch(picker);
+  // Expired files can't go in an album.
+  const liveIds = (m.attachments ?? []).filter((a) => !a.expired).map((a) => a.id);
   const acts = messageActions(m, {
     reply: !!onReply, react: canReact, thread: !!openThread && canCreateThread, hasThread: !!thread && !!openThread, edit: !!onEdit,
-    pin: !!onPin, pinned: m.pinned, album: (m.attachments?.length ?? 0) > 0 && !isDM, remind: canRemind, delete: !!onDelete,
+    pin: !!onPin, pinned: m.pinned, album: liveIds.length > 0 && !isDM, remind: canRemind, files: fileOps, delete: !!onDelete,
   });
   const lastTouch = useRef(false);
   const inRow = (e: { currentTarget: Element; target: EventTarget }) => e.currentTarget.contains(e.target as Node);
@@ -770,7 +789,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
         fn();
       }}
       style={{ transform: swipe.offset ? `translateX(${swipe.offset}px)` : undefined }}
-      className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-pan-y pointer-coarse:[-webkit-touch-callout:none]",
+      className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-pan-y pointer-coarse:[-webkit-touch-callout:none] pointer-coarse:select-none",
         swipe.offset === 0 && "motion-safe:transition-transform",
         card ? "rounded-xl py-4" : grouped ? "py-0.5" : "mt-2 pb-0.5 pt-1",
         mentioned ? "border-l-2 border-primary bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] pl-3.5" : !card && "hover:bg-card/50")}>
@@ -820,7 +839,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
             {card && (
               <Input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={100} aria-label="Edit title"
-                placeholder="Title" className="mb-2"
+                placeholder="Title" className="mb-2 pointer-coarse:select-text"
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
                     e.preventDefault();
@@ -828,9 +847,9 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
                   }
                 }} />
             )}
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} aria-label="Edit message" autoFocus
+            <RichInput value={draft} onChange={(v) => setDraft(v)} maxLength={4000} aria-label="Edit message" autoFocus
+              variant="input" className="h-auto min-h-16 py-2 md:text-title pointer-coarse:select-text"
               enterKeyHint={isTouchOnly() ? "enter" : undefined}
-              onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   e.preventDefault();
@@ -861,7 +880,8 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           </div>
         ) : m.content || m.edited_at ? (
           <div id={`message-${m.id}-text`} className={cn("wrap-anywhere max-w-[80ch]", m.pending && "opacity-60")}>
-            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} roles={m.pending ? undefined : m.mention_roles ?? undefined} everyone={!!m.mention_everyone} />
+            <Markdown text={m.content} mentions={m.pending ? undefined : m.mentions ?? undefined} roles={m.pending ? undefined : m.mention_roles ?? undefined} everyone={!!m.mention_everyone}
+              time={m.pending ? undefined : { sentAt: m.created_at, tz: m.tz ?? undefined }} />
             {/* Grouped rows have no header, so "(edited)" follows the text. */}
             {grouped && m.edited_at && <span className="edited text-xs text-muted-foreground"> (edited)</span>}
           </div>
@@ -886,9 +906,9 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           onEdit={onEdit}
           onPin={onPin}
           pinned={m.pinned}
-          onCopy={m.content ? () => void navigator.clipboard?.writeText(m.content).catch(() => undefined) : undefined}
-          albumItems={(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending
-            ? <AddToAlbumMenuItems attachmentIds={m.attachments!.map((a) => a.id)} onError={showAlbumError} />
+          onCopy={m.content ? () => void copyText(m.content) : undefined}
+          albumItems={liveIds.length > 0 && !isDM && !m.pending
+            ? <AddToAlbumMenuItems attachmentIds={liveIds} onError={showAlbumError} />
             : undefined}
           remindItems={canRemind ? <RemindMenuItems message={m} kind="dropdown" onCustom={() => setReminding(true)} /> : undefined}
           onDelete={onDelete} />
@@ -907,21 +927,24 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
         : <ContextMenuItem onSelect={openThread}><MessageSquarePlus />Create thread</ContextMenuItem>)}
       {onEdit && <ContextMenuItem onSelect={onEdit}><Pencil />Edit message</ContextMenuItem>}
       {onPin && <ContextMenuItem onSelect={onPin}>{m.pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</ContextMenuItem>}
-      {m.content && <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}><Copy />Copy text</ContextMenuItem>}
+      {m.content && <ContextMenuItem onSelect={() => void copyText(m.content)}><Copy />Copy text</ContextMenuItem>}
       {canRemind && (
         <ContextMenuSub>
           <ContextMenuSubTrigger><AlarmClock />Remind me</ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-60"><RemindMenuItems message={m} kind="context" onCustom={() => setReminding(true)} /></ContextMenuSubContent>
         </ContextMenuSub>
       )}
-      {(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending && (
+      {liveIds.length > 0 && !isDM && !m.pending && (
         <ContextMenuSub>
           <ContextMenuSubTrigger><Images />Add to album</ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-56">
-            <AddToAlbumContextItems attachmentIds={m.attachments!.map((a) => a.id)} onError={showAlbumError} />
+            <AddToAlbumContextItems attachmentIds={liveIds} onError={showAlbumError} />
           </ContextMenuSubContent>
         </ContextMenuSub>
       )}
+      {fileOps && flags.expiring && <ContextMenuItem onSelect={() => keepFiles(true)}><InfinityIcon />Keep files forever</ContextMenuItem>}
+      {fileOps && flags.kept && <ContextMenuItem onSelect={() => keepFiles(false)}><Timer />Let files expire</ContextMenuItem>}
+      {fileOps && flags.removable && <ContextMenuItem variant="destructive" onSelect={() => setRemoving(true)}><FileX />Remove files</ContextMenuItem>}
       {onDelete && (
         <>
           <ContextMenuSeparator />
@@ -959,12 +982,26 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
         // The menu item that opened it is gone: back to the row, like the delete dialog.
         onCloseAutoFocus={(e) => { e.preventDefault(); if (row.current?.isConnected) row.current.focus({ preventScroll: true }); }}
         message={{ id: m.id, channel_id: m.channel_id, authorName: name, excerpt: m.content, channelName }} />}
+      <AlertDialog open={removing} onOpenChange={setRemoving}>
+        <AlertDialogContent onContextMenu={(e) => e.stopPropagation()}
+          onCloseAutoFocus={(e) => { e.preventDefault(); if (row.current?.isConnected) row.current.focus({ preventScroll: true }); }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove the files?</AlertDialogTitle>
+            <AlertDialogDescription>The message stays, with the file names. This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={removeFiles}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {touchy && sheetMounted && !!acts?.length && (
         <MessageSheet open={sheet} onOpenChange={setSheet} message={m} actions={acts} hasThread={!!thread} pinned={m.pinned}
           onReact={react} onMoreReactions={() => setPicker(true)}
           onReply={() => onReply?.()} onThread={() => openThread?.()} onEdit={() => onEdit?.()}
-          onCopy={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}
+          onCopy={() => void copyText(m.content)}
           onPin={() => onPin?.()} onAlbumError={showAlbumError} onRemind={() => setReminding(true)} onDelete={() => onDelete?.()}
+          onKeepFiles={keepFiles} onRemoveFiles={() => setRemoving(true)}
           preview={(
             <div className="mx-4 mb-1 max-h-24 overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm wrap-anywhere">
               <strong className="font-semibold" style={{ color }}>{name}</strong>
@@ -1006,8 +1043,12 @@ function ImageLink({ image: a, onOpen, className, more = 0, width, height, cover
 export function Attachments({ items }: { items: Attachment[] }) {
   const [viewing, setViewing] = useState<number | null>(null);
   if (items.length === 0) return null;
-  const images = items.filter(showable);
-  const others = items.filter((a) => !showable(a));
+  // An expired file's url is empty (client.url("") is the app root): it only ever reaches the placeholder.
+  const expired = items.filter((a) => a.expired);
+  const live = items.filter((a) => !a.expired);
+  const images = live.filter(showable);
+  const others = live.filter((a) => !showable(a));
+  const soonest = live.filter((a) => a.expires_at && !a.keep).map((a) => a.expires_at!).sort((a, b) => Date.parse(a) - Date.parse(b))[0];
   const tiles = images.slice(0, MAX_TILES);
   const hidden = images.length - tiles.length;
   return (
@@ -1034,6 +1075,8 @@ export function Attachments({ items }: { items: Attachment[] }) {
         if (isCodeFile(a)) return <CodeFileAttachment key={a.id} attachment={a} />;
         return <FileChip key={a.id} attachment={a} />;
       })}
+      {expired.map((a) => <ExpiredFile key={a.id} attachment={a} />)}
+      {soonest && <p className="text-xs text-muted-foreground">{expiresLabel(soonest, Date.now())}</p>}
     </div>
   );
 }

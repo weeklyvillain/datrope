@@ -1,5 +1,5 @@
 import { soundList, type Sound } from "@datrope/core";
-import { Play, Trash2, Upload } from "lucide-react";
+import { Play, Trash2, Upload } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { EmojiPicker } from "@/chat/EmojiPicker";

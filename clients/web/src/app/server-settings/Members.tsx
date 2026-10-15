@@ -1,5 +1,5 @@
 import { Perm, hasPerm, unwrap, type Member, type Role } from "@datrope/core";
-import { Crown, Ellipsis } from "lucide-react";
+import { Crown, Ellipsis } from "@/components/icons";
 import { useEffect, useId, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";

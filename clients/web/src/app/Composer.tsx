@@ -1,5 +1,5 @@
 import type { Attachment } from "@datrope/core";
-import { CirclePlus, Code, Reply, Send, Smile, X } from "lucide-react";
+import { CirclePlus, Code, Reply, Send, Smile, X } from "@/components/icons";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ReminderDialog } from "./reminders/ReminderDialog";
 import { setReminder } from "./reminders/reminders";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MiniBarsAboveComposer } from "./mobile/MiniBars";
 import { MAX_FILES, useUploads } from "@/hooks/use-uploads";
@@ -23,6 +22,7 @@ import { Autocomplete, useSuggestions, type Suggestion } from "@/chat/Autocomple
 import { findTrigger } from "@/chat/autocomplete";
 import { availableCommands, commandPending, isCommand, runCommand, type CommandContext, type ModalKind } from "@/chat/commands";
 import { EmojiPicker, emojiText } from "@/chat/EmojiPicker";
+import { RichInput, type RichInputHandle } from "@/chat/RichInput";
 import type { ReplyState } from "./MessageList";
 import { PollDialog } from "@/chat/PollDialog";
 import { GifDialog } from "./GifDialog";
@@ -45,8 +45,9 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   const running = useRef(false); // a command (/status) is in flight
   const [pending, setPending] = useState<string>(); // what a slow command (/play) is doing
   const { replyTo, setReplyTo } = reply;
-  const box = () => form.current?.querySelector("textarea");
-  const selLen = () => { const el = box(); return el ? el.selectionEnd - el.selectionStart : 0; };
+  const input = useRef<RichInputHandle>(null);
+  const sel = () => input.current?.selection() ?? { start: text.length, end: text.length };
+  const selLen = () => { const s = sel(); return s.end - s.start; };
 
   // Autocomplete for the @mention or :emoji being typed at the caret.
   const listId = useId();
@@ -84,13 +85,13 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
     const at = pendingCaret.current;
     if (at === null) return;
     pendingCaret.current = null;
-    box()?.focus();
-    box()?.setSelectionRange(at, at);
+    input.current?.focus();
+    input.current?.setSelection(at);
   }, [text]);
 
   // Starting a reply moves focus to the message box.
   useEffect(() => {
-    if (replyTo) box()?.focus();
+    if (replyTo) input.current?.focus();
   }, [replyTo]);
 
   // Guessing a pasted or wrapped snippet's language needs the highlighter ready.
@@ -118,9 +119,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
 
   // Wraps the selection (or nothing) in a ``` block, naming the language when the guess is sure.
   const wrapSelection = () => {
-    const el = box();
-    const from = el?.selectionStart ?? text.length;
-    const to = el?.selectionEnd ?? text.length;
+    const { start: from, end: to } = sel();
     const selected = text.slice(from, to);
     const guess = selected ? guessLanguage(selected) : null;
     const atLineStart = from === 0 || text[from - 1] === "\n";
@@ -220,9 +219,9 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
                 {f.text !== undefined && (
                   <Button variant="ghost" size="xs" disabled={(text.length - selLen()) + f.text.length > MAX_LENGTH}
                     onClick={() => {
-                      const el = box();
+                      const s = sel();
                       uploads.remove(f.key);
-                      insert(el?.selectionStart ?? text.length, el?.selectionEnd ?? text.length, f.text!);
+                      insert(s.start, s.end, f.text!);
                     }}>
                     Paste as text
                   </Button>
@@ -252,7 +251,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="top" onCloseAutoFocus={(e) => e.preventDefault()}>
                 <DropdownMenuItem onSelect={() => picker.current?.click()}>Upload file</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => { box()?.focus(); wrapSelection(); }}>
+                <DropdownMenuItem onSelect={() => { input.current?.focus(); wrapSelection(); }}>
                   <Code /> Code block
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -263,18 +262,19 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
               <CirclePlus />
             </Button>
           ))}
-          <Textarea className="max-h-[40vh] min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-1.5 text-title shadow-none focus-visible:ring-0 max-md:min-h-[44px] max-md:py-2.5"
-            value={text} placeholder={placeholder} aria-label={label} maxLength={MAX_LENGTH} rows={1}
+          <RichInput ref={input} data-composer=""
+            className="max-h-[40vh] min-h-0 flex-1 overflow-y-auto px-1 py-1.5 text-title max-md:min-h-[44px] max-md:py-2.5"
+            value={text} placeholder={placeholder} aria-label={label} maxLength={MAX_LENGTH}
             enterKeyHint={isTouchOnly() ? "enter" : undefined}
-            role="combobox" aria-expanded={listOpen} aria-autocomplete="list" aria-controls={listOpen ? listId : undefined}
+            role="combobox" aria-multiline={undefined} aria-expanded={listOpen} aria-autocomplete="list" aria-controls={listOpen ? listId : undefined}
             aria-activedescendant={listOpen ? `${listId}-${activeIndex}` : undefined}
-            onChange={(e) => {
-              setText(e.target.value);
-              setCaret(e.target.selectionStart);
+            onChange={(v, c) => {
+              setText(v);
+              setCaret(c);
               client.typing(channelId).catch(() => undefined);
             }}
-            onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-            onPaste={(e) => {
+            onSelect={setCaret}
+            onPaste={(e, s) => {
               const pasted = Array.from(e.clipboardData.files);
               if (canAttach && pasted.length > 0) {
                 e.preventDefault();
@@ -282,12 +282,11 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
                 return;
               }
               const value = e.clipboardData.getData("text/plain");
-              const el = e.currentTarget;
-              const room = MAX_LENGTH - (text.length - (el.selectionEnd - el.selectionStart));
-              if (!shouldSnippet(value, room, canAttach)) return;
-              if (files.length >= MAX_FILES && value.length <= room) return; // fits: paste natively
+              const room = MAX_LENGTH - (text.length - (s.end - s.start));
+              if (!shouldSnippet(value, room, canAttach)) return; // RichInput pastes it as plain text
+              if (files.length >= MAX_FILES && value.length <= room) return;
               e.preventDefault();
-              if (el.selectionEnd > el.selectionStart) insert(el.selectionStart, el.selectionEnd, "");
+              if (s.end > s.start) insert(s.start, s.end, "");
               const guess = guessLanguage(value);
               uploads.addText(value, `snippet.${extensionForLanguage(guess?.confident ? guess.lang : undefined)}`);
             }}
@@ -297,14 +296,15 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
                 wrapSelection();
                 return;
               }
-              if (listOpen) {
+              // While an IME is composing, its candidate list owns the arrows, Enter and Escape.
+              if (listOpen && !e.nativeEvent.isComposing) {
                 if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                   e.preventDefault();
                   const n = suggestions.length;
                   setActive((activeIndex + (e.key === "ArrowDown" ? 1 : -1) + n) % n);
                   return;
                 }
-                if (!e.nativeEvent.isComposing && (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey))) {
+                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
                   e.preventDefault();
                   pick(suggestions[activeIndex]);
                   return;
@@ -337,14 +337,8 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
             </Button>
           )}
           <EmojiPicker
-            onPick={(v) => {
-              const el = box();
-              insert(el?.selectionStart ?? text.length, el?.selectionEnd ?? text.length, emojiText(v));
-            }}
-            onCloseAutoFocus={(e) => {
-              e.preventDefault();
-              box()?.focus();
-            }}
+            onPick={(v) => { const s = sel(); insert(s.start, s.end, emojiText(v)); }}
+            onCloseAutoFocus={(e) => { e.preventDefault(); input.current?.focus(); }}
             trigger={
               <RefButton variant="ghost" size={phone ? "icon" : "icon-sm"} className={cn("text-muted-foreground", phone && "size-11")} aria-label="Emoji" title="Emoji"><Smile /></RefButton>
             } />

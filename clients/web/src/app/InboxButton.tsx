@@ -1,4 +1,4 @@
-import { AtSign } from "lucide-react";
+import { AtSign } from "@/components/icons";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { useApp } from "../session";

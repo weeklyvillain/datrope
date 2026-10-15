@@ -9,12 +9,12 @@ import type { Message, Ready, VoiceState, WatchState } from "./types";
 
 const bob = { id: "2", username: "bob", display_name: "Bob", custom_status: "" };
 
-const server = { id: "1", name: "Datrope", description: "", palette: "emerald", owner_id: "10", created_at: "", rules_gate: false } as const;
+const server = { id: "1", name: "Datrope", description: "", accent_color: "#2ecc71", owner_id: "10", created_at: "", rules_gate: false, afk_timeout_seconds: 900 } as const;
 const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | Perm.SendMessages, position: 0, hoist: false, self_assignable: false, mentionable: false, description: "" };
 const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff", self_assignable: false, mentionable: false, description: "" } as const;
 const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };
 const ready = (over: Partial<Ready> = {}): Ready => ({
-  session_id: "s", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
+  session_id: "s", build: "dev", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
   voice_states: [], emoji: [], sounds: [], activities: [],
   server: {
     ...server, roles: [everyone, mod],
@@ -44,7 +44,7 @@ describe("store", () => {
     try {
       const st: WatchState = {
         channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
-        paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+        paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start", seq: 1, waiting: [],
       };
       let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000_500 });
       expect(s.watch["300"]).toEqual(st);
@@ -57,10 +57,14 @@ describe("store", () => {
       vi.useRealTimers();
     }
   });
+  it("applyReady keeps the server's build", () => {
+    expect(initialState.serverBuild).toBeNull();
+    expect(applyReady(initialState, ready({ build: "abc" })).serverBuild).toBe("abc");
+  });
   it("applyReady forgets watches, so a reconnect re-fetches them", () => {
     const st: WatchState = {
       channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
-      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start", seq: 1, waiting: [],
     };
     let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000_500 });
     expect(s.watch["300"]).toEqual(st);
@@ -73,7 +77,7 @@ describe("store", () => {
   it("WATCH_UPDATE older than the last one applied for the channel is ignored", () => {
     const st: WatchState = {
       channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
-      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start", seq: 1, waiting: [],
     };
     let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: { ...st, paused: true }, server_now: 2_000 });
     s = applyEvent(s, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000 });
@@ -114,8 +118,8 @@ describe("store", () => {
 
   it("updates the server and drops it when I am removed", () => {
     let s = applyReady(initialState, ready());
-    s = applyEvent(s, "SERVER_UPDATE", { ...server, name: "Basement", palette: "ocean" });
-    expect(s.server?.server.palette).toBe("ocean");
+    s = applyEvent(s, "SERVER_UPDATE", { ...server, name: "Basement", accent_color: "#4aa3ff" });
+    expect(s.server?.server.accent_color).toBe("#4aa3ff");
     s = applyEvent(s, "MEMBER_REMOVE", { user_id: "20" });
     expect(s.server).toBeNull();
     expect(s.channels["101"]).toBeUndefined();

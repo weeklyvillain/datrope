@@ -63,6 +63,7 @@ type Service struct {
 	wg       sync.WaitGroup
 	mu       sync.Mutex
 	clock    func() time.Time
+	active   func() bool // nil: always live; see SetActive
 }
 
 func NewService(db *pgxpool.Pool, bus *events.Bus, m Messages) *Service {
@@ -185,8 +186,10 @@ func (s *Service) Start() {
 		defer s.wg.Done()
 		ctx := context.Background()
 		for {
-			if err := s.FireDue(ctx); err != nil {
-				slog.Error("reminders: fire", "err", err)
+			if s.isActive() {
+				if err := s.FireDue(ctx); err != nil {
+					slog.Error("reminders: fire", "err", err)
+				}
 			}
 			t := time.NewTimer(s.untilNext(ctx))
 			select {

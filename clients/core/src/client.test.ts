@@ -14,13 +14,13 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 const ready = {
-  session_id: "s", dms: [], presences: [], read_states: [], voice_states: [], emoji: [], sounds: [], activities: [],
+  session_id: "s", build: "dev", dms: [], presences: [], read_states: [], voice_states: [], emoji: [], sounds: [], activities: [],
   user: { id: "1", username: "alice", display_name: "Alice", custom_status: "", is_admin: false, disabled: false, created_at: "2026-01-01T00:00:00Z" },
 } satisfies Ready;
 
 const attachment: Attachment = {
   id: "900", channel_id: "300", filename: "hi.txt", content_type: "text/plain; charset=utf-8",
-  size: 2, inline: false, url: "/api/attachments/900",
+  size: 2, inline: false, url: "/api/attachments/900", keep: false, expired: false,
 };
 
 function message(body: { content: string; nonce: string }, attachments: Attachment[] = []): Message {
@@ -168,7 +168,7 @@ it("keeps applying when a listener throws", () => {
   spy.mockRestore();
 });
 
-const sv = { id: "1", name: "Datrope", description: "", palette: "emerald", owner_id: "10", created_at: "", rules_gate: false } as const;
+const sv = { id: "1", name: "Datrope", description: "", accent_color: "#2ecc71", owner_id: "10", created_at: "", rules_gate: false, afk_timeout_seconds: 900 } as const;
 const member = (accepted: boolean) => ({
   user: { id: "1", username: "alice", display_name: "Alice", custom_status: "" }, role_ids: [], joined_at: "",
   ...(accepted ? { accepted_rules_at: "x" } : {}),
@@ -547,7 +547,7 @@ it("createPost sends the forum post body and returns the post", async () => {
     return HttpResponse.json(item, { status: 201 });
   }));
   const post = await readyClient().createPost("400", { title: "Hello", content: "body", tags: ["bug"], attachments: [attachment] });
-  expect(seen).toEqual({ id: "400", body: { title: "Hello", content: "body", tags: ["bug"], attachment_ids: ["900"] } });
+  expect(seen).toEqual({ id: "400", body: { title: "Hello", content: "body", tags: ["bug"], attachment_ids: ["900"], tz: expect.any(String) } });
   expect(post.channel.id).toBe("600");
 });
 

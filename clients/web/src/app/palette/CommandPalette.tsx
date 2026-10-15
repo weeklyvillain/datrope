@@ -1,5 +1,5 @@
 import { Perm, canCreateInvites, hasPerm, sidebarChannelIds, unwrap, type Member } from "@datrope/core";
-import { BookOpen, CheckCheck, Hash, Keyboard, PhoneOff, Plus, Search, Settings, User, UserPlus, Users, Volume2, type LucideIcon } from "lucide-react";
+import { BookOpen, CheckCheck, Hash, Keyboard, PhoneOff, Plus, Search, Settings, User, UserPlus, Users, Volume2, type AnimatedIcon } from "@/components/icons";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -18,7 +18,7 @@ import { useVoice, voice } from "../../voice/voice";
 import { emitToggleMembers } from "../chat-events";
 import { closeCommands, findDM, toggleCommands, useCommands } from "./command-store";
 
-const CHANNEL_ICONS: Record<string, LucideIcon> = { voice: Volume2, welcome: BookOpen };
+const CHANNEL_ICONS: Record<string, AnimatedIcon> = { voice: Volume2, welcome: BookOpen };
 
 const SETTINGS: { id: SettingsSection; label: string }[] = [
   { id: "profile", label: "My profile" },

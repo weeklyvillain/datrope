@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeftRight, Pause, Play, Square, Volume2, VolumeX } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { client, useApp, userName } from "../../session";
 import { useVoice } from "../../voice/voice";
 import type { TileSize } from "../voice/Tile";
-import { describeAction, expectedPosition, formatTime } from "./sync";
+import { describeAction, describeWaiting, expectedPosition, formatTime } from "./sync";
 import { useWatchSync } from "./use-watch-sync";
 import { readVolume, saveVolume } from "./volume";
 import { WatchDialog } from "./WatchDialog";
@@ -36,10 +36,11 @@ function useTicker(on: boolean) {
 export function WatchTile({ channelId, size }: { channelId: string; size: TileSize }) {
   const host = useRef<HTMLDivElement>(null);
   const here = useVoice((v) => v.channelId === channelId && v.status === "connected");
-  const { st, player, error, blocked, unblock } = useWatchSync(channelId, host, here);
+  const { st, player, error, blocked, unblock, open } = useWatchSync(channelId, host, here);
   const meId = useApp((s) => s.me?.id);
   const offset = useApp((s) => s.serverOffset);
   const actor = useApp((s) => (st ? userName(s, st.last_actor) : ""));
+  const waitLine = useApp((s) => (st ? describeWaiting(st.waiting, s.me?.id, (u) => userName(s, u)) : ""));
   const [vol, setVol] = useState(readVolume);
   const [changing, setChanging] = useState(false);
   const [scrub, setScrub] = useState<number>(); // while the position slider is dragged
@@ -47,9 +48,9 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
   const { busy, error: actError, run } = useSubmit();
   useTicker(!!st && !st.paused);
 
-  // Someone else's action, said for a few seconds. A late title does not change updated_at, so it does not re-toast.
+  // Someone else's action, said for a few seconds. A late title or a wait does not change seq, so it does not re-toast.
   const note = st && st.last_actor !== meId ? describeAction(st, actor) : undefined;
-  const stamp = st?.updated_at;
+  const stamp = st?.seq;
   useEffect(() => {
     if (!note) return;
     setToast(note);
@@ -75,7 +76,7 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
     <section aria-label="Watch together" className={cn("group relative overflow-hidden rounded-xl border bg-sidebar", box[size])}>
       <div ref={host} className="absolute inset-0 [&>*]:size-full [&_iframe]:size-full" />
       {/* Covers the embed: its own controls would change playback for me alone. */}
-      <div className="absolute inset-0" aria-hidden />
+      {!open && <div className="absolute inset-0" aria-hidden />}
       <div className="absolute left-2.5 top-2.5 flex max-w-[70%] items-center gap-1.5">
         {live && <Badge variant="destructive">LIVE</Badge>}
         {!strip && <span className="truncate rounded-md bg-background/80 px-2 py-0.5 text-xs text-foreground">{st.title || st.url}</span>}
@@ -91,7 +92,13 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
           <p className="text-xs text-muted-foreground">Join the call to watch together.</p>
         </div>
       )}
-      {blocked && (
+      {blocked && open && (
+        <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 bg-background/90 px-3 py-2 text-xs text-foreground">
+          {!strip && <span>Twitch may ask you to confirm in the player first.</span>}
+          <Button size="sm" variant="outline" onClick={unblock}><Play aria-hidden />Click to sync</Button>
+        </div>
+      )}
+      {blocked && !open && (
         <Button variant="ghost" onClick={unblock} className="absolute inset-0 h-auto rounded-none bg-background/70 text-foreground hover:bg-background/60">
           <Play className="size-5" aria-hidden />Click to sync
         </Button>
@@ -109,7 +116,7 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
       ) : (
         <div role="toolbar" aria-label="Watch controls" className={cn(
           "absolute inset-x-0 bottom-0 grid gap-2 bg-gradient-to-t from-background/95 to-transparent px-3 pb-2.5 pt-8 transition-opacity",
-          st.paused ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100",
+          st.paused || waitLine ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100",
         )}>
           {!live && dur > 0 && (
             <Slider aria-label="Position" min={0} max={dur} step={1} value={[scrub ?? pos]} disabled={!here}
@@ -126,7 +133,9 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
             {live
               ? <span className="text-xs font-semibold text-destructive">LIVE</span>
               : <span className="text-xs tabular-nums text-muted-foreground">{formatTime(scrub ?? pos)}{dur > 0 && ` / ${formatTime(dur)}`}</span>}
-            {st.paused && st.last_action === "pause" && <span className="truncate text-xs text-muted-foreground">Paused by {actor}</span>}
+            {waitLine
+              ? <span className="truncate text-xs text-muted-foreground">{waitLine}</span>
+              : st.paused && st.last_action === "pause" && <span className="truncate text-xs text-muted-foreground">Paused by {actor}</span>}
             <span className="flex-1" />
             <Button size="icon-sm" variant="ghost" aria-label={vol.muted ? "Unmute video" : "Mute video"}
               onClick={() => setVol((v) => ({ ...v, muted: !v.muted }))}>

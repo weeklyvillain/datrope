@@ -39,20 +39,19 @@ type ChannelSeeder interface {
 	SeedCommunity(ctx context.Context, tx pgx.Tx, communityID id.ID) error
 }
 
-// Palettes a server can use; the client maps each to its accent colour.
-var Palettes = []string{"emerald", "ocean", "violet", "amber", "rose", "mint"}
-
 // Server is the instance's one community.
 type Server struct {
-	ID          id.ID     `json:"id" doc:"Also the ID of the @everyone role"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Palette     string    `json:"palette" enum:"emerald,ocean,violet,amber,rose,mint"`
-	OwnerID     id.ID     `json:"owner_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	IconURL     *string   `json:"icon_url,omitempty"`
-	BannerURL   *string   `json:"banner_url,omitempty"`
-	RulesGate   bool      `json:"rules_gate" doc:"New members see only the welcome page until they accept the rules"`
+	ID                id.ID     `json:"id" doc:"Also the ID of the @everyone role"`
+	Name              string    `json:"name"`
+	Description       string    `json:"description"`
+	AccentColor       string    `json:"accent_color" pattern:"^#[0-9a-f]{6}$" doc:"The server's accent colour; clients lighten it if it is too dark to read"`
+	OwnerID           id.ID     `json:"owner_id"`
+	CreatedAt         time.Time `json:"created_at"`
+	IconURL           *string   `json:"icon_url,omitempty"`
+	BannerURL         *string   `json:"banner_url,omitempty"`
+	RulesGate         bool      `json:"rules_gate" doc:"New members see only the welcome page until they accept the rules"`
+	AFKChannelID      *id.ID    `json:"afk_channel_id,omitempty" doc:"Voice channel idle members are moved to"`
+	AFKTimeoutSeconds int       `json:"afk_timeout_seconds" enum:"300,900,1800,3600" doc:"Seconds without speaking before the move"`
 }
 
 type ServerWithRoles struct {
@@ -101,6 +100,7 @@ type MemberRemoved struct {
 }
 
 type Service struct {
+	active   func() bool // nil: always live; see SetActive
 	db       *pgxpool.Pool
 	bus      *events.Bus
 	users    Users
@@ -152,8 +152,10 @@ func (s *Service) ServerID(ctx context.Context) (id.ID, error) {
 
 func (s *Service) Server(ctx context.Context) (*Server, error) {
 	var sv Server
-	err := s.db.QueryRow(ctx, `SELECT id, name, description, palette, owner_id, created_at, rules_gate FROM communities WHERE is_server`).
-		Scan(&sv.ID, &sv.Name, &sv.Description, &sv.Palette, &sv.OwnerID, &sv.CreatedAt, &sv.RulesGate)
+	var afk *int64
+	err := s.db.QueryRow(ctx, `SELECT id, name, description, accent_color, owner_id, created_at, rules_gate, afk_channel_id, afk_timeout_seconds FROM communities WHERE is_server`).
+		Scan(&sv.ID, &sv.Name, &sv.Description, &sv.AccentColor, &sv.OwnerID, &sv.CreatedAt, &sv.RulesGate, &afk, &sv.AFKTimeoutSeconds)
+	sv.AFKChannelID = id.FromNullable(afk)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -173,6 +175,15 @@ func (s *Service) Server(ctx context.Context) (*Server, error) {
 		}
 	}
 	return &sv, nil
+}
+
+// AFKChannel is the community's AFK voice channel, if one is set (the voice service asks).
+func (s *Service) AFKChannel(ctx context.Context, communityID id.ID) (*id.ID, error) {
+	var ch *int64
+	if err := s.db.QueryRow(ctx, `SELECT afk_channel_id FROM communities WHERE id = $1`, communityID).Scan(&ch); err != nil {
+		return nil, err
+	}
+	return id.FromNullable(ch), nil
 }
 
 // BasePerms is userID's server-wide permission set: 0 for non-members.

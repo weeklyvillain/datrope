@@ -1,5 +1,5 @@
 import { unwrap, type Role } from "@datrope/core";
-import { Plus, UserRound, X } from "lucide-react";
+import { Plus, UserRound, X } from "@/components/icons";
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";

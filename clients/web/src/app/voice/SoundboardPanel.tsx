@@ -1,5 +1,5 @@
 import { Perm, hasPerm, soundList, type Sound } from "@datrope/core";
-import { Plus, Star, Volume2 } from "lucide-react";
+import { Plus, Star, Volume2 } from "@/components/icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useHistoryLayer } from "@/hooks/use-history-layer";
 import { cn } from "@/lib/utils";
 import { client, dmName, errorText, useApp, usePerms } from "../../session";
+import { isAFKChannel, liveAFKId } from "../../voice/afk";
 import { setSoundboardVolume, toggleFavourite, useVoicePrefs, voicePrefs } from "../../voice/prefs";
 import { playClip, preload, recordPlay, stopAllClips, shouldPlay, useRecentPlay, type PlayEvent } from "../../voice/soundboard-audio";
 import { useVoice, voice } from "../../voice/voice";
@@ -122,7 +123,9 @@ export function useSoundboardAccess() {
   const callId = useVoice((v) => (v.status === "idle" ? undefined : v.channelId ?? undefined));
   const perms = usePerms(callId);
   const serverMuted = useApp((s) => !!(s.me && s.voice[s.me.id]?.server_mute));
+  const afk = useApp((s) => isAFKChannel(liveAFKId(s.server?.server.afk_channel_id ?? undefined, s.channels), callId));
   const reason = !callId ? "Join a call to use the soundboard"
+    : afk ? "Not in the AFK channel"
     : serverMuted ? "You are muted by a moderator"
     : !hasPerm(perms, Perm.UseSoundboard) || !hasPerm(perms, Perm.Speak) ? "You cannot play sounds in this call"
     : "";

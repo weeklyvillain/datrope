@@ -1,4 +1,4 @@
-import { FileArchive, FileText, File as FileIcon, Hash, Music, Play } from "lucide-react";
+import { FileArchive, FileText, File as FileIcon, Hash, Music, Play } from "@/components/icons";
 import type { ReactNode } from "react";
 import { claimLongPress, useLongPress } from "@/hooks/use-long-press";
 import { UserAvatar } from "@/components/user-avatar";

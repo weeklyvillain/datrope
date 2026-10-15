@@ -1,5 +1,5 @@
 import { Perm, canCreateInvites, hasPerm, voiceMembers } from "@datrope/core";
-import { Phone } from "lucide-react";
+import { Phone } from "@/components/icons";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";

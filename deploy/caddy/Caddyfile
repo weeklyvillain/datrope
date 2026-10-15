@@ -1,0 +1,46 @@
+{$DATROPE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		?X-Content-Type-Options "nosniff"
+		?Referrer-Policy "no-referrer"
+		?X-Frame-Options "DENY"
+	}
+
+	# LiveKit signalling (a WebSocket). Media goes straight to LiveKit's ports.
+	handle_path /livekit/* {
+		reverse_proxy livekit:7880
+	}
+
+	@backend path /api/* /ws /manifest.webmanifest /healthz
+	handle @backend {
+		# The server sets its own headers, including the strict CSP on file downloads.
+		# reverse_proxy to the live server slot, written by the updater.
+		import /switch/upstream.caddy
+	}
+
+	handle {
+		# wasm-unsafe-eval: Enhanced noise suppression compiles RNNoise (WebAssembly) in an audio worklet.
+		# static.klipy.com: GIF picker previews load straight from Klipy's CDN.
+		# frame-src: YouTube, Twitch and Spotify players, loaded only when someone presses play in chat.
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://www.youtube.com https://embed.twitch.tv; connect-src 'self'; img-src 'self' data: blob: https://static.klipy.com https://cdn.7tv.app https://i.ytimg.com; frame-src https://www.youtube-nocookie.com https://player.twitch.tv https://clips.twitch.tv https://open.spotify.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# The service worker must be re-checked on every launch so updates arrive.
+		@sw path /sw.js
+		header @sw Cache-Control "no-cache"
+		# root at the live web build in the web volume, written by the updater.
+		import /switch/root.caddy
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# LiveKit's webhooks, from inside the compose network only (this port is not published): they
+# reach whichever server slot is live, like the site above.
+http://:8081 {
+	handle /api/voice/webhook {
+		import /switch/upstream.caddy
+	}
+	handle {
+		respond 404
+	}
+}

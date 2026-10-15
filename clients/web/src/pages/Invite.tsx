@@ -1,5 +1,5 @@
 import { unwrap, type InvitePreview, type User } from "@datrope/core";
-import { CheckIcon, Unlink2Icon } from "lucide-react";
+import { CheckIcon, Unlink2Icon } from "@/components/icons";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { client, deviceName, errorText } from "../session";

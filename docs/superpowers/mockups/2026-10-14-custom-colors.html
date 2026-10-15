@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Custom colors: 3 concepts</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --primary: #2ecc71; --primary-foreground: #131313;
+    --secondary: #424242; --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a; --border: #424242;
+    --input: #6b6b6b; --ring: #2ecc71; --sidebar: #0d0d0d; --destructive: #ef5b4c; --online: #2ecc71; --radius: .5rem;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font: 13px/18px system-ui, "Segoe UI", sans-serif; }
+  h1 { font-size: 20px; margin: 24px 24px 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  h3 { font-size: 13px; margin: 0; font-weight: 600; }
+  p.lead { margin: 0 24px 16px; color: var(--muted-foreground); max-width: 80ch; }
+  .concept { margin: 0 24px 40px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .concept > header { padding: 14px 16px; background: var(--card); border-bottom: 1px solid var(--border); }
+  .concept > header p { margin: 0; color: var(--muted-foreground); }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; }
+  .pane { padding: 16px; display: grid; gap: 10px; align-content: start; }
+  .pane + .pane { border-left: 1px solid var(--border); }
+  .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); }
+  .muted { color: var(--muted-foreground); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sw { width: 28px; height: 28px; border-radius: 999px; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .sw[aria-checked=true] { outline: 2px solid var(--foreground); outline-offset: 2px; }
+  .sw.custom { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+  .btn { border: 0; border-radius: 6px; padding: 6px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  .btn.primary { background: var(--p, var(--primary)); color: var(--pf, var(--primary-foreground)); }
+  .btn.outline { background: transparent; color: inherit; border: 1px solid var(--border); }
+  input[type=text] { background: var(--background); border: 1px solid var(--input); border-radius: 6px; color: var(--foreground); padding: 5px 8px; font: 13px ui-monospace, monospace; width: 96px; }
+  input[type=range] { width: 100%; }
+  .pop { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; width: 260px; display: grid; gap: 10px; box-shadow: 0 8px 24px #0008; }
+  .sv { height: 140px; border-radius: 6px; position: relative; background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--hue)); }
+  .sv i { position: absolute; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 99px; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #000; }
+  .hue { -webkit-appearance: none; appearance: none; height: 12px; border-radius: 99px; background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red); }
+  .note { font-size: 12px; padding: 6px 8px; border-radius: 6px; background: var(--muted); }
+  .chip { font: 11px ui-monospace, monospace; padding: 2px 6px; border-radius: 4px; background: var(--muted); }
+  .pass { color: var(--online); } .fail { color: var(--destructive); }
+  /* mini app preview, all colors from vars on .app */
+  .app { display: grid; grid-template-columns: 150px 1fr; border-radius: 8px; overflow: hidden; border: 1px solid var(--t-border); min-height: 180px; font-size: 13px; }
+  .app .side { background: var(--t-sidebar); color: var(--t-fg); padding: 8px; display: grid; gap: 3px; align-content: start; }
+  .app .side .ch { padding: 4px 8px; border-radius: 6px; color: var(--t-mfg); }
+  .app .side .ch.on { background: var(--t-accent); color: var(--t-fg); }
+  .app .side .srv { font-weight: 700; padding: 4px 6px 8px; display: flex; gap: 6px; align-items: center; }
+  .app .side .srv b { width: 14px; height: 14px; border-radius: 4px; background: var(--t-primary); display: inline-block; }
+  .app .main { background: var(--t-bg); color: var(--t-fg); display: grid; grid-template-rows: auto 1fr auto; }
+  .app .top { background: var(--t-card); padding: 6px 10px; border-bottom: 1px solid var(--t-border); font-weight: 600; }
+  .app .msgs { padding: 10px; display: grid; gap: 8px; align-content: start; }
+  .app .meta { color: var(--t-mfg); font-size: 12px; }
+  .app .men { background: color-mix(in srgb, var(--t-primary) 22%, transparent); padding: 0 3px; border-radius: 3px; font-weight: 600; }
+  .app a { color: var(--t-primary); }
+  .app .badge { background: var(--t-mention); color: var(--t-mentionfg); border-radius: 99px; padding: 0 6px; font-size: 11px; font-weight: 700; margin-left: auto; }
+  .app .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--t-online); display: inline-block; }
+  .app .compose { margin: 8px; padding: 6px 8px; border: 1px solid var(--t-input); border-radius: 6px; color: var(--t-mfg); background: var(--t-card); display: flex; justify-content: space-between; align-items: center; }
+  .app .send { background: var(--t-primary); color: var(--t-pfg); border-radius: 5px; padding: 2px 10px; font-weight: 600; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tcard { border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: grid; gap: 6px; cursor: pointer; }
+  .tcard.sel { border-color: var(--primary); }
+  .tcard .thumb { height: 36px; border-radius: 5px; display: flex; overflow: hidden; }
+  .ladder { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+  .tok { border-radius: 6px; padding: 8px; min-height: 58px; display: grid; align-content: space-between; border: 1px solid #ffffff14; }
+  .tok span { font: 11px ui-monospace, monospace; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { background: none; border: 0; color: var(--muted-foreground); padding: 5px 10px; font: inherit; cursor: pointer; }
+  .seg button[aria-pressed=true] { background: var(--muted); color: var(--foreground); }
+  .rail { height: 28px; border-radius: 8px; position: relative; background: linear-gradient(to right, oklch(0.7 0.16 0), oklch(0.7 0.16 60), oklch(0.7 0.16 120), oklch(0.7 0.16 180), oklch(0.7 0.16 240), oklch(0.7 0.16 300), oklch(0.7 0.16 360)); }
+  .rail .tick { position: absolute; top: 100%; width: 2px; height: 6px; background: var(--muted-foreground); }
+  .rail .knob { position: absolute; top: 50%; width: 18px; height: 34px; border-radius: 6px; border: 2px solid #fff; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #000; }
+  .steps { display: flex; gap: 6px; } .steps span { flex: 1; height: 3px; border-radius: 9px; background: var(--muted); } .steps span.on { background: var(--primary); }
+  .dialog { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; } td, th { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--border); } th { color: var(--muted-foreground); font-weight: 500; }
+  @media (max-width: 900px) { .panes { grid-template-columns: 1fr; } .pane + .pane { border-left: 0; border-top: 1px solid var(--border); } .cards { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<h1>Custom colors: 3 concepts</h1>
+<p class="lead">Left pane: <b>Server settings → Look</b> (admin picks server color). Right pane: <b>Settings → Appearance</b> (user builds a theme from one color).
+All previews are computed live by the proposed OKLCH derivation (hue kept, lightness moved until WCAG AA: text ≥ 4.5, UI ≥ 3). Try a dark navy like <code>#1a237e</code> or pale yellow <code>#fff59d</code>.</p>
+
+<!-- ============ A ============ -->
+<section class="concept">
+  <header><h2>A · Swatches + popover picker, theme as a card</h2><p>Least change. Presets stay a swatch row; a rainbow "Custom" swatch opens a classic picker popover. In Appearance, "Custom" is one more theme card that reveals a seed input inline.</p></header>
+  <div class="panes">
+    <div class="pane">
+      <span class="tag">Server settings · Look</span>
+      <h3>Server color</h3>
+      <p class="muted" style="margin:0">Buttons, links, mentions, the active channel and the logo. Everyone sees it.</p>
+      <div class="row" id="a-sw"></div>
+      <div class="pop">
+        <div class="sv" id="a-sv" style="--hue: hsl(230 100% 50%)"><i style="left:80%;top:50%"></i></div>
+        <input class="hue" type="range" min="0" max="360" value="230" id="a-hue" aria-label="Hue">
+        <div class="row"><input type="text" id="a-hex" value="#1a237e" aria-label="Hex"> <span class="muted">Hex</span></div>
+        <div class="note" id="a-note"></div>
+        <div class="row"><button class="btn outline">Cancel</button><button class="btn primary" id="a-save">Use color</button></div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="tag">Settings · Appearance</span>
+      <div class="cards" id="a-cards"></div>
+      <div class="dialog">
+        <h3>Custom theme</h3>
+        <div class="row"><input type="color" id="a-seed" value="#7c3aed" aria-label="Theme color"><input type="text" id="a-seedhex" value="#7c3aed" aria-label="Theme hex">
+          <label class="row"><input type="checkbox" id="a-mine"> Use my color for accents too</label></div>
+        <div class="app" id="a-app"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ B ============ -->
+<section class="concept">
+  <header><h2>B · One hue rail, big live preview</h2><p>No 2D picker at all. A single OKLCH hue rail (equal-brightness hues) with preset ticks; the engine picks chroma and lightness. Hex field for exact brand colors. Appearance becomes a full-width live preview with the rail under it: "choose a mood", not "choose a hex".</p></header>
+  <div class="panes">
+    <div class="pane">
+      <span class="tag">Server settings · Look</span>
+      <h3>Server color</h3>
+      <div class="rail" id="b-rail"></div>
+      <div class="row" style="margin-top:10px"><span class="muted">or exact</span><input type="text" id="b-hex" value="#4aa3ff" aria-label="Hex"><span class="note" id="b-note"></span></div>
+      <div class="app" id="b-sapp"></div>
+    </div>
+    <div class="pane">
+      <span class="tag">Settings · Appearance → Custom</span>
+      <div class="app" id="b-app" style="min-height:240px"></div>
+      <div class="rail" id="b-trail"></div>
+      <div class="row" style="margin-top:10px">
+        <span class="muted">Accents</span>
+        <div class="seg"><button aria-pressed="true" id="b-srv">Server color</button><button aria-pressed="false" id="b-mine">Mine</button></div>
+        <span class="muted">Intensity</span><input type="range" min="0" max="100" value="50" id="b-int" style="width:120px" aria-label="Tint intensity">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ C ============ -->
+<section class="concept">
+  <header><h2>C · Inspector: show the math</h2><p>Transparent and power-user. Picking a color shows the derived token ladder with each contrast ratio and pass/fail, and a before/after when the engine adjusted. Theme builder is a 3-step dialog: pick → review palette → name &amp; apply (custom themes saved as named cards).</p></header>
+  <div class="panes">
+    <div class="pane">
+      <span class="tag">Server settings · Look</span>
+      <div class="row"><div id="c-sw" class="row"></div><input type="color" id="c-col" value="#fff59d" aria-label="Custom"><input type="text" id="c-hex" value="#fff59d" aria-label="Hex"></div>
+      <div class="row" id="c-ba"></div>
+      <table id="c-tab"></table>
+    </div>
+    <div class="pane">
+      <span class="tag">Settings · Appearance → Create theme</span>
+      <div class="dialog">
+        <div class="steps"><span class="on"></span><span class="on"></span><span></span></div>
+        <h3>2 · Review palette</h3>
+        <div class="row"><input type="color" id="c-seed" value="#0f766e" aria-label="Seed"><span class="muted">Seed</span><span class="chip" id="c-seedhex"></span></div>
+        <div class="ladder" id="c-ladder"></div>
+        <div class="row" style="justify-content:flex-end"><button class="btn outline">Back</button><button class="btn primary">Next: name it</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+// ---- proposed engine (prototype of lib/color.ts) ----
+const toLin = v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+const toGam = v => v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+const rgbHex = c => "#" + c.map(v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0")).join("");
+function toOklch(hex) {
+  const [r, g, b] = hexRgb(hex).map(toLin);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return { l: L, c: Math.hypot(A, B), h: (Math.atan2(B, A) * 180 / Math.PI + 360) % 360 };
+}
+function oklchRgb({ l, c, h }) {
+  const a = c * Math.cos(h * Math.PI / 180), b = c * Math.sin(h * Math.PI / 180);
+  const L = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3, M = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3, S = (l - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [4.0767416621 * L - 3.3077115913 * M + 0.2309699292 * S, -1.2684380046 * L + 2.6097574011 * M - 0.3413193965 * S, -0.0041960863 * L - 0.7034186147 * M + 1.707614701 * S];
+}
+function hex(o) { // reduce chroma until in sRGB gamut
+  let c = o.c, rgb = oklchRgb(o);
+  while (c > 0 && rgb.some(v => v < -1e-4 || v > 1 + 1e-4)) { c -= 0.002; rgb = oklchRgb({ ...o, c }); }
+  return rgbHex(rgb.map(toGam));
+}
+const lum = h => { const [r, g, b] = hexRgb(h).map(toLin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+/** Move only lightness (up if lighter=true) until contrast against every `against` >= ratio. */
+function fit(o, against, ratio, lighter = true) {
+  let cur = { ...o };
+  for (let i = 0; i < 100; i++) {
+    const hx = hex(cur);
+    if (against.every(a => contrast(hx, a) >= ratio)) return hx;
+    cur.l = Math.min(1, Math.max(0, cur.l + (lighter ? 0.01 : -0.01)));
+  }
+  return hex(cur);
+}
+const DARK = "#131313", WHITE = "#ffffff";
+/** Accent: keep hue; it must be >=3 on bg, and its label >=4.5 on it. */
+function accent(seedHex, bg) {
+  const o = toOklch(seedHex);
+  let a = fit(o, [bg], 3, true);
+  const fg = contrast(a, DARK) >= contrast(a, WHITE) ? DARK : WHITE;
+  if (contrast(a, fg) < 4.5) a = fg === DARK ? fit(toOklch(a), [fg], 4.5, true) : fit(toOklch(a), [fg], 4.5, false);
+  return { primary: a, primaryFg: contrast(a, DARK) >= contrast(a, WHITE) ? DARK : WHITE };
+}
+function deriveTheme(seedHex, serverAccent, useMine, intensity = 0.5) {
+  const { h, c } = toOklch(seedHex);
+  const sc = Math.min(c, 0.06) * intensity; // surface chroma
+  const s = l => hex({ l, c: sc, h });
+  const t = { sidebar: s(0.16), bg: s(0.195), card: s(0.235), accent: s(0.29), border: s(0.37) };
+  t.input = fit({ l: 0.45, c: sc, h }, [t.bg, t.card], 3);
+  t.fg = fit({ l: 0.82, c: Math.min(sc, 0.02), h }, [t.sidebar, t.bg, t.card, t.accent], 7);
+  t.mfg = fit({ l: 0.66, c: Math.min(sc, 0.02), h }, [t.sidebar, t.bg, t.card, t.accent], 4.5);
+  const p = accent(useMine ? seedHex : serverAccent, t.bg);
+  t.primary = p.primary; t.pfg = p.primaryFg;
+  t.mention = fit({ l: 0.62, c: 0.19, h: 25 }, [t.sidebar], 3);
+  t.mentionfg = contrast(t.mention, DARK) >= contrast(t.mention, WHITE) ? DARK : WHITE;
+  t.online = fit({ l: 0.7, c: 0.17, h: 150 }, [t.sidebar, t.card], 3);
+  return t;
+}
+const DEFAULT = { sidebar: "#0d0d0d", bg: "#131313", card: "#1c1c1c", accent: "#2a2a2a", border: "#424242", input: "#6b6b6b", fg: "#bdc3c7", mfg: "#969da2", mention: "#ef5b4c", mentionfg: DARK, online: "#2ecc71" };
+
+function paintApp(el, t, server = "Datrope") {
+  for (const [k, v] of Object.entries(t)) el.style.setProperty("--t-" + k, v);
+  el.innerHTML = `<div class="side"><div class="srv"><b></b>${server}</div><div class="ch on"># general</div><div class="ch" style="display:flex"># games<span class="badge">3</span></div><div class="ch"># music</div><div class="ch" style="margin-top:8px"><span class="dot"></span> filip</div></div>
+  <div class="main"><div class="top"># general</div><div class="msgs"><div><b>maja</b> <span class="meta">12:04</span><br><span class="men">@you</span> new colours look great. <a>See the docs</a></div><div><b>filip</b> <span class="meta">12:05</span><br>agreed</div></div>
+  <div class="compose">Message #general<span class="send">Send</span></div></div>`;
+}
+const PRESETS = { Emerald: "#2ecc71", Ocean: "#4aa3ff", Violet: "#a78bfa", Amber: "#f5a524", Rose: "#fb7185", Mint: "#2dd4bf" };
+
+// ---- A ----
+(() => {
+  let server = "#1a237e";
+  const sw = document.getElementById("a-sw");
+  const draw = () => {
+    sw.innerHTML = Object.entries(PRESETS).map(([n, c]) => `<button class="sw" style="background:${c}" aria-label="${n}" aria-checked="${c === server}" data-c="${c}"></button>`).join("") + `<button class="sw custom" aria-label="Custom" aria-checked="${!Object.values(PRESETS).includes(server)}"></button>`;
+    const { primary, primaryFg } = accent(server, DARK);
+    const note = document.getElementById("a-note");
+    note.innerHTML = primary === server ? `<span class="pass">✓ Readable.</span> Contrast ${contrast(primary, DARK).toFixed(1)}:1 on background.` : `Adjusted <span class="chip">${server}</span> → <span class="chip" style="background:${primary};color:${primaryFg}">${primary}</span> so text stays readable.`;
+    const save = document.getElementById("a-save"); save.style.setProperty("--p", primary); save.style.setProperty("--pf", primaryFg);
+    const h = toOklch(server).h; document.getElementById("a-sv").style.setProperty("--hue", `oklch(0.7 0.2 ${h})`);
+    theme();
+  };
+  sw.onclick = e => { if (e.target.dataset.c) { server = e.target.dataset.c; document.getElementById("a-hex").value = server; draw(); } };
+  document.getElementById("a-hex").oninput = e => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { server = e.target.value.toLowerCase(); draw(); } };
+  document.getElementById("a-hue").oninput = e => { server = hex({ l: 0.32, c: 0.15, h: +e.target.value }); document.getElementById("a-hex").value = server; draw(); };
+  const cards = document.getElementById("a-cards");
+  const ths = [["Datrope", "#0d0d0d", "#2ecc71"], ["Gotham", "#0a0f14", "#265360"], ["Drund", "#181818", "#99cb3f"], ["Custom", null, null]];
+  function theme() {
+    const seed = document.getElementById("a-seed").value, mine = document.getElementById("a-mine").checked;
+    const t = deriveTheme(seed, server, mine);
+    cards.innerHTML = ths.map(([n, sb, ac]) => `<div class="tcard ${n === "Custom" ? "sel" : ""}"><div class="thumb"><span style="width:35%;background:${sb ?? t.sidebar}"></span><span style="flex:1;background:${sb ? "#131313" : t.bg};border-top:6px solid ${ac ?? t.primary}"></span></div>${n === "Custom" ? "✚ Custom" : n}</div>`).join("");
+    paintApp(document.getElementById("a-app"), t);
+  }
+  document.getElementById("a-seed").oninput = e => { document.getElementById("a-seedhex").value = e.target.value; theme(); };
+  document.getElementById("a-seedhex").oninput = e => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { document.getElementById("a-seed").value = e.target.value; theme(); } };
+  document.getElementById("a-mine").onchange = theme;
+  draw();
+})();
+
+// ---- B ----
+function rail(el, hue, onPick, ticks) {
+  const put = () => { el.innerHTML = (ticks ?? []).map(([n, c]) => `<span class="tick" title="${n}" style="left:${toOklch(c).h / 3.6}%"></span>`).join("") + `<span class="knob" style="left:${hue / 3.6}%;background:oklch(0.7 0.16 ${hue})"></span>`; };
+  const move = e => { const r = el.getBoundingClientRect(); hue = Math.max(0, Math.min(360, (e.clientX - r.left) / r.width * 360)); put(); onPick(hue); };
+  el.onpointerdown = e => { el.setPointerCapture(e.pointerId); move(e); el.onpointermove = move; };
+  el.onpointerup = () => { el.onpointermove = null; };
+  put(); return h => { hue = h; put(); };
+}
+(() => {
+  let server = "#4aa3ff", seedH = 280, mine = false;
+  const upd = () => {
+    const { primary } = accent(server, DARK);
+    document.getElementById("b-note").innerHTML = primary === server ? `<span class="pass">✓ AA</span>` : `adjusted → <span class="chip">${primary}</span>`;
+    paintApp(document.getElementById("b-sapp"), { ...DEFAULT, ...accentTokens(server) });
+    const t = deriveTheme(hex({ l: 0.6, c: 0.15, h: seedH }), server, mine, document.getElementById("b-int").value / 100 * 2);
+    paintApp(document.getElementById("b-app"), t);
+  };
+  const accentTokens = s => { const a = accent(s, DARK); return { primary: a.primary, pfg: a.primaryFg }; };
+  const setRail = rail(document.getElementById("b-rail"), toOklch(server).h, h => { server = hex({ l: 0.7, c: 0.16, h }); document.getElementById("b-hex").value = server; upd(); }, Object.entries(PRESETS));
+  document.getElementById("b-hex").oninput = e => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { server = e.target.value.toLowerCase(); setRail(toOklch(server).h); upd(); } };
+  rail(document.getElementById("b-trail"), seedH, h => { seedH = h; upd(); });
+  document.getElementById("b-srv").onclick = () => { mine = false; document.getElementById("b-srv").ariaPressed = "true"; document.getElementById("b-mine").ariaPressed = "false"; upd(); };
+  document.getElementById("b-mine").onclick = () => { mine = true; document.getElementById("b-srv").ariaPressed = "false"; document.getElementById("b-mine").ariaPressed = "true"; upd(); };
+  document.getElementById("b-int").oninput = upd;
+  upd();
+})();
+
+// ---- C ----
+(() => {
+  let server = "#fff59d";
+  const sw = document.getElementById("c-sw");
+  sw.innerHTML = Object.entries(PRESETS).map(([n, c]) => `<button class="sw" style="background:${c}" aria-label="${n}" data-c="${c}"></button>`).join("");
+  const r = (a, b, need) => { const v = contrast(a, b); return `<td>${v.toFixed(2)}:1</td><td class="${v >= need ? "pass" : "fail"}">${v >= need ? "✓" : "✗"} ≥${need}</td>`; };
+  const upd = () => {
+    const { primary, primaryFg } = accent(server, DARK);
+    document.getElementById("c-ba").innerHTML = `<span class="muted">Picked</span><span class="chip" style="background:${server};color:${contrast(server, DARK) > 4.5 ? DARK : WHITE}">${server}</span><span>→</span><span class="muted">Used</span><span class="chip" style="background:${primary};color:${primaryFg}">${primary}</span>`;
+    document.getElementById("c-tab").innerHTML = `<tr><th>Pair</th><th>Picked</th><th></th><th>Used</th><th></th></tr>` +
+      [["Accent on background", DARK, 3], ["Button label on accent", contrast(server, DARK) >= contrast(server, WHITE) ? DARK : WHITE, 4.5], ["Accent on sidebar", "#0d0d0d", 3]].map(([n, b, need], i) =>
+        `<tr><td>${n}</td>${r(server, b, need)}${r(primary, i === 1 ? primaryFg : b, need)}</tr>`).join("");
+  };
+  sw.onclick = e => { if (e.target.dataset.c) { server = e.target.dataset.c; document.getElementById("c-hex").value = server; upd(); } };
+  document.getElementById("c-col").oninput = e => { server = e.target.value; document.getElementById("c-hex").value = server; upd(); };
+  document.getElementById("c-hex").oninput = e => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) { server = e.target.value.toLowerCase(); upd(); } };
+  const lad = () => {
+    const seed = document.getElementById("c-seed").value; document.getElementById("c-seedhex").textContent = seed;
+    const t = deriveTheme(seed, seed, true);
+    const rows = [["sidebar", t.sidebar, t.fg], ["background", t.bg, t.fg], ["card", t.card, t.fg], ["accent", t.accent, t.fg], ["border", t.border, t.fg], ["muted text", t.bg, t.mfg], ["primary", t.primary, t.pfg], ["mention", t.mention, t.mentionfg], ["online", t.online, DARK]];
+    document.getElementById("c-ladder").innerHTML = rows.map(([n, b, f]) => `<div class="tok" style="background:${b};color:${f}"><b>${n}</b><span>${b}</span><span>${n === "online" || n === "border" ? "" : contrast(b, f).toFixed(1) + ":1 ✓"}</span></div>`).join("");
+  };
+  document.getElementById("c-seed").oninput = lad;
+  upd(); lad();
+})();
+</script>
+</body>
+</html>

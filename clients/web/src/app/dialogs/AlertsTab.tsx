@@ -1,5 +1,5 @@
 import { unwrap, type StreamAlert } from "@datrope/core";
-import { Rss, Trash2 } from "lucide-react";
+import { Rss, Trash2 } from "@/components/icons";
 import { useEffect, useId, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";

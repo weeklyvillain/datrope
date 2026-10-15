@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Plus, Smile, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Smile, X } from "@/components/icons";
 import { useId, useState } from "react";
 import { client } from "@/session";
 import { ErrorText } from "@/components/error-text";

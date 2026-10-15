@@ -6,6 +6,9 @@ services:
       NODE_IP: 127.0.0.1
     volumes:
       - ./livekit.e2e.yaml:/etc/livekit.yaml:ro
+  # One server slot is enough for the browser tests.
+  server-green:
+    profiles: ["green"]
   # The e2e stack never updates itself: leave the updater out (it would need the Docker socket).
   updater:
     profiles: ["updater"]

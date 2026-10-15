@@ -27,6 +27,7 @@ fn main() {
         "desktop_window",
         "desktop_start_drag",
         "desktop_set_theme",
+        "desktop_open_url",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

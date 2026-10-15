@@ -30,7 +30,7 @@ Out of scope (YAGNI): snooze, editing a reminder, recurring reminders, Swedish w
 
 ## Server
 
-### Migration `00043_reminders.sql`
+### Migration `00048_reminders.sql`
 
 The number may collide with parallel branches; renumber at merge.
 
@@ -38,13 +38,11 @@ The number may collide with parallel branches; renumber at merge.
 -- +goose Up
 ALTER TABLE users ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE UNIQUE INDEX users_one_system ON users (is_system) WHERE is_system;
--- A real user may already be called "system": System sits outside the username index.
-DROP INDEX users_username_key;
-CREATE UNIQUE INDEX users_username_key ON users (lower(username)) WHERE NOT is_system;
+-- 'system!' fails the username pattern, so no account can ever collide with it.
 -- password_hash '!' matches no bcrypt hash: nobody can log in as System.
 -- disabled keeps System out of the server's owner and member queries.
 INSERT INTO users (id, username, display_name, password_hash, disabled, is_system)
-VALUES (4194303, 'system', 'System', '!', TRUE, TRUE);
+VALUES (4194303, 'system!', 'System', '!', TRUE, TRUE);
 
 CREATE TABLE reminders (
     id         BIGINT PRIMARY KEY,
@@ -66,8 +64,6 @@ ALTER TABLE messages ADD COLUMN reminder_id BIGINT; -- set on kind = 'reminder' 
 ALTER TABLE messages DROP COLUMN reminder_id;
 DROP TABLE reminders;
 DELETE FROM users WHERE is_system;
-DROP INDEX users_username_key;
-CREATE UNIQUE INDEX users_username_key ON users (lower(username));
 ALTER TABLE users DROP COLUMN is_system;
 ```
 
@@ -76,7 +72,7 @@ System's fixed ID is `auth.SystemUserID = 1<<22 - 1` (4194303): the snowflake ge
 ### System user
 
 - `auth.SystemUserID` is the constant. The public user JSON gains `system: true` (`omitempty`).
-- User counts (first user becomes admin), `ListUsers`, `@username` resolution and login lookups add `NOT is_system`, so logging in as `system` fails like an unknown user (the hash `'!'` would never verify anyway). Registration may take the username `system`.
+- User counts (first user becomes admin), `ListUsers`, `@username` resolution and login lookups add `NOT is_system`, so logging in as `system` fails like an unknown user (the hash `'!'` would never verify anyway). Its username `system!` fails the username pattern, so no account can collide with it and the username index is untouched (the migration stays expand-only for zero-downtime updates); a person may register as `system`.
 - System is never a community member, so it never appears in member lists or mentions. User search, if any, excludes `is_system`.
 - `channels.createDM` gets an internal `SystemDM(ctx, userID)` that finds or creates the 1:1 DM between `userID` and System, skipping the shared-community check. The public `POST /api/dms` rejects System as a recipient (`INVALID_RECIPIENTS`).
 - In a DM whose other participant is System, sending a message, creating a poll and creating a thread return 403 `SYSTEM_DM` ("you can't reply to System"). Reactions are allowed. System's messages can't be edited or deleted by the user (they already fail the author check).

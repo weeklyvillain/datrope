@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { Check, Images, Plus } from "lucide-react";
+import { Check, Images, Plus } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";

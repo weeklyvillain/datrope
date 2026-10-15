@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove-attachment"];
+        options?: never;
+        head?: never;
+        patch: operations["keep-attachment"];
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -399,6 +415,22 @@ export interface paths {
         put?: never;
         post: operations["start-watch"];
         delete: operations["stop-watch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channelID}/watch/buffering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["report-watch-buffering"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -931,6 +963,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-notes"];
+        put?: never;
+        post: operations["create-note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{noteID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-note"];
+        put?: never;
+        post?: never;
+        delete: operations["delete-note"];
+        options?: never;
+        head?: never;
+        patch: operations["update-note"];
         trace?: never;
     };
     "/api/push/key": {
@@ -1621,6 +1685,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/voice/afk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["go-afk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/voice/members/{userID}": {
         parameters: {
             query?: never;
@@ -1669,6 +1749,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/voice/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["voice-ping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/voice/soundboard": {
         parameters: {
             query?: never;
@@ -1711,6 +1807,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["join-voice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice/{id}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["draw-teams"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1839,6 +1951,13 @@ export interface components {
             channel_id?: string;
             /** @description Detected from the contents, not the name */
             content_type: string;
+            /** @description Deleted by the size rules or by hand; the message stays */
+            expired: boolean;
+            /**
+             * Format: date-time
+             * @description When the file will be deleted (size rules); absent: kept
+             */
+            expires_at?: string;
             filename: string;
             /** @description Posted with /gif: clients play it muted and looped, without controls, like an image */
             gif?: boolean;
@@ -1848,6 +1967,8 @@ export interface components {
             id: string;
             /** @description An image the client may show in the message */
             inline: boolean;
+            /** @description Someone chose to keep it past the size rules */
+            keep: boolean;
             /** Format: int64 */
             size: number;
             thumbnail_url?: string;
@@ -1868,6 +1989,15 @@ export interface components {
         };
         BanRequest: {
             reason?: string;
+        };
+        BufferingRequest: {
+            /** @description True while my player loads, false once it can play */
+            buffering: boolean;
+            /**
+             * Format: int64
+             * @description The watch's seq this answers
+             */
+            seq: number;
         };
         Category: {
             /** @description Snowflake ID as a decimal string */
@@ -2055,6 +2185,8 @@ export interface components {
             /** @description From the forum tags */
             tags?: string[] | null;
             title: string;
+            /** @description The sender's IANA time zone */
+            tz?: string;
         };
         CreateReminderRequest: {
             /** @description With message_id: the message to be reminded about */
@@ -2288,6 +2420,10 @@ export interface components {
             /** @description LiveKit server to connect to */
             url: string;
         };
+        KeepRequest: {
+            /** @description true: never delete it by the size rules; false: let them apply again (counted from now) */
+            keep: boolean;
+        };
         Library: {
             /** Format: int64 */
             limit_bytes: number;
@@ -2440,6 +2576,8 @@ export interface components {
             thread?: components["schemas"]["ThreadSummary"];
             /** @description Announcements only */
             title?: string;
+            /** @description The sender's IANA time zone, for showing times they wrote in the reader's zone */
+            tz?: string;
             /** @description Who a webhook message shows as; absent for people's messages */
             webhook?: components["schemas"]["WebhookAuthor"];
         };
@@ -2520,6 +2658,52 @@ export interface components {
             /** @description The page it came from; absent for uploads and for Spotify tracks not yet found */
             url?: string;
         };
+        Note: {
+            /** @description A Tiptap (ProseMirror) document */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description The plain text of content */
+            text: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NoteCreate: {
+            /** @description Sent together with text */
+            content?: {
+                [key: string]: unknown;
+            };
+            /** @description Sent together with content */
+            text?: string;
+            title?: string;
+        };
+        NoteDeleted: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+        };
+        NoteSummary: {
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description The start of the note's text */
+            preview: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NoteUpdate: {
+            /** @description Sent together with text */
+            content?: {
+                [key: string]: unknown;
+            };
+            /** @description Sent together with content */
+            text?: string;
+            title?: string;
+        };
         Override: {
             /** Format: int64 */
             allow: number;
@@ -2535,6 +2719,10 @@ export interface components {
             allow: number;
             /** Format: int64 */
             deny: number;
+        };
+        PingRequest: {
+            /** Format: int64 */
+            rtt_ms: number;
         };
         PlaySoundRequest: {
             /** @description Snowflake ID as a decimal string */
@@ -2795,6 +2983,8 @@ export interface components {
         Ready: {
             /** @description What people who share the server are doing on linked accounts */
             activities: components["schemas"]["Activity"][] | null;
+            /** @description The commit the server was built from; dev for local builds */
+            build: string;
             dms: components["schemas"]["Channel"][] | null;
             /** @description The server custom emoji; empty when the user is not a member */
             emoji: components["schemas"]["Emoji"][] | null;
@@ -2812,6 +3002,16 @@ export interface components {
             voice_states: components["schemas"]["VoiceState"][] | null;
         };
         ReadyServer: {
+            /** @description The server's accent colour; clients lighten it if it is too dark to read */
+            accent_color: string;
+            /** @description Voice channel idle members are moved to */
+            afk_channel_id?: string;
+            /**
+             * Format: int64
+             * @description Seconds without speaking before the move
+             * @enum {integer}
+             */
+            afk_timeout_seconds: 300 | 900 | 1800 | 3600;
             banner_url?: string;
             /** @description Empty for a member held at the rules gate */
             categories: components["schemas"]["Category"][] | null;
@@ -2827,8 +3027,6 @@ export interface components {
             name: string;
             /** @description Snowflake ID as a decimal string */
             owner_id: string;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
             roles: components["schemas"]["Role"][] | null;
             /** @description New members see only the welcome page until they accept the rules */
             rules_gate: boolean;
@@ -2980,8 +3178,20 @@ export interface components {
             reply_to_id?: string;
             /** @description Announcements only */
             title?: string;
+            /** @description The sender's IANA time zone */
+            tz?: string;
         };
         Server: {
+            /** @description The server's accent colour; clients lighten it if it is too dark to read */
+            accent_color: string;
+            /** @description Voice channel idle members are moved to */
+            afk_channel_id?: string;
+            /**
+             * Format: int64
+             * @description Seconds without speaking before the move
+             * @enum {integer}
+             */
+            afk_timeout_seconds: 300 | 900 | 1800 | 3600;
             banner_url?: string;
             /** Format: date-time */
             created_at: string;
@@ -2992,8 +3202,6 @@ export interface components {
             name: string;
             /** @description Snowflake ID as a decimal string */
             owner_id: string;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
             /** @description New members see only the welcome page until they accept the rules */
             rules_gate: boolean;
         };
@@ -3001,6 +3209,7 @@ export interface components {
             muted: boolean;
         };
         ServerPreview: {
+            accent_color: string;
             banner_url?: string;
             /** Format: date-time */
             created_at: string;
@@ -3014,8 +3223,6 @@ export interface components {
              * @description Members who are online or idle
              */
             online_count: number;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
         };
         ServerUpdate: {
             /** @description DATROPE_UPDATER_TOKEN is set */
@@ -3024,6 +3231,16 @@ export interface components {
             status?: components["schemas"]["GitStatus"];
         };
         ServerWithRoles: {
+            /** @description The server's accent colour; clients lighten it if it is too dark to read */
+            accent_color: string;
+            /** @description Voice channel idle members are moved to */
+            afk_channel_id?: string;
+            /**
+             * Format: int64
+             * @description Seconds without speaking before the move
+             * @enum {integer}
+             */
+            afk_timeout_seconds: 300 | 900 | 1800 | 3600;
             banner_url?: string;
             /** Format: date-time */
             created_at: string;
@@ -3034,8 +3251,6 @@ export interface components {
             name: string;
             /** @description Snowflake ID as a decimal string */
             owner_id: string;
-            /** @enum {string} */
-            palette: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
             roles: components["schemas"]["Role"][] | null;
             /** @description New members see only the welcome page until they accept the rules */
             rules_gate: boolean;
@@ -3064,6 +3279,8 @@ export interface components {
             spotify_configured: boolean;
             /** @description Twitch app credentials are set (never returned) */
             twitch_configured: boolean;
+            /** @description Size tiers after which sent files are deleted; empty: files are kept */
+            upload_ttl_rules: components["schemas"]["TTLRule"][] | null;
         };
         SevenTVEmote: {
             animated: boolean;
@@ -3187,6 +3404,38 @@ export interface components {
             server: components["schemas"]["ServerUpdate"];
             ytdlp: components["schemas"]["YtDlpStatus"];
         };
+        TTLRule: {
+            /** Format: int64 */
+            min_bytes: number;
+            /** Format: int64 */
+            ttl_hours: number;
+        };
+        TeamsDraw: {
+            /** Format: date-time */
+            at: string;
+            bench: string[] | null;
+            /** @description Snowflake ID as a decimal string */
+            by: string;
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /**
+             * Format: int64
+             * @description 0: an even split
+             */
+            per_team: number;
+            teams: (string[] | null)[] | null;
+        };
+        TeamsRequest: {
+            /**
+             * Format: int64
+             * @description Players per team; 0 or absent splits everyone evenly
+             */
+            per_team?: number;
+            /** Format: int64 */
+            teams: number;
+            /** @description Who is in the draw; all must be in the call */
+            user_ids: string[] | null;
+        };
         ThreadListItem: {
             author?: components["schemas"]["PublicUser"];
             channel: components["schemas"]["Channel"];
@@ -3258,6 +3507,17 @@ export interface components {
             /** Format: date-time */
             finished_at?: string;
             id: string;
+            /**
+             * Format: int64
+             * @description 1-based index of the running (or last) step
+             */
+            stage: number;
+            stage_title?: string;
+            /**
+             * Format: int64
+             * @description How many steps the job has, the updater's restart included
+             */
+            stages: number;
             /** Format: date-time */
             started_at: string;
             /** @enum {string} */
@@ -3309,10 +3569,16 @@ export interface components {
             self_assignable?: boolean;
         };
         UpdateServerRequest: {
+            accent_color?: string;
+            /** @description A voice channel of this server; empty clears it */
+            afk_channel_id?: string;
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            afk_timeout_seconds?: 300 | 900 | 1800 | 3600;
             description?: string;
             name?: string;
-            /** @enum {string} */
-            palette?: "emerald" | "ocean" | "violet" | "amber" | "rose" | "mint";
         };
         UpdateSettingsRequest: {
             /** @description Write-only: responses report klipy_configured instead. Empty removes the key. */
@@ -3325,6 +3591,7 @@ export interface components {
             spotify?: components["schemas"]["AppCredentials"];
             /** @description Twitch app credentials (stream alerts, Twitch connections) */
             twitch?: components["schemas"]["AppCredentials"];
+            upload_ttl_rules?: components["schemas"]["TTLRule"][];
         };
         UpdateStarted: {
             job_id: string;
@@ -3364,6 +3631,14 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             channel_id: string;
         };
+        VoicePing: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /** Format: int64 */
+            rtt_ms: number;
+            /** @description Snowflake ID as a decimal string */
+            user_id: string;
+        };
         VoiceState: {
             camera: boolean;
             /** @description Absent when the user left voice */
@@ -3396,6 +3671,11 @@ export interface components {
              * @description Seconds into the video at updated_at; always 0 for a live stream
              */
             position: number;
+            /**
+             * Format: int64
+             * @description Changes with every start, play, pause and seek; buffering reports name the seq they answer
+             */
+            seq: number;
             /** @description Snowflake ID as a decimal string */
             started_by: string;
             /** @description Filled in shortly after starting, when the site has one */
@@ -3409,6 +3689,8 @@ export interface components {
             url: string;
             /** @description The YouTube video ID, the Twitch login, or the Twitch VOD ID */
             video_id: string;
+            /** @description Viewers the room waits for while their players load; the position holds while any are listed */
+            waiting: string[];
         };
         WatchUpdate: {
             /** @description Snowflake ID as a decimal string */
@@ -4194,6 +4476,70 @@ export interface operations {
             };
         };
     };
+    "remove-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "keep-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -4554,6 +4900,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "report-watch-buffering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BufferingRequest"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {
@@ -6058,6 +6437,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-notes": {
+        parameters: {
+            query?: {
+                /** @description Only notes whose title or text contains this */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteSummary"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "get-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "update-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
                 };
             };
             /** @description Error */
@@ -8020,6 +8559,33 @@ export interface operations {
             };
         };
     };
+    "go-afk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "disconnect-voice-member": {
         parameters: {
             query?: never;
@@ -8094,6 +8660,37 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ServerMuteRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "voice-ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PingRequest"];
             };
         };
         responses: {
@@ -8200,6 +8797,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["JoinResponse"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "draw-teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamsRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

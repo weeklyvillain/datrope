@@ -1,4 +1,4 @@
-import { AlarmClock, Copy, Ellipsis, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { AlarmClock, Copy, Ellipsis, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "@/components/icons";
 import { forwardRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { RefButton } from "@/components/ref-button";

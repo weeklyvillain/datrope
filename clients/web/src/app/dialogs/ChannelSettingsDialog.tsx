@@ -1,13 +1,13 @@
 import { Perm, hasPerm, myChannelPerms, unwrap, type Channel, type Override } from "@datrope/core";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
+import { RichInput, type RichInputHandle } from "@/chat/RichInput";
 import { ErrorText } from "@/components/error-text";
-import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
@@ -69,6 +69,7 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
   const nav = useNavigate();
   const id = useId();
   const nameId = useId();
+  const nameRef = useRef<RichInputHandle>(null);
   const [name, setName] = useState(ch.name);
   const [topic, setTopic] = useState(ch.topic);
   const [category, setCategory] = useState(ch.category_id ?? "");
@@ -85,16 +86,18 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
   return (
     <form className="grid gap-3" onSubmit={(e) => {
       e.preventDefault();
+      if (!name.trim()) return;
       void run(async () => {
         client.apply("CHANNEL_UPDATE", await unwrap(client.api.PATCH("/api/channels/{id}", { ...path, body: { name, topic, ...move, ...(ch.type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }), ...(ch.type === "gallery" && sourcesChanged(ch, sources, channels) && sourcesBody(sources)) } })));
         onClose();
       });
     }}>
       <Field>
-        <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+        <FieldLabel id={`${nameId}-label`} onClick={() => nameRef.current?.focus()}>Name</FieldLabel>
         <div className="flex items-center gap-1">
-          <Input id={nameId} value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
-          <EmojiInsertButton fieldId={nameId} label="Insert emoji" value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
+          <RichInput ref={nameRef} id={nameId} aria-labelledby={`${nameId}-label`} singleLine variant="input" maxLength={100}
+            value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
+          <EmojiInsertButton field={nameRef} label="Insert emoji" value={name} onChange={(v) => setName(Array.from(v).slice(0, 100).join(""))} />
         </div>
       </Field>
       <Field>
@@ -127,7 +130,7 @@ function General({ ch, onClose }: { ch: Channel; onClose: () => void }) {
       )}
       <ErrorText error={error} />
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={busy || (ch.type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Save</Button>
+        <Button type="submit" disabled={busy || !name.trim() || (ch.type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Save</Button>
         {ch.type !== "welcome" && <Button variant="destructive" disabled={busy} onClick={() => {
           if (!window.confirm(`Delete #${ch.name} and all its messages?`)) return;
           void run(async () => {

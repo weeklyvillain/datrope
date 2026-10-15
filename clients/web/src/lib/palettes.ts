@@ -1,11 +1,11 @@
-/** Server palettes (spec: one-server design §2). The accent must keep #131313 text readable. */
+/** Server colour presets (spec: custom colors §3). Each passes readableAccent unchanged. */
 export const PALETTES = {
-  emerald: { label: "Emerald", accent: "#2ecc71" },
-  ocean: { label: "Ocean", accent: "#4aa3ff" },
-  violet: { label: "Violet", accent: "#a78bfa" },
-  amber: { label: "Amber", accent: "#f5a524" },
-  rose: { label: "Rose", accent: "#fb7185" },
-  mint: { label: "Mint", accent: "#2dd4bf" },
+  emerald: { label: "Emerald", hex: "#2ecc71" },
+  ocean: { label: "Ocean", hex: "#4aa3ff" },
+  violet: { label: "Violet", hex: "#a78bfa" },
+  amber: { label: "Amber", hex: "#f5a524" },
+  rose: { label: "Rose", hex: "#fb7185" },
+  mint: { label: "Mint", hex: "#2dd4bf" },
 } as const;
 
 export type Palette = keyof typeof PALETTES;

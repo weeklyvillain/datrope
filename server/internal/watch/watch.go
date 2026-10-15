@@ -6,6 +6,8 @@ package watch
 import (
 	"context"
 	"errors"
+	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -30,6 +32,8 @@ type WatchState struct {
 	StartedBy  id.ID   `json:"started_by"`
 	LastActor  id.ID   `json:"last_actor"`
 	LastAction string  `json:"last_action" enum:"start,play,pause,seek"`
+	Seq        int64   `json:"seq" doc:"Changes with every start, play, pause and seek; buffering reports name the seq they answer"`
+	Waiting    []id.ID `json:"waiting" nullable:"false" doc:"Viewers the room waits for while their players load; the position holds while any are listed"`
 }
 
 // WatchUpdate is a channel's watch as the WATCH_UPDATE event and the REST responses carry it.
@@ -62,12 +66,46 @@ var (
 
 const titleTimeout = 5 * time.Second
 
+const (
+	// MaxWait is how long the room waits for one viewer before playing on without them.
+	MaxWait = 10 * time.Second
+	// ExcuseFor is how long a viewer the room gave up on must stay loaded before it waits for them again.
+	ExcuseFor = 30 * time.Second
+)
+
+// barrier is what a channel's watch keeps about who it waits for, beside its WatchState.
+type barrier struct {
+	since  map[id.ID]int64 // when each viewer in Waiting entered it (ms)
+	waited map[id.ID]int64 // ms each viewer already made the room wait since the last user action
+	stop   func()          // cancels the pending expiry; nil when none
+}
+
+func newBarrier() *barrier {
+	return &barrier{since: map[id.ID]int64{}, waited: map[id.ID]int64{}}
+}
+
+func (b *barrier) cancel() {
+	if b.stop != nil {
+		b.stop()
+		b.stop = nil
+	}
+}
+
+// person is a viewer known to have a player open in a channel's call: they have reported on it.
+// It outlives each watch, so someone in the call without the watch open is never waited for.
+type person struct {
+	excused bool  // the room gave up on them; not waited for until ready ExcuseFor
+	readyAt int64 // when they last became ready (ms); 0 since a stall or being excused
+}
+
 type Service struct {
 	bus      *events.Bus
 	channels Channels
 	voice    Voice
 	titles   Titles // nil: no titles
 	now      func() time.Time
+	// afterFunc is time.AfterFunc; tests replace it.
+	afterFunc func(d time.Duration, f func()) (stop func())
 
 	// pub serialises a change and its publish, so updates go out in the order they happened.
 	// Never taken in onEvent, which runs under voice's lock.
@@ -75,7 +113,9 @@ type Service struct {
 
 	mu     sync.Mutex
 	states map[id.ID]*WatchState
-	closed bool // guarded by mu; no new background work once set
+	bars   map[id.ID]*barrier          // beside states, same keys
+	people map[id.ID]map[id.ID]*person // by channel, then user; pruned to who is in the call
+	closed bool                        // guarded by mu; no new background work once set
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -84,7 +124,8 @@ type Service struct {
 
 func NewService(bus *events.Bus, ch Channels, v Voice) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Service{bus: bus, channels: ch, voice: v, now: time.Now, states: map[id.ID]*WatchState{}, ctx: ctx, cancel: cancel}
+	s := &Service{bus: bus, channels: ch, voice: v, now: time.Now, states: map[id.ID]*WatchState{}, bars: map[id.ID]*barrier{}, people: map[id.ID]map[id.ID]*person{}, ctx: ctx, cancel: cancel,
+		afterFunc: func(d time.Duration, f func()) func() { t := time.AfterFunc(d, f); return func() { t.Stop() } }}
 	bus.Subscribe(s.onEvent)
 	return s
 }
@@ -98,6 +139,9 @@ func (s *Service) SetTitles(t Titles) {
 func (s *Service) Close() {
 	s.mu.Lock()
 	s.closed = true
+	for _, b := range s.bars {
+		b.cancel()
+	}
 	s.mu.Unlock()
 	s.cancel()
 	s.wg.Wait()
@@ -105,7 +149,7 @@ func (s *Service) Close() {
 
 // at is where playback is at server time now (ms).
 func (st *WatchState) at(now int64) float64 {
-	if st.Paused || st.Kind == KindTwitchLive {
+	if st.Paused || st.Kind == KindTwitchLive || len(st.Waiting) > 0 {
 		return st.Position
 	}
 	return st.Position + float64(now-st.UpdatedAt)/1000
@@ -122,6 +166,7 @@ func (s *Service) updateLocked(channelID id.ID) WatchUpdate {
 	u := WatchUpdate{ChannelID: channelID, ServerNow: s.now().UnixMilli()}
 	if st := s.states[channelID]; st != nil {
 		c := *st
+		c.Waiting = slices.Clone(st.Waiting)
 		u.State = &c
 	}
 	return u
@@ -131,18 +176,154 @@ func (s *Service) publish(u WatchUpdate) {
 	s.bus.Publish(events.Event{Type: "WATCH_UPDATE", Data: u, Scope: events.Scope{ChannelID: u.ChannelID}})
 }
 
-func (s *Service) inChannel(userID, channelID id.ID) bool {
+// viewers is who is in the channel's call. Never call it under mu: voice publishes under its own lock into onEvent, which takes mu.
+func (s *Service) viewers(channelID id.ID) []id.ID {
+	var out []id.ID
 	for _, v := range s.voice.States([]id.ID{channelID}) {
-		if v.UserID == userID {
-			return true
-		}
+		out = append(out, v.UserID)
+	}
+	return out
+}
+
+func (s *Service) inChannel(userID, channelID id.ID) bool {
+	return slices.Contains(s.viewers(channelID), userID)
+}
+
+// personLocked is u's entry in ch, made if new: u has a player open.
+func (s *Service) personLocked(channelID, userID id.ID) *person {
+	ps := s.people[channelID]
+	if ps == nil {
+		ps = map[id.ID]*person{}
+		s.people[channelID] = ps
+	}
+	p := ps[userID]
+	if p == nil {
+		p = &person{}
+		ps[userID] = p
+	}
+	return p
+}
+
+// countsLocked says whether the room waits for u: they have a player open and are not excused,
+// or were excused but have been ready ExcuseFor since.
+func (s *Service) countsLocked(channelID, userID id.ID, now int64) bool {
+	p := s.people[channelID][userID]
+	switch {
+	case p == nil:
+		return false
+	case !p.excused:
+		return true
+	case p.readyAt > 0 && now-p.readyAt >= ExcuseFor.Milliseconds():
+		p.excused = false
+		return true
 	}
 	return false
 }
 
+// pruneLocked forgets the players of anyone no longer in the call.
+func (s *Service) pruneLocked(channelID id.ID, viewers []id.ID) {
+	for u := range s.people[channelID] {
+		if !slices.Contains(viewers, u) {
+			delete(s.people[channelID], u)
+		}
+	}
+	if len(s.people[channelID]) == 0 {
+		delete(s.people, channelID)
+	}
+}
+
+// setWaitingLocked replaces who the room waits for, folding the position first so the clock stops or restarts at now.
+func (s *Service) setWaitingLocked(st *WatchState, b *barrier, waiting []id.ID, now int64) {
+	st.Position, st.UpdatedAt = st.at(now), now
+	st.Waiting = waiting
+	for u, t := range b.since {
+		if !slices.Contains(waiting, u) {
+			b.waited[u] += now - t
+			delete(b.since, u)
+		}
+	}
+	for _, u := range waiting {
+		if _, ok := b.since[u]; !ok {
+			b.since[u] = now
+		}
+	}
+	s.scheduleLocked(st.ChannelID, b, now)
+}
+
+// holdLocked starts a new wait after a user action: for every counted viewer, or nobody while paused or live.
+func (s *Service) holdLocked(st *WatchState, b *barrier, viewers []id.ID, now int64) {
+	waiting := []id.ID{}
+	if !st.Paused && st.Kind != KindTwitchLive {
+		for _, u := range viewers {
+			if s.countsLocked(st.ChannelID, u, now) {
+				waiting = append(waiting, u)
+			}
+		}
+	}
+	clear(b.since) // everyone's MaxWait starts over
+	clear(b.waited)
+	s.setWaitingLocked(st, b, waiting, now)
+}
+
+// scheduleLocked arms the expiry for the first viewer to use up their MaxWait.
+func (s *Service) scheduleLocked(channelID id.ID, b *barrier, now int64) {
+	b.cancel()
+	if len(b.since) == 0 || s.closed {
+		return
+	}
+	first := int64(math.MaxInt64)
+	for u, t := range b.since {
+		first = min(first, t-b.waited[u])
+	}
+	d := time.Duration(first+MaxWait.Milliseconds()-now) * time.Millisecond
+	b.stop = s.afterFunc(max(d, 0), func() { s.expire(channelID) })
+}
+
+// endLocked forgets the channel's watch.
+func (s *Service) endLocked(channelID id.ID) {
+	if b := s.bars[channelID]; b != nil {
+		b.cancel()
+	}
+	delete(s.bars, channelID)
+	delete(s.states, channelID)
+}
+
+// expire plays on without the viewers the room has waited MaxWait for, and excuses them.
+func (s *Service) expire(channelID id.ID) {
+	s.pub.Lock()
+	defer s.pub.Unlock()
+	s.mu.Lock()
+	st, b := s.states[channelID], s.bars[channelID]
+	if st == nil || b == nil || s.closed {
+		s.mu.Unlock()
+		return
+	}
+	now := s.now().UnixMilli()
+	waiting := []id.ID{}
+	for _, u := range st.Waiting {
+		if now-b.since[u]+b.waited[u] >= MaxWait.Milliseconds() {
+			if p := s.people[channelID][u]; p != nil {
+				p.excused, p.readyAt = true, 0
+			}
+		} else {
+			waiting = append(waiting, u)
+		}
+	}
+	if len(waiting) == len(st.Waiting) {
+		s.scheduleLocked(channelID, b, now) // fired early: arm again
+		s.mu.Unlock()
+		return
+	}
+	s.setWaitingLocked(st, b, waiting, now)
+	u := s.updateLocked(channelID)
+	s.mu.Unlock()
+	s.publish(u)
+}
+
 // Start puts a link on for the channel, replacing what was on.
 func (s *Service) Start(userID, channelID id.ID, raw string) (WatchUpdate, error) {
-	if !s.inChannel(userID, channelID) {
+	viewers := s.viewers(channelID)
+	if !slices.Contains(viewers, userID) {
 		return WatchUpdate{}, ErrNotInVoice
 	}
 	link, err := ParseLink(raw)
@@ -151,13 +332,21 @@ func (s *Service) Start(userID, channelID id.ID, raw string) (WatchUpdate, error
 	}
 	st := &WatchState{
 		ChannelID: channelID, URL: link.URL, Kind: link.Kind, VideoID: link.VideoID, Position: link.Start,
-		StartedBy: userID, LastActor: userID, LastAction: "start",
+		StartedBy: userID, LastActor: userID, LastAction: "start", Waiting: []id.ID{},
 	}
 	s.pub.Lock()
 	defer s.pub.Unlock()
 	s.mu.Lock()
-	st.UpdatedAt = s.now().UnixMilli()
-	s.states[channelID] = st
+	now := s.now().UnixMilli()
+	st.UpdatedAt, st.Seq = now, now // server time: a restarted watch never reuses a seq
+	if old := s.states[channelID]; old != nil {
+		st.Seq = max(now, old.Seq+1)
+	}
+	s.endLocked(channelID)
+	s.pruneLocked(channelID, viewers)
+	b := newBarrier()
+	s.states[channelID], s.bars[channelID] = st, b
+	s.holdLocked(st, b, viewers, now)
 	u := s.updateLocked(channelID)
 	titles := s.titles
 	s.mu.Unlock()
@@ -200,9 +389,10 @@ func (s *Service) fillTitle(titles Titles, st *WatchState) {
 	}()
 }
 
-// change brings the position up to now, applies fn and announces the result.
+// change brings the position up to now, applies fn, starts a new wait and announces the result.
 func (s *Service) change(userID, channelID id.ID, action string, fn func(st *WatchState) error) (WatchUpdate, error) {
-	if !s.inChannel(userID, channelID) {
+	viewers := s.viewers(channelID)
+	if !slices.Contains(viewers, userID) {
 		return WatchUpdate{}, ErrNotInVoice
 	}
 	s.pub.Lock()
@@ -220,6 +410,8 @@ func (s *Service) change(userID, channelID id.ID, action string, fn func(st *Wat
 		return WatchUpdate{}, err
 	}
 	st.LastActor, st.LastAction = userID, action
+	st.Seq++
+	s.holdLocked(st, s.bars[channelID], viewers, now)
 	u := s.updateLocked(channelID)
 	s.mu.Unlock()
 	s.publish(u)
@@ -244,6 +436,52 @@ func (s *Service) Seek(userID, channelID id.ID, position float64) (WatchUpdate, 
 	})
 }
 
+// Report is a viewer saying whether their player is loading, answering the watch's seq.
+// A report for another seq, for a live stream, or one that changes nothing does nothing.
+func (s *Service) Report(userID, channelID id.ID, seq int64, buffering bool) error {
+	if !s.inChannel(userID, channelID) {
+		return ErrNotInVoice
+	}
+	s.pub.Lock()
+	defer s.pub.Unlock()
+	s.mu.Lock()
+	st, b := s.states[channelID], s.bars[channelID]
+	if st == nil {
+		s.mu.Unlock()
+		return ErrNothingPlaying
+	}
+	p := s.personLocked(channelID, userID) // any report says they have a player open
+	if st.Seq != seq || st.Kind == KindTwitchLive {
+		s.mu.Unlock()
+		return nil
+	}
+	now := s.now().UnixMilli()
+	waiting := st.Waiting
+	if buffering {
+		switch {
+		case st.Paused || slices.Contains(waiting, userID):
+		case !s.countsLocked(channelID, userID, now):
+			p.readyAt = 0 // not loaded steadily yet
+		default:
+			waiting = append(slices.Clone(waiting), userID)
+		}
+	} else {
+		if p.readyAt == 0 {
+			p.readyAt = now
+		}
+		waiting = slices.DeleteFunc(slices.Clone(waiting), func(u id.ID) bool { return u == userID })
+	}
+	if len(waiting) == len(st.Waiting) {
+		s.mu.Unlock()
+		return nil
+	}
+	s.setWaitingLocked(st, b, waiting, now)
+	u := s.updateLocked(channelID)
+	s.mu.Unlock()
+	s.publish(u)
+	return nil
+}
+
 // Stop ends the channel's watch.
 func (s *Service) Stop(userID, channelID id.ID) error {
 	if !s.inChannel(userID, channelID) {
@@ -256,14 +494,14 @@ func (s *Service) Stop(userID, channelID id.ID) error {
 		s.mu.Unlock()
 		return ErrNothingPlaying
 	}
-	delete(s.states, channelID)
+	s.endLocked(channelID)
 	u := s.updateLocked(channelID)
 	s.mu.Unlock()
 	s.publish(u)
 	return nil
 }
 
-// onEvent notices people leaving a channel that watches something. Voice publishes
+// onEvent notices people joining or leaving a channel that watches something. Voice publishes
 // while holding its own lock, so asking it who is left happens on another goroutine.
 func (s *Service) onEvent(e events.Event) {
 	if e.Type != "VOICE_STATE_UPDATE" || e.Scope.ChannelID == 0 {
@@ -280,23 +518,31 @@ func (s *Service) onEvent(e events.Event) {
 	s.mu.Unlock()
 	go func() {
 		defer s.wg.Done()
-		s.clearIfEmpty(channelID, st)
+		s.syncViewers(channelID, st)
 	}()
 }
 
-// clearIfEmpty ends the watch st if nobody is left; a newer watch is left alone.
-func (s *Service) clearIfEmpty(channelID id.ID, st *WatchState) {
+// syncViewers ends the watch st if nobody is left, and stops waiting for anyone who left; a newer watch is left alone.
+func (s *Service) syncViewers(channelID id.ID, st *WatchState) {
 	s.pub.Lock()
 	defer s.pub.Unlock()
-	if len(s.voice.States([]id.ID{channelID})) > 0 {
-		return
-	}
+	viewers := s.viewers(channelID)
 	s.mu.Lock()
 	if s.states[channelID] != st {
 		s.mu.Unlock()
 		return
 	}
-	delete(s.states, channelID)
+	s.pruneLocked(channelID, viewers)
+	if len(viewers) == 0 {
+		s.endLocked(channelID)
+	} else {
+		waiting := slices.DeleteFunc(slices.Clone(st.Waiting), func(u id.ID) bool { return !slices.Contains(viewers, u) })
+		if len(waiting) == len(st.Waiting) {
+			s.mu.Unlock()
+			return
+		}
+		s.setWaitingLocked(st, s.bars[channelID], waiting, s.now().UnixMilli())
+	}
 	u := s.updateLocked(channelID)
 	s.mu.Unlock()
 	s.publish(u)

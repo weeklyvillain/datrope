@@ -28,6 +28,7 @@ func TestWatchHTTP(t *testing.T) {
 	alice.Fail(http.MethodPost, base, map[string]any{"url": "https://youtu.be/dQw4w9WgXcQ"}, http.StatusForbidden, "NOT_IN_VOICE")
 	alice.Fail(http.MethodPost, base+"/pause", nil, http.StatusForbidden, "NOT_IN_VOICE")
 	alice.Fail(http.MethodPost, base+"/seek", map[string]any{"position": 3}, http.StatusForbidden, "NOT_IN_VOICE")
+	alice.Fail(http.MethodPost, base+"/buffering", map[string]any{"seq": 1, "buffering": true}, http.StatusForbidden, "NOT_IN_VOICE")
 	alice.Fail(http.MethodDelete, base, nil, http.StatusForbidden, "NOT_IN_VOICE")
 
 	alice.Fail(http.MethodGet, "/api/channels/"+alice.General().String()+"/watch", nil, http.StatusBadRequest, "NOT_VOICE_CHANNEL")

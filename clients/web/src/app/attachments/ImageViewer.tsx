@@ -1,6 +1,6 @@
 import type { Attachment } from "@datrope/core";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
-import { ChevronLeft, ChevronRight, Download, Maximize, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Maximize, X, ZoomIn, ZoomOut } from "@/components/icons";
 import { client } from "../../session";
 import { Button } from "@/components/ui/button";
 import { useHistoryLayer } from "@/hooks/use-history-layer";

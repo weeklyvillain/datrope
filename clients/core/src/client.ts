@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
+  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, Note, NoteSummary, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL, WatchUpdate, Reminder, CreateReminderBody,
 } from "./types";
 
@@ -188,6 +188,16 @@ export class DatropeClient {
     await unwrap(this.api.DELETE("/api/channels/{id}/pins/{messageID}", { params: { path: { id: channelId, messageID: messageId } } }));
   }
 
+  /** Keeps a sent file past the size rules, or lets them apply again. */
+  async keepAttachment(id: string, keep: boolean) {
+    await unwrap(this.api.PATCH("/api/attachments/{id}", { params: { path: { id } }, body: { keep } }));
+  }
+
+  /** Deletes a sent file's contents now; the message stays. */
+  async removeAttachment(id: string) {
+    await unwrap(this.api.DELETE("/api/attachments/{id}", { params: { path: { id } } }));
+  }
+
   /** Pinned messages, newest pin first. */
   async listPins(channelId: string): Promise<Message[]> {
     return (await unwrap(this.api.GET("/api/channels/{id}/pins", { params: { path: { id: channelId } } }))) ?? [];
@@ -233,6 +243,7 @@ export class DatropeClient {
       params: { path: { id: forumId } },
       body: {
         title: post.title, content: post.content,
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
         ...(post.tags && post.tags.length > 0 ? { tags: post.tags } : {}),
         ...(post.attachments && post.attachments.length > 0 ? { attachment_ids: post.attachments.map((a) => a.id) } : {}),
       },
@@ -393,6 +404,11 @@ export class DatropeClient {
     this.apply("WATCH_UPDATE", await unwrap(this.api.POST("/api/channels/{channelID}/watch/seek", { params: { path: { channelID: channelId } }, body: { position } })));
   }
 
+  /** Tells the server whether my player is loading, answering the watch's seq: the room waits for loading viewers. */
+  async watchBuffering(channelId: string, seq: number, buffering: boolean) {
+    await unwrap(this.api.POST("/api/channels/{channelID}/watch/buffering", { params: { path: { channelID: channelId } }, body: { seq, buffering } }));
+  }
+
   async stopWatch(channelId: string) {
     await unwrap(this.api.DELETE("/api/channels/{channelID}/watch", { params: { path: { channelID: channelId } } }));
   }
@@ -418,6 +434,27 @@ export class DatropeClient {
     const created = await unwrap(this.api.POST("/api/server/music/playlists", { body }));
     this.apply("MUSIC_PLAYLIST_UPDATE", created);
     return created;
+  }
+
+  /** My notes, newest first; q filters on title and text. Events (NOTE_*) keep a loaded list current. */
+  async listNotes(q?: string): Promise<NoteSummary[]> {
+    return (await unwrap(this.api.GET("/api/notes", { params: { query: q ? { q } : {} } }))) ?? [];
+  }
+
+  async createNote(body: { title?: string; content?: Record<string, unknown>; text?: string } = {}): Promise<Note> {
+    return unwrap(this.api.POST("/api/notes", { body }));
+  }
+
+  async getNote(noteId: string): Promise<Note> {
+    return unwrap(this.api.GET("/api/notes/{noteID}", { params: { path: { noteID: noteId } } }));
+  }
+
+  async updateNote(noteId: string, body: { title?: string; content?: Record<string, unknown>; text?: string }): Promise<Note> {
+    return unwrap(this.api.PATCH("/api/notes/{noteID}", { params: { path: { noteID: noteId } }, body }));
+  }
+
+  async deleteNote(noteId: string) {
+    await unwrap(this.api.DELETE("/api/notes/{noteID}", { params: { path: { noteID: noteId } } }));
   }
 
   async renamePlaylist(playlistId: string, title: string) {
@@ -645,6 +682,7 @@ export class DatropeClient {
         params: { path: { id: channelId } },
         body: {
           content, nonce,
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
           ...(attachments.length > 0 ? { attachment_ids: attachments.map((a) => a.id) } : {}),
           ...(replyTo ? { reply_to_id: replyTo.id } : {}),
           ...(title ? { title } : {}),
@@ -868,6 +906,21 @@ export class DatropeClient {
     await unwrap(this.api.POST("/api/voice/members/{userID}/move", {
       params: { path: { userID: userId } }, body: { channel_id: channelId },
     }));
+  }
+
+  /** Moves me to the server's AFK voice channel (my client saw me idle). */
+  async goAFK() {
+    await unwrap(this.api.POST("/api/voice/afk"));
+  }
+
+  /** Shares my round trip to the voice server with the others in my call (VOICE_PING). */
+  async sendPing(rttMs: number) {
+    await unwrap(this.api.POST("/api/voice/ping", { body: { rtt_ms: rttMs } }));
+  }
+
+  /** Draws random teams from people in the call and shows them to everyone in it. */
+  async drawTeams(channelId: string, body: { teams: number; per_team?: number; user_ids: string[] }) {
+    await unwrap(this.api.POST("/api/voice/{id}/teams", { params: { path: { id: channelId } }, body }));
   }
 
   /** Takes a member (or myself) out of voice. */

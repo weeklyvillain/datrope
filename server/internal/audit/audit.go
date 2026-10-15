@@ -146,11 +146,12 @@ type Users interface {
 }
 
 type Service struct {
-	db    *pgxpool.Pool
-	perms Perms
-	users Users
-	done  chan struct{}
-	stop  sync.Once
+	active func() bool // nil: always live; see SetActive
+	db     *pgxpool.Pool
+	perms  Perms
+	users  Users
+	done   chan struct{}
+	stop   sync.Once
 }
 
 func NewService(db *pgxpool.Pool, p Perms, u Users) *Service {
@@ -169,6 +170,9 @@ func (s *Service) Start() {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()
 		prune := func(now time.Time) {
+			if !s.isActive() {
+				return
+			}
 			if _, err := s.Prune(context.Background(), now); err != nil {
 				slog.Error("audit: prune", "err", err)
 			}

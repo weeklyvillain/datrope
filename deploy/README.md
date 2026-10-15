@@ -81,7 +81,8 @@ everyone in the channel shares the queue, pause, skip, stop, shuffle, repeat and
 It leaves when the queue runs out or the channel empties.
 
 The server image includes ffmpeg and yt-dlp. YouTube changes often and old yt-dlp versions stop
-working, so rebuild the image now and then (`docker compose build --pull server`). Playing
+working, so rebuild the image now and then (an update from Server settings does, or
+`docker compose build --pull server-blue server-green`). Playing
 YouTube this way is against YouTube's terms of service; the library works without it.
 `DATROPE_FFMPEG` and `DATROPE_YTDLP` point at other binaries.
 
@@ -121,11 +122,37 @@ Server settings → System shows the machine's CPU, memory and disk, the size of
 files, and the containers, each with a restart button.
 
 Server settings → Updates shows how far the checkout is behind `main`. Updating runs
-`git pull --ff-only`, `docker compose build` and `docker compose up -d`, with a live log. The
-updater replaces itself last, through a short-lived helper container started from its own image
-(you may briefly see it in `docker ps`). Local changes or commits in the checkout make the pull
-fail, and then nothing changes. If the build fails, the old containers keep running; the page then
-shows the commit they run and offers to rebuild.
+`git pull --ff-only` and `docker compose build`, then switches to the new server without
+downtime (below), with a progress bar and a live log. The updater replaces itself last, through a
+short-lived helper container started from its own image (you may briefly see it in `docker ps`).
+Local changes or commits in the checkout make the pull fail, and then nothing changes. If the
+build fails, the old containers keep running; the page then shows the commit they run and offers
+to rebuild.
+
+### How an update runs
+
+The server runs in two slots, `server-blue` and `server-green`; one is live. An update builds,
+copies the new web app into the `web` volume, and starts the idle slot next to the live one. The
+new server migrates the database, and once Docker reports it healthy and its `/healthz` names
+the new commit, the updater points Caddy at it (`caddy reload`) and stops the old slot. Requests
+keep going to the old server until that switch, so nothing is down.
+
+What a switch costs: every open connection reconnects once, watch-together sessions end, and the
+music bot stops playing. Open apps then show "Datrope was updated" with a Reload button. Tabs that
+stay on the old version keep working: the previous build's files stay in the `web` volume.
+
+If the new server is not healthy within two minutes, the update stops: the new slot is stopped
+and the old one keeps serving. The log says why.
+
+Migrations run while the previous release still serves, so they must work with its code. See
+[`server/internal/db/migrations/README.md`](../server/internal/db/migrations/README.md); a test
+enforces it.
+
+The `switch` volume holds which slot is live (`slot`) and the two snippets Caddy imports
+(`upstream.caddy`, `root.caddy`). A plain `docker compose up -d` starts both slots; the one that
+`slot` does not name stays idle (it answers health checks but runs no background jobs) until the
+next update stops it. `docker compose stop server-green` (or `-blue`, whichever is not live) stops
+it by hand.
 
 The updater runs `docker compose` with the files and project directory the stack was started with
 (from compose's labels), so `docker-compose.override.yml` and extra `-f` files are used too, as long
@@ -184,10 +211,32 @@ Only run it if you have a backup you trust.
 ## Updating
 
 ```bash
-git pull && docker compose up -d --build
+git pull
+docker compose exec updater /updater deploy
+```
+
+This is what the Update button runs (it needs `DATROPE_UPDATER_TOKEN`), and it prints the same
+log. Without the updater, rebuild everything at once instead, which means a short outage, and
+then have Caddy load the new web app:
+
+```bash
+git pull && DATROPE_BUILD=$(git rev-parse HEAD) docker compose up -d --build
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --force
 ```
 
 Database migrations run automatically when the server starts.
+
+Upgrading to the release with zero-downtime updates (two server slots): the first update still
+restarts the stack once (the updater doing it is the old one), and leaves the old `server`
+container running beside the new slots. Remove it right after, and restart LiveKit so it sends
+its webhooks to the new address (Caddy's internal port 8081, which follows the live slot):
+
+```bash
+docker compose up -d --remove-orphans
+docker compose restart livekit
+```
+
+Updates after that switch without downtime.
 
 Upgrading to the release with voice and video: `LIVEKIT_API_SECRET` is now required, and the
 server refuses to start without it. Add it to `.env`, using letters and digits only (it is
