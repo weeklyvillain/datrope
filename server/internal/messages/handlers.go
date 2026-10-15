@@ -68,6 +68,7 @@ func Register(api huma.API, s *Service) {
 		return ch, p, err
 	}
 
+	registerAttachmentActions(api, s, op)
 	registerReactions(api, s, op, access)
 	registerPolls(api, s, op, access)
 	registerPins(api, s, op, access)

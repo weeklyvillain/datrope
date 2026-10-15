@@ -20,7 +20,7 @@ const ready = {
 
 const attachment: Attachment = {
   id: "900", channel_id: "300", filename: "hi.txt", content_type: "text/plain; charset=utf-8",
-  size: 2, inline: false, url: "/api/attachments/900",
+  size: 2, inline: false, url: "/api/attachments/900", keep: false, expired: false,
 };
 
 function message(body: { content: string; nonce: string }, attachments: Attachment[] = []): Message {
@@ -168,7 +168,7 @@ it("keeps applying when a listener throws", () => {
   spy.mockRestore();
 });
 
-const sv = { id: "1", name: "Datrope", description: "", palette: "emerald", owner_id: "10", created_at: "", rules_gate: false } as const;
+const sv = { id: "1", name: "Datrope", description: "", palette: "emerald", owner_id: "10", created_at: "", rules_gate: false, afk_timeout_seconds: 900 } as const;
 const member = (accepted: boolean) => ({
   user: { id: "1", username: "alice", display_name: "Alice", custom_status: "" }, role_ids: [], joined_at: "",
   ...(accepted ? { accepted_rules_at: "x" } : {}),

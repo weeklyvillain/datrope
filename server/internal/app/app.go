@@ -149,6 +149,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	if pool != nil { // nil only for `datrope openapi`
 		msgSvc.SetPreviews(linkpreview.New(pool))
 		msgSvc.SetBlobs(filesSvc)
+		filesSvc.SetOnExpired(msgSvc.PublishUpdated)
 		mux.Handle("GET /api/messages/{messageID}/images/{sha256}", authSvc.RequireHTTP(msgSvc.ImageHandler()))
 	}
 	a.Messages = msgSvc
@@ -179,6 +180,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 
 	voiceSvc := voice.NewService(cfg.LiveKit, a.Bus, chanSvc, commSvc)
 	voiceSvc.SetSounds(exprSvc)
+	voiceSvc.SetAFK(commSvc)
 	voice.Register(api, voiceSvc)
 	if pool != nil { // nil only for `datrope openapi`
 		if cfg.LiveKit.Enabled() {

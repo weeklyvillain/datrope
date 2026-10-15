@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team randomizer</title>
+<style>
+/* Tokens copied from clients/web/src/styles.css. */
+:root {
+  color-scheme: dark;
+  --background: #131313; --foreground: #bdc3c7; --card: #1c1c1c; --popover: #1c1c1c; --primary: #2ecc71; --primary-foreground: #131313;
+  --muted: #2a2a2a; --muted-foreground: #969da2; --accent: #2a2a2a; --border: #424242; --sidebar: #0d0d0d;
+  --destructive: #ef5b4c;
+  --avatar-1: #34495e; --avatar-2: #5b3a6e; --avatar-3: #2d5a46; --avatar-4: #6e4b2a; --avatar-5: #2a4f6e; --avatar-6: #6e2a3f; --avatar-7: #4b5a2a; --avatar-8: #3f3f6e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1.frame { margin: 0; padding: 18px 16px 4px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); }
+p.note { margin: 0; padding: 4px 16px 14px; font-size: 13px; color: var(--muted-foreground); max-width: 920px; }
+section { padding: 8px 16px 28px; display: grid; gap: 10px; }
+section h2 { margin: 0; font-size: 15px; font-weight: 600; }
+section > p { margin: 0; font-size: 12px; color: var(--muted-foreground); max-width: 760px; }
+.stage { position: relative; height: 360px; max-width: 900px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); overflow: hidden; display: flex; }
+.grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 12px 76px; }
+.tile { border-radius: 12px; border: 1px solid var(--border); background: var(--card); display: grid; place-items: center; position: relative; }
+.av { border-radius: 999px; display: grid; place-items: center; font-weight: 600; flex: none; }
+.np { position: absolute; left: 8px; bottom: 8px; padding: 1px 8px; border-radius: 6px; background: rgba(13,13,13,.8); font-size: 12px; }
+.ctrls { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 8px; }
+.ctrl { width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--border); background: var(--muted); display: grid; place-items: center; font-size: 12px; }
+.ctrl.on { background: var(--foreground); color: var(--background); }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 13px; }
+.btn.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; font-weight: 600; }
+.overlay { position: absolute; inset: 12px 12px 76px; background: rgba(19,19,19,.94); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: grid; grid-template-rows: auto 1fr auto; gap: 10px; }
+.teams { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+.team { border-radius: 10px; border: 1px solid var(--border); background: var(--card); padding: 10px; display: grid; gap: 6px; align-content: start; }
+.team h3 { margin: 0 0 2px; font-size: 13px; color: var(--tc); display: flex; align-items: center; gap: 6px; }
+.team h3::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: var(--tc); }
+.pp { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.meta { font-size: 12px; color: var(--muted-foreground); }
+.strip { position: absolute; left: 12px; right: 12px; bottom: 68px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--popover); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+.tchip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 4px; border-radius: 999px; background: color-mix(in srgb, var(--tc) 18%, transparent); border: 1px solid color-mix(in srgb, var(--tc) 45%, transparent); font-size: 12px; }
+.tchip b { color: var(--tc); margin-right: 2px; }
+.side { width: 300px; flex: none; border-left: 1px solid var(--border); background: var(--card); padding: 12px; display: grid; gap: 10px; align-content: start; }
+.dialog { width: 380px; background: var(--popover); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 24px 64px rgba(0,0,0,.6); }
+.field { display: grid; gap: 4px; font-size: 13px; }
+.num { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: max-content; }
+.num span { padding: 4px 10px; } .num b { padding: 4px 10px; background: var(--muted); font-weight: 500; }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 13px; }
+.checks label { display: flex; align-items: center; gap: 6px; }
+.box { width: 14px; height: 14px; border-radius: 3px; background: var(--primary); }
+.box.off { background: transparent; border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<h1 class="frame">Team randomizer · draft teams from people in the call (item 5)</h1>
+<p class="note">The <b>setup dialog</b> is the same in all three options. It opens from a new "Teams" button in the call controls. What differs is how <b>the result</b> shows for everyone in the call. Draw broadcasts to the call; anyone can re-roll. Leftovers go to the bench. Refresh to re-draw.</p>
+
+<section>
+  <h2>Setup dialog (shared)</h2>
+  <div class="dialog">
+    <div style="font-weight:600">Draw teams</div>
+    <div class="field">Number of teams <div class="num"><b>−</b><span>2</span><b>+</b></div></div>
+    <div class="field">Players per team <div class="num"><b>−</b><span>Even split</span><b>+</b></div><span class="meta">Leftovers sit on the bench.</span></div>
+    <div class="field">Who's in <span class="meta">7 of 8 in the call · <u>all</u> · <u>none</u></span>
+      <div class="checks" id="checks"></div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><span class="btn">Cancel</span><span class="btn primary">Draw</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>A · Stage overlay</h2>
+  <p>The result covers the call grid as a card with team columns, so it's impossible to miss. Re-roll or close. Best when drafting is the moment ("everyone look").</p>
+  <div class="stage"><div class="grid" id="grid-a"></div>
+    <div class="overlay"><div style="display:flex;align-items:center;gap:8px"><b>Teams</b><span class="meta">drawn by filip · 2 teams</span></div>
+      <div class="teams" id="teams-a"></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="meta" id="bench-a"></span><span style="margin-left:auto" class="btn">Close</span><span class="btn primary">Re-roll</span></div></div>
+    <div class="ctrls"><span class="ctrl">🎤</span><span class="ctrl">🎧</span><span class="ctrl on">👥</span><span class="ctrl" style="background:var(--destructive)">✕</span></div></div>
+</section>
+
+<section>
+  <h2>B · Strip above the controls</h2>
+  <p>A compact strip of coloured team chips sits above the call controls and leaves the call visible. It stays until it's dismissed. Lowest friction; good for frequent re-rolls during gaming sessions.</p>
+  <div class="stage"><div class="grid" id="grid-b"></div>
+    <div class="strip" id="strip-b"></div>
+    <div class="ctrls"><span class="ctrl">🎤</span><span class="ctrl">🎧</span><span class="ctrl on">👥</span><span class="ctrl" style="background:var(--destructive)">✕</span></div></div>
+</section>
+
+<section>
+  <h2>C · Side panel</h2>
+  <p>The result opens in the call's side panel, like the soundboard, as a list grouped by team. Each tile also gets a small team-colour dot. It stays visible alongside the call, and you can see who is on your team on the tiles.</p>
+  <div class="stage"><div class="grid" id="grid-c"></div>
+    <div class="side" id="side-c"></div>
+    <div class="ctrls" style="left:calc(50% - 150px)"><span class="ctrl">🎤</span><span class="ctrl">🎧</span><span class="ctrl on">👥</span><span class="ctrl" style="background:var(--destructive)">✕</span></div></div>
+</section>
+
+<script>
+const people = ["filip", "maja", "olle", "sara", "johan", "nils", "erik", "linn"];
+const pool = people.filter((p) => p !== "linn");
+const shuffled = [...pool].sort(() => Math.random() - .5);
+const teams = [[], []];
+shuffled.slice(0, 6).forEach((p, i) => teams[i % 2].push(p));
+const bench = shuffled.slice(6);
+const tc = ["#5dade2", "#f5b041"]; // stand-ins for two team tokens
+const av = (n, s = 22) => `<span class="av" style="background:var(--avatar-${people.indexOf(n) % 8 + 1});width:${s}px;height:${s}px;font-size:${s * .42}px">${n[0].toUpperCase()}</span>`;
+const teamOf = (n) => teams.findIndex((t) => t.includes(n));
+
+document.getElementById("checks").innerHTML = people.map((p) => `<label><span class="box ${p === "linn" ? "off" : ""}"></span>${p}</label>`).join("");
+const tiles = (dots) => people.slice(0, 6).map((p) => `<div class="tile">${av(p, 48)}<span class="np">${dots && teamOf(p) >= 0 ? `<span style="display:inline-block;width:8px;height:8px;border-radius:9px;background:${tc[teamOf(p)]};margin-right:5px"></span>` : ""}${p}</span></div>`).join("");
+for (const id of ["grid-a", "grid-b"]) document.getElementById(id).innerHTML = tiles(false);
+document.getElementById("grid-c").innerHTML = tiles(true);
+document.getElementById("grid-c").style.gridTemplateColumns = "repeat(2, 1fr)";
+
+document.getElementById("teams-a").innerHTML = teams.map((t, i) => `<div class="team" style="--tc:${tc[i]}"><h3>Team ${i + 1}</h3>${t.map((p) => `<div class="pp">${av(p)}${p}</div>`).join("")}</div>`).join("");
+document.getElementById("bench-a").textContent = bench.length ? `Bench: ${bench.join(", ")}` : "";
+
+document.getElementById("strip-b").innerHTML = teams.map((t, i) => `<span class="tchip" style="--tc:${tc[i]}"><b>T${i + 1}</b>${t.map((p) => av(p, 18)).join("")}</span>`).join("")
+  + (bench.length ? `<span class="tchip" style="--tc:var(--muted-foreground)"><b>Bench</b>${bench.map((p) => av(p, 18)).join("")}</span>` : "")
+  + `<span class="meta">by filip</span><span style="margin-left:auto" class="btn">Re-roll</span><span class="btn">✕</span>`;
+
+document.getElementById("side-c").innerHTML = `<div style="display:flex;align-items:center"><b>Teams</b><span class="btn" style="margin-left:auto;height:26px">✕</span></div>
+  <span class="meta">drawn by filip · just now</span>
+  ${teams.map((t, i) => `<div class="team" style="--tc:${tc[i]}"><h3>Team ${i + 1}</h3>${t.map((p) => `<div class="pp">${av(p)}${p}${p === "filip" ? ' <span class="meta">(you)</span>' : ""}</div>`).join("")}</div>`).join("")}
+  ${bench.length ? `<div class="meta">Bench: ${bench.join(", ")}</div>` : ""}
+  <span class="btn primary" style="justify-content:center">Re-roll</span>`;
+</script>
+</body>
+</html>

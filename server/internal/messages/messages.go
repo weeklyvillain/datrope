@@ -46,6 +46,9 @@ type Attachments interface {
 	ForIDs(ctx context.Context, ids []id.ID) (map[id.ID]files.Attachment, error)
 	DeleteForMessage(ctx context.Context, tx pgx.Tx, messageID id.ID) ([]string, error)
 	RemoveBlobs(ctx context.Context, sums []string) error
+	Get(ctx context.Context, attachmentID id.ID) (*files.Attachment, error)
+	SetKeep(ctx context.Context, a *files.Attachment, keep bool) error
+	ExpireNow(ctx context.Context, a *files.Attachment) error
 }
 
 type Message struct {

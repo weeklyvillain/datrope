@@ -67,7 +67,7 @@ func TestStore(t *testing.T) {
 
 	set, err := s.Settings(ctx)
 	require.NoError(t, err)
-	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeInviteOnly, MaxUploadBytes: 52428800}, set)
+	require.Equal(t, auth.Settings{RegistrationMode: auth.ModeInviteOnly, MaxUploadBytes: 52428800, UploadTTLRules: []auth.TTLRule{}}, set)
 	set.RegistrationMode = auth.ModeOpen
 	require.NoError(t, s.UpdateSettings(ctx, set))
 	set2, err := s.Settings(ctx)

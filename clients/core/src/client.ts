@@ -188,6 +188,16 @@ export class DatropeClient {
     await unwrap(this.api.DELETE("/api/channels/{id}/pins/{messageID}", { params: { path: { id: channelId, messageID: messageId } } }));
   }
 
+  /** Keeps a sent file past the size rules, or lets them apply again. */
+  async keepAttachment(id: string, keep: boolean) {
+    await unwrap(this.api.PATCH("/api/attachments/{id}", { params: { path: { id } }, body: { keep } }));
+  }
+
+  /** Deletes a sent file's contents now; the message stays. */
+  async removeAttachment(id: string) {
+    await unwrap(this.api.DELETE("/api/attachments/{id}", { params: { path: { id } } }));
+  }
+
   /** Pinned messages, newest pin first. */
   async listPins(channelId: string): Promise<Message[]> {
     return (await unwrap(this.api.GET("/api/channels/{id}/pins", { params: { path: { id: channelId } } }))) ?? [];
@@ -856,6 +866,21 @@ export class DatropeClient {
     await unwrap(this.api.POST("/api/voice/members/{userID}/move", {
       params: { path: { userID: userId } }, body: { channel_id: channelId },
     }));
+  }
+
+  /** Moves me to the server's AFK voice channel (my client saw me idle). */
+  async goAFK() {
+    await unwrap(this.api.POST("/api/voice/afk"));
+  }
+
+  /** Shares my round trip to the voice server with the others in my call (VOICE_PING). */
+  async sendPing(rttMs: number) {
+    await unwrap(this.api.POST("/api/voice/ping", { body: { rtt_ms: rttMs } }));
+  }
+
+  /** Draws random teams from people in the call and shows them to everyone in it. */
+  async drawTeams(channelId: string, body: { teams: number; per_team?: number; user_ids: string[] }) {
+    await unwrap(this.api.POST("/api/voice/{id}/teams", { params: { path: { id: channelId } }, body }));
   }
 
   /** Takes a member (or myself) out of voice. */

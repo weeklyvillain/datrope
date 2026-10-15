@@ -150,7 +150,7 @@ func (s *Service) reconcileUser(ctx context.Context, userID id.ID, revoked time.
 		channelID, sid, serverMute, have, issued, session, moved := p.channelID, p.sid, p.serverMute, p.sources, p.issued, p.session, p.moved
 		s.mu.Unlock()
 
-		allowed, _, err := s.channels.Perms(ctx, userID, channelID)
+		allowed, c, err := s.channels.Perms(ctx, userID, channelID)
 		gone := errors.Is(err, channels.ErrNotFound)
 		if err != nil && !gone {
 			return err
@@ -164,7 +164,10 @@ func (s *Service) reconcileUser(ctx context.Context, userID id.ID, revoked time.
 			}
 			return err
 		}
-		want := Sources(allowed, serverMute)
+		want, err := s.sourcesFor(ctx, c, allowed, serverMute)
+		if err != nil {
+			return err
+		}
 		if slices.Equal(want, have) {
 			return nil
 		}

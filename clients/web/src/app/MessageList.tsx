@@ -2,7 +2,7 @@ import { ApiError, compareIds, mentionsMe, myRoleIds, unwrap, type Attachment, t
 import { useShallow } from "zustand/react/shallow";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Virtuoso, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
-import { Copy, Hand, Images, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
+import { Copy, FileX, Hand, Images, Infinity as InfinityIcon, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Timer, Trash2 } from "lucide-react";
 import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
@@ -15,6 +15,10 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { RichInput } from "@/chat/RichInput";
 import { Markdown } from "@/chat/Markdown";
@@ -58,6 +62,8 @@ import { GifMedia } from "./attachments/GifMedia";
 import { ImageViewer } from "./attachments/ImageViewer";
 import { clearEditRequest, onEditLast, onEditRequest, onPresent, requestEdit } from "./chat-events";
 import { VideoPlayer } from "./attachments/VideoPlayer";
+import { ExpiredFile } from "./attachments/ExpiredFile";
+import { expiresLabel, fileFlags } from "./attachments/expiry";
 import { MemberRoleIcon } from "@/components/role-icon";
 import { fitBox, mediaKind, showable } from "./attachments/media";
 import { attachmentImage } from "@/lib/sized-image";
@@ -690,6 +696,14 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   useEffect(() => onEditRequest(m.id, () => onEditRef.current?.()), [m.id]);
   const onPin = canPin ? () => void (m.pinned ? client.unpin(m.channel_id, m.id) : client.pin(m.channel_id, m.id)).catch((e) => setError(errorText(e))) : undefined;
   const onDelete = canDelete ? () => { confirmed.current = false; setConfirming(true); } : undefined;
+  // Whoever may delete the message may also keep its files or remove them.
+  const fileOps = canDelete && !m.pending && (m.attachments?.length ?? 0) > 0;
+  const flags = fileFlags(m.attachments ?? []);
+  const [removing, setRemoving] = useState(false);
+  const keepFiles = (keep: boolean) => void Promise.all((m.attachments ?? []).filter((a) => !a.expired && (keep ? a.expires_at && !a.keep : a.keep))
+    .map((a) => client.keepAttachment(a.id, keep))).catch((e) => setError(errorText(e)));
+  const removeFiles = () => void Promise.all((m.attachments ?? []).filter((a) => !a.expired).map((a) => client.removeAttachment(a.id)))
+    .catch((e) => setError(errorText(e)));
   const actionable = !m.pending && !m.deleted && !editing;
   // Radix skips its menu (and its preventDefault) while the trigger is disabled, so links, media and
   // selected text keep the native menu: decide on pointerdown, which precedes contextmenu.
@@ -701,9 +715,11 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const touchy = canLongPress();
   const sheetMounted = useLatch(sheet);
   const pickerMounted = useLatch(picker);
+  // Expired files can't go in an album.
+  const liveIds = (m.attachments ?? []).filter((a) => !a.expired).map((a) => a.id);
   const acts = messageActions(m, {
     reply: !!onReply, react: canReact, thread: !!openThread && canCreateThread, hasThread: !!thread && !!openThread, edit: !!onEdit,
-    pin: !!onPin, pinned: m.pinned, album: (m.attachments?.length ?? 0) > 0 && !isDM, delete: !!onDelete,
+    pin: !!onPin, pinned: m.pinned, album: liveIds.length > 0 && !isDM, files: fileOps, delete: !!onDelete,
   });
   const lastTouch = useRef(false);
   const inRow = (e: { currentTarget: Element; target: EventTarget }) => e.currentTarget.contains(e.target as Node);
@@ -879,8 +895,8 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           onPin={onPin}
           pinned={m.pinned}
           onCopy={m.content ? () => void copyText(m.content) : undefined}
-          albumItems={(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending
-            ? <AddToAlbumMenuItems attachmentIds={m.attachments!.map((a) => a.id)} onError={showAlbumError} />
+          albumItems={liveIds.length > 0 && !isDM && !m.pending
+            ? <AddToAlbumMenuItems attachmentIds={liveIds} onError={showAlbumError} />
             : undefined}
           onDelete={onDelete} />
       )}
@@ -899,14 +915,17 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
       {onEdit && <ContextMenuItem onSelect={onEdit}><Pencil />Edit message</ContextMenuItem>}
       {onPin && <ContextMenuItem onSelect={onPin}>{m.pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</ContextMenuItem>}
       {m.content && <ContextMenuItem onSelect={() => void copyText(m.content)}><Copy />Copy text</ContextMenuItem>}
-      {(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending && (
+      {liveIds.length > 0 && !isDM && !m.pending && (
         <ContextMenuSub>
           <ContextMenuSubTrigger><Images />Add to album</ContextMenuSubTrigger>
           <ContextMenuSubContent className="w-56">
-            <AddToAlbumContextItems attachmentIds={m.attachments!.map((a) => a.id)} onError={showAlbumError} />
+            <AddToAlbumContextItems attachmentIds={liveIds} onError={showAlbumError} />
           </ContextMenuSubContent>
         </ContextMenuSub>
       )}
+      {fileOps && flags.expiring && <ContextMenuItem onSelect={() => keepFiles(true)}><InfinityIcon />Keep files forever</ContextMenuItem>}
+      {fileOps && flags.kept && <ContextMenuItem onSelect={() => keepFiles(false)}><Timer />Let files expire</ContextMenuItem>}
+      {fileOps && flags.removable && <ContextMenuItem variant="destructive" onSelect={() => setRemoving(true)}><FileX />Remove files</ContextMenuItem>}
       {onDelete && (
         <>
           <ContextMenuSeparator />
@@ -940,12 +959,26 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={removing} onOpenChange={setRemoving}>
+        <AlertDialogContent onContextMenu={(e) => e.stopPropagation()}
+          onCloseAutoFocus={(e) => { e.preventDefault(); if (row.current?.isConnected) row.current.focus({ preventScroll: true }); }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove the files?</AlertDialogTitle>
+            <AlertDialogDescription>The message stays, with the file names. This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={removeFiles}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {touchy && sheetMounted && !!acts?.length && (
         <MessageSheet open={sheet} onOpenChange={setSheet} message={m} actions={acts} hasThread={!!thread} pinned={m.pinned}
           onReact={react} onMoreReactions={() => setPicker(true)}
           onReply={() => onReply?.()} onThread={() => openThread?.()} onEdit={() => onEdit?.()}
           onCopy={() => void copyText(m.content)}
           onPin={() => onPin?.()} onAlbumError={showAlbumError} onDelete={() => onDelete?.()}
+          onKeepFiles={keepFiles} onRemoveFiles={() => setRemoving(true)}
           preview={(
             <div className="mx-4 mb-1 max-h-24 overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm wrap-anywhere">
               <strong className="font-semibold" style={{ color }}>{name}</strong>
@@ -987,8 +1020,12 @@ function ImageLink({ image: a, onOpen, className, more = 0, width, height, cover
 export function Attachments({ items }: { items: Attachment[] }) {
   const [viewing, setViewing] = useState<number | null>(null);
   if (items.length === 0) return null;
-  const images = items.filter(showable);
-  const others = items.filter((a) => !showable(a));
+  // An expired file's url is empty (client.url("") is the app root): it only ever reaches the placeholder.
+  const expired = items.filter((a) => a.expired);
+  const live = items.filter((a) => !a.expired);
+  const images = live.filter(showable);
+  const others = live.filter((a) => !showable(a));
+  const soonest = live.filter((a) => a.expires_at && !a.keep).map((a) => a.expires_at!).sort((a, b) => Date.parse(a) - Date.parse(b))[0];
   const tiles = images.slice(0, MAX_TILES);
   const hidden = images.length - tiles.length;
   return (
@@ -1015,6 +1052,8 @@ export function Attachments({ items }: { items: Attachment[] }) {
         if (isCodeFile(a)) return <CodeFileAttachment key={a.id} attachment={a} />;
         return <FileChip key={a.id} attachment={a} />;
       })}
+      {expired.map((a) => <ExpiredFile key={a.id} attachment={a} />)}
+      {soonest && <p className="text-xs text-muted-foreground">{expiresLabel(soonest, Date.now())}</p>}
     </div>
   );
 }

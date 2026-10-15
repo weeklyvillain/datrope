@@ -8,13 +8,16 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { client, permsIn } from "../session";
 import { play } from "../sounds";
+import { isActive, liveAFKId, shouldGoAFK } from "./afk";
 import { audioPrefs, captureOptions } from "./audio-prefs";
 import { CallAudio } from "./call-audio";
 import { applyPrefs, watchPrefs } from "./mixer";
 import { captureNativeScreen, nativeScreenAvailable, nativeScreenSize } from "./native-screen";
 import { canPickOutput } from "./output";
+import { applyPing, pingStore, startPingSender } from "./pings";
+import { type TeamsDraw, teamsStore } from "./teams";
 import { clearResume, loadResume, resumeDecision, retryDelay, saveResume, terminalJoinError, terminalReason } from "./resume";
-import { UNKNOWN, watchQuality, type Quality } from "./stats";
+import { UNKNOWN, watchQuality, type Quality, type Sample } from "./stats";
 import { encoding, saveStreamPrefs, type StreamSettings } from "./stream-prefs";
 
 export type VideoSource = "camera" | "screen";
@@ -42,12 +45,14 @@ export interface VoiceView {
   watching: string[]; // user IDs whose screen share I receive
   audioBlocked: boolean; // the browser wants a click before it plays sound
   quality: Quality; // my connection to the voice server
+  history: Sample[]; // the last 30 samples, one per second, newest last
+  notice?: string; // why I was moved, shown after the move
   retry?: number; // our own rejoin attempt, while status is "reconnecting" after a lost connection
 }
 
 const idle: Omit<VoiceView, "muted" | "deafened"> = {
   channelId: undefined, status: "idle", error: undefined, camera: false, screen: false, stream: undefined,
-  speaking: [], tiles: [], watching: [], audioBlocked: false, quality: UNKNOWN, retry: undefined,
+  speaking: [], tiles: [], watching: [], audioBlocked: false, quality: UNKNOWN, history: [], retry: undefined, notice: undefined,
 };
 
 // TrackSource.MICROPHONE from @livekit/protocol (livekit-client does not re-export it).
@@ -78,17 +83,28 @@ class Voice {
   private unwatchPrefs?: () => void; // re-applies volume, mute for me and hide video while in a call
   private callAudio?: CallAudio; // this device's audio settings applied to the call
   private unwatchQuality?: () => void;
+  private stopPing?: () => void; // shares my ping with the others in the call
   private streamOps: Promise<unknown> = Promise.resolve(); // screen share operations, one at a time
   private retryTimer?: ReturnType<typeof setTimeout>;
   private retryOnline?: () => void; // retries at once when the browser comes back online
   private retryVisible?: () => void; // retries at once when the tab is shown again
   private retryStart = 0;
+  private lastActive = 0; // when I was last active in the call (see isActive)
+  private afkTried = false;
+  private afkTimer?: ReturnType<typeof setInterval>;
+  private pendingNotice?: { text: string; channelId?: string }; // shown once the move's re-join connects (channelId: the move's target, from VOICE_MOVE)
 
   constructor() {
     client.onEvent((type, data) => {
       if (type === "VOICE_MOVE" && this.store.getState().status !== "idle") {
-        void this.join((data as { channel_id: string }).channel_id); // a moderator moved me
+        const target = (data as { channel_id: string }).channel_id;
+        if (this.pendingNotice && target === this.afkChannelId()) this.pendingNotice.channelId = target;
+        void this.join(target); // a moderator (or my own AFK) moved me
       }
+      if (type === "VOICE_PING") {
+        pingStore.setState((s) => ({ byUser: applyPing(s.byUser, data as { user_id: string; rtt_ms: number }, Date.now()) }));
+      }
+      if (type === "VOICE_TEAMS") teamsStore.setState({ draw: data as TeamsDraw });
     });
     // A reload (or a new page load in this tab) rejoins the call the tab was in, once the gateway is ready.
     const ss = tabStorage();
@@ -138,6 +154,7 @@ class Voice {
     if (retry === undefined && prev.channelId === channelId && prev.status !== "idle") return;
     this.stopRetry();
     this.disconnect();
+    if (prev.channelId !== channelId) this.forgetCall(); // a retry or resume keeps the draw and peer pings
     // webAudioMix: per-person volume above 100 % needs a gain node (an element's volume stops at 1).
     const prefs = audioPrefs.getState();
     const room = new Room({
@@ -161,10 +178,17 @@ class Voice {
         for (const pub of p.trackPublications.values()) this.autoSubscribe(pub, p);
       }
       this.set({ status: "connected", audioBlocked: !room.canPlaybackAudio, retry: undefined });
+      if (this.pendingNotice?.channelId === channelId && channelId === this.afkChannelId()) this.set({ notice: this.pendingNotice.text });
+      this.pendingNotice = undefined;
+      this.lastActive = Date.now();
+      this.afkTried = false;
+      clearInterval(this.afkTimer);
+      this.afkTimer = setInterval(() => this.checkAFK(), 30_000);
       this.remember();
-      this.unwatchQuality = watchQuality(room, (quality) => {
-        if (this.room === room) this.set({ quality });
+      this.unwatchQuality = watchQuality(room, (quality, history) => {
+        if (this.room === room) this.set({ quality, history });
       });
+      this.stopPing = startPingSender(() => this.store.getState().quality.rttMs, (ms) => client.sendPing(ms));
       play("join");
       // SPEAK can come back in the app store after LiveKit's grant does: re-check the mic then too.
       const canSpeak = (s: ReturnType<typeof client.store.getState>) => hasPerm(permsIn(s, channelId), Perm.Speak);
@@ -225,9 +249,23 @@ class Voice {
   leave() {
     if (this.store.getState().status !== "idle") play("leave");
     this.stopRetry();
+    this.pendingNotice = undefined;
     const ss = tabStorage();
     if (ss) clearResume(ss);
     this.disconnect();
+    this.forgetCall();
+  }
+
+  /** Drops what belonged to the call: the team draw and the others' pings. */
+  private forgetCall() {
+    pingStore.setState({ byUser: {} });
+    teamsStore.setState({ draw: undefined, settings: undefined });
+  }
+
+  /** The server's AFK channel, while it exists. */
+  private afkChannelId() {
+    const app = client.store.getState();
+    return liveAFKId(app.server?.server?.afk_channel_id ?? undefined, app.channels);
   }
 
   /** Forgets the last error message. */
@@ -235,7 +273,30 @@ class Voice {
     this.set({ error: undefined });
   }
 
+  /**
+   * Asks to be moved to the server's AFK channel after its timeout of silence (deafened counts as silent).
+   * A camera or screen share counts as activity.
+   */
+  private checkAFK() {
+    const v = this.store.getState();
+    if (isActive({ deafened: v.deafened, speaking: false, camera: v.camera, screen: v.screen })) {
+      this.lastActive = Date.now();
+      return;
+    }
+    const app = client.store.getState();
+    const ch = v.channelId ? app.channels[v.channelId] : undefined;
+    const sv = app.server?.server;
+    if (!ch || ch.type !== "voice" || !sv) return;
+    if (!shouldGoAFK({ now: Date.now(), lastActive: this.lastActive, timeoutS: sv.afk_timeout_seconds, channelId: v.channelId,
+      afkChannelId: this.afkChannelId(), status: v.status, tried: this.afkTried })) return;
+    this.afkTried = true;
+    const minutes = Math.round(sv.afk_timeout_seconds / 60);
+    this.pendingNotice = { text: `Moved to AFK after ${minutes} min of silence` };
+    void client.goAFK().catch(() => { this.pendingNotice = undefined; });
+  }
+
   private disconnect() {
+    clearInterval(this.afkTimer);
     const room = this.room;
     this.room = undefined;
     this.unwatchPerms?.();
@@ -244,6 +305,8 @@ class Voice {
     this.unwatchPrefs = undefined;
     this.unwatchQuality?.();
     this.unwatchQuality = undefined;
+    this.stopPing?.();
+    this.stopPing = undefined;
     this.callAudio?.stop();
     this.callAudio = undefined;
     for (const el of this.audio) el.remove();
@@ -289,6 +352,10 @@ class Voice {
       })
       .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         if (mine()) this.set({ speaking: speakers.map((p) => p.identity) });
+        const v = this.store.getState();
+        if (isActive({ deafened: v.deafened, speaking: speakers.some((p) => p === room.localParticipant), camera: v.camera, screen: v.screen })) {
+          this.lastActive = Date.now();
+        }
       })
       .on(RoomEvent.AudioPlaybackStatusChanged, () => {
         if (mine()) this.set({ audioBlocked: !room.canPlaybackAudio });
@@ -365,6 +432,7 @@ class Voice {
 
   async setDeafened(deafened: boolean) {
     if (deafened) this.mutedBeforeDeafen = this.store.getState().muted;
+    if (!deafened) this.lastActive = Date.now(); // coming back from deafened is activity
     this.set({ deafened, muted: deafened || this.mutedBeforeDeafen }); // deafening also mutes
     this.applyAudio();
     await this.applyMic();
