@@ -390,6 +390,11 @@ export class DatropeClient {
     this.apply("WATCH_UPDATE", await unwrap(this.api.POST("/api/channels/{channelID}/watch/seek", { params: { path: { channelID: channelId } }, body: { position } })));
   }
 
+  /** Tells the server whether my player is loading, answering the watch's seq: the room waits for loading viewers. */
+  async watchBuffering(channelId: string, seq: number, buffering: boolean) {
+    await unwrap(this.api.POST("/api/channels/{channelID}/watch/buffering", { params: { path: { channelID: channelId } }, body: { seq, buffering } }));
+  }
+
   async stopWatch(channelId: string) {
     await unwrap(this.api.DELETE("/api/channels/{channelID}/watch", { params: { path: { channelID: channelId } } }));
   }

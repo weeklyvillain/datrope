@@ -44,7 +44,7 @@ describe("store", () => {
     try {
       const st: WatchState = {
         channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
-        paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+        paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start", seq: 1, waiting: [],
       };
       let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000_500 });
       expect(s.watch["300"]).toEqual(st);
@@ -60,7 +60,7 @@ describe("store", () => {
   it("applyReady forgets watches, so a reconnect re-fetches them", () => {
     const st: WatchState = {
       channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
-      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start", seq: 1, waiting: [],
     };
     let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000_500 });
     expect(s.watch["300"]).toEqual(st);
@@ -73,7 +73,7 @@ describe("store", () => {
   it("WATCH_UPDATE older than the last one applied for the channel is ignored", () => {
     const st: WatchState = {
       channel_id: "300", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "youtube", video_id: "dQw4w9WgXcQ",
-      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start",
+      paused: false, position: 0, updated_at: 1_000_500, started_by: "20", last_actor: "20", last_action: "start", seq: 1, waiting: [],
     };
     let s = applyEvent(initialState, "WATCH_UPDATE", { channel_id: "300", state: { ...st, paused: true }, server_now: 2_000 });
     s = applyEvent(s, "WATCH_UPDATE", { channel_id: "300", state: st, server_now: 1_000 });

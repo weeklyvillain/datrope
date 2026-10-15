@@ -403,6 +403,25 @@
         },
         "type": "object"
       },
+      "BufferingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "buffering": {
+            "description": "True while my player loads, false once it can play",
+            "type": "boolean"
+          },
+          "seq": {
+            "description": "The watch's seq this answers",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "buffering"
+        ],
+        "type": "object"
+      },
       "Category": {
         "additionalProperties": false,
         "properties": {
@@ -5417,6 +5436,11 @@
             "format": "double",
             "type": "number"
           },
+          "seq": {
+            "description": "Changes with every start, play, pause and seek; buffering reports name the seq they answer",
+            "format": "int64",
+            "type": "integer"
+          },
           "started_by": {
             "description": "Snowflake ID as a decimal string",
             "pattern": "^[0-9]+$",
@@ -5438,6 +5462,15 @@
           "video_id": {
             "description": "The YouTube video ID, the Twitch login, or the Twitch VOD ID",
             "type": "string"
+          },
+          "waiting": {
+            "description": "Viewers the room waits for while their players load; the position holds while any are listed",
+            "items": {
+              "description": "Snowflake ID as a decimal string",
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -5450,7 +5483,9 @@
           "updated_at",
           "started_by",
           "last_actor",
-          "last_action"
+          "last_action",
+          "seq",
+          "waiting"
         ],
         "type": "object"
       },
@@ -7332,6 +7367,54 @@
               }
             },
             "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "watch"
+        ]
+      }
+    },
+    "/api/channels/{channelID}/watch/buffering": {
+      "post": {
+        "operationId": "report-watch-buffering",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channelID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BufferingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "default": {
             "content": {

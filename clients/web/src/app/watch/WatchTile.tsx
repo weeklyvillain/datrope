@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { client, useApp, userName } from "../../session";
 import { useVoice } from "../../voice/voice";
 import type { TileSize } from "../voice/Tile";
-import { describeAction, expectedPosition, formatTime } from "./sync";
+import { describeAction, describeWaiting, expectedPosition, formatTime } from "./sync";
 import { useWatchSync } from "./use-watch-sync";
 import { readVolume, saveVolume } from "./volume";
 import { WatchDialog } from "./WatchDialog";
@@ -40,6 +40,7 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
   const meId = useApp((s) => s.me?.id);
   const offset = useApp((s) => s.serverOffset);
   const actor = useApp((s) => (st ? userName(s, st.last_actor) : ""));
+  const waitLine = useApp((s) => (st ? describeWaiting(st.waiting, s.me?.id, (u) => userName(s, u)) : ""));
   const [vol, setVol] = useState(readVolume);
   const [changing, setChanging] = useState(false);
   const [scrub, setScrub] = useState<number>(); // while the position slider is dragged
@@ -47,9 +48,9 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
   const { busy, error: actError, run } = useSubmit();
   useTicker(!!st && !st.paused);
 
-  // Someone else's action, said for a few seconds. A late title does not change updated_at, so it does not re-toast.
+  // Someone else's action, said for a few seconds. A late title or a wait does not change seq, so it does not re-toast.
   const note = st && st.last_actor !== meId ? describeAction(st, actor) : undefined;
-  const stamp = st?.updated_at;
+  const stamp = st?.seq;
   useEffect(() => {
     if (!note) return;
     setToast(note);
@@ -115,7 +116,7 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
       ) : (
         <div role="toolbar" aria-label="Watch controls" className={cn(
           "absolute inset-x-0 bottom-0 grid gap-2 bg-gradient-to-t from-background/95 to-transparent px-3 pb-2.5 pt-8 transition-opacity",
-          st.paused ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100",
+          st.paused || waitLine ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100",
         )}>
           {!live && dur > 0 && (
             <Slider aria-label="Position" min={0} max={dur} step={1} value={[scrub ?? pos]} disabled={!here}
@@ -132,7 +133,9 @@ export function WatchTile({ channelId, size }: { channelId: string; size: TileSi
             {live
               ? <span className="text-xs font-semibold text-destructive">LIVE</span>
               : <span className="text-xs tabular-nums text-muted-foreground">{formatTime(scrub ?? pos)}{dur > 0 && ` / ${formatTime(dur)}`}</span>}
-            {st.paused && st.last_action === "pause" && <span className="truncate text-xs text-muted-foreground">Paused by {actor}</span>}
+            {waitLine
+              ? <span className="truncate text-xs text-muted-foreground">{waitLine}</span>
+              : st.paused && st.last_action === "pause" && <span className="truncate text-xs text-muted-foreground">Paused by {actor}</span>}
             <span className="flex-1" />
             <Button size="icon-sm" variant="ghost" aria-label={vol.muted ? "Unmute video" : "Mute video"}
               onClick={() => setVol((v) => ({ ...v, muted: !v.muted }))}>
