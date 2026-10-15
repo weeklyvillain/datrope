@@ -3,11 +3,14 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -30,7 +33,9 @@ import (
 	"github.com/datrope/datrope/server/internal/music"
 	"github.com/datrope/datrope/server/internal/notes"
 	"github.com/datrope/datrope/server/internal/push"
+	"github.com/datrope/datrope/server/internal/slot"
 	"github.com/datrope/datrope/server/internal/system"
+	"github.com/datrope/datrope/server/internal/version"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/watch"
 	"github.com/datrope/datrope/server/internal/webhooks"
@@ -71,6 +76,21 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	api := humago.New(mux, apiConfig())
 	a := &App{API: api, Bus: &events.Bus{}}
 
+	// The standby update slot answers requests but runs no background jobs.
+	var active func() bool
+	var gate *slot.Gate
+	if cfg.Slot != "" && pool != nil {
+		g := &slot.Gate{}
+		gate = g
+		if !slot.ReadActive(cfg.SlotFile, cfg.Slot) {
+			g.SetInactive() // known before any job starts
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		go slot.Watch(ctx, g, cfg.SlotFile, cfg.Slot, time.Second)
+		a.closers = append(a.closers, cancel)
+		active = g.Active
+	}
+
 	authSvc := auth.NewService(pool, a.Bus)
 	api.UseMiddleware(authSvc.Middleware(api)) // must come before any huma.Register
 	auth.Register(api, authSvc)
@@ -88,6 +108,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		if err := commSvc.EnsureServer(context.Background()); err != nil {
 			panic(fmt.Errorf("server: %w", err))
 		}
+		commSvc.SetActive(active)
 		commSvc.StartGuestSweep()
 		a.closers = append(a.closers, commSvc.Close)
 	}
@@ -137,6 +158,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		mux.Handle("PUT /api/users/@me/banner", authSvc.RequireHTTP(authSvc.BannerUploadHandler()))
 		mux.Handle("DELETE /api/users/@me/banner", authSvc.RequireHTTP(authSvc.BannerDeleteHandler()))
 		mux.Handle("GET /api/banners/{userID}", authSvc.BannerHandler())
+		filesSvc.SetActive(active)
 		filesSvc.Start()
 		a.closers = append(a.closers, filesSvc.Close)
 		a.Files = filesSvc
@@ -189,6 +211,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			mux.Handle("POST /api/voice/webhook", voiceSvc.WebhookHandler())
 		}
 		voiceSvc.SetAudit(pool)
+		voiceSvc.SetActive(active)
 		voiceSvc.Start()
 		a.closers = append(a.closers, voiceSvc.Close)
 		a.Voice = voiceSvc
@@ -198,6 +221,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	integrations.Register(api, intSvc)
 	if pool != nil { // nil only for `datrope openapi`
 		mux.Handle("GET /api/connections/{provider}/callback", intSvc.CallbackHandler())
+		intSvc.SetActive(active)
 		intSvc.Start()
 		a.closers = append(a.closers, intSvc.Close)
 		a.Integrations = intSvc
@@ -230,6 +254,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	auditSvc := audit.NewService(pool, commSvc, authSvc)
 	audit.Register(api, auditSvc)
 	if pool != nil { // nil only for `datrope openapi`
+		auditSvc.SetActive(active)
 		auditSvc.Start()
 		a.closers = append(a.closers, auditSvc.Close)
 		a.Audit = auditSvc
@@ -249,6 +274,21 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		a.closers = append(a.closers, pushSvc.Close)
 		a.Push = pushSvc
 		mux.Handle("GET /manifest.webmanifest", pushSvc.ManifestHandler())
+	}
+
+	if gate != nil {
+		// A slot that just went live has not synced while it was standby: catch up now rather
+		// than on the next tick, so the clients reconnecting to it see who is in voice.
+		gate.OnActive(voiceSvc.Resync)
+		gate.OnActive(func() {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				if err := intSvc.Poll(ctx); err != nil {
+					slog.Warn("integrations: poll", "err", err)
+				}
+			}()
+		})
 	}
 
 	registerEventSchemas(api)
@@ -288,6 +328,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	sysSvc := system.NewService(sysDeps)
 	system.Register(api, sysSvc)
 	if pool != nil {
+		sysSvc.SetActive(active)
 		sysSvc.Start()
 		a.closers = append(a.closers, sysSvc.Close)
 	}
@@ -297,7 +338,8 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		_, _ = w.Write([]byte("ok"))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"build": version.Build})
 	})
 
 	a.Handler = httpx.Chain(mux, httpx.RequestID, httpx.ClientIP(cfg.TrustProxy), httpx.Logger, httpx.Recover)

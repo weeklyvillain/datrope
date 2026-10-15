@@ -82,6 +82,7 @@ const (
 )
 
 type Service struct {
+	active   func() bool // nil: always live; see SetActive
 	db       *pgxpool.Pool
 	store    Store
 	channels Channels
@@ -112,17 +113,21 @@ func (s *Service) Start() {
 	go func() {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()
-		if err := s.Sweep(context.Background(), time.Now()); err != nil { // catch up after downtime
-			slog.Error("files: sweep", "err", err)
+		sweep := func(now time.Time) {
+			if !s.isActive() {
+				return
+			}
+			if err := s.Sweep(context.Background(), now); err != nil {
+				slog.Error("files: sweep", "err", err)
+			}
 		}
+		sweep(time.Now()) // catch up after downtime
 		for {
 			select {
 			case <-s.done:
 				return
 			case now := <-t.C:
-				if err := s.Sweep(context.Background(), now); err != nil {
-					slog.Error("files: sweep", "err", err)
-				}
+				sweep(now)
 			}
 		}
 	}()

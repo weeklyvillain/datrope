@@ -41,6 +41,9 @@ type UpdateJob struct {
 	Error      string     `json:"error,omitempty"`
 	StartedAt  time.Time  `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	Stage      int        `json:"stage" doc:"1-based index of the running (or last) step"`
+	Stages     int        `json:"stages" doc:"How many steps the job has, the updater's restart included"`
+	StageTitle string     `json:"stage_title,omitempty"`
 }
 
 type UpdateJobLog struct {
@@ -52,6 +55,10 @@ type UpdateJobLog struct {
 // Jobs runs one job at a time and keeps each job's status (<id>.json) and output (<id>.log) in
 // dir, so a restarted updater can still report how the last update ended.
 type Jobs struct {
+	// Handover is the pause between recording success and running the final step, which replaces
+	// the updater: `updater deploy` polls once a second and must see "succeeded" before that.
+	Handover time.Duration
+
 	dir string
 	wg  sync.WaitGroup
 
@@ -158,7 +165,10 @@ func (j *Jobs) Start(steps []Step, final *Step) (string, error) {
 	j.last, j.running = n, true
 	j.mu.Unlock()
 
-	job := UpdateJob{ID: fmt.Sprintf("%020d", n), Status: StatusRunning, StartedAt: time.Now()}
+	job := UpdateJob{ID: fmt.Sprintf("%020d", n), Status: StatusRunning, StartedAt: time.Now(), Stages: len(steps)}
+	if final != nil {
+		job.Stages++
+	}
 	if err := j.write(job); err != nil {
 		j.mu.Lock()
 		j.running = false
@@ -186,7 +196,9 @@ func (j *Jobs) run(job UpdateJob, steps []Step, final *Step) {
 	defer f.Close()
 	w := &syncWriter{w: f} // compose writes stdout and stderr from two goroutines
 	ctx := context.Background()
-	for _, s := range steps {
+	for i, s := range steps {
+		job.Stage, job.StageTitle = i+1, s.Title
+		_ = j.write(job)
 		fmt.Fprintf(w, "==> %s\n", s.Title)
 		if err := s.Run(ctx, w); err != nil {
 			fmt.Fprintf(w, "!! %s failed: %v\n", s.Title, err)
@@ -194,8 +206,11 @@ func (j *Jobs) run(job UpdateJob, steps []Step, final *Step) {
 			return
 		}
 	}
-	j.finish(job, nil)
+	job = j.finish(job, nil)
 	if final != nil {
+		job.Stage, job.StageTitle = job.Stages, final.Title
+		_ = j.write(job)
+		time.Sleep(j.Handover)
 		fmt.Fprintf(w, "==> %s\n", final.Title)
 		if err := final.Run(ctx, w); err != nil {
 			fmt.Fprintf(w, "!! %s failed: %v (the rest of the update is done)\n", final.Title, err)
@@ -203,13 +218,14 @@ func (j *Jobs) run(job UpdateJob, steps []Step, final *Step) {
 	}
 }
 
-func (j *Jobs) finish(job UpdateJob, err error) {
+func (j *Jobs) finish(job UpdateJob, err error) UpdateJob {
 	now := time.Now()
 	job.FinishedAt, job.Status = &now, StatusSucceeded
 	if err != nil {
 		job.Status, job.Error = StatusFailed, err.Error()
 	}
 	_ = j.write(job)
+	return job
 }
 
 // Log returns the job and its complete output lines from index after on. A line still being

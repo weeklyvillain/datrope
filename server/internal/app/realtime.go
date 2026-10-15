@@ -21,6 +21,7 @@ import (
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/music"
 	"github.com/datrope/datrope/server/internal/notes"
+	"github.com/datrope/datrope/server/internal/version"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/watch"
 )
@@ -28,6 +29,7 @@ import (
 // Ready is the READY payload (architecture spec §5.2; one-server design §5).
 type Ready struct {
 	SessionID   string                   `json:"session_id"`
+	Build       string                   `json:"build" doc:"The commit the server was built from; dev for local builds"`
 	User        *auth.User               `json:"user"`
 	Server      *ReadyServer             `json:"server,omitempty" doc:"Absent when the user is not a member"`
 	DMs         []channels.Channel       `json:"dms"`
@@ -57,7 +59,7 @@ type readyBuilder struct {
 }
 
 func (b readyBuilder) Build(ctx context.Context, u *auth.User, sessionID string, status func(id.ID) string) (any, error) {
-	r := Ready{SessionID: sessionID, User: u, Presences: []gateway.PresenceUpdate{}, Emoji: []expressions.Emoji{}, Sounds: []expressions.Sound{}, Activities: []integrations.Activity{}}
+	r := Ready{SessionID: sessionID, Build: version.Build, User: u, Presences: []gateway.PresenceUpdate{}, Emoji: []expressions.Emoji{}, Sounds: []expressions.Sound{}, Activities: []integrations.Activity{}}
 	var channelIDs []id.ID
 	rs, gated, err := b.server(ctx, u.ID)
 	if err != nil {

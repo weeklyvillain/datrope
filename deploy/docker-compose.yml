@@ -1,5 +1,33 @@
 name: datrope
 
+# The server, run as two slots (server-blue, server-green) below.
+x-server: &server
+  build:
+    context: ../server
+    args:
+      DATROPE_BUILD: ${DATROPE_BUILD:-dev}
+  restart: unless-stopped
+  volumes:
+    - files:/data
+    - switch:/switch:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+    web:
+      condition: service_completed_successfully # writes /switch on a fresh install
+
+x-server-env: &server-env
+  DATROPE_DATABASE_URL: postgres://datrope:${POSTGRES_PASSWORD}@postgres:5432/datrope?sslmode=disable
+  DATROPE_PUBLIC_URL: https://${DATROPE_DOMAIN:?set DATROPE_DOMAIN in deploy/.env}
+  DATROPE_TRUST_PROXY: "true"
+  DATROPE_DATA_DIR: /data
+  DATROPE_LIVEKIT_URL: http://livekit:7880
+  DATROPE_LIVEKIT_API_KEY: datrope
+  DATROPE_LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET in deploy/.env}
+  DATROPE_IMGPROXY_URL: http://imgproxy:8080
+  DATROPE_UPDATER_URL: http://updater:8090
+  DATROPE_UPDATER_TOKEN: ${DATROPE_UPDATER_TOKEN:-}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -16,25 +44,33 @@ services:
       timeout: 3s
       retries: 20
 
-  server:
-    build: ../server
-    restart: unless-stopped
+  # Two slots of the same server; /switch/slot names the live one. An update starts the other,
+  # switches Caddy to it once it is healthy, and stops the old one (deploy/README.md). The slot
+  # that is not live answers health checks but runs no background jobs.
+  server-blue:
+    <<: *server
     environment:
-      DATROPE_DATABASE_URL: postgres://datrope:${POSTGRES_PASSWORD}@postgres:5432/datrope?sslmode=disable
-      DATROPE_PUBLIC_URL: https://${DATROPE_DOMAIN:?set DATROPE_DOMAIN in deploy/.env}
-      DATROPE_TRUST_PROXY: "true"
-      DATROPE_DATA_DIR: /data
-      DATROPE_LIVEKIT_URL: http://livekit:7880
-      DATROPE_LIVEKIT_API_KEY: datrope
-      DATROPE_LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET in deploy/.env}
-      DATROPE_IMGPROXY_URL: http://imgproxy:8080
-      DATROPE_UPDATER_URL: http://updater:8090
-      DATROPE_UPDATER_TOKEN: ${DATROPE_UPDATER_TOKEN:-}
+      <<: *server-env
+      DATROPE_SLOT: blue
+  server-green:
+    <<: *server
+    environment:
+      <<: *server-env
+      DATROPE_SLOT: green
+
+  # Copies the web app into the web volume, then exits. Caddy serves the build /switch names.
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        DATROPE_BUILD: ${DATROPE_BUILD:-dev}
+    restart: "no"
+    environment:
+      WEB_SWITCH: "1" # a plain `up` serves this build; the updater switches it itself
     volumes:
-      - files:/data
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - web:/web
+      - switch:/switch
 
   # Resizes stored images for the server (avatars, emoji, attachments, ...). Not reachable from outside.
   imgproxy:
@@ -65,9 +101,7 @@ services:
       - "30000-30050:30000-30050/udp"
 
   caddy:
-    build:
-      context: ..
-      dockerfile: deploy/caddy.Dockerfile
+    image: caddy:2-alpine
     restart: unless-stopped
     environment:
       DATROPE_DOMAIN: ${DATROPE_DOMAIN}
@@ -76,11 +110,14 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
+      - ./caddy:/etc/caddy:ro # a directory: git pull replaces the file, which a file mount would not see
+      - switch:/switch:ro
+      - web:/web:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      server:
-        condition: service_healthy
+      web:
+        condition: service_completed_successfully
 
   # Server settings → Updates: pulls this checkout, rebuilds and restarts the stack. It holds
   # the Docker socket, which is root on this machine, so it publishes no ports and answers only
@@ -96,6 +133,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ..:/repo
       - updater:/state
+      - switch:/switch
 
 volumes:
   postgres:
@@ -103,3 +141,5 @@ volumes:
   caddy_data:
   caddy_config:
   updater:
+  switch:
+  web:

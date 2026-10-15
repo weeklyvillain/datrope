@@ -14,7 +14,7 @@ const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | P
 const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff", self_assignable: false, mentionable: false, description: "" } as const;
 const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };
 const ready = (over: Partial<Ready> = {}): Ready => ({
-  session_id: "s", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
+  session_id: "s", build: "dev", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
   voice_states: [], emoji: [], sounds: [], activities: [],
   server: {
     ...server, roles: [everyone, mod],
@@ -56,6 +56,10 @@ describe("store", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  it("applyReady keeps the server's build", () => {
+    expect(initialState.serverBuild).toBeNull();
+    expect(applyReady(initialState, ready({ build: "abc" })).serverBuild).toBe("abc");
   });
   it("applyReady forgets watches, so a reconnect re-fetches them", () => {
     const st: WatchState = {

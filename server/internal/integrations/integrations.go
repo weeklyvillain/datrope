@@ -86,6 +86,7 @@ type ActivityUpdate struct {
 }
 
 type Service struct {
+	active    func() bool // nil: always live; see SetActive
 	db        *pgxpool.Pool
 	bus       *events.Bus
 	channels  Channels
@@ -137,6 +138,9 @@ func (s *Service) Start() {
 			case <-s.stop:
 				return
 			case <-t.C:
+				if !s.isActive() {
+					continue
+				}
 				ctx, cancel := context.WithTimeout(context.Background(), pollEvery)
 				if err := s.Poll(ctx); err != nil {
 					slog.WarnContext(ctx, "integrations: poll", "err", err)

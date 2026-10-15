@@ -8,6 +8,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 )
 
 // Compose runs docker compose for the stack. Dir is the deploy directory's host path (reachable
@@ -22,6 +23,11 @@ type Compose struct {
 	// (host paths); empty means <Dir>/docker-compose.yml and Dir.
 	Files      []string
 	WorkingDir string
+	// Switch is the switch volume (live slot, Caddy snippets). Probe reads a server's build
+	// (nil: HTTPProbe). HealthTimeout bounds the wait for the new slot (0: two minutes).
+	Switch        Switch
+	Probe         Probe
+	HealthTimeout time.Duration
 }
 
 func (c Compose) args(args ...string) []string {
@@ -51,22 +57,124 @@ func (c Compose) services(ctx context.Context) ([]string, error) {
 	return strings.Fields(b.String()), nil
 }
 
-// UpdateSteps pulls, builds and restarts everything but the updater; final then replaces the
-// updater itself, which ends this process.
+// caddyReload makes Caddy re-read the Caddyfile and the switch files it imports. --force: Caddy
+// skips a reload when the Caddyfile text is unchanged, and the imported files are what changed.
+func (c Compose) caddyReload(ctx context.Context, w io.Writer) error {
+	return c.cmd(ctx, w, "exec", "-T", "caddy", "caddy", "reload", "--config", "/etc/caddy/Caddyfile", "--force")
+}
+
+// alignCaddy reloads Caddy when its running config does not send traffic to server-<live>.
+// When the admin API cannot be read it says so and goes on: the check is a safety net.
+func (c Compose) alignCaddy(ctx context.Context, w io.Writer, live string) error {
+	var b bytes.Buffer
+	if err := c.cmd(ctx, &b, "exec", "-T", "caddy", "wget", "-qO-", "http://127.0.0.1:2019/config/"); err != nil {
+		fmt.Fprintf(w, "could not read Caddy's config: %v\n", err)
+		return nil
+	}
+	if strings.Contains(b.String(), `"dial":"server-`+live+`:8080"`) {
+		return nil
+	}
+	fmt.Fprintf(w, "Caddy does not route to server-%s as the switch files say: reloading it\n", live)
+	return c.caddyReload(ctx, w)
+}
+
+// UpdateSteps pulls and builds, starts the idle server slot next to the live one, switches Caddy
+// and the servers to it once it is healthy, then stops the old slot. final replaces the updater
+// itself, which ends this process. The live slot serves throughout; a failure before the switch
+// leaves it untouched.
 func UpdateSteps(g *Git, c Compose) (steps []Step, final *Step) {
+	probe, timeout := c.Probe, c.HealthTimeout
+	if probe == nil {
+		probe = HTTPProbe
+	}
+	if timeout == 0 {
+		timeout = 2 * time.Minute
+	}
+	var build, live, next string // set as the steps run
+	stopNext := func(ctx context.Context, w io.Writer) {
+		if err := c.cmd(ctx, w, "stop", "server-"+next); err != nil {
+			fmt.Fprintf(w, "could not stop server-%s: %v\n", next, err)
+		}
+	}
 	steps = []Step{
 		g.PullStep(),
-		{Title: "docker compose build", Run: func(ctx context.Context, w io.Writer) error { return c.cmd(ctx, w, "build") }},
-		{Title: "docker compose up", Run: func(ctx context.Context, w io.Writer) error {
-			all, err := c.services(ctx) // read after the pull: an update may add services
+		{Title: "build", Run: func(ctx context.Context, w io.Writer) error {
+			sha, err := g.output(ctx, "rev-parse", "HEAD")
 			if err != nil {
 				return err
 			}
-			others := slices.DeleteFunc(all, func(s string) bool { return s == "updater" })
-			if err := c.cmd(ctx, w, append([]string{"up", "-d"}, others...)...); err != nil {
+			build = sha
+			// Every service, read after the pull (an update may add some), and both slots by
+			// name: compose skips services in inactive profiles otherwise, and `up` would then
+			// build the slot itself, without the build arg.
+			svcs, err := c.services(ctx)
+			if err != nil {
 				return err
 			}
-			// The containers now run HEAD. Failing to record that does not undo the update.
+			for _, s := range []string{"server-blue", "server-green"} {
+				if !slices.Contains(svcs, s) {
+					svcs = append(svcs, s)
+				}
+			}
+			return c.cmd(ctx, w, append([]string{"build", "--build-arg", "DATROPE_BUILD=" + build}, svcs...)...)
+		}},
+		{Title: "publish web app", Run: func(ctx context.Context, w io.Writer) error {
+			return c.cmd(ctx, w, "run", "--rm", "-e", "WEB_SWITCH=0", "web") // the switch step points Caddy at it
+		}},
+		{Title: "start new server", Run: func(ctx context.Context, w io.Writer) error {
+			var err error
+			if live, err = c.Switch.Active(); err != nil {
+				return err
+			}
+			next = Other(live)
+			// An update that died between writing the switch files and reloading Caddy leaves
+			// Caddy on the other slot. Bring Caddy in line first, or the slot about to be
+			// recreated could be the one taking the traffic.
+			if err := c.alignCaddy(ctx, w, live); err != nil {
+				return err
+			}
+			// The services besides the slots, Caddy and the updater: normally a no-op. Picks up
+			// changed images or config, and removes containers of services an update dropped.
+			if err := c.cmd(ctx, w, "up", "-d", "--no-deps", "--remove-orphans", "postgres", "imgproxy", "livekit"); err != nil {
+				return err
+			}
+			if err := c.cmd(ctx, w, "up", "-d", "--no-deps", "server-"+next); err != nil {
+				stopNext(ctx, w) // it may have been created, or even started
+				return err
+			}
+			return nil
+		}},
+		{Title: "wait until healthy", Run: func(ctx context.Context, w io.Writer) error {
+			if err := c.WaitHealthy(ctx, w, "server-"+next, build, probe, timeout, 2*time.Second); err != nil {
+				stopNext(ctx, w)
+				return err
+			}
+			return nil
+		}},
+		{Title: "switch traffic", Run: func(ctx context.Context, w io.Writer) error {
+			restore, err := c.Switch.Write(next, build)
+			if err != nil {
+				stopNext(ctx, w)
+				return err
+			}
+			// A Caddyfile edit in the pull is picked up here too.
+			if err := c.caddyReload(ctx, w); err != nil {
+				if rerr := restore(); rerr != nil {
+					fmt.Fprintf(w, "could not restore the switch files: %v\n", rerr)
+				}
+				stopNext(ctx, w)
+				return err
+			}
+			fmt.Fprintf(w, "traffic now goes to server-%s\n", next)
+			return nil
+		}},
+		{Title: "stop old server", Run: func(ctx context.Context, w io.Writer) error {
+			// Traffic already moved: an old slot that will not stop does not undo the update (it
+			// is standby now and runs no jobs). Say so and stop it by hand.
+			if err := c.cmd(ctx, w, "stop", "server-"+live); err != nil {
+				fmt.Fprintf(w, "could not stop server-%s: %v (stop it with docker compose stop server-%s)\n", live, err, live)
+			}
+			// The live slot now runs HEAD. Failing to record that does not undo the update.
 			if err := g.markDeployed(ctx); err != nil {
 				fmt.Fprintf(w, "could not record the deployed commit: %v\n", err)
 			}

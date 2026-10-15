@@ -1,4 +1,4 @@
-import { Hash } from "lucide-react";
+import { Hash } from "@/components/icons";
 import { useState, type CSSProperties } from "react";
 import { ColorPicker } from "@/components/color-picker";
 import { ErrorText } from "@/components/error-text";

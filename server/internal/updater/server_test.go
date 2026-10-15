@@ -19,7 +19,7 @@ type fakeLister []ContainerInfo
 func (f fakeLister) Containers(context.Context, string) ([]ContainerInfo, error) { return f, nil }
 
 func newTestServer(t *testing.T) (*httptest.Server, *fakeCmd, *Jobs) {
-	f := &fakeCmd{out: map[string]string{"config --services": "server\n", "rev-list --count HEAD..origin/main": "0\n"}}
+	f := slotFake("healthy")
 	jobs, err := OpenJobs(t.TempDir())
 	require.NoError(t, err)
 	s := &Server{
@@ -27,7 +27,7 @@ func newTestServer(t *testing.T) (*httptest.Server, *fakeCmd, *Jobs) {
 		Git:     &Git{Dir: "/r", Run: f.run},
 		Jobs:    jobs,
 		Docker:  fakeLister{{Service: "server"}, {Service: "updater"}},
-		Compose: Compose{Dir: "/r/deploy", Project: "datrope", Run: f.run},
+		Compose: Compose{Dir: "/r/deploy", Project: "datrope", Run: f.run, Switch: liveBlue(t), Probe: probeBuild("ccc")},
 	}
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)

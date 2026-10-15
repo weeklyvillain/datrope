@@ -100,6 +100,7 @@ type MemberRemoved struct {
 }
 
 type Service struct {
+	active   func() bool // nil: always live; see SetActive
 	db       *pgxpool.Pool
 	bus      *events.Bus
 	users    Users

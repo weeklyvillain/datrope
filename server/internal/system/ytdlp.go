@@ -48,7 +48,8 @@ type YtDlpStatus struct {
 // YtDlp checks GitHub for yt-dlp releases and installs them on the data volume.
 type YtDlp struct {
 	opts     YtDlpOptions
-	updating sync.Mutex // one update at a time
+	active   func() bool // nil: always; the standby update slot skips the daily check
+	updating sync.Mutex  // one update at a time
 
 	mu        sync.Mutex
 	installed string
@@ -257,6 +258,10 @@ func (y *YtDlp) RunDaily(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			if !y.isActive() {
+				t.Reset(time.Minute) // both slots share the binary: only the live one updates it
+				continue
+			}
 			if err := y.Check(ctx); err != nil {
 				slog.Warn("yt-dlp: update check", "err", err)
 			}

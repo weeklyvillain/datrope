@@ -117,3 +117,8 @@ func (s *Service) updates(ctx context.Context, check bool) SystemUpdates {
 	u.YtDlp = s.yt.Status()
 	return u
 }
+
+// SetActive pauses the daily yt-dlp check while active reports false (the standby update slot).
+func (s *Service) SetActive(active func() bool) { s.yt.active = active }
+
+func (y *YtDlp) isActive() bool { return y.active == nil || y.active() }

@@ -30,6 +30,7 @@ import { paramToPanel } from "./side-panel/panel-param";
 import { useLayerNavigate } from "@/hooks/use-history-layer";
 import { openSettings, setSettingsGated, setSettingsNavigate } from "./settings/settings-store";
 import { SoundboardListener } from "./voice/SoundboardPanel";
+import { UpdateBanner } from "@/components/update-banner";
 
 export function AppShell() {
   useVisualViewport();
@@ -124,6 +125,8 @@ export function AppShell() {
         {!mobile && <ShortcutSheet />}
         {/* Phones show it in MobileShell, clear of the tab bar. */}
         {!mobile && connection === "reconnecting" && <div className="fixed bottom-safe left-1/2 -translate-x-1/2 rounded-full bg-foreground px-3.5 py-1.5 text-background" role="status">Reconnecting…</div>}
+        {/* Under the header: it stays until dismissed, and the composer is at the bottom. */}
+        {!mobile && connection !== "reconnecting" && <UpdateBanner className="top-14" />}
       </div>
       {!gated && !mobile && <PlayerBar />}
     </div>

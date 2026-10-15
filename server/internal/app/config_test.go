@@ -58,3 +58,19 @@ func TestConfigUpdater(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "http://updater:8090", c.UpdaterURL, "the compose service name is the default")
 }
+
+func TestConfigSlot(t *testing.T) {
+	t.Setenv("DATROPE_DATABASE_URL", "postgres://example")
+	t.Setenv("DATROPE_PUBLIC_URL", "https://chat.example.com")
+	t.Setenv("DATROPE_SLOT", "")
+	t.Setenv("DATROPE_SLOT_FILE", "")
+	c, err := app.ConfigFromEnv()
+	require.NoError(t, err)
+	require.Empty(t, c.Slot, "no slot: always live")
+
+	t.Setenv("DATROPE_SLOT", "green")
+	c, err = app.ConfigFromEnv()
+	require.NoError(t, err)
+	require.Equal(t, "green", c.Slot)
+	require.Equal(t, "/switch/slot", c.SlotFile)
+}

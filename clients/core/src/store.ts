@@ -34,6 +34,7 @@ export interface ServerState {
 export interface State {
   me: User | null;
   connection: ConnectionStatus;
+  serverBuild: string | null; // the commit the server runs, from READY; null until then
   server: ServerState | null; // null until READY, or when I am not a member
   welcome: Welcome | null;
   channels: Record<string, Channel>;
@@ -59,6 +60,7 @@ export interface State {
 export const initialState: State = {
   me: null,
   connection: "closed",
+  serverBuild: null,
   server: null,
   welcome: null,
   channels: {},
@@ -110,6 +112,7 @@ export function applyReady(s: State, r: Ready): State {
   return {
     ...s,
     me: r.user,
+    serverBuild: r.build ?? null,
     server,
     welcome: null,
     channels,

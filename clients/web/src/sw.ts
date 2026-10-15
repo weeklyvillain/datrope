@@ -5,9 +5,14 @@ import { NavigationRoute, registerRoute } from "workbox-routing";
 declare const self: ServiceWorkerGlobalScope;
 
 // The build's files. A new worker waits until every window is closed, so an open
-// page never loses the chunks it was built with ("updates on next launch").
+// page never loses the chunks it was built with ("updates on next launch"), unless
+// the "Datrope was updated" banner's Reload asks it to take over now.
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
+
+self.addEventListener("message", (event) => {
+  if ((event.data as { type?: string } | null)?.type === "SKIP_WAITING") void self.skipWaiting();
+});
 
 // Every in-app route opens the cached app shell, so the installed app starts offline.
 registerRoute(new NavigationRoute(createHandlerBoundToURL("index.html"), {
