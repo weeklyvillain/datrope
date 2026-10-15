@@ -31,7 +31,7 @@ import { ThreadsList } from "./side-panel/ThreadsList";
 import { TopBar, type PhoneAction } from "./TopBar";
 import { ChannelInfoSheet } from "./mobile/ChannelInfoSheet";
 import { EmojiText } from "@/chat/EmojiText";
-import { EmptyView } from "./EmptyView";
+import { NoAccess } from "../pages/errors";
 import { VoiceStage } from "./voice/VoiceStage";
 import { BareButton } from "@/components/bare-button";
 
@@ -75,7 +75,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
     if (p?.kind === "threads" || p?.kind === "post" || p?.kind === "media" || (p?.kind === "thread" && p.parentId !== channelId)) closePanel();
   }, [channelId]);
 
-  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  if (!ch) return <NoAccess inShell />;
   const title = ch.type === "dm" ? dmName(ch, me?.id) : `# ${ch.name}`;
   // Threads live in text, webhook, announcement and gallery channels (never in DMs, threads or voice side chats).
   const threads = ch.type === "text" || ch.type === "webhook" || ch.type === "announcement" || ch.type === "gallery";

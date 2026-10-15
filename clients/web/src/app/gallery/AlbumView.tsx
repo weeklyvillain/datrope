@@ -9,6 +9,8 @@ import { ErrorText } from "@/components/error-text";
 import { useSubmit } from "@/hooks/use-submit";
 import { useBriefError } from "@/chat/Reactions";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { errorKind } from "@/lib/error-kind";
+import { NoAccess, NotFound } from "../../pages/errors";
 import { EmptyView } from "../EmptyView";
 import { UserAvatar } from "@/components/user-avatar";
 import { client, errorText, useApp, usePerms } from "../../session";
@@ -42,7 +44,7 @@ function Confirm({ title, body, label, onConfirm, onClose, destructive = true }:
 /** One album: the gallery grid over its files, with its settings, upload and leave actions. */
 export function AlbumView({ galleryId, albumId }: { galleryId: string; albumId: string }) {
   const [album, setAlbum] = useState<Album>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -58,7 +60,7 @@ export function AlbumView({ galleryId, albumId }: { galleryId: string; albumId: 
 
   useEffect(() => {
     let live = true;
-    const load = () => client.album(albumId).then((a) => live && setAlbum(a), (e) => live && setError(errorText(e)));
+    const load = () => client.album(albumId).then((a) => live && setAlbum(a), (e: unknown) => live && setError(e));
     void load();
     const off = client.onEvent((type, data) => {
       const d = data as { id?: string };
@@ -71,7 +73,12 @@ export function AlbumView({ galleryId, albumId }: { galleryId: string; albumId: 
     return () => { live = false; off(); };
   }, [albumId, galleryId, nav]);
 
-  if (error) return <EmptyView>{error}</EmptyView>;
+  if (error) {
+    const kind = errorKind(error);
+    if (kind === "not-found") return <NotFound inShell />;
+    if (kind === "no-access") return <NoAccess inShell />;
+    return <EmptyView>{errorText(error)}</EmptyView>;
+  }
   if (!album) return <EmptyView><ListSkeleton className="w-full max-w-md" /></EmptyView>;
   const canEdit = album.role === "owner" || album.role === "collaborator";
   const canUpload = canEdit && !!gallery && canPost(gallery, galleryPerms) && hasPerm(galleryPerms, Perm.AttachFiles);
