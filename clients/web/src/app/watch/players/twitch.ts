@@ -1,4 +1,5 @@
 import { loadScript } from "../load-script";
+import { stallDetector } from "../sync";
 import type { CreatePlayer } from "./types";
 
 type TwitchPlayer = {
@@ -39,6 +40,7 @@ export const createTwitch: CreatePlayer = async (mount, st, start, events) => {
   });
   p.addEventListener(T.Player.READY, () => events.onReady());
   if (live) p.addEventListener(T.Player.OFFLINE, () => events.onError(`${st.video_id} is offline.`));
+  const stall = stallDetector();
   return {
     play: () => p.play(),
     pause: () => p.pause(),
@@ -47,6 +49,8 @@ export const createTwitch: CreatePlayer = async (mount, st, start, events) => {
     duration: () => (live ? 0 : p.getDuration()),
     live: () => live,
     playing: () => !p.isPaused(),
+    buffering: () => stall(p.isPaused(), p.getCurrentTime(), performance.now()), // the embed has no buffering event
+    loadedAhead: () => undefined,
     setVolume: (v) => p.setVolume(v / 100),
     setMuted: (m) => p.setMuted(m),
     destroy: () => mount.replaceChildren(), // Twitch's player has no destroy; dropping its iframe ends it

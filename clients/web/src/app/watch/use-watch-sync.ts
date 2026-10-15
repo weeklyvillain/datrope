@@ -1,12 +1,13 @@
 import type { RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useApp } from "../../session";
+import { client, useApp } from "../../session";
 import { createPlayer } from "./players";
 import type { WatchPlayer } from "./players/types";
-import { expectedPosition, reconcile } from "./sync";
+import { expectedPosition, held, isReady, nextReport, reconcile, type Tracker } from "./sync";
 
 const TICK_MS = 2000;
 const AUTOPLAY_GRACE_MS = 1500;
+const SAMPLE_MS = 500;
 
 /** Mounts the player for a channel's watch inside `host` and keeps it in step with the server's state. Without `enabled` there is no player. */
 export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>, enabled: boolean) {
@@ -19,6 +20,9 @@ export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>,
   stRef.current = st;
   const offsetRef = useRef(offset);
   offsetRef.current = offset;
+  const meId = useApp((s) => s.me?.id);
+  const meRef = useRef(meId);
+  meRef.current = meId;
 
   // A new player per video; play, pause and seek reuse it.
   const url = st?.url;
@@ -65,13 +69,13 @@ export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>,
       if (!cur) return;
       const expected = expectedPosition(cur, Date.now(), offsetRef.current);
       // A live YouTube stream sits at the live edge: nothing to seek to, like Twitch live.
-      const fix = reconcile({ kind: player.live() ? "twitch_live" : cur.kind, paused: cur.paused }, { time: player.currentTime(), playing: player.playing(), duration: player.duration() }, expected);
+      const fix = reconcile({ kind: player.live() ? "twitch_live" : cur.kind, paused: held(cur) }, { time: player.currentTime(), playing: player.playing(), duration: player.duration() }, expected);
       if (fix.seek !== undefined) player.seek(fix.seek);
       if (fix.pause) player.pause();
       if (fix.play) {
         player.play();
         timers.push(window.setTimeout(() => {
-          if (stRef.current && !stRef.current.paused && !player.playing()) setBlocked(true); // the browser blocked autoplay
+          if (stRef.current && !held(stRef.current) && !player.playing()) setBlocked(true); // the browser blocked autoplay
         }, AUTOPLAY_GRACE_MS));
       }
     };
@@ -83,9 +87,28 @@ export function useWatchSync(channelId: string, host: RefObject<HTMLDivElement>,
     };
   }, [player, blocked, st]);
 
+  // Tell the server when my player stalls, and when it has loaded while the room waits for me.
+  useEffect(() => {
+    if (!player) return;
+    let tracker: Tracker = { seq: -1 };
+    const sample = () => {
+      const cur = stRef.current;
+      if (!cur || cur.kind === "twitch_live") return;
+      const live = player.live(); // a YouTube live stream: nothing to wait for
+      const buffering = !live && player.buffering();
+      const ready = live || isReady({ time: player.currentTime(), duration: player.duration(), buffering, loadedAhead: player.loadedAhead() });
+      const me = meRef.current;
+      const r = nextReport(tracker, { seq: cur.seq, now: Date.now(), buffering, ready, waitingOnMe: !!me && cur.waiting.includes(me), held: held(cur) });
+      tracker = r.tracker;
+      if (r.send !== undefined) client.watchBuffering(channelId, cur.seq, r.send).catch(() => {}); // resent on a later sample
+    };
+    const interval = window.setInterval(sample, SAMPLE_MS);
+    return () => window.clearInterval(interval);
+  }, [player, channelId]);
+
   /** "Click to sync": a click is the gesture the browser wants before playing with sound. */
   const unblock = () => {
-    if (!stRef.current?.paused) player?.play();
+    if (stRef.current && !held(stRef.current)) player?.play();
     setBlocked(false);
   };
 

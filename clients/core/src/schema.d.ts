@@ -404,6 +404,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{channelID}/watch/buffering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["report-watch-buffering"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{channelID}/watch/pause": {
         parameters: {
             query?: never;
@@ -1836,6 +1852,15 @@ export interface components {
         };
         BanRequest: {
             reason?: string;
+        };
+        BufferingRequest: {
+            /** @description True while my player loads, false once it can play */
+            buffering: boolean;
+            /**
+             * Format: int64
+             * @description The watch's seq this answers
+             */
+            seq: number;
         };
         Category: {
             /** @description Snowflake ID as a decimal string */
@@ -3306,6 +3331,11 @@ export interface components {
              * @description Seconds into the video at updated_at; always 0 for a live stream
              */
             position: number;
+            /**
+             * Format: int64
+             * @description Changes with every start, play, pause and seek; buffering reports name the seq they answer
+             */
+            seq: number;
             /** @description Snowflake ID as a decimal string */
             started_by: string;
             /** @description Filled in shortly after starting, when the site has one */
@@ -3319,6 +3349,8 @@ export interface components {
             url: string;
             /** @description The YouTube video ID, the Twitch login, or the Twitch VOD ID */
             video_id: string;
+            /** @description Viewers the room waits for while their players load; the position holds while any are listed */
+            waiting: string[];
         };
         WatchUpdate: {
             /** @description Snowflake ID as a decimal string */
@@ -4464,6 +4496,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "report-watch-buffering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BufferingRequest"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {
