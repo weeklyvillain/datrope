@@ -8,7 +8,7 @@ vi.mock("@/session", () => ({ client: { url: (p: string) => `https://chat.test${
 
 const gif: Attachment = {
   id: "9", channel_id: "3", filename: "Cat.mp4", content_type: "video/mp4", size: 10, inline: false,
-  url: "/api/attachments/9", width: 498, height: 373, gif: true,
+  url: "/api/attachments/9", width: 498, height: 373, gif: true, keep: false, expired: false,
 };
 
 describe("GifMedia", () => {

@@ -105,7 +105,7 @@ func (s *Service) Files(ctx context.Context, userID id.ID, fq FilesQuery) (*File
 	}
 	sc := add(id.Int64s(scope))
 	conds := []string{
-		"a.message_id IS NOT NULL", "NOT m.deleted", "c.type <> 'dm'",
+		"a.message_id IS NOT NULL", "a.expired_at IS NULL", "NOT m.deleted", "c.type <> 'dm'",
 		"(a.channel_id = ANY(" + sc + ") OR (c.type = 'thread' AND c.parent_channel_id = ANY(" + sc + ")))",
 	}
 	if len(fq.Kinds) > 0 {

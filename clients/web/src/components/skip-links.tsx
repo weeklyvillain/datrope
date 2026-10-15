@@ -15,7 +15,7 @@ export function SkipLinks() {
   return (
     <div className="contents">
       <a href="#messages" className={link} onClick={go('[data-message-row][tabindex="0"]')}>Skip to messages</a>
-      <a href="#composer" className={link} onClick={go('textarea[aria-label="Message"]')}>Skip to composer</a>
+      <a href="#composer" className={link} onClick={go('[data-composer][aria-label="Message"]')}>Skip to composer</a>
     </div>
   );
 }

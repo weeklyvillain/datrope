@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { useApp, userName } from "../../session";
 import { useVoicePrefs } from "../../voice/prefs";
+import { teamColor, teamOf, useTeams } from "../../voice/teams";
 import { voice, type VideoTile } from "../../voice/voice";
 import { AvatarTrigger } from "../people/AvatarTrigger";
 import { AdjustedBadge, PersonMenu } from "./PersonMenu";
@@ -44,6 +45,8 @@ export function Tile({ userId, tile, size, speaking = false, watching = false, c
   const hidden = useVoicePrefs((p) => !!state?.camera && !tile?.local && !!p.hideVideo[userId]);
   const hideSet = useVoicePrefs((p) => !!p.hideVideo[userId]);
   const screen = tile?.source === "screen";
+  const draw = useTeams(state?.channel_id ?? "");
+  const teamIdx = screen ? -1 : teamOf(draw, userId);
   const prompt = screen && !tile.local && !tile.track && !watching;
   const wrapped = !screen && !me; // camera and avatar tiles have a person menu
 
@@ -72,6 +75,7 @@ export function Tile({ userId, tile, size, speaking = false, watching = false, c
       )}
       {!prompt && (
         <span className="absolute bottom-2 left-2 flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded bg-background/80 px-2 py-0.5 text-xs">
+          {teamIdx >= 0 && <span aria-label={`Team ${teamIdx + 1}`} role="img" className="size-2 flex-none rounded-full" style={{ background: teamColor(teamIdx) }} />}
           {!screen && tile?.track ? (
             <AvatarTrigger userId={userId} name={name} className="min-w-0 truncate rounded-sm hover:underline">{me ? `${name} (you)` : name}</AvatarTrigger>
           ) : (

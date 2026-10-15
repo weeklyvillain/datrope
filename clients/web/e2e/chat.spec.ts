@@ -224,7 +224,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByLabel("Message", { exact: true }).fill("who wants pizza? @bo");
   await expect(alice.getByRole("listbox", { name: "Member suggestions" }).getByRole("option", { name: /bob/ })).toBeVisible();
   await alice.getByLabel("Message", { exact: true }).press("Enter");
-  await expect(alice.getByLabel("Message", { exact: true })).toHaveValue("who wants pizza? @bob ");
+  await expect(alice.getByLabel("Message", { exact: true })).toHaveText(/^who wants pizza\? @bob $/);
   await alice.getByLabel("Message", { exact: true }).press("Enter");
   const pizzaForBob = bob.getByRole("article").filter({ hasText: "who wants pizza?" }).first(); // the reply quotes it too
   await expect(pizzaForBob).toHaveClass(/border-primary/);
@@ -271,11 +271,11 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await box.fill("/shr");
   await expect(alice.getByRole("listbox", { name: "Command suggestions" }).getByRole("option", { name: /^\/shrug/ })).toBeVisible();
   await box.press("Tab");
-  await expect(box).toHaveValue("/shrug ");
+  await expect(box).toHaveText(/^\/shrug $/);
   await box.pressSequentially("hi");
   await box.press("Enter");
   await expect(bob.getByRole("article").filter({ hasText: "hi ¯\\_(ツ)_/¯" })).toBeVisible();
-  await expect(box).toHaveValue("");
+  await expect(box).toHaveText(/^$/);
 
   // /wheel: the reel spins for both and lands on one of the options.
   await send(alice, "/wheel Pizza, Sushi, Tacos");
@@ -287,7 +287,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   // An unknown command is not sent, and the text stays for fixing.
   await send(alice, "/nope");
   await expect(alice.getByRole("alert").filter({ hasText: "Unknown command /nope" })).toBeVisible();
-  await expect(box).toHaveValue("/nope");
+  await expect(box).toHaveText("/nope");
   await box.fill("");
 
   // /gif: hidden until an admin adds a Klipy key in Server settings → Integrations. Tests never
@@ -949,7 +949,7 @@ test("code blocks, pasted snippets and code file previews", async ({ browser }) 
   await box.fill("let x = 1");
   await box.selectText();
   await alice.getByRole("button", { name: "Code block" }).click();
-  await expect(box).toHaveValue(/^```\w*\nlet x = 1\n```$/);
+  await expect(box).toHaveText(/^```\w*\nlet x = 1\n```$/);
   await box.fill("");
 
   // A long paste becomes a snippet file: renamed, sent, previewed, opened in full.
@@ -961,7 +961,7 @@ test("code blocks, pasted snippets and code file previews", async ({ browser }) 
   }, code);
   const name = alice.getByLabel("Snippet file name");
   await expect(name).toHaveValue(/^snippet\.\w+$/);
-  await expect(box).toHaveValue("");
+  await expect(box).toHaveText(/^$/);
   await name.fill("values.ts");
   await name.press("Enter");
   await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
@@ -1137,4 +1137,20 @@ test("personal notes: write a note, it survives a reload, then delete it", async
   await alice.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(alice).toHaveURL(/\/notes$/);
   await expect(noteLink).toHaveCount(0);
+});
+
+// Runs after the first test: bob is a member.
+test("unknown pages and channels land on error pages inside the app", async ({ browser }) => {
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+
+  await bob.goto("/no-such-page");
+  await expect(bob.getByRole("heading", { name: "Nothing here" })).toBeVisible();
+  // The shell stays, so another channel is one click away.
+  await expect(bob.getByRole("tab", { name: "Channels" })).toBeVisible();
+
+  await bob.goto("/channels/1");
+  await expect(bob.getByRole("heading", { name: "You can't open this" })).toBeVisible();
+  await bob.getByRole("link", { name: "Go home" }).click();
+  await expect(bob.getByRole("heading", { name: "You can't open this" })).toHaveCount(0);
 });

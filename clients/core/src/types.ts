@@ -56,6 +56,7 @@ export type AuditEntry = Schemas["LogEntry"];
 export type AuditChange = Schemas["LogChange"];
 export type VoiceState = Schemas["VoiceState"];
 export type VoiceMove = Schemas["VoiceMove"];
+export type VoicePing = Schemas["VoicePing"];
 export type JoinVoiceResponse = Schemas["JoinResponse"];
 
 export type ChannelRef = Schemas["ChannelRef"];
@@ -118,6 +119,8 @@ export interface EventMap {
   USER_UPDATE: PublicUser;
   VOICE_STATE_UPDATE: VoiceState;
   VOICE_MOVE: VoiceMove;
+  VOICE_PING: VoicePing;
+  VOICE_TEAMS: Schemas["TeamsDraw"];
   MESSAGE_REACTION_ADD: ReactionEvent;
   MESSAGE_REACTION_REMOVE: ReactionEvent;
   POLL_UPDATE: PollUpdate;

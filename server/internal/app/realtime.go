@@ -189,7 +189,7 @@ func registerEventSchemas(api huma.API) {
 		messages.Message{}, messages.MessageDeleted{}, messages.TypingStart{}, messages.ReactionEvent{}, messages.ThreadUpdate{}, messages.PollUpdate{},
 		channels.ChannelDeleted{}, communities.MemberRemoved{}, communities.RoleDeleted{}, communities.Server{},
 		channels.Category{}, channels.CategoryDeleted{},
-		files.Attachment{}, voice.VoiceState{}, voice.VoiceMove{}, voice.SoundboardPlay{}, expressions.EmojiUpdate{}, expressions.SoundUpdate{},
+		files.Attachment{}, voice.VoiceState{}, voice.VoiceMove{}, voice.VoicePing{}, voice.TeamsDraw{}, voice.SoundboardPlay{}, expressions.EmojiUpdate{}, expressions.SoundUpdate{},
 		integrations.ActivityUpdate{}, music.MusicState{}, music.MusicPlaylist{}, music.PlaylistDeleted{},
 		albums.Album{}, albums.AlbumDeleted{}, albums.ItemsChanged{}, watch.WatchUpdate{},
 		notes.NoteSummary{}, notes.Note{}, notes.NoteDeleted{},

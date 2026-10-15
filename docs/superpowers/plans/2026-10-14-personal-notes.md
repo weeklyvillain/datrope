@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Never commit, push, amend, tag or merge: the user commits. "Checkpoint" steps below only run the checks.
-- Migration number `00043`; may collide with sibling branches. Renumber at merge.
+- Migration number `00046` (renumbered from 00043 at merge); may collide with sibling branches. Renumber at merge.
 - JSON field names are snake_case (`updated_at`, `created_at`).
 - Limits: 500 notes per user; title ≤100 runes (trimmed); content JSON ≤200 KB; text ≤200 KB; preview = first 140 runes of text, whitespace collapsed; `q` ≤100 runes.
 - Another user's note → `404 NOT_FOUND` via `httpx.NotFound("note")`.
@@ -37,7 +37,7 @@
 ### Task 1: Server notes domain
 
 **Files:**
-- Create: `server/internal/db/migrations/00043_notes.sql`
+- Create: `server/internal/db/migrations/00046_notes.sql`
 - Create: `server/internal/notes/notes.go`
 - Create: `server/internal/notes/handlers.go`
 - Create: `server/internal/notes/notes_test.go`

@@ -20,7 +20,7 @@ saving chat messages into notes, offline editing.
 
 ## Data
 
-Migration `server/internal/db/migrations/00043_notes.sql` (the number may collide with other branches
+Migration `server/internal/db/migrations/00046_notes.sql` (the number may collide with other branches
 adding migrations; renumber at merge):
 
 ```sql

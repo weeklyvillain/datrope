@@ -57,6 +57,7 @@ export function System() {
   return (
     <>
       <ErrorText error={error} />
+      {!stats && !error && <p className="text-muted-foreground" role="status">Loading…</p>}
       {stats && <SystemView stats={stats} onRestart={(s) => void restart(s)} />}
     </>
   );
