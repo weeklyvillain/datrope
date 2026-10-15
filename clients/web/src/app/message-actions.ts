@@ -8,10 +8,10 @@ export function messageActions(
   if (m.pending || m.deleted || m.kind) return null;
   const out: MessageAction[] = [];
   if (can.react) out.push("react");
+  if (m.content) out.push("copy");
   if (can.reply) out.push("reply");
   if (can.thread || can.hasThread) out.push("thread");
   if (can.edit) out.push("edit");
-  if (m.content) out.push("copy");
   if (can.pin) out.push("pin");
   if (can.album && (m.attachments?.length ?? 0) > 0) out.push("album");
   if (can.delete) out.push("delete");

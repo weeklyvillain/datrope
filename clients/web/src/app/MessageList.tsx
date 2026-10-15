@@ -23,6 +23,7 @@ import { PollCard } from "@/chat/PollCard";
 import { WheelCard } from "@/chat/WheelCard";
 import { parseWheel } from "@/chat/wheel";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 import { messageKeyAction, type MessageKey } from "@/lib/message-keys";
 import { buildItems, indexOfMessage, navTarget, neighbourRow, prependedCount, type Item } from "@/lib/message-items";
 import { shouldKeepFocus } from "@/lib/focus";
@@ -762,7 +763,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
         fn();
       }}
       style={{ transform: swipe.offset ? `translateX(${swipe.offset}px)` : undefined }}
-      className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-pan-y pointer-coarse:[-webkit-touch-callout:none]",
+      className={cn("group relative grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 px-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-pan-y pointer-coarse:[-webkit-touch-callout:none] pointer-coarse:select-none",
         swipe.offset === 0 && "motion-safe:transition-transform",
         card ? "rounded-xl py-4" : grouped ? "py-0.5" : "mt-2 pb-0.5 pt-1",
         mentioned ? "border-l-2 border-primary bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] pl-3.5" : !card && "hover:bg-card/50")}>
@@ -810,7 +811,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
             {card && (
               <Input value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} maxLength={100} aria-label="Edit title"
-                placeholder="Title" className="mb-2"
+                placeholder="Title" className="mb-2 pointer-coarse:select-text"
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
                     e.preventDefault();
@@ -818,7 +819,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
                   }
                 }} />
             )}
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} aria-label="Edit message" autoFocus
+            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={4000} aria-label="Edit message" autoFocus className="pointer-coarse:select-text"
               enterKeyHint={isTouchOnly() ? "enter" : undefined}
               onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
               onKeyDown={(e) => {
@@ -874,7 +875,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           onEdit={onEdit}
           onPin={onPin}
           pinned={m.pinned}
-          onCopy={m.content ? () => void navigator.clipboard?.writeText(m.content).catch(() => undefined) : undefined}
+          onCopy={m.content ? () => void copyText(m.content) : undefined}
           albumItems={(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending
             ? <AddToAlbumMenuItems attachmentIds={m.attachments!.map((a) => a.id)} onError={showAlbumError} />
             : undefined}
@@ -894,7 +895,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
         : <ContextMenuItem onSelect={openThread}><MessageSquarePlus />Create thread</ContextMenuItem>)}
       {onEdit && <ContextMenuItem onSelect={onEdit}><Pencil />Edit message</ContextMenuItem>}
       {onPin && <ContextMenuItem onSelect={onPin}>{m.pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</ContextMenuItem>}
-      {m.content && <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}><Copy />Copy text</ContextMenuItem>}
+      {m.content && <ContextMenuItem onSelect={() => void copyText(m.content)}><Copy />Copy text</ContextMenuItem>}
       {(m.attachments?.length ?? 0) > 0 && !isDM && !m.pending && (
         <ContextMenuSub>
           <ContextMenuSubTrigger><Images />Add to album</ContextMenuSubTrigger>
@@ -940,7 +941,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
         <MessageSheet open={sheet} onOpenChange={setSheet} message={m} actions={acts} hasThread={!!thread} pinned={m.pinned}
           onReact={react} onMoreReactions={() => setPicker(true)}
           onReply={() => onReply?.()} onThread={() => openThread?.()} onEdit={() => onEdit?.()}
-          onCopy={() => void navigator.clipboard?.writeText(m.content).catch(() => undefined)}
+          onCopy={() => void copyText(m.content)}
           onPin={() => onPin?.()} onAlbumError={showAlbumError} onDelete={() => onDelete?.()}
           preview={(
             <div className="mx-4 mb-1 max-h-24 overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm wrap-anywhere">

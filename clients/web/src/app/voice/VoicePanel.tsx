@@ -24,7 +24,7 @@ const STATUS = { connecting: "Connecting…", connected: "Voice connected", reco
 
 /** Voice status and controls at the bottom of the sidebar, while in a call (or after it failed). */
 export function VoicePanel() {
-  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, error: x.error })));
+  const v = useVoice(useShallow((x) => ({ channelId: x.channelId, status: x.status, error: x.error, retry: x.retry })));
   const ch = useApp((s) => (v.channelId ? s.channels[v.channelId] : undefined));
   const me = useApp((s) => s.me);
   if (v.status === "idle" && !v.error) return null;
@@ -43,7 +43,7 @@ export function VoicePanel() {
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <p className={cn("text-sm font-semibold", v.status === "connected" ? "text-online" : "text-idle")} role="status">
-                {STATUS[v.status]}
+                {v.status === "reconnecting" && v.retry ? `Disconnected · reconnecting… (attempt ${v.retry})` : STATUS[v.status]}
               </p>
               <Link to={href} aria-label={`Go to ${where}`} className="block truncate text-xs text-muted-foreground">{where}</Link>
             </div>

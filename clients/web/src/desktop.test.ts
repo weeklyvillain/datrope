@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Desktop, eventDispatcher, type DesktopTransport } from "./desktop";
+import { Desktop, eventDispatcher, linkToOpen, type DesktopTransport } from "./desktop";
 
 function fake() {
   const calls: [string, Record<string, unknown> | undefined][] = [];
@@ -160,5 +160,29 @@ describe("eventDispatcher", () => {
     f.failWith(undefined);
     await expect(d.claimTitleBar(true)).resolves.toBeUndefined();
     expect(f.calls.filter(([c]) => c === "desktop_title_bar")).toHaveLength(2);
+  });
+});
+
+describe("linkToOpen", () => {
+  const page = "https://chat.example.com";
+  it("opens other sites in the browser", () =>
+    expect(linkToOpen({ href: "https://youtube.com/watch?v=1", target: "" }, page, 0)).toBe("https://youtube.com/watch?v=1"));
+  it("opens same-origin new-tab links (downloads) in the browser", () =>
+    expect(linkToOpen({ href: `${page}/api/attachments/5`, target: "_blank" }, page, 0)).toBe(`${page}/api/attachments/5`));
+  it("leaves in-app links to the router", () =>
+    expect(linkToOpen({ href: `${page}/channels/1`, target: "" }, page, 0)).toBeNull());
+  it("opens a middle-clicked in-app link in the browser", () =>
+    expect(linkToOpen({ href: `${page}/channels/1`, target: "" }, page, 1)).toBe(`${page}/channels/1`));
+  it("handles mailto", () =>
+    expect(linkToOpen({ href: "mailto:a@b.c", target: "" }, page, 0)).toBe("mailto:a@b.c"));
+  it("ignores other schemes and right clicks", () => {
+    expect(linkToOpen({ href: "javascript:alert(1)", target: "_blank" }, page, 0)).toBeNull();
+    expect(linkToOpen({ href: "https://x.com", target: "" }, page, 2)).toBeNull();
+  });
+  it("sends openUrl to the shell", async () => {
+    const f = fake();
+    new Desktop(f.t).openUrl("https://x.com/");
+    await tick();
+    expect(f.calls).toContainEqual(["desktop_open_url", { url: "https://x.com/" }]);
   });
 });

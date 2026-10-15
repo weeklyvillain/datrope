@@ -5,7 +5,7 @@ const all = { reply: true, react: true, thread: true, hasThread: false, edit: tr
 
 describe("messageActions", () => {
   it("lists everything for a normal message", () =>
-    expect(messageActions({ content: "hi", attachments: [{}] }, all)).toEqual(["react", "reply", "thread", "edit", "copy", "pin", "album", "delete"]));
+    expect(messageActions({ content: "hi", attachments: [{}] }, all)).toEqual(["react", "copy", "reply", "thread", "edit", "pin", "album", "delete"]));
   it("image-only messages have no Copy", () =>
     expect(messageActions({ content: "", attachments: [{}] }, all)).not.toContain("copy"));
   it("system, deleted and pending messages open nothing", () => {
@@ -15,7 +15,7 @@ describe("messageActions", () => {
   });
   it("respects permissions", () =>
     expect(messageActions({ content: "x" }, { ...all, react: false, edit: false, delete: false, album: false }))
-      .toEqual(["reply", "thread", "copy", "pin"]));
+      .toEqual(["copy", "reply", "thread", "pin"]));
   it("offers no thread row when I cannot open or create one", () =>
     expect(messageActions({ content: "x" }, { ...all, thread: false, hasThread: false })).not.toContain("thread"));
   it("offers nothing but an empty list when no permissions apply", () =>

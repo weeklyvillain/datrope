@@ -13,6 +13,7 @@ import { CallAudio } from "./call-audio";
 import { applyPrefs, watchPrefs } from "./mixer";
 import { captureNativeScreen, nativeScreenAvailable, nativeScreenSize } from "./native-screen";
 import { canPickOutput } from "./output";
+import { clearResume, loadResume, resumeDecision, retryDelay, saveResume, terminalJoinError, terminalReason } from "./resume";
 import { UNKNOWN, watchQuality, type Quality } from "./stats";
 import { encoding, saveStreamPrefs, type StreamSettings } from "./stream-prefs";
 
@@ -41,11 +42,12 @@ export interface VoiceView {
   watching: string[]; // user IDs whose screen share I receive
   audioBlocked: boolean; // the browser wants a click before it plays sound
   quality: Quality; // my connection to the voice server
+  retry?: number; // our own rejoin attempt, while status is "reconnecting" after a lost connection
 }
 
 const idle: Omit<VoiceView, "muted" | "deafened"> = {
   channelId: undefined, status: "idle", error: undefined, camera: false, screen: false, stream: undefined,
-  speaking: [], tiles: [], watching: [], audioBlocked: false, quality: UNKNOWN,
+  speaking: [], tiles: [], watching: [], audioBlocked: false, quality: UNKNOWN, retry: undefined,
 };
 
 // TrackSource.MICROPHONE from @livekit/protocol (livekit-client does not re-export it).
@@ -58,6 +60,9 @@ const goodbye: Partial<Record<DisconnectReason, string>> = {
   [DisconnectReason.DUPLICATE_IDENTITY]: "You joined voice somewhere else.",
   [DisconnectReason.ROOM_DELETED]: "The voice channel was closed.",
 };
+
+/** This tab's sessionStorage; undefined outside a browser. */
+const tabStorage = () => (typeof sessionStorage === "undefined" ? undefined : sessionStorage);
 
 const stopAll = (tracks: MediaStreamTrack[]) => {
   for (const t of tracks) t.stop();
@@ -74,6 +79,10 @@ class Voice {
   private callAudio?: CallAudio; // this device's audio settings applied to the call
   private unwatchQuality?: () => void;
   private streamOps: Promise<unknown> = Promise.resolve(); // screen share operations, one at a time
+  private retryTimer?: ReturnType<typeof setTimeout>;
+  private retryOnline?: () => void; // retries at once when the browser comes back online
+  private retryVisible?: () => void; // retries at once when the tab is shown again
+  private retryStart = 0;
 
   constructor() {
     client.onEvent((type, data) => {
@@ -81,16 +90,53 @@ class Voice {
         void this.join((data as { channel_id: string }).channel_id); // a moderator moved me
       }
     });
+    // A reload (or a new page load in this tab) rejoins the call the tab was in, once the gateway is ready.
+    const ss = tabStorage();
+    const resume = ss && loadResume(ss);
+    if (resume) {
+      this.set({ muted: resume.muted, deafened: resume.deafened });
+      this.mutedBeforeDeafen = resume.deafened || resume.muted; // as setDeafened would have left it
+      // True once decided. Another account signed in to this tab: its call is not ours to rejoin.
+      const decide = (s: ReturnType<typeof client.store.getState>) => {
+        const d = resumeDecision(s, resume);
+        if (d === "drop") clearResume(ss);
+        if (d === "join" && this.store.getState().status === "idle") void this.join(resume.channelId, 0);
+        return d !== "wait";
+      };
+      if (!decide(client.store.getState())) {
+        const stop = client.store.subscribe((s) => {
+          if (decide(s)) stop();
+        });
+      }
+    }
+    // Stamp the saved call as the page goes away: a reload rejoins, a tab restored hours later does not.
+    if (typeof window !== "undefined") {
+      window.addEventListener("pagehide", () => {
+        if (this.store.getState().status !== "idle") this.remember();
+      });
+    }
+  }
+
+  /** Saves the call this tab is in, so a reload (or our own retry) can join it again. */
+  private remember() {
+    const ss = tabStorage();
+    const { muted, deafened, channelId } = this.store.getState();
+    const userId = client.store.getState().me?.id;
+    if (ss && channelId && userId) saveResume(ss, { userId, channelId, muted, deafened, at: Date.now() });
   }
 
   private set(patch: Partial<VoiceView>) {
     this.store.setState(patch);
   }
 
-  /** Joins a channel's or DM's voice, leaving any other. */
-  async join(channelId: string) {
+  /**
+   * Joins a channel's or DM's voice, leaving any other. `retry` is undefined for a click, 0 for a resume after a
+   * reload and n for our own rejoin attempt n after a lost connection.
+   */
+  async join(channelId: string, retry?: number) {
     const prev = this.store.getState();
-    if (prev.channelId === channelId && prev.status !== "idle") return;
+    if (retry === undefined && prev.channelId === channelId && prev.status !== "idle") return;
+    this.stopRetry();
     this.disconnect();
     // webAudioMix: per-person volume above 100 % needs a gain node (an element's volume stops at 1).
     const prefs = audioPrefs.getState();
@@ -104,7 +150,7 @@ class Voice {
       if (this.room === room) this.set({ error });
     });
     this.unwatchPrefs = watchPrefs(() => this.room, () => this.store.getState().deafened);
-    this.set({ ...idle, channelId, status: "connecting" });
+    this.set({ ...idle, channelId, status: retry ? "reconnecting" : "connecting", retry: retry || undefined });
     try {
       const { url, token } = await client.joinVoice(channelId, { self_mute: prev.muted, self_deaf: prev.deafened });
       if (this.room !== room) return; // left or switched meanwhile
@@ -114,7 +160,8 @@ class Voice {
       for (const p of room.remoteParticipants.values()) {
         for (const pub of p.trackPublications.values()) this.autoSubscribe(pub, p);
       }
-      this.set({ status: "connected", audioBlocked: !room.canPlaybackAudio });
+      this.set({ status: "connected", audioBlocked: !room.canPlaybackAudio, retry: undefined });
+      this.remember();
       this.unwatchQuality = watchQuality(room, (quality) => {
         if (this.room === room) this.set({ quality });
       });
@@ -132,13 +179,54 @@ class Voice {
     } catch (e) {
       if (this.room !== room) return;
       this.disconnect();
+      if (retry !== undefined && !terminalJoinError(e) && this.scheduleRetry(channelId, retry)) return;
+      const ss = tabStorage();
+      if (ss) clearResume(ss);
       this.set({ error: e instanceof ApiError ? e.message : "Could not connect to voice." });
     }
+  }
+
+  /** Schedules rejoin attempt `prev + 1`. False once we have tried for long enough (the caller reports the loss). */
+  private scheduleRetry(channelId: string, prev: number): boolean {
+    if (prev === 0) this.retryStart = Date.now();
+    const attempt = prev + 1;
+    const delay = retryDelay(attempt, Date.now() - this.retryStart);
+    if (delay === null) return false;
+    this.set({ channelId, status: "reconnecting", retry: attempt });
+    const now = () => {
+      this.stopRetry();
+      if (this.store.getState().retry === attempt) void this.join(channelId, attempt);
+    };
+    this.retryTimer = setTimeout(now, delay);
+    if (typeof window !== "undefined") {
+      this.retryOnline = now;
+      window.addEventListener("online", now, { once: true });
+    }
+    if (typeof document !== "undefined") {
+      this.retryVisible = () => {
+        if (document.visibilityState === "visible") now();
+      };
+      document.addEventListener("visibilitychange", this.retryVisible);
+    }
+    return true;
+  }
+
+  /** Cancels a scheduled rejoin attempt. */
+  private stopRetry() {
+    clearTimeout(this.retryTimer);
+    this.retryTimer = undefined;
+    if (this.retryOnline) window.removeEventListener("online", this.retryOnline);
+    this.retryOnline = undefined;
+    if (this.retryVisible) document.removeEventListener("visibilitychange", this.retryVisible);
+    this.retryVisible = undefined;
   }
 
   /** Leaves voice. Mute and deafen stay as they are for the next call. */
   leave() {
     if (this.store.getState().status !== "idle") play("leave");
+    this.stopRetry();
+    const ss = tabStorage();
+    if (ss) clearResume(ss);
     this.disconnect();
   }
 
@@ -216,9 +304,14 @@ class Voice {
       })
       .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
         if (!mine()) return; // we left on purpose
-        if (this.store.getState().status === "connecting") return; // join() reports the failure
-        play("leave");
+        const { status, retry, channelId } = this.store.getState();
+        if (status === "connecting" || retry) return; // join() reports the failure (or schedules the next attempt)
         this.disconnect();
+        // Network trouble or the page being frozen: get back in. A kick, another tab or a closed room: stay out.
+        if (!terminalReason(reason) && channelId && this.scheduleRetry(channelId, 0)) return;
+        play("leave");
+        const ss = tabStorage();
+        if (ss) clearResume(ss);
         this.set({ error: (reason !== undefined && goodbye[reason]) || "The voice connection was lost." });
       });
   }
@@ -306,6 +399,7 @@ class Voice {
   private async report() {
     const { muted, deafened, status } = this.store.getState();
     if (status === "idle") return; // sent with the next join instead
+    this.remember(); // a reload (or our own rejoin) keeps them
     await client.setVoiceSelf({ self_mute: muted, self_deaf: deafened }).catch(() => undefined);
   }
 
