@@ -1,13 +1,18 @@
 // Slash commands typed at the start of the composer. Pure: the composer passes
 // side effects in through CommandContext.
 
+import { parseWhen } from "./remind-time";
 import { wheel } from "./wheel";
 
-export type ModalKind = "gif" | "poll";
+export type ModalKind = "gif" | "poll" | "reminder";
 export type CommandContext = {
   gifsEnabled: boolean; // instance info: a Klipy key is set
   canAttach: boolean; // the member holds AttachFiles, which posting a GIF needs
   setStatus: (text: string) => Promise<unknown>;
+  /** Sets a reminder for an ISO instant and confirms it. */
+  setReminder: (body: { due_at: string; note: string }) => Promise<unknown>;
+  /** Opens the Reminders side panel; absent where no side panel shows it (a voice channel's chat). */
+  openReminders?: () => void;
   /** Set in a voice channel's chat: controls its music bot. */
   music?: {
     queue: (query: string) => Promise<unknown>;
@@ -32,6 +37,7 @@ export type Command = {
 
 const MAX_LENGTH = 4000; // the server's limit per message
 const MAX_STATUS = 80; // the server's custom_status limit
+const REMIND_USAGE = "Usage: /remind <20m|2h|14:30|tomorrow 9|fri 13:00> <text>";
 
 // Markdown-escaped so the backslash survives rendering: ¯\_(ツ)_/¯
 const SHRUG = String.raw`¯\\\_(ツ)\_/¯`;
@@ -58,6 +64,21 @@ export const COMMANDS: Command[] = [
       await ctx.setStatus(a);
       return { done: true };
     },
+  },
+  {
+    name: "remind", args: "<when> <text>", description: "Reminds you later in a DM from System",
+    run: async (a, ctx) => {
+      if (!a) return { open: "reminder" };
+      const when = parseWhen(a, new Date());
+      if (!when || !when.rest) return { error: REMIND_USAGE };
+      await ctx.setReminder({ due_at: when.due.toISOString(), note: when.rest });
+      return { done: true };
+    },
+  },
+  {
+    name: "reminders", description: "Lists your pending reminders",
+    available: (ctx) => !!ctx.openReminders,
+    run: (_a, ctx) => { ctx.openReminders!(); return { done: true }; },
   },
   {
     name: "gif", args: "[search]", description: "Finds a GIF to post",

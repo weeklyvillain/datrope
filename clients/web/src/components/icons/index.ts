@@ -1,5 +1,6 @@
 // Animated icons (hover/keyboard-focus of their control plays them). Names match lucide-react.
 export { Activity } from "./activity";
+export { AlarmClock } from "./alarm-clock";
 export { ArrowDown } from "./arrow-down";
 export { ArrowLeftRight } from "./arrow-left-right";
 export { ArrowLeft } from "./arrow-left";

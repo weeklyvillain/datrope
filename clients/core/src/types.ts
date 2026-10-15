@@ -58,6 +58,11 @@ export type VoiceState = Schemas["VoiceState"];
 export type VoiceMove = Schemas["VoiceMove"];
 export type VoicePing = Schemas["VoicePing"];
 export type JoinVoiceResponse = Schemas["JoinResponse"];
+export type Reminder = Schemas["Reminder"];
+export type ReminderInfo = Schemas["ReminderInfo"];
+export type ReminderQuote = Schemas["ReminderQuote"];
+export type ReminderTarget = Schemas["ReminderTarget"];
+export type CreateReminderBody = Schemas["CreateReminderRequest"];
 
 export type ChannelRef = Schemas["ChannelRef"];
 export type SearchResponse = Schemas["SearchResponse"];

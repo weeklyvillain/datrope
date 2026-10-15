@@ -94,4 +94,14 @@ describe("navTarget and neighbourRow", () => {
     expect(neighbourRow(items, "3")?.id).toBe("2");
     expect(neighbourRow(buildItems([msg("1", "u1", "2026-10-14T08:00:00Z")], { unreadAt: -1, variant: "chat" }), "1")).toBeUndefined();
   });
+  it("treats reminders as rows: they carry a card and actions", () => {
+    const reminders = buildItems([
+      msg("R1", "sys", "2026-10-14T08:00:00Z", { kind: "reminder" } as never),
+      msg("R2", "sys", "2026-10-14T08:01:00Z", { kind: "reminder" } as never),
+    ], { unreadAt: -1, variant: "chat" });
+    const rid = (i: number) => { const it = reminders[i]; return it?.kind === "message" ? it.m.id : undefined; };
+    expect(rid(navTarget(reminders, "R1", "next"))).toBe("R2");
+    expect(rid(navTarget(reminders, "R2", "first"))).toBe("R1");
+    expect(neighbourRow(reminders, "R2")?.id).toBe("R1");
+  });
 });

@@ -1,13 +1,13 @@
 import { fileFlags } from "./attachments/expiry";
 
-export type MessageAction = "react" | "reply" | "thread" | "edit" | "copy" | "pin" | "album" | "keepFiles" | "unkeepFiles" | "removeFiles" | "delete";
+export type MessageAction = "react" | "reply" | "thread" | "edit" | "copy" | "pin" | "remind" | "album" | "keepFiles" | "unkeepFiles" | "removeFiles" | "delete";
 
 /** What the phone action sheet offers for a message, in order; null when it offers nothing. */
 export function messageActions(
   m: { pending?: boolean; deleted?: boolean; kind?: string; content: string; attachments?: { expires_at?: string | null; keep?: boolean; expired?: boolean }[] | null },
-  can: { reply: boolean; react: boolean; thread: boolean; hasThread: boolean; edit: boolean; pin: boolean; pinned: boolean; album: boolean; files: boolean; delete: boolean },
+  can: { reply: boolean; react: boolean; thread: boolean; hasThread: boolean; edit: boolean; pin: boolean; pinned: boolean; album: boolean; remind: boolean; files: boolean; delete: boolean },
 ): MessageAction[] | null {
-  if (m.pending || m.deleted || m.kind) return null;
+  if (m.pending || m.deleted || m.kind === "member_leave") return null;
   const out: MessageAction[] = [];
   if (can.react) out.push("react");
   if (m.content) out.push("copy");
@@ -15,6 +15,7 @@ export function messageActions(
   if (can.thread || can.hasThread) out.push("thread");
   if (can.edit) out.push("edit");
   if (can.pin) out.push("pin");
+  if (can.remind) out.push("remind");
   if (can.album && m.attachments?.some((a) => !a.expired)) out.push("album");
   if (can.files) {
     const f = fileFlags(m.attachments ?? []);

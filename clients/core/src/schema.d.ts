@@ -1029,6 +1029,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-reminders"];
+        put?: never;
+        post: operations["create-reminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reminders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-reminder"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/search": {
         parameters: {
             query?: never;
@@ -2156,6 +2188,18 @@ export interface components {
             /** @description The sender's IANA time zone */
             tz?: string;
         };
+        CreateReminderRequest: {
+            /** @description With message_id: the message to be reminded about */
+            channel_id?: string;
+            /**
+             * Format: date-time
+             * @description When to remind; in the future, at most 366 days ahead
+             */
+            due_at: string;
+            /** @description Snowflake ID as a decimal string */
+            message_id?: string;
+            note?: string;
+        };
         CreateRoleRequest: {
             /** @enum {string} */
             color?: "#e74c3c" | "#f5a524" | "#2ecc71" | "#2dd4bf" | "#4aa3ff" | "#a78bfa" | "#fb7185" | "#969da2";
@@ -2508,10 +2552,10 @@ export interface components {
             /** @description Snowflake ID as a decimal string */
             id: string;
             /**
-             * @description Set on system messages: member_leave means the author left the group DM
+             * @description Set on system messages: member_leave means the author left the group DM; reminder is a reminder System delivered
              * @enum {string}
              */
-            kind?: "member_leave";
+            kind?: "member_leave" | "reminder";
             /** @description The message pings everyone who can read it */
             mention_everyone?: boolean;
             /** @description Roles the message pinged; their members are mentioned */
@@ -2525,6 +2569,8 @@ export interface components {
             /** @description Set when the message is a poll */
             poll?: components["schemas"]["Poll"];
             reactions: components["schemas"]["Reaction"][] | null;
+            /** @description Reminder messages only */
+            reminder?: components["schemas"]["ReminderInfo"];
             reply_to?: components["schemas"]["ReplyRef"];
             /** @description The thread started from this message */
             thread?: components["schemas"]["ThreadSummary"];
@@ -2873,6 +2919,8 @@ export interface components {
             links?: string[] | null;
             /** @description Up to 40 characters */
             pronouns?: string;
+            /** @description The System account, which sends reminders; it cannot be messaged */
+            system?: boolean;
             username: string;
         };
         QueueRequest: {
@@ -2993,6 +3041,48 @@ export interface components {
             password: string;
             username: string;
         };
+        Reminder: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id?: string;
+            /** Format: date-time */
+            due_at: string;
+            /** @description Snowflake ID as a decimal string */
+            id: string;
+            /** @description Snowflake ID as a decimal string */
+            message_id?: string;
+            note: string;
+            /** @description The message, as I may see it now; absent for free text or when unavailable */
+            quote?: components["schemas"]["ReminderQuote"];
+        };
+        ReminderInfo: {
+            note: string;
+            quote?: components["schemas"]["ReminderQuote"];
+            /** @description Absent for a free-text reminder, or when the message is unavailable */
+            target?: components["schemas"]["ReminderTarget"];
+            /** @description The message was deleted, or the reader can no longer see it */
+            unavailable?: boolean;
+        };
+        ReminderList: {
+            /** @description Pending reminders, soonest first */
+            reminders: components["schemas"]["Reminder"][] | null;
+        };
+        ReminderQuote: {
+            /** @description The author's display name, or a webhook's name */
+            author_name: string;
+            /** @description Empty in a DM */
+            channel_name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Up to 200 characters; empty when the message is only attachments */
+            excerpt: string;
+        };
+        ReminderTarget: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /** @description Snowflake ID as a decimal string */
+            message_id: string;
+        };
+        RemindersUpdate: Record<string, never>;
         RenameRequest: {
             name: string;
         };
@@ -6592,6 +6682,97 @@ export interface operations {
                 "application/json": components["schemas"]["EndpointInput"];
             };
         };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "list-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "create-reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReminderRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "delete-reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {

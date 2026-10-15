@@ -11,6 +11,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme="dark"
+      // Above the composer, so a toast never covers what you are typing.
+      offset={{ bottom: 88 }}
+      mobileOffset={{ bottom: 120 }}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

@@ -159,3 +159,12 @@ func TestKlipyConfig(t *testing.T) {
 	require.Equal(t, "k-123", key)
 	require.Equal(t, secret, again, "the secret never changes")
 }
+
+func TestAdminCannotTouchSystemUser(t *testing.T) {
+	env := apptest.New(t)
+	admin := env.Register("admin")
+	sys := auth.SystemUserID.String()
+
+	admin.Fail(http.MethodPut, "/api/admin/users/"+sys+"/disabled", map[string]any{"disabled": true}, http.StatusNotFound, "NOT_FOUND")
+	admin.Fail(http.MethodPut, "/api/admin/users/"+sys+"/password", map[string]any{"password": "password123"}, http.StatusNotFound, "NOT_FOUND")
+}

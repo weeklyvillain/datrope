@@ -134,6 +134,9 @@ func Register(api huma.API, s *Service) {
 			if err != nil {
 				return nil, err
 			}
+			if channels.IsSystemDM(ch) {
+				return nil, httpx.E(http.StatusForbidden, "SYSTEM_DM", "you can't reply to System")
+			}
 			if ch.Type == channels.TypeForum {
 				return nil, httpx.BadRequest("NOT_ALLOWED_HERE", "a forum takes posts, not messages")
 			}

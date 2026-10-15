@@ -41,8 +41,8 @@ export function prependedCount(prev: Item[] | undefined, items: Item[]): number 
 
 export const indexOfMessage = (items: Item[], id: string) => items.findIndex((it) => it.kind === "message" && it.m.id === id);
 
-/** Indexes of the focusable message rows (not dividers or system messages). */
-const rowIndexes = (items: Item[]) => items.flatMap((it, i) => (it.kind === "message" && !it.m.kind ? [i] : []));
+/** Indexes of the focusable message rows (not dividers or "left the group" lines; reminders are rows). */
+const rowIndexes = (items: Item[]) => items.flatMap((it, i) => (it.kind === "message" && it.m.kind !== "member_leave" ? [i] : []));
 
 /** The item index a navigation key leads to from message `id`, or -1 when `id` is not a row. */
 export function navTarget(items: Item[], id: string, act: Extract<MessageKey, "prev" | "next" | "first" | "last">): number {

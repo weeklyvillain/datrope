@@ -46,6 +46,15 @@ func MigrateTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
 	})
 }
 
+// MigrateDownTo rolls the migrations back until version is the latest applied. Tests use it
+// to check that a migration's Down section works on a database that has been in use.
+func MigrateDownTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
+	return migrate(pool, func(p *goose.Provider) error {
+		_, err := p.DownTo(ctx, version)
+		return err
+	})
+}
+
 func migrate(pool *pgxpool.Pool, run func(*goose.Provider) error) error {
 	fsys, err := fs.Sub(migrations, "migrations")
 	if err != nil {

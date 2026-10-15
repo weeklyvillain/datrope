@@ -17,6 +17,7 @@ import { EmojiText } from "@/chat/EmojiText";
 import { Topic } from "../ChannelView";
 import { NoAccess } from "../../pages/errors";
 import { SearchPanel } from "../search/SearchPanel";
+import { RemindersPanel } from "../reminders/RemindersPanel";
 import { ScreenHeader } from "../mobile/ScreenHeader";
 import { TopBar } from "../TopBar";
 import { closePanel, openPanel, panelStore, usePanel } from "../side-panel/panel";
@@ -240,6 +241,8 @@ export function GalleryView({ scope: given, header, menuExtra, canUploadHere, on
           actions={(it) => it.kind === "audio" && <TrackActions item={it} items={files.items} />} />
       ) : panel?.kind === "thread" ? (
         <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={panel.parentId ?? channelId} onClose={closePanel} />
+      ) : panel?.kind === "reminders" ? (
+        <RemindersPanel onClose={closePanel} />
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : null}

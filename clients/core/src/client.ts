@@ -6,7 +6,7 @@ import {
 } from "./store";
 import type {
   Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, Note, NoteSummary, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
-  ThreadListItem, User, Webhook, WebhookWithURL, WatchUpdate,
+  ThreadListItem, User, Webhook, WebhookWithURL, WatchUpdate, Reminder, CreateReminderBody,
 } from "./types";
 
 export interface ClientOptions {
@@ -201,6 +201,20 @@ export class DatropeClient {
   /** Pinned messages, newest pin first. */
   async listPins(channelId: string): Promise<Message[]> {
     return (await unwrap(this.api.GET("/api/channels/{id}/pins", { params: { path: { id: channelId } } }))) ?? [];
+  }
+
+  /** Sets a reminder: System DMs me at `due_at` (an ISO instant). */
+  async createReminder(body: CreateReminderBody): Promise<Reminder> {
+    return unwrap(this.api.POST("/api/reminders", { body }));
+  }
+
+  /** My pending reminders, soonest first. */
+  async listReminders(): Promise<Reminder[]> {
+    return (await unwrap(this.api.GET("/api/reminders"))).reminders ?? [];
+  }
+
+  async deleteReminder(id: string) {
+    await unwrap(this.api.DELETE("/api/reminders/{id}", { params: { path: { id } } }));
   }
 
   /** Starts a thread on a message (or returns its existing one) and stores the thread channel. */

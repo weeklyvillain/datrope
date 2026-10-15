@@ -2,7 +2,7 @@ import { ApiError, compareIds, mentionsMe, myRoleIds, unwrap, type Attachment, t
 import { useShallow } from "zustand/react/shallow";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Virtuoso, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
-import { Copy, FileX, Hand, Images, Infinity as InfinityIcon, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Timer, Trash2 } from "@/components/icons";
+import { AlarmClock, Copy, FileX, Hand, Images, Infinity as InfinityIcon, LogOut, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, Timer, Trash2 } from "@/components/icons";
 import { client, displayName, errorText, outranksUser, roleColor, useApp } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
@@ -50,6 +50,11 @@ import { ProfilePopover } from "./people/ProfilePopover";
 import { MessageToolbar } from "./MessageToolbar";
 import { MessageSheet } from "./MessageSheet";
 import { messageActions } from "./message-actions";
+import { RemindMenuItems } from "./reminders/RemindMenuItems";
+import { ReminderDialog } from "./reminders/ReminderDialog";
+import { isSystemDM } from "./reminders/reminders";
+import { ReminderCard } from "./reminders/ReminderCard";
+import { SystemBadge } from "./reminders/SystemBadge";
 import { ReplyQuote } from "./ReplyQuote";
 import { ThreadSummary } from "./ThreadSummary";
 import { clearPendingJump, usePendingJump } from "./jump";
@@ -267,7 +272,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   const vref = useRef<VirtuosoHandle>(null);
   const scroller = useRef<HTMLElement | null>(null);
   const [tabId, setTabId] = useState<string>();
-  const rowItems = list?.items.filter((m) => !m.kind);
+  const rowItems = list?.items.filter((m) => m.kind !== "member_leave");
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [olderError, setOlderError] = useState<string>();
   const [loadingNewer, setLoadingNewer] = useState(false);
@@ -316,7 +321,7 @@ export function MessageList({ channelId, canManage, canReply, canReact, reply, c
   // the DOM, so then the last rendered row takes the stop and Tab still reaches the list.
   const wanted = tabId && rowItems?.some((m) => m.id === tabId) ? tabId : rowItems?.at(-1)?.id;
   const renderedRows = rendered
-    ? rows.slice(rendered.startIndex - base, rendered.endIndex - base + 1).flatMap((it) => (it.kind === "message" && !it.m.kind ? [it.m.id] : []))
+    ? rows.slice(rendered.startIndex - base, rendered.endIndex - base + 1).flatMap((it) => (it.kind === "message" && it.m.kind !== "member_leave" ? [it.m.id] : []))
     : [];
   const tabbable = !wanted || renderedRows.length === 0 || renderedRows.includes(wanted) ? wanted : renderedRows.at(-1);
   // What the scroll listener and the callbacks below read: the current values, not their closures.
@@ -615,7 +620,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   // A voice channel's side chat has no pins panel, so no pinning there.
   const canPin = useApp((s) => {
     const type = s.channels[m.channel_id]?.type;
-    return type !== "voice" && (canManage || type === "dm");
+    return type !== "voice" && !isSystemDM(s.channels[m.channel_id]) && (canManage || type === "dm");
   });
   // A webhook message has no author to outrank: MANAGE_MESSAGES is enough.
   const canDelete = useApp((s) => mine || (canManage && (s.channels[m.channel_id]?.type === "dm" || !m.author || outranksUser(s, m.author.id))));
@@ -629,6 +634,9 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const [draft, setDraft] = useState(m.content);
   const [titleDraft, setTitleDraft] = useState(m.title ?? "");
   const [confirming, setConfirming] = useState(false);
+  const [reminding, setReminding] = useState(false);
+  const canRemind = useApp((s) => !isSystemDM(s.channels[m.channel_id])) && !m.kind;
+  const channelName = useApp((s) => (s.channels[m.channel_id]?.type === "dm" ? undefined : s.channels[m.channel_id]?.name));
   const isDM = useApp((s) => s.channels[m.channel_id]?.type === "dm");
   const [error, setError] = useState<string>();
   const [reactError, showReactError] = useBriefError();
@@ -719,7 +727,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
   const liveIds = (m.attachments ?? []).filter((a) => !a.expired).map((a) => a.id);
   const acts = messageActions(m, {
     reply: !!onReply, react: canReact, thread: !!openThread && canCreateThread, hasThread: !!thread && !!openThread, edit: !!onEdit,
-    pin: !!onPin, pinned: m.pinned, album: liveIds.length > 0 && !isDM, files: fileOps, delete: !!onDelete,
+    pin: !!onPin, pinned: m.pinned, album: liveIds.length > 0 && !isDM, remind: canRemind, files: fileOps, delete: !!onDelete,
   });
   const lastTouch = useRef(false);
   const inRow = (e: { currentTarget: Element; target: EventTarget }) => e.currentTarget.contains(e.target as Node);
@@ -797,7 +805,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           </time>
         </span>
       ) : (
-        <button ref={avatarRef} type="button" tabIndex={-1} aria-hidden className="size-10 self-start justify-self-start rounded-full" onClick={() => setProfileOpen((o) => !o)}>
+        <button ref={avatarRef} type="button" tabIndex={-1} aria-hidden className="size-10 self-start justify-self-start rounded-full" onClick={() => !m.author?.system && setProfileOpen((o) => !o)}>
           {hook ? <WebhookAvatar avatarUrl={hook.avatar_url} size="lg" /> : <UserAvatar user={author} size="lg" />}
         </button>
       )}
@@ -809,6 +817,8 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
                 onInteractOutside={(e) => avatarRef.current?.contains(e.target as Node) && e.preventDefault()}>
                 <NameButton id={`message-${m.id}-name`} className="font-semibold hover:underline">{name}</NameButton>
               </WebhookPopover>
+            ) : m.author?.system ? (
+              <span id={`message-${m.id}-name`} className="font-semibold">{name}</span>
             ) : (
               <ProfilePopover userId={author.id} fallback={m.author} open={profileOpen} onOpenChange={setProfileOpen}
                 onInteractOutside={(e) => avatarRef.current?.contains(e.target as Node) && e.preventDefault()}>
@@ -816,7 +826,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
               </ProfilePopover>
             )}
             {m.author && <MemberRoleIcon userId={m.author.id} className="self-center" />}
-            {hook ? <WebhookBadge /> : m.author && <GuestBadge user={m.author} />}
+            {hook ? <WebhookBadge /> : m.author?.system ? <SystemBadge /> : m.author && <GuestBadge user={m.author} />}
             <time id={`message-${m.id}-time`} className="text-xs text-muted-foreground" dateTime={m.created_at} title={fullStamp(new Date(m.created_at))}>{headStamp(new Date(m.created_at))}</time>
             {m.pinned && <Pin className="size-3 self-center text-muted-foreground" aria-label="Pinned" role="img" />}
             {m.edited_at && <span className="text-xs text-muted-foreground">(edited)</span>}
@@ -861,6 +871,8 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
               </p>
             )}
           </form>
+        ) : m.reminder ? (
+          <div id={`message-${m.id}-text`}><ReminderCard info={m.reminder} /></div>
         ) : wheel ? (
           <div id={`message-${m.id}-text`}>
             <span className="sr-only">{m.content}</span>
@@ -898,6 +910,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           albumItems={liveIds.length > 0 && !isDM && !m.pending
             ? <AddToAlbumMenuItems attachmentIds={liveIds} onError={showAlbumError} />
             : undefined}
+          remindItems={canRemind ? <RemindMenuItems message={m} kind="dropdown" onCustom={() => setReminding(true)} /> : undefined}
           onDelete={onDelete} />
       )}
       {canReact && touchy && pickerMounted && <EmojiPicker open={picker} onOpenChange={setPicker} onPick={(v) => react(reactionKey(v))} />}
@@ -915,6 +928,12 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
       {onEdit && <ContextMenuItem onSelect={onEdit}><Pencil />Edit message</ContextMenuItem>}
       {onPin && <ContextMenuItem onSelect={onPin}>{m.pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</ContextMenuItem>}
       {m.content && <ContextMenuItem onSelect={() => void copyText(m.content)}><Copy />Copy text</ContextMenuItem>}
+      {canRemind && (
+        <ContextMenuSub>
+          <ContextMenuSubTrigger><AlarmClock />Remind me</ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-60"><RemindMenuItems message={m} kind="context" onCustom={() => setReminding(true)} /></ContextMenuSubContent>
+        </ContextMenuSub>
+      )}
       {liveIds.length > 0 && !isDM && !m.pending && (
         <ContextMenuSub>
           <ContextMenuSubTrigger><Images />Add to album</ContextMenuSubTrigger>
@@ -959,6 +978,10 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {reminding && <ReminderDialog onClose={() => setReminding(false)}
+        // The menu item that opened it is gone: back to the row, like the delete dialog.
+        onCloseAutoFocus={(e) => { e.preventDefault(); if (row.current?.isConnected) row.current.focus({ preventScroll: true }); }}
+        message={{ id: m.id, channel_id: m.channel_id, authorName: name, excerpt: m.content, channelName }} />}
       <AlertDialog open={removing} onOpenChange={setRemoving}>
         <AlertDialogContent onContextMenu={(e) => e.stopPropagation()}
           onCloseAutoFocus={(e) => { e.preventDefault(); if (row.current?.isConnected) row.current.focus({ preventScroll: true }); }}>
@@ -977,7 +1000,7 @@ function MessageRowView({ m, grouped, mine, mentioned, canManage, canReply, canR
           onReact={react} onMoreReactions={() => setPicker(true)}
           onReply={() => onReply?.()} onThread={() => openThread?.()} onEdit={() => onEdit?.()}
           onCopy={() => void copyText(m.content)}
-          onPin={() => onPin?.()} onAlbumError={showAlbumError} onDelete={() => onDelete?.()}
+          onPin={() => onPin?.()} onAlbumError={showAlbumError} onRemind={() => setReminding(true)} onDelete={() => onDelete?.()}
           onKeepFiles={keepFiles} onRemoveFiles={() => setRemoving(true)}
           preview={(
             <div className="mx-4 mb-1 max-h-24 overflow-hidden rounded-lg border bg-background px-3 py-2 text-sm wrap-anywhere">

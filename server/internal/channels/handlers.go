@@ -520,7 +520,7 @@ func (s *Service) createDM(ctx context.Context, creator id.ID, recipients []id.I
 			others = append(others, r)
 		}
 	}
-	if len(others) == 0 || len(others) != len(recipients) {
+	if len(others) == 0 || len(others) != len(recipients) || slices.Contains(others, auth.SystemUserID) {
 		return nil, httpx.BadRequest("INVALID_RECIPIENTS", "list 1 to 9 other users, without duplicates")
 	}
 	for _, r := range others {
@@ -532,6 +532,12 @@ func (s *Service) createDM(ctx context.Context, creator id.ID, recipients []id.I
 			return nil, httpx.E(http.StatusForbidden, "NO_SHARED_COMMUNITY", "you can only message people when you are both members of this server")
 		}
 	}
+	return s.openDM(ctx, creator, others)
+}
+
+// openDM returns the 1:1 conversation between creator and others[0] when there is one,
+// or creates the conversation and announces it.
+func (s *Service) openDM(ctx context.Context, creator id.ID, others []id.ID) (*Channel, error) {
 	if len(others) == 1 { // reuse an existing 1:1 conversation
 		var existing id.ID
 		err := s.db.QueryRow(ctx, `

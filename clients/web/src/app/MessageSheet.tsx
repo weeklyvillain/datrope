@@ -1,5 +1,5 @@
 import type { ClientMessage } from "@datrope/core";
-import { Copy, FileX, Images, Infinity as InfinityIcon, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Timer, Trash2 } from "@/components/icons";
+import { AlarmClock, Copy, FileX, Images, Infinity as InfinityIcon, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Timer, Trash2 } from "@/components/icons";
 import { useState, type ReactNode } from "react";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { quickReactions } from "@/chat/recent-emoji";
@@ -9,12 +9,12 @@ import type { MessageAction } from "./message-actions";
 import { BareButton } from "@/components/bare-button";
 
 /** The phone's message menu: quick reactions on top, then the message's actions. */
-export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onAlbumError, onDelete, onKeepFiles, onRemoveFiles, preview }: {
+export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onAlbumError, onRemind, onDelete, onKeepFiles, onRemoveFiles, preview }: {
   open: boolean; onOpenChange: (open: boolean) => void; message: ClientMessage; actions: MessageAction[];
   hasThread: boolean; pinned: boolean;
   onReact: (emoji: string) => void; onMoreReactions: () => void;
   onReply: () => void; onThread: () => void; onEdit: () => void; onCopy: () => void; onPin: () => void;
-  onAlbumError: (message: string) => void; onDelete: () => void;
+  onAlbumError: (message: string) => void; onRemind: () => void; onDelete: () => void;
   onKeepFiles: (keep: boolean) => void; onRemoveFiles: () => void;
   preview: ReactNode;
 }) {
@@ -50,6 +50,7 @@ export function MessageSheet({ open, onOpenChange, message, actions, hasThread, 
                 {pinned ? "Unpin message" : "Pin message"}
               </ActionSheetItem>
             );
+            case "remind": return <ActionSheetItem key={a} icon={<AlarmClock />} onSelect={run(onRemind)}>Remind me</ActionSheetItem>;
             case "album": return <ActionSheetItem key={a} icon={<Images />} onSelect={run(() => setAlbums(true))}>Add to album</ActionSheetItem>;
             case "keepFiles": return <ActionSheetItem key={a} icon={<InfinityIcon />} onSelect={run(() => onKeepFiles(true))}>Keep files forever</ActionSheetItem>;
             case "unkeepFiles": return <ActionSheetItem key={a} icon={<Timer />} onSelect={run(() => onKeepFiles(false))}>Let files expire</ActionSheetItem>;

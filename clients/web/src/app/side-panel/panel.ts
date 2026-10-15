@@ -3,14 +3,15 @@ import { createStore } from "zustand/vanilla";
 import { layers } from "@/hooks/use-history-layer";
 import { panelToParam } from "./panel-param";
 
-/** What the side panel shows: nothing, the threads list, a thread, a forum post, a gallery item, or search. */
+/** What the side panel shows: nothing, the threads list, a thread, a forum post, a gallery item, search, or my reminders. */
 export type Panel =
   | null
   | { kind: "threads" }
   | { kind: "thread"; threadId: string; parentId?: string } // parentId: kept open when that channel opens
   | { kind: "post"; postId: string; forumId: string } // forumId: kept open when that forum opens
   | { kind: "media"; attachmentId: string }
-  | { kind: "search" };
+  | { kind: "search" }
+  | { kind: "reminders" };
 
 type PanelState = { panel: Panel; query: string; profile: string | null }; // profile: whose full profile is in the drawer
 

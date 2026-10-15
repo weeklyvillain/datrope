@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWindowFocus } from "@/hooks/use-window-focus";
 import { Topic } from "../ChannelView";
 import { SearchPanel } from "../search/SearchPanel";
+import { RemindersPanel } from "../reminders/RemindersPanel";
 import { TopBar } from "../TopBar";
 import { closePanel, openPanel, panelStore, usePanel } from "../side-panel/panel";
 import { filterPosts, type PostSort } from "./filter";
@@ -137,6 +138,8 @@ export function ForumView({ channelId }: { channelId: string }) {
       )}
       {panel?.kind === "post" ? (
         <PostPanel key={panel.postId} postId={panel.postId} forumId={channelId} onClose={closePanel} />
+      ) : panel?.kind === "reminders" ? (
+        <RemindersPanel onClose={closePanel} />
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : null}

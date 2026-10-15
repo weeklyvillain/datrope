@@ -33,6 +33,7 @@ import (
 	"github.com/datrope/datrope/server/internal/music"
 	"github.com/datrope/datrope/server/internal/notes"
 	"github.com/datrope/datrope/server/internal/push"
+	"github.com/datrope/datrope/server/internal/reminders"
 	"github.com/datrope/datrope/server/internal/slot"
 	"github.com/datrope/datrope/server/internal/system"
 	"github.com/datrope/datrope/server/internal/version"
@@ -54,11 +55,12 @@ type App struct {
 	Communities *communities.Service
 	// Integrations polls Twitch, YouTube and Spotify; tests call Poll directly.
 	Integrations *integrations.Service
-	Music        *music.Service   // nil when built without a database
-	Watch        *watch.Service   // nil when built without a database
-	Gateway      *gateway.Gateway // nil when built without a database
-	Audit        *audit.Service   // nil when built without a database
-	Push         *push.Service    // nil when built without a database
+	Music        *music.Service     // nil when built without a database
+	Watch        *watch.Service     // nil when built without a database
+	Gateway      *gateway.Gateway   // nil when built without a database
+	Audit        *audit.Service     // nil when built without a database
+	Push         *push.Service      // nil when built without a database
+	Reminders    *reminders.Service // nil when built without a database; tests call FireDue and SetClock
 	closers      []func()
 }
 
@@ -178,6 +180,15 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 	a.Messages = msgSvc
 	a.closers = append(a.closers, msgSvc.Wait)
 
+	remSvc := reminders.NewService(pool, a.Bus, msgSvc)
+	reminders.Register(api, remSvc)
+	if pool != nil { // nil only for `datrope openapi`
+		remSvc.SetActive(active)
+		remSvc.Start()
+		a.closers = append(a.closers, remSvc.Close)
+		a.Reminders = remSvc
+	}
+
 	// filesSvc is nil when built without a database; webhooks never calls it then.
 	hookSvc := webhooks.NewService(pool, chanSvc, msgSvc, filesSvc, cfg.PublicURL)
 	webhooks.Register(api, hookSvc)
@@ -280,6 +291,7 @@ func New(pool *pgxpool.Pool, cfg Config) *App {
 		// A slot that just went live has not synced while it was standby: catch up now rather
 		// than on the next tick, so the clients reconnecting to it see who is in voice.
 		gate.OnActive(voiceSvc.Resync)
+		gate.OnActive(remSvc.Wake)
 		gate.OnActive(func() {
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

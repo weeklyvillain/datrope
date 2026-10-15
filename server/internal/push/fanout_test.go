@@ -13,6 +13,7 @@ import (
 	"github.com/datrope/datrope/server/internal/app"
 	"github.com/datrope/datrope/server/internal/apptest"
 	"github.com/datrope/datrope/server/internal/id"
+	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/push"
 )
 
@@ -229,4 +230,22 @@ func endpoints(s []sent) []string {
 		out[i] = x.Endpoint
 	}
 	return out
+}
+
+func TestReminderPushesToItsOwner(t *testing.T) {
+	env, f := newEnv(t)
+	bob := env.Register("bob")
+	subscribe(bob, "https://push.example/bob", "mentions")
+
+	r := messages.DueReminder{ID: id.New(), UserID: bob.User.ID, Note: "stand up"}
+	_, err := env.Pool.Exec(context.Background(),
+		`INSERT INTO reminders (id, user_id, due_at, note, fired_at) VALUES ($1, $2, now(), $3, now())`, r.ID, r.UserID, r.Note)
+	require.NoError(t, err)
+	_, err = env.App.Messages.PostReminder(context.Background(), r)
+	require.NoError(t, err)
+
+	got := f.take()
+	require.Len(t, got, 1, "a reminder is a DM, so it pushes even at the mentions level")
+	require.Equal(t, "https://push.example/bob", got[0].Endpoint)
+	require.Contains(t, got[0].Payload.Body, "stand up")
 }

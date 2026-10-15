@@ -27,6 +27,7 @@ type Channels interface {
 	Readable(ctx context.Context, userID id.ID) ([]id.ID, error)
 	GalleryScope(ctx context.Context, userID, galleryID id.ID) ([]id.ID, error)
 	Get(ctx context.Context, channelID id.ID) (*channels.Channel, error)
+	SystemDM(ctx context.Context, userID id.ID) (*channels.Channel, error)
 }
 
 type Users interface {
@@ -74,7 +75,8 @@ type Message struct {
 	Poll            *Poll                `json:"poll,omitempty" doc:"Set when the message is a poll"`
 	MentionEveryone bool                 `json:"mention_everyone,omitempty" doc:"The message pings everyone who can read it"`
 	MentionRoles    []id.ID              `json:"mention_roles" doc:"Roles the message pinged; their members are mentioned"`
-	Kind            string               `json:"kind,omitempty" enum:"member_leave" doc:"Set on system messages: member_leave means the author left the group DM"`
+	Kind            string               `json:"kind,omitempty" enum:"member_leave,reminder" doc:"Set on system messages: member_leave means the author left the group DM; reminder is a reminder System delivered"`
+	Reminder        *ReminderInfo        `json:"reminder,omitempty" doc:"Reminder messages only"`
 	TZ              string               `json:"tz,omitempty" doc:"The sender's IANA time zone, for showing times they wrote in the reader's zone"`
 
 	replyToID *id.ID
@@ -242,7 +244,10 @@ func (s *Service) hydrate(ctx context.Context, ms []Message) error {
 	if err := s.withPolls(ctx, ms); err != nil {
 		return err
 	}
-	return s.withThreads(ctx, ms)
+	if err := s.withThreads(ctx, ms); err != nil {
+		return err
+	}
+	return s.withReminders(ctx, ms)
 }
 
 func (s *Service) withAttachments(ctx context.Context, ms []Message) error {

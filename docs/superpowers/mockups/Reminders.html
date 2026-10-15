@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reminders — 3 concepts</title>
+<style>
+:root{
+  --background:#131313;--foreground:#bdc3c7;--card:#1c1c1c;--popover:#1c1c1c;--primary:#2ecc71;--primary-foreground:#131313;
+  --secondary:#424242;--muted:#2a2a2a;--muted-foreground:#969da2;--accent:#2a2a2a;--destructive:#ef5b4c;--border:#424242;--input:#6b6b6b;
+  --sidebar:#0d0d0d;--idle:#d39b14;--avatar-1:#34495e;--avatar-2:#5b3a6e;--avatar-3:#2d5a46;--radius:.5rem;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:15px/22px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px 64px}
+h1{font-size:20px;line-height:28px;margin:0 0 4px}
+h2{font-size:16px;margin:0 0 4px;color:var(--foreground)}
+.lede{color:var(--muted-foreground);font-size:13px;margin:0 0 24px;max-width:860px}
+.concept{border:1px solid var(--border);border-radius:12px;padding:16px;margin:0 0 32px;background:#161616}
+.concept>p{color:var(--muted-foreground);font-size:13px;margin:0 0 16px;max-width:860px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.frame{background:var(--background);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;flex:1 1 340px;min-width:300px;position:relative}
+.cap{font-size:11px;line-height:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);padding:8px 12px;border-bottom:1px solid var(--border);background:var(--card)}
+.msg{display:flex;gap:12px;padding:8px 16px;position:relative}
+.msg:hover,.msg.hl{background:#181818}
+.av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:13px;font-weight:600;color:#ddd}
+.name{font-weight:600;color:#e3e6e8;font-size:15px}
+.time{font-size:12px;color:var(--muted-foreground);margin-left:6px}
+.badge{font-size:10px;font-weight:700;background:var(--primary);color:var(--primary-foreground);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:2px}
+.toolbar{position:absolute;right:12px;top:-14px;display:flex;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:2px}
+.tb{width:28px;height:28px;display:grid;place-items:center;border-radius:4px;color:var(--muted-foreground);font-size:14px}
+.tb.on{background:var(--accent);color:var(--foreground)}
+.menu{position:absolute;background:var(--popover);border:1px solid var(--border);border-radius:var(--radius);padding:4px;min-width:200px;box-shadow:0 8px 24px #0008;font-size:13px;z-index:2}
+.mi{padding:6px 8px;border-radius:4px;display:flex;justify-content:space-between;gap:16px}
+.mi.on{background:var(--accent)}
+.mi .k{color:var(--muted-foreground)}
+.sep{height:1px;background:var(--border);margin:4px 0}
+.quote{border:1px solid var(--border);border-radius:6px;background:var(--card);padding:8px 10px;margin-top:6px;font-size:13px;line-height:18px;max-width:420px}
+.quote .meta{color:var(--muted-foreground);font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;border-radius:6px;padding:4px 10px;border:1px solid var(--border);background:var(--muted);color:var(--foreground)}
+.btn.p{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary);font-weight:600}
+.btn.g{background:transparent;border-color:transparent;color:var(--muted-foreground)}
+.composer{margin:8px 16px 12px;border-radius:var(--radius);background:var(--muted);padding:10px 12px;color:var(--muted-foreground);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;border-radius:999px;padding:2px 10px;border:1px solid var(--border);background:var(--muted);color:var(--foreground)}
+.chip.on{border-color:var(--primary);color:var(--primary)}
+.dialog{background:var(--popover);border:1px solid var(--border);border-radius:12px;padding:16px;width:340px;box-shadow:0 16px 40px #000a}
+label{font-size:12px;color:var(--muted-foreground);display:block;margin:10px 0 4px}
+.input{background:var(--background);border:1px solid var(--input);border-radius:6px;padding:6px 10px;font-size:14px;color:var(--foreground)}
+.list{padding:8px}
+.li{display:flex;gap:10px;align-items:center;padding:8px;border-radius:6px}
+.li:hover{background:var(--accent)}
+.when{font-size:12px;color:var(--primary);font-variant-numeric:tabular-nums;min-width:86px}
+.li .t{flex:1;font-size:13px;line-height:18px}
+.li .s{color:var(--muted-foreground);font-size:12px}
+.x{color:var(--muted-foreground);font-size:16px;padding:0 6px}
+.grp{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);padding:12px 8px 4px}
+.sb{width:220px;background:var(--sidebar);flex:none;padding:8px}
+.dm{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;font-size:14px;color:var(--muted-foreground)}
+.dm.on{background:var(--accent);color:var(--foreground)}
+.dm .av{width:28px;height:28px;font-size:11px}
+.count{margin-left:auto;font-size:11px;background:var(--secondary);border-radius:999px;padding:0 6px;color:var(--foreground)}
+.toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:13px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 24px #0008;white-space:nowrap}
+.pending{display:inline-flex;gap:4px;align-items:center;font-size:12px;color:var(--idle);margin-top:4px}
+.big{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin:8px 16px}
+.dial{display:flex;gap:8px;justify-content:center;align-items:center;margin:12px 0}
+.wheel{width:64px;border:1px solid var(--border);border-radius:8px;text-align:center;font-variant-numeric:tabular-nums;overflow:hidden}
+.wheel div{padding:4px 0;color:var(--muted-foreground);font-size:13px}
+.wheel .c{background:var(--accent);color:var(--foreground);font-size:18px;font-weight:600}
+.preview{text-align:center;color:var(--primary);font-size:13px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.ac{background:var(--popover);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px;padding:4px;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Remind me — three concepts</h1>
+<p class="lede">All three use the same server: a System DM, live quotes, and /remind + /reminders. They differ in how you set a reminder, how a fired one looks, and where the pending list lives. Pick one or mix.</p>
+
+<!-- ============ A ============ -->
+<section class="concept">
+  <h2>A · Menu submenu, quote card, side-panel list</h2>
+  <p>Fits the existing "More actions" menu. Presets live in a submenu; Custom… opens a small date/time dialog. The fired DM is a normal System message with a quote card. /reminders (or a header button in the System DM) opens the list in the right side panel, the same place as pins and threads.</p>
+  <div class="row">
+    <div class="frame" style="min-height:410px">
+      <div class="cap">1 · Set from a message</div>
+      <div style="height:24px"></div>
+      <div class="msg hl">
+        <div class="av" style="background:var(--avatar-2)">M</div>
+        <div><span class="name">Maja</span><span class="time">Today 14:02</span><div>Can someone review the release notes before Friday?</div></div>
+        <div class="toolbar"><span class="tb">😊</span><span class="tb">↩</span><span class="tb">🧵</span><span class="tb on">⋯</span></div>
+      </div>
+      <div class="menu" style="right:12px;top:94px">
+        <div class="mi">Copy text</div><div class="mi">Pin message</div>
+        <div class="mi on">⏰ Remind me <span class="k">›</span></div>
+        <div class="sep"></div><div class="mi" style="color:var(--destructive)">Delete</div>
+      </div>
+      <div class="menu" style="right:226px;top:154px;min-width:220px">
+        <div class="mi">In 20 minutes <span class="k">14:24</span></div>
+        <div class="mi on">In 1 hour <span class="k">15:04</span></div>
+        <div class="mi">In 3 hours <span class="k">17:04</span></div>
+        <div class="mi">Tomorrow <span class="k">Thu 09:00</span></div>
+        <div class="mi">Next week <span class="k">Mon 09:00</span></div>
+        <div class="sep"></div><div class="mi">Custom…</div>
+      </div>
+      <div class="toast">⏰ Reminder set for 15:04 <span class="btn g">Undo</span></div>
+    </div>
+    <div class="frame">
+      <div class="cap">2 · Fires: DM from System</div>
+      <div class="msg">
+        <div class="av" style="background:var(--primary);color:var(--primary-foreground)">⏰</div>
+        <div><span class="name">System</span><span class="badge">SYSTEM</span><span class="time">Today 15:04</span>
+          <div>Reminder: <b>review release notes</b></div>
+          <div class="quote"><div class="meta">Maja · #general · Today 14:02</div>Can someone review the release notes before Friday?<div style="margin-top:6px"><span class="btn">Jump to message</span></div></div>
+        </div>
+      </div>
+      <div class="msg">
+        <div class="av" style="background:var(--primary);color:var(--primary-foreground)">⏰</div>
+        <div><span class="name">System</span><span class="badge">SYSTEM</span><span class="time">Yesterday 18:00</span>
+          <div>Reminder</div>
+          <div class="quote"><div class="meta">Message unavailable</div><i style="color:var(--muted-foreground)">It was deleted, or you no longer have access.</i></div>
+        </div>
+      </div>
+      <div class="composer" style="text-align:center">You can't reply to System.</div>
+    </div>
+    <div class="frame" style="flex:0 1 300px">
+      <div class="cap">3 · /reminders → side panel</div>
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><b style="font-size:14px">Reminders</b><span class="x">✕</span></div>
+      <div class="list">
+        <div class="li"><span class="when">Today 15:04</span><div class="t">review release notes<div class="s">Maja · #general</div></div><span class="x">✕</span></div>
+        <div class="li"><span class="when">Thu 09:00</span><div class="t">call the dentist<div class="s">/remind</div></div><span class="x">✕</span></div>
+        <div class="li"><span class="when">Mon 09:00</span><div class="t">—<div class="s">Ola · #dev-ops</div></div><span class="x">✕</span></div>
+      </div>
+    </div>
+    <div class="frame" style="flex:0 1 380px;padding:16px;background:#0d0d0dcc">
+      <div class="dialog">
+        <b>Custom reminder</b>
+        <label>Date</label><div class="input">Fri 17 Oct 2026</div>
+        <label>Time</label><div class="input">13:30</div>
+        <label>Note (optional)</label><div class="input" style="color:var(--muted-foreground)">What should we remind you about?</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><span class="btn g">Cancel</span><span class="btn p">Set reminder</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ B ============ -->
+<section class="concept">
+  <h2>B · Own toolbar button, quick-type popover, inline pending chip</h2>
+  <p>A ⏰ button sits directly on the hover toolbar. It opens a popover that combines preset chips with a text field using the same syntax as /remind ("2h", "14:30", "fri 9"), plus a live preview of the resolved time. While a reminder is pending, the message shows a small amber chip that only you see. The fired DM is a compact one-liner with buttons. Pending reminders show as a pinned strip at the top of the System DM, so no extra panel.</p>
+  <div class="row">
+    <div class="frame" style="min-height:330px">
+      <div class="cap">1 · Set from a message</div>
+      <div style="height:24px"></div>
+      <div class="msg hl">
+        <div class="av" style="background:var(--avatar-2)">M</div>
+        <div><span class="name">Maja</span><span class="time">Today 14:02</span><div>Can someone review the release notes before Friday?</div></div>
+        <div class="toolbar"><span class="tb">😊</span><span class="tb">↩</span><span class="tb on">⏰</span><span class="tb">⋯</span></div>
+      </div>
+      <div class="menu" style="right:12px;top:94px;width:300px;padding:12px">
+        <div style="font-size:12px;color:var(--muted-foreground);margin-bottom:8px">Remind me…</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">20m</span><span class="chip on">1h</span><span class="chip">3h</span><span class="chip">Tomorrow</span><span class="chip">Mon</span></div>
+        <div class="input mono" style="margin-top:10px">fri 13:30<span style="color:var(--primary)">▌</span></div>
+        <div style="font-size:12px;color:var(--primary);margin-top:4px">→ Fri 17 Oct, 13:30 (in 2 days)</div>
+        <div class="input" style="margin-top:8px;color:var(--muted-foreground)">Note (optional)</div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px"><span class="btn p">Remind me</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="cap">2 · Pending chip on the message (only you)</div>
+      <div class="msg">
+        <div class="av" style="background:var(--avatar-2)">M</div>
+        <div><span class="name">Maja</span><span class="time">Today 14:02</span><div>Can someone review the release notes before Friday?</div>
+          <div class="pending">⏰ Reminding you Fri 13:30 · <u style="color:var(--muted-foreground)">cancel</u></div></div>
+      </div>
+      <div class="cap" style="border-top:1px solid var(--border)">3 · System DM: pinned pending strip + compact rows</div>
+      <div style="display:flex;gap:8px;align-items:center;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--border);font-size:13px">⏰ <b>3 upcoming</b><span style="color:var(--muted-foreground)">· next Fri 13:30, review release notes</span><span class="btn g" style="margin-left:auto">Show all ▾</span></div>
+      <div class="msg"><div class="av" style="background:var(--primary);color:var(--primary-foreground);width:24px;height:24px;font-size:11px">⏰</div>
+        <div style="font-size:14px"><span class="time" style="margin:0 6px 0 0">15:04</span><b>review release notes</b> <span style="color:var(--muted-foreground)">— Maja in #general: “Can someone review the release…”</span>
+          <div style="margin-top:4px;display:flex;gap:6px"><span class="btn">Jump</span><span class="btn g">Snooze 1h</span></div></div></div>
+      <div class="msg"><div class="av" style="background:var(--secondary);width:24px;height:24px;font-size:11px">⏰</div>
+        <div style="font-size:14px"><span class="time" style="margin:0 6px 0 0">09:00</span><b>call the dentist</b></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ C ============ -->
+<section class="concept">
+  <h2>C · "Reminders" as its own destination, with an agenda view and a time-wheel picker</h2>
+  <p>The System DM is pinned at the top of the DM list as "Reminders", with a count of upcoming ones. Opening it shows an agenda: upcoming items grouped by Today / Tomorrow / Later at the top, and delivered reminders below as large cards with Jump and Done. You set a reminder with a dialog built around scroll wheels for day, hour and minute (touch-friendly, the same on phone). /remind adds an inline autocomplete hint while you type.</p>
+  <div class="row">
+    <div class="frame" style="display:flex;flex:1 1 640px;min-height:420px">
+      <div class="sb">
+        <div class="dm on"><div class="av" style="background:var(--primary);color:var(--primary-foreground)">⏰</div>Reminders<span class="count">3</span></div>
+        <div style="height:1px;background:var(--border);margin:6px 0"></div>
+        <div class="dm"><div class="av" style="background:var(--avatar-2)">M</div>Maja</div>
+        <div class="dm"><div class="av" style="background:var(--avatar-3)">O</div>Ola</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="cap">Reminders</div>
+        <div class="grp" style="padding-left:16px">Upcoming</div>
+        <div class="list" style="padding:0 8px">
+          <div class="li"><span class="when">Today 15:04</span><div class="t">review release notes <span class="s">· Maja in #general</span></div><span class="x">✕</span></div>
+          <div class="li"><span class="when">Tomorrow 09:00</span><div class="t">call the dentist</div><span class="x">✕</span></div>
+          <div class="li"><span class="when">Mon 09:00</span><div class="t">Ola's PR <span class="s">· #dev-ops</span></div><span class="x">✕</span></div>
+        </div>
+        <div class="grp" style="padding-left:16px">Delivered</div>
+        <div class="big">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted-foreground)"><span>⏰ Today 12:00</span><span>from Maja · #general</span></div>
+          <div style="font-size:16px;font-weight:600;margin:6px 0">book the meeting room</div>
+          <div class="quote" style="max-width:none">Let's do the planning on Thursday, someone book the room?</div>
+          <div style="display:flex;gap:8px;margin-top:10px"><span class="btn p">Done</span><span class="btn">Jump to message</span><span class="btn g">Snooze ▾</span></div>
+        </div>
+        <div class="ac"><span class="mono">/remind tomorrow 9 call the dentist</span><span style="color:var(--primary);margin-left:8px;font-size:12px">→ Thu 15 Oct, 09:00</span></div>
+        <div class="composer" style="margin-top:4px"><span class="mono" style="color:var(--foreground)">/remind tomorrow 9 call the dentist</span></div>
+      </div>
+    </div>
+    <div class="frame" style="flex:0 1 380px;padding:16px;background:#0d0d0dcc">
+      <div class="dialog">
+        <b>Remind me about this message</b>
+        <div class="quote" style="max-width:none"><div class="meta">Maja · #general</div>Can someone review the release notes before Friday?</div>
+        <div class="dial">
+          <div class="wheel" style="width:110px"><div>Today</div><div class="c">Tomorrow</div><div>Fri 17</div></div>
+          <div class="wheel"><div>08</div><div class="c">09</div><div>10</div></div>
+          <b>:</b>
+          <div class="wheel"><div>45</div><div class="c">00</div><div>15</div></div>
+        </div>
+        <div class="preview">in 18 h 58 min</div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-top:10px"><span class="chip">+20m</span><span class="chip">+1h</span><span class="chip">+3h</span></div>
+        <div class="input" style="margin-top:12px;color:var(--muted-foreground)">Note (optional)</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><span class="btn g">Cancel</span><span class="btn p">Set reminder</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+</body>
+</html>
