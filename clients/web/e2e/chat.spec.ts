@@ -20,6 +20,29 @@ const FAKE_YT = `window.YT = { Player: class {
   setVolume() {} mute() {} unMute() {} destroy() {}
 } }; window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIReady();`;
 
+// Stands in for Twitch's embed SDK: the player opens on a mature-content gate that only a click on it clears;
+// until then play() does nothing, like Twitch's real gate.
+const FAKE_TWITCH = `window.Twitch = { Player: Object.assign(class {
+  constructor(id, o) {
+    this.t = 0; this.paused = true; this.at = 0; this.gated = true; this.ls = {};
+    const el = document.getElementById(id);
+    const gate = document.createElement("button");
+    gate.textContent = "Start watching";
+    gate.style.cssText = "position:absolute;left:40%;top:40%";
+    gate.onclick = () => { gate.remove(); this.gated = false; if (o.autoplay) this.play(); };
+    el.appendChild(gate);
+    setTimeout(() => this.emit("ready"), 0);
+  }
+  addEventListener(e, cb) { (this.ls[e] ||= []).push(cb); }
+  emit(e) { (this.ls[e] || []).forEach((cb) => cb()); }
+  time() { return this.paused ? this.t : this.t + (Date.now() - this.at) / 1000; }
+  play() { if (this.gated || !this.paused) return; this.at = Date.now(); this.paused = false; this.emit("playing"); }
+  pause() { this.t = this.time(); this.paused = true; }
+  seek(t) { this.t = t; this.at = Date.now(); }
+  getCurrentTime() { return this.time(); } getDuration() { return 600; } isPaused() { return this.paused; }
+  setVolume() {} setMuted() {}
+}, { READY: "ready", PLAYING: "playing", OFFLINE: "offline" }) };`;
+
 // A solid-colour RGB PNG of the given size (for the banner upload).
 function solidPng(width: number, height: number): Buffer {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
@@ -458,6 +481,26 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await aliceWatch.getByRole("button", { name: "Stop" }).click();
   await expect(bobWatch).toHaveCount(0);
   await expect(bob.getByRole("list", { name: "In voice: Lounge" }).getByText(/^Watching · /)).toHaveCount(0);
+
+  // A Twitch VOD behind Twitch's mature-content gate: each viewer clicks through it inside the tile, then the shared
+  // controls take over (bob pauses, alice is told).
+  for (const p of [alice, bob]) {
+    await p.route("https://embed.twitch.tv/embed/v1.js", (r) => r.fulfill({ contentType: "text/javascript", body: FAKE_TWITCH }));
+  }
+  await aliceControls.getByRole("button", { name: "Watch together" }).click();
+  await watchDialog.getByLabel("Video link").fill("https://www.twitch.tv/videos/123456789");
+  await watchDialog.getByRole("button", { name: "Start watching" }).click();
+  await expect(watchDialog).toHaveCount(0);
+  for (const w of [aliceWatch, bobWatch]) {
+    await w.getByRole("button", { name: "Start watching" }).click();
+    await expect(w.getByRole("button", { name: "Start watching" })).toHaveCount(0);
+    await expect(w.getByRole("button", { name: "Click to sync" })).toHaveCount(0);
+  }
+  await bobWatch.hover();
+  await bobWatch.getByRole("button", { name: "Pause" }).click();
+  await expect(aliceWatch.getByRole("status")).toHaveText("bob paused");
+  await aliceWatch.getByRole("button", { name: "Stop" }).click();
+  await expect(bobWatch).toHaveCount(0);
 
   // Soundboard: alice plays Boop; bob sees the chip on alice's tile.
   await aliceControls.getByRole("button", { name: "Soundboard" }).click();
