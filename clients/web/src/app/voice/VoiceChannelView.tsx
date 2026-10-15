@@ -20,7 +20,7 @@ import { SidePanel } from "../side-panel/SidePanel";
 import { TopBar } from "../TopBar";
 import { EmojiText } from "@/chat/EmojiText";
 import { VoiceStage, useVoiceLayout } from "./VoiceStage";
-import { EmptyView } from "../EmptyView";
+import { NoAccess } from "../../pages/errors";
 import { MusicPanel } from "./MusicPanel";
 import { useCallIds } from "./TeamsDialog";
 import { TeamsPanel } from "./TeamsPanel";
@@ -55,7 +55,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   const { layout, setLayout, canStage } = useVoiceLayout(channelId);
   useLeaveToText(channelId);
 
-  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  if (!ch) return <NoAccess inShell />;
   const panel = searching ? (
     <SearchPanel />
   ) : side === "teams" ? (

@@ -1110,3 +1110,19 @@ test("albums live in a gallery: collect a file, upload into the album, share it 
   await expect(bobAlbum.getByRole("button", { name: /^Photo: fjord.png/ })).toBeVisible();
   await expect(bobAlbum.getByRole("button", { name: "Upload" })).toHaveCount(0);
 });
+
+// Runs after the first test: bob is a member.
+test("unknown pages and channels land on error pages inside the app", async ({ browser }) => {
+  const bob = await (await browser.newContext()).newPage();
+  await signIn(bob, "bob");
+
+  await bob.goto("/no-such-page");
+  await expect(bob.getByRole("heading", { name: "Nothing here" })).toBeVisible();
+  // The shell stays, so another channel is one click away.
+  await expect(bob.getByRole("tab", { name: "Channels" })).toBeVisible();
+
+  await bob.goto("/channels/1");
+  await expect(bob.getByRole("heading", { name: "You can't open this" })).toBeVisible();
+  await bob.getByRole("link", { name: "Go home" }).click();
+  await expect(bob.getByRole("heading", { name: "You can't open this" })).toHaveCount(0);
+});
