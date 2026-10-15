@@ -3,7 +3,7 @@ import type { CreatePlayer } from "./types";
 
 type YTPlayer = {
   playVideo(): void; pauseVideo(): void; seekTo(seconds: number, allowSeekAhead: boolean): void;
-  getCurrentTime?(): number; getDuration?(): number; getPlayerState?(): number;
+  getCurrentTime?(): number; getDuration?(): number; getPlayerState?(): number; getVideoLoadedFraction?(): number;
   getVideoData?(): { isLive?: boolean };
   setVolume(volume: number): void; mute(): void; unMute(): void; destroy(): void;
 };
@@ -56,6 +56,9 @@ export const createYouTube: CreatePlayer = async (mount, st, start, events) => {
     playerVars: { autoplay: st.paused ? 0 : 1, controls: 0, disablekb: 1, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3, start: Math.floor(start) },
     events: {
       onReady: () => events.onReady(),
+      onStateChange: (e: { data: number }) => {
+        if (e.data === PLAYING) events.onPlaying();
+      },
       onError: (e: { data: number }) => events.onError(ERRORS[e.data] ?? "The video cannot play."),
     },
   });
@@ -69,6 +72,12 @@ export const createYouTube: CreatePlayer = async (mount, st, start, events) => {
     playing: () => {
       const s = p.getPlayerState?.();
       return s === PLAYING || s === BUFFERING;
+    },
+    buffering: () => p.getPlayerState?.() === BUFFERING,
+    loadedAhead: () => {
+      if (p.getVideoData?.().isLive) return undefined;
+      const d = p.getDuration?.() ?? 0;
+      return d ? Math.max(0, (p.getVideoLoadedFraction?.() ?? 0) * d - (p.getCurrentTime?.() ?? 0)) : 0;
     },
     setVolume: (v) => p.setVolume(v),
     setMuted: (m) => (m ? p.mute() : p.unMute()),

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // the runtime image (alpine) has no zoneinfo; LoadLocation needs it
 
 	"github.com/datrope/datrope/server/internal/app"
 	"github.com/datrope/datrope/server/internal/db"

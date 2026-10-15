@@ -159,7 +159,9 @@ func runServer() error {
 	} else if info.WorkingDir != "" {
 		slog.Warn("updater: ignoring a compose project directory outside the repo", "dir", info.WorkingDir)
 	}
-	s := &updater.Server{Token: token, Git: git, Jobs: jobs, Docker: docker, Compose: compose}
+	containers := updater.NewCachedLister(docker, project, 5*time.Second)
+	go containers.Run(ctx)
+	s := &updater.Server{Token: token, Git: git, Jobs: jobs, Docker: containers, Compose: compose}
 	srv := &http.Server{Addr: addr, Handler: s.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()

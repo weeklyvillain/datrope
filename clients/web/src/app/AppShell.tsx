@@ -1,7 +1,6 @@
 import { expireTyping, isGated } from "@datrope/core";
 import { useEffect, useRef } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { usePalette } from "@/hooks/use-palette";
 import { useTheme } from "@/hooks/use-theme";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
@@ -45,7 +44,6 @@ export function AppShell() {
   const layerNavigate = useLayerNavigate();
   const navRef = useRef(layerNavigate);
   navRef.current = layerNavigate;
-  usePalette();
   const mobile = useIsMobile();
   const tier = useLayoutTier();
   useShortcuts(!mobile);

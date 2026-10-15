@@ -1,5 +1,5 @@
 import { clearOperators, operatorValue, type ChannelRef, type SearchFilters, type SearchResult } from "@datrope/core";
-import { Search, SearchX } from "lucide-react";
+import { Search, SearchX } from "@/components/icons";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { client, displayName, dmName, errorText, roleColor, useApp } from "../../session";

@@ -10,7 +10,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { UserAvatar } from "@/components/user-avatar";
 import { useSubmit } from "@/hooks/use-submit";
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 /** Create an album, or (with album) change its name, who can see it and its collaborators, or delete it. */
 export function AlbumDialog({ album, galleryId, onClose, onSaved, onDeleted }: {

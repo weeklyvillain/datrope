@@ -1,4 +1,4 @@
-import { EyeOff, Maximize, Volume2 } from "lucide-react";
+import { EyeOff, Maximize, Volume2 } from "@/components/icons";
 import { useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";

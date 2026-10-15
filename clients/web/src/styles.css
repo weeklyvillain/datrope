@@ -42,6 +42,14 @@
   --avatar-6: #6e2a3f;
   --avatar-7: #4b5a2a;
   --avatar-8: #3f3f6e;
+  --team-1: #5dade2;
+  --team-2: #f5b041;
+  --team-3: #af7ac5;
+  --team-4: #58d68d;
+  --team-5: #ec7063;
+  --team-6: #48c9b0;
+  --team-7: #f4d03f;
+  --team-8: #a6acaf;
   --syntax-keyword: #c678dd;
   --syntax-string: #98c379;
   --syntax-number: #d19a66;
@@ -50,6 +58,11 @@
   --syntax-type: #e5c07b;
   --syntax-variable: #e06c75;
   --syntax-meta: #56b6c2;
+  /* Colour picker: a handle that shows on any colour, and the hue spectrum. */
+  --picker-handle: #ffffff;
+  --picker-halo: rgb(0 0 0 / 0.6);
+  --hue-spectrum: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  --hue-wheel: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
 }
 
 @theme inline {
@@ -87,6 +100,8 @@
   --color-mention: var(--mention);
   --color-mention-foreground: var(--mention-foreground);
   --color-online: var(--online);
+  --color-picker-handle: var(--picker-handle);
+  --color-picker-halo: var(--picker-halo);
   --color-idle: var(--idle);
   --color-offline: var(--offline);
   --color-avatar-1: var(--avatar-1);
@@ -97,6 +112,14 @@
   --color-avatar-6: var(--avatar-6);
   --color-avatar-7: var(--avatar-7);
   --color-avatar-8: var(--avatar-8);
+  --color-team-1: var(--team-1);
+  --color-team-2: var(--team-2);
+  --color-team-3: var(--team-3);
+  --color-team-4: var(--team-4);
+  --color-team-5: var(--team-5);
+  --color-team-6: var(--team-6);
+  --color-team-7: var(--team-7);
+  --color-team-8: var(--team-8);
   --color-syntax-keyword: var(--syntax-keyword);
   --color-syntax-string: var(--syntax-string);
   --color-syntax-number: var(--syntax-number);
@@ -192,6 +215,35 @@ img.emoji {
   vertical-align: -0.3em;
   width: 1.375em;
 }
+/* RichInput's placeholder: an empty contenteditable shows it like a textarea would. Floated with no height so the
+   caret stays at the start of the line instead of after the placeholder text. */
+.rich-input[data-empty]:not([data-composing])::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Note editor (src/app/notes/NoteEditor.tsx). */
+.note-editor { outline: none; min-height: 50vh; font-size: var(--text-body); line-height: var(--text-body--line-height); }
+.note-editor > * + * { margin-top: 0.6em; }
+.note-editor h1 { font-size: var(--text-heading); line-height: var(--text-heading--line-height); color: var(--foreground); }
+.note-editor h2 { font-size: var(--text-title); line-height: var(--text-title--line-height); color: var(--foreground); }
+.note-editor ul { list-style: disc; padding-left: 1.4em; }
+.note-editor ol { list-style: decimal; padding-left: 1.4em; }
+.note-editor ul[data-type="taskList"] { list-style: none; padding-left: 0.2em; }
+.note-editor ul[data-type="taskList"] li { display: flex; gap: 0.5em; align-items: flex-start; }
+.note-editor ul[data-type="taskList"] li > label { margin-top: 0.2em; }
+.note-editor ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.note-editor ul[data-type="taskList"] input { accent-color: var(--primary); }
+.note-editor li[data-checked="true"] > div { color: var(--muted-foreground); text-decoration: line-through; }
+.note-editor blockquote { border-left: 3px solid var(--border); padding-left: 0.8em; color: var(--muted-foreground); }
+.note-editor code { background: var(--muted); border-radius: calc(var(--radius) - 4px); padding: 0.1em 0.3em; font-size: 0.875em; }
+.note-editor pre { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75em 1em; overflow-x: auto; }
+.note-editor pre code { background: none; padding: 0; }
+.note-editor a { color: var(--primary); text-decoration: underline; }
+.note-editor p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: var(--muted-foreground); float: left; height: 0; pointer-events: none; }
 
 /* A message jumped to (jumpTo in src/app/MessageList.tsx): a short highlight that fades out. */
 .message-flash { animation: message-flash 1.5s ease-out; }

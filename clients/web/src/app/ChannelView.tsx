@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "lucide-react";
+import { Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "@/components/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
@@ -31,7 +31,7 @@ import { ThreadsList } from "./side-panel/ThreadsList";
 import { TopBar, type PhoneAction } from "./TopBar";
 import { ChannelInfoSheet } from "./mobile/ChannelInfoSheet";
 import { EmojiText } from "@/chat/EmojiText";
-import { EmptyView } from "./EmptyView";
+import { NoAccess } from "../pages/errors";
 import { VoiceStage } from "./voice/VoiceStage";
 import { BareButton } from "@/components/bare-button";
 
@@ -75,7 +75,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
     if (p?.kind === "threads" || p?.kind === "post" || p?.kind === "media" || (p?.kind === "thread" && p.parentId !== channelId)) closePanel();
   }, [channelId]);
 
-  if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  if (!ch) return <NoAccess inShell />;
   const title = ch.type === "dm" ? dmName(ch, me?.id) : `# ${ch.name}`;
   // Threads live in text, webhook, announcement and gallery channels (never in DMs, threads or voice side chats).
   const threads = ch.type === "text" || ch.type === "webhook" || ch.type === "announcement" || ch.type === "gallery";
@@ -187,7 +187,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
         <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={channelId} onClose={closePanel} />
       ) : panel?.kind === "search" ? (
         <SearchPanel />
-      ) : members && docked && membersDocked && <MemberList />}
+      ) : members && docked && membersDocked && <MemberList channelId={channelId} />}
       {members && (
         <Sheet open={showMembers} onOpenChange={setShowMembers}>
           <SheetContent side="right" showCloseButton={!banded} className="w-[85vw] max-w-80 gap-0 p-0 sm:max-w-80 md:w-[280px]"
@@ -196,8 +196,8 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
               document.querySelector<HTMLElement>('header button[aria-label="Members"], header button[aria-label="More actions"]')?.focus();
             }}>
             {banded ? <MembersSheetBand /> : <SheetTitle className="sr-only">Members</SheetTitle>}
-            <SheetDescription className="sr-only">Who is in this server</SheetDescription>
-            <MemberList sheet />
+            <SheetDescription className="sr-only">Who can see this channel</SheetDescription>
+            <MemberList sheet channelId={channelId} />
           </SheetContent>
         </Sheet>
       )}

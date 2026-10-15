@@ -1,5 +1,5 @@
 import { Perm, hasPerm, type Message } from "@datrope/core";
-import { Pin, PinOff } from "lucide-react";
+import { Pin, PinOff } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { client, displayName, errorText, useApp, usePerms } from "../session";
 import { Markdown } from "@/chat/Markdown";

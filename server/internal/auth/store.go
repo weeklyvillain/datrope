@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -74,12 +75,19 @@ type Session struct {
 	TokenHash  []byte    `json:"-"`
 }
 
+// TTLRule deletes sent files of at least MinBytes TTLHours after they were sent.
+type TTLRule struct {
+	MinBytes int64 `json:"min_bytes" minimum:"1048576"`
+	TTLHours int   `json:"ttl_hours" minimum:"1" maximum:"8760"`
+}
+
 type Settings struct {
-	RegistrationMode  string `json:"registration_mode" enum:"invite_only,open,admin_only"`
-	MaxUploadBytes    int64  `json:"max_upload_bytes" doc:"Largest file a user may upload"`
-	KlipyConfigured   bool   `json:"klipy_configured" doc:"A Klipy API key is set, so /gif works. The key itself is never returned."`
-	TwitchConfigured  bool   `json:"twitch_configured" doc:"Twitch app credentials are set (never returned)"`
-	SpotifyConfigured bool   `json:"spotify_configured" doc:"Spotify app credentials are set (never returned)"`
+	RegistrationMode  string    `json:"registration_mode" enum:"invite_only,open,admin_only"`
+	MaxUploadBytes    int64     `json:"max_upload_bytes" doc:"Largest file a user may upload"`
+	KlipyConfigured   bool      `json:"klipy_configured" doc:"A Klipy API key is set, so /gif works. The key itself is never returned."`
+	TwitchConfigured  bool      `json:"twitch_configured" doc:"Twitch app credentials are set (never returned)"`
+	SpotifyConfigured bool      `json:"spotify_configured" doc:"Spotify app credentials are set (never returned)"`
+	UploadTTLRules    []TTLRule `json:"upload_ttl_rules" doc:"Size tiers after which sent files are deleted; empty: files are kept"`
 }
 
 type Store struct{ db *pgxpool.Pool }
@@ -289,15 +297,29 @@ func (s *Store) DeleteSessions(ctx context.Context, userID id.ID) ([]id.ID, erro
 
 func (s *Store) Settings(ctx context.Context) (Settings, error) {
 	var x Settings
+	var rules []byte
 	err := s.db.QueryRow(ctx, `SELECT registration_mode, max_upload_bytes, klipy_api_key IS NOT NULL,
-		twitch_client_id IS NOT NULL, spotify_client_id IS NOT NULL FROM instance_settings`).
-		Scan(&x.RegistrationMode, &x.MaxUploadBytes, &x.KlipyConfigured, &x.TwitchConfigured, &x.SpotifyConfigured)
-	return x, err
+		twitch_client_id IS NOT NULL, spotify_client_id IS NOT NULL, upload_ttl_rules FROM instance_settings`).
+		Scan(&x.RegistrationMode, &x.MaxUploadBytes, &x.KlipyConfigured, &x.TwitchConfigured, &x.SpotifyConfigured, &rules)
+	if err != nil {
+		return x, err
+	}
+	if err := json.Unmarshal(rules, &x.UploadTTLRules); err != nil {
+		return x, err
+	}
+	if x.UploadTTLRules == nil {
+		x.UploadTTLRules = []TTLRule{}
+	}
+	return x, nil
 }
 
 func (s *Store) UpdateSettings(ctx context.Context, x Settings) error {
-	_, err := s.db.Exec(ctx, `UPDATE instance_settings SET registration_mode = $1, max_upload_bytes = $2`,
-		x.RegistrationMode, x.MaxUploadBytes)
+	rules, err := json.Marshal(x.UploadTTLRules)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(ctx, `UPDATE instance_settings SET registration_mode = $1, max_upload_bytes = $2, upload_ttl_rules = $3`,
+		x.RegistrationMode, x.MaxUploadBytes, rules)
 	return err
 }
 

@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, CheckCheck, Ellipsis, Link2, Phone, Settings } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCheck, Ellipsis, Link2, Phone, Settings } from "@/components/icons";
 import {
   createContext, useContext, useEffect, useMemo, useRef, useState,
   type CSSProperties, type HTMLAttributes, type ReactNode, type Ref,

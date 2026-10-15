@@ -1,5 +1,5 @@
 import type { PublicUser, Role } from "@datrope/core";
-import { Copy } from "lucide-react";
+import { Copy } from "@/components/icons";
 import { useState, type ReactNode } from "react";
 import { ErrorText } from "@/components/error-text";
 import { RoleBadge } from "@/components/role-badge";

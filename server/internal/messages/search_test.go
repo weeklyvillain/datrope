@@ -128,6 +128,16 @@ func TestSearchFilters(t *testing.T) {
 	bob.Fail(http.MethodGet, "/api/search?q=board&cursor=nope", nil, http.StatusBadRequest, "VALIDATION_FAILED")
 }
 
+func TestSearchHasFileSkipsExpiredFiles(t *testing.T) {
+	_, alice, _, _, ch := setup(t)
+	a := alice.Upload(ch, "old.txt", []byte("x"), http.StatusCreated)
+	alice.SendWith(ch, "harbor snapshot", a.ID)
+	require.Equal(t, []string{"harbor snapshot"}, resultContents(search(t, alice, "has:file harbor").Results))
+	alice.Do(http.MethodDelete, "/api/attachments/"+a.ID.String(), nil, http.StatusNoContent, nil)
+	require.Empty(t, search(t, alice, "has:file harbor").Results, "an expired file no longer counts")
+	require.Len(t, search(t, alice, "harbor").Results, 1, "the message itself stays")
+}
+
 func TestSearchDatesAndPages(t *testing.T) {
 	env := apptest.New(t)
 	alice := env.Register("alice")

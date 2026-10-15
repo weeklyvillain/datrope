@@ -1,5 +1,5 @@
 import type { ReplyRef } from "@datrope/core";
-import { Reply } from "lucide-react";
+import { Reply } from "@/components/icons";
 import { displayName } from "../session";
 import { BareButton } from "@/components/bare-button";
 

@@ -42,7 +42,7 @@ func TestOpenAPIHasEventSchemas(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(b, &doc))
 	for _, name := range []string{"Ready", "ReadyServer", "Hello", "PresenceUpdate", "PublicUser", "Message",
-		"MessageDeleted", "TypingStart", "ChannelDeleted", "MemberRemoved", "RoleDeleted", "Server", "VoiceState", "VoiceMove"} {
+		"MessageDeleted", "TypingStart", "ChannelDeleted", "MemberRemoved", "RoleDeleted", "Server", "VoiceState", "VoiceMove", "VoicePing", "TeamsDraw"} {
 		_, ok := doc.Components.Schemas[name]
 		require.True(t, ok, "missing schema %s", name)
 	}

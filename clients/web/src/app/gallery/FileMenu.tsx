@@ -1,4 +1,4 @@
-import { Download, ExternalLink, Images, ListPlus, MoreHorizontal, Play, Plus } from "lucide-react";
+import { Download, ExternalLink, Images, ListPlus, MoreHorizontal, Play, Plus } from "@/components/icons";
 import { useState, type ReactNode } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { RefButton } from "@/components/ref-button";

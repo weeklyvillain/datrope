@@ -1,5 +1,5 @@
 import type { Webhook, WebhookWithURL } from "@datrope/core";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "@/components/icons";
 import { useEffect, useId, useRef, useState } from "react";
 import { ErrorText } from "@/components/error-text";
 import { FormField } from "@/components/form-field";

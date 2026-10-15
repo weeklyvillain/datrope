@@ -44,8 +44,14 @@ func (s *Service) PlaySound(ctx context.Context, userID, soundID id.ID) error {
 	if p == nil {
 		return httpx.E(http.StatusNotFound, "NOT_FOUND", "you are not in a voice call")
 	}
-	if _, _, err := s.channels.Access(ctx, userID, channelID, perms.UseSoundboard|perms.Speak); err != nil {
+	c, _, err := s.channels.Access(ctx, userID, channelID, perms.UseSoundboard|perms.Speak)
+	if err != nil {
 		return err
+	}
+	if afk, err := s.isAFK(ctx, c); err != nil {
+		return err
+	} else if afk {
+		return httpx.E(http.StatusForbidden, "AFK_CHANNEL", "the AFK channel is silent")
 	}
 	if serverMute {
 		return httpx.E(http.StatusForbidden, "SERVER_MUTED", "a moderator muted you")

@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { Ellipsis, LayoutGrid, Monitor, PhoneOff, ScreenShare, ScreenShareOff, Volume2 } from "lucide-react";
+import { Ellipsis, LayoutGrid, Monitor, PhoneOff, ScreenShare, ScreenShareOff, Users, Volume2 } from "@/components/icons";
 import { useRef, useState } from "react";
 import { useArrowNav } from "@/hooks/use-arrow-nav";
 import { useShallow } from "zustand/react/shallow";
@@ -14,6 +14,7 @@ import { HoldToTalk } from "../mobile/HoldToTalk";
 import { WatchControl } from "../watch/WatchControl";
 import { GoLiveDialog } from "./GoLiveDialog";
 import { SoundboardButton, SoundboardSheet, useSoundboardAccess } from "./SoundboardPanel";
+import { TeamsDialog } from "./TeamsDialog";
 import { CameraControl, DeafenControl, MuteControl, ShareScreenControl } from "./VoicePanel";
 import type { VoiceLayout } from "./VoiceStage";
 
@@ -33,6 +34,8 @@ export function CallControls({ layout }: { layout?: LayoutControl }) {
 function DesktopCallControls() {
   const toolbarRef = useRef<HTMLDivElement>(null);
   useArrowNav(toolbarRef, "button:not(:disabled)", { orientation: "horizontal" });
+  const channelId = useVoice((v) => v.channelId);
+  const [teams, setTeams] = useState(false);
   return (
     <div ref={toolbarRef} role="toolbar" aria-label="Call controls" className="flex flex-wrap items-center justify-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <MuteControl variant="outline" className={toggle} />
@@ -41,6 +44,12 @@ function DesktopCallControls() {
       {canShareScreen() && <ShareScreenControl className={toggle} />}
       <WatchControl className={toggle} />
       <SoundboardButton side="top" className={round} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" aria-label="Draw teams" className={round} onClick={() => setTeams(true)}><Users /></Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Draw teams</TooltipContent>
+      </Tooltip>
       <span className="h-7 w-px bg-border" aria-hidden />
       <Tooltip>
         <TooltipTrigger asChild>
@@ -49,6 +58,7 @@ function DesktopCallControls() {
         </TooltipTrigger>
         <TooltipContent>Leave voice</TooltipContent>
       </Tooltip>
+      {channelId && <TeamsDialog channelId={channelId} open={teams} onOpenChange={setTeams} />}
     </div>
   );
 }
@@ -64,6 +74,7 @@ function PhoneCallControls({ layout }: { layout?: LayoutControl }) {
   const [more, setMore] = useState(false);
   const [sounds, setSounds] = useState(false);
   const [goLive, setGoLive] = useState(false);
+  const [teams, setTeams] = useState(false);
   const pick = (run: () => void) => () => {
     setMore(false);
     run();
@@ -87,6 +98,7 @@ function PhoneCallControls({ layout }: { layout?: LayoutControl }) {
             {v.screen ? "Stop sharing" : "Share screen"}
           </ActionSheetItem>
         )}
+        <ActionSheetItem icon={<Users />} onSelect={pick(() => setTeams(true))}>Draw teams</ActionSheetItem>
         {layout && (
           <ActionSheetItem icon={layout.layout === "grid" ? <Monitor /> : <LayoutGrid />} disabled={!layout.canStage} onSelect={pick(layout.toggle)}>
             {!layout.canStage ? "Grid layout (stage needs a watched screen share)" : layout.layout === "grid" ? "Stage layout" : "Grid layout"}
@@ -95,6 +107,7 @@ function PhoneCallControls({ layout }: { layout?: LayoutControl }) {
       </ActionSheet>
       <SoundboardSheet open={sounds} onOpenChange={setSounds} />
       {goLive && <GoLiveDialog onClose={() => setGoLive(false)} />}
+      {v.channelId && <TeamsDialog channelId={v.channelId} open={teams} onOpenChange={setTeams} />}
     </div>
   );
 }

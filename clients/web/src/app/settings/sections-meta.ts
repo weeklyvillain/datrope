@@ -1,9 +1,9 @@
-import { Bell, Headphones, Link2, MonitorSmartphone, Palette, User, type LucideIcon } from "lucide-react";
+import { Bell, Headphones, Link2, MonitorSmartphone, Palette, User, type AnimatedIcon } from "@/components/icons";
 import type { SettingsSection } from "./settings-store";
 
 export type Group = "Account" | "App";
 export const GROUPS: Group[] = ["Account", "App"];
-export type SectionMeta = { id: SettingsSection; label: string; group: Group; icon: LucideIcon };
+export type SectionMeta = { id: SettingsSection; label: string; group: Group; icon: AnimatedIcon };
 
 // Metadata only (no section bodies, which import the session): unit tests load this in node.
 export const SECTION_META: SectionMeta[] = [

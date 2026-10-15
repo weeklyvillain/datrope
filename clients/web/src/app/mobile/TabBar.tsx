@@ -1,11 +1,11 @@
-import { AtSign, CircleUser, Hash, MessageCircle, type LucideIcon } from "lucide-react";
+import { AtSign, CircleUser, Hash, MessageCircle, type AnimatedIcon } from "@/components/icons";
 import { useId } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { isUnread, useApp } from "../../session";
 import { tabFor, tabPath, type PhoneTab } from "./tabs";
 
-const TABS: { tab: PhoneTab; name: string; icon: LucideIcon }[] = [
+const TABS: { tab: PhoneTab; name: string; icon: AnimatedIcon }[] = [
   { tab: "server", name: "Server", icon: Hash },
   { tab: "messages", name: "Messages", icon: MessageCircle },
   { tab: "mentions", name: "Mentions", icon: AtSign },

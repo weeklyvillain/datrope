@@ -22,6 +22,11 @@ type SeekRequest struct {
 	Position float64 `json:"position" doc:"Seconds into the video"`
 }
 
+type BufferingRequest struct {
+	Seq       int64 `json:"seq" doc:"The watch's seq this answers"`
+	Buffering bool  `json:"buffering" doc:"True while my player loads, false once it can play"`
+}
+
 type channelPath struct {
 	ChannelID string `path:"channelID"`
 }
@@ -122,6 +127,21 @@ func Register(api huma.API, s *Service) {
 				return nil, err
 			}
 			return reply(s.Seek(me(ctx), ch, in.Body.Position))
+		})
+
+	huma.Register(api, op("report-watch-buffering", http.MethodPost, "/api/channels/{channelID}/watch/buffering", http.StatusNoContent),
+		func(ctx context.Context, in *struct {
+			ChannelID string `path:"channelID"`
+			Body      BufferingRequest
+		}) (*struct{}, error) {
+			ch, err := voiceChannel(ctx, in.ChannelID)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.Report(me(ctx), ch, in.Body.Seq, in.Body.Buffering); err != nil {
+				return nil, apiError(err)
+			}
+			return nil, nil
 		})
 
 	huma.Register(api, op("stop-watch", http.MethodDelete, "/api/channels/{channelID}/watch", http.StatusNoContent),

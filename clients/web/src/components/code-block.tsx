@@ -1,5 +1,5 @@
 import { toJsxRuntime, type Jsx } from "hast-util-to-jsx-runtime";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "@/components/icons";
 import { useMemo, useState, type ReactNode } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { Button } from "@/components/ui/button";

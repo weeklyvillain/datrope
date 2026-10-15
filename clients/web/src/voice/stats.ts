@@ -55,8 +55,18 @@ export function readSample(stats: Stat[], prev: Counters): { sample: Sample; cou
 }
 
 // [good below, ok below]; anything higher is poor.
-const LIMITS: Record<keyof Sample, [number, number]> = { rttMs: [100, 250], lossPct: [1, 5], jitterMs: [20, 50] };
+export const LIMITS: Record<keyof Sample, [number, number]> = { rttMs: [100, 250], lossPct: [1, 5], jitterMs: [20, 50] };
 const RATINGS = ["good", "ok", "poor"] as const;
+export const HISTORY = 30; // samples kept for the connection panel (one per second)
+
+/** One metric against LIMITS. */
+export function metricRating(key: keyof Sample, v: number): "good" | "ok" | "poor" {
+  const [good, ok] = LIMITS[key];
+  return v < good ? "good" : v < ok ? "ok" : "poor";
+}
+
+/** `history` plus `s`, cut to the last HISTORY samples (a new array: it goes into the store). */
+export const pushHistory = <T,>(history: T[], s: T): T[] => [...history, s].slice(-HISTORY);
 
 /** Rates the connection from the last three samples (averaged, so one spike doesn't flip it); the worst metric wins. */
 export function rate(samples: Sample[]): Quality {
@@ -75,11 +85,14 @@ export function rate(samples: Sample[]): Quality {
   return q;
 }
 
-/** Measures my connection to the voice server every `everyMs` while in a call. Returns a function that stops. */
-export function watchQuality(room: Room, onQuality: (q: Quality) => void, everyMs = 2000): () => void {
+/**
+ * Measures my connection to the voice server every `everyMs` while in a call, and keeps the last HISTORY samples.
+ * Returns a function that stops.
+ */
+export function watchQuality(room: Room, onQuality: (q: Quality, history: Sample[]) => void, everyMs = 1000): () => void {
   let stopped = false;
   let prev: Counters = new Map();
-  const history: Sample[] = [];
+  let all: Sample[] = [];
   const poll = async () => {
     const tracks: Track[] = [];
     const mic = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
@@ -92,9 +105,8 @@ export function watchQuality(room: Room, onQuality: (q: Quality) => void, everyM
     const stats = reports.flatMap((r) => (r ? ([...r.values()] as Stat[]) : []));
     const { sample, counters } = readSample(stats, prev);
     prev = counters;
-    history.push(sample);
-    if (history.length > 3) history.shift();
-    onQuality(rate(history));
+    all = pushHistory(all, sample);
+    onQuality(rate(all.slice(-3)), all);
   };
   const tick = () => void poll().catch(() => undefined); // stats are best effort: never an error in the UI
   const timer = setInterval(tick, everyMs);

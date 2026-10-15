@@ -1,5 +1,5 @@
 import { Perm, hasPerm, rolesByRank, unwrap, type Role } from "@datrope/core";
-import { ArrowLeft, ChevronDown, ChevronUp, Lock, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Lock, Plus } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";

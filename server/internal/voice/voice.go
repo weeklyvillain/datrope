@@ -127,12 +127,15 @@ type Service struct {
 	rooms    *Rooms // nil when voice is off
 	bus      *events.Bus
 	channels Channels
-	ranks    Ranks  // nil: no hierarchy checks
-	sounds   Sounds // nil until SetSounds
+	ranks    Ranks     // nil: no hierarchy checks
+	sounds   Sounds    // nil until SetSounds
+	afk      AFKLookup // nil until SetAFK
 
 	audit audit.Execer // nil: moderation goes unrecorded (no database)
 
 	soundLimit *ratelimit.Limiter // one soundboard play per 2 s per user
+	pingLimit  *ratelimit.Limiter // one ping per 2 s per user
+	teamsLimit *ratelimit.Limiter // one team draw per 5 s per user
 
 	// mu guards users, pending, moves and changed. It is held while publishing
 	// voice events so they reach clients in order.
@@ -161,6 +164,7 @@ func NewService(cfg Config, bus *events.Bus, ch Channels, ranks Ranks) *Service 
 		users: map[id.ID]*participant{}, pending: map[id.ID]pendingJoin{}, moves: map[id.ID]movePass{}, changed: map[id.ID]change{},
 		poke: make(chan struct{}, 1), resync: make(chan struct{}, 1), signedOut: map[id.ID]time.Time{}, revoked: map[id.ID]time.Time{},
 		ctx: ctx, cancel: cancel, soundLimit: ratelimit.New(30, 1),
+		pingLimit: ratelimit.New(30, 1), teamsLimit: ratelimit.New(12, 1),
 	}
 	if cfg.Enabled() {
 		s.rooms = NewRooms(cfg)
@@ -253,7 +257,11 @@ func (s *Service) Join(ctx context.Context, user *auth.User, sessionID, channelI
 		return nil, unavailable("the voice server is unreachable")
 	}
 	serverMute := s.prepareJoin(ctx, user.ID, channelID, selfState{mute: req.SelfMute, deaf: req.SelfDeaf}, moved)
-	token, err := s.cfg.JoinToken(channelID, user.ID, displayName(user), Sources(p, serverMute),
+	sources, err := s.sourcesFor(ctx, c, p, serverMute)
+	if err != nil {
+		return nil, err
+	}
+	token, err := s.cfg.JoinToken(channelID, user.ID, displayName(user), sources,
 		Attrs{SessionID: sessionID, SelfMute: req.SelfMute, SelfDeaf: req.SelfDeaf})
 	if err != nil {
 		return nil, err

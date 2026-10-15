@@ -5,7 +5,7 @@ export const tabPath: Record<PhoneTab, string> = { server: "/", messages: "/mess
 export function tabFor(pathname: string): PhoneTab {
   if (pathname.startsWith("/messages")) return "messages";
   if (pathname.startsWith("/mentions")) return "mentions";
-  if (pathname.startsWith("/you") || pathname.startsWith("/server-settings")) return "you";
+  if (pathname.startsWith("/you") || pathname.startsWith("/server-settings") || pathname.startsWith("/notes")) return "you";
   return "server";
 }
 

@@ -1,5 +1,5 @@
 import { isGated } from "@datrope/core";
-import { Settings, UserRound } from "lucide-react";
+import { Settings, UserRound } from "@/components/icons";
 import { useEffect } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { SettingsLayout } from "@/components/settings-layout";

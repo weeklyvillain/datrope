@@ -1,4 +1,4 @@
-import { Gamepad2, Type } from "lucide-react";
+import { Gamepad2, Type } from "@/components/icons";
 import { useId } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";

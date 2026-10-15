@@ -1,4 +1,4 @@
-import { ListMusic, Music, Pause, Play, Repeat, Repeat1, SkipForward } from "lucide-react";
+import { ListMusic, Music, Pause, Play, Repeat, Repeat1, SkipForward } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmit } from "@/hooks/use-submit";

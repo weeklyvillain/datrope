@@ -1,4 +1,4 @@
-import { Hash, Webhook } from "lucide-react";
+import { Hash, Webhook } from "@/components/icons";
 import { describe, expect, it } from "vitest";
 import { CHANNEL_TYPES, channelIcon, isUnreadType } from "./channel-types";
 

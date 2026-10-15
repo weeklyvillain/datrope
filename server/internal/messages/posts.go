@@ -20,6 +20,7 @@ type CreatePostRequest struct {
 	Content       string   `json:"content" maxLength:"4000"`
 	Tags          []string `json:"tags,omitempty" maxItems:"5" doc:"From the forum tags"`
 	AttachmentIDs []id.ID  `json:"attachment_ids,omitempty" maxItems:"10" doc:"Uploads to the forum (POST /api/attachments?channel_id=<forum>)"`
+	TZ            string   `json:"tz,omitempty" maxLength:"64" doc:"The sender's IANA time zone"`
 }
 
 type UpdatePostRequest struct {
@@ -74,8 +75,12 @@ func registerPosts(api huma.API, s *Service, op func(string, string, string, int
 			everyone := have.Has(perms.MentionEveryone) && mentionsEveryone(content)
 			m := &Message{ID: id.New(), ChannelID: post.ID, Author: &author, Content: content, Mentions: mentions, MentionEveryone: everyone, MentionRoles: roles}
 			m.CreatedAt = m.ID.Time()
-			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, mentions, mention_everyone, mention_roles) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-				m.ID, post.ID, u.ID, m.Content, id.Int64s(mentions), everyone, id.Int64s(roles)); err != nil {
+			tz := cleanTZ(in.Body.TZ)
+			if tz != nil {
+				m.TZ = *tz
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO messages (id, channel_id, author_id, content, mentions, mention_everyone, mention_roles, tz) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+				m.ID, post.ID, u.ID, m.Content, id.Int64s(mentions), everyone, id.Int64s(roles), tz); err != nil {
 				return nil, err
 			}
 			// Uploads go to the forum, since the post does not exist yet; once

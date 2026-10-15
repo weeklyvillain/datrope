@@ -1,5 +1,5 @@
 import { Perm, hasPerm, type ThreadListItem } from "@datrope/core";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus } from "@/components/icons";
 import { useId, useRef, useState } from "react";
 import { client, formatBytes, useApp, usePerms } from "../../session";
 import { ErrorText } from "@/components/error-text";

@@ -1,5 +1,5 @@
 import { customEmojiId, type ClientMessage, type Poll, type PublicUser } from "@datrope/core";
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 import { useEffect, useState } from "react";
 import { client, displayName, errorText, useApp } from "@/session";
 import { ErrorText } from "@/components/error-text";

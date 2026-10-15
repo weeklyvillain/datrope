@@ -6,9 +6,11 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"runtime"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,17 +33,20 @@ type Settings interface {
 
 // Attachment is an uploaded file. URLs are relative to the server.
 type Attachment struct {
-	ID           id.ID  `json:"id"`
-	ChannelID    *id.ID `json:"channel_id,omitempty" doc:"Where it was posted"`
-	Filename     string `json:"filename"`
-	ContentType  string `json:"content_type" doc:"Detected from the contents, not the name"`
-	Size         int64  `json:"size"`
-	Width        *int   `json:"width,omitempty"`
-	Height       *int   `json:"height,omitempty"`
-	Inline       bool   `json:"inline" doc:"An image the client may show in the message"`
-	GIF          bool   `json:"gif,omitempty" doc:"Posted with /gif: clients play it muted and looped, without controls, like an image"`
-	URL          string `json:"url"`
-	ThumbnailURL string `json:"thumbnail_url,omitempty"`
+	ID           id.ID      `json:"id"`
+	ChannelID    *id.ID     `json:"channel_id,omitempty" doc:"Where it was posted"`
+	Filename     string     `json:"filename"`
+	ContentType  string     `json:"content_type" doc:"Detected from the contents, not the name"`
+	Size         int64      `json:"size"`
+	Width        *int       `json:"width,omitempty"`
+	Height       *int       `json:"height,omitempty"`
+	Inline       bool       `json:"inline" doc:"An image the client may show in the message"`
+	GIF          bool       `json:"gif,omitempty" doc:"Posted with /gif: clients play it muted and looped, without controls, like an image"`
+	URL          string     `json:"url"`
+	ThumbnailURL string     `json:"thumbnail_url,omitempty"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty" doc:"When the file will be deleted (size rules); absent: kept"`
+	Keep         bool       `json:"keep" doc:"Someone chose to keep it past the size rules"`
+	Expired      bool       `json:"expired" doc:"Deleted by the size rules or by hand; the message stays"`
 
 	uploaderID id.ID
 	messageID  *id.ID
@@ -52,6 +57,10 @@ type Attachment struct {
 // setURLs fills the URLs. With variants on, inline images get a resized
 // thumbnail; otherwise only rows from before that keep their stored one.
 func (a *Attachment) setURLs(variants bool) {
+	if a.Expired {
+		a.URL, a.ThumbnailURL = "", ""
+		return
+	}
 	a.URL = "/api/attachments/" + a.ID.String()
 	switch {
 	case variants && a.Inline && !a.GIF && variantTypes[a.ContentType]:
@@ -87,8 +96,10 @@ type Service struct {
 	imageSlots chan struct{}
 	variants   *variants // resized copies of images; nil until SetVariants
 	appIcons   appIconCache
-	done       chan struct{}
-	stop       sync.Once
+	// onExpired publishes MESSAGE_UPDATE for messages whose files expired; set after Start, hence atomic.
+	onExpired atomic.Pointer[func(ctx context.Context, channelID, messageID id.ID)]
+	done      chan struct{}
+	stop      sync.Once
 }
 
 func NewService(pool *pgxpool.Pool, store Store, ch Channels, st Settings) *Service {
@@ -124,14 +135,14 @@ func (s *Service) Start() {
 
 func (s *Service) Close() { s.stop.Do(func() { close(s.done) }) }
 
-const attachmentCols = `id, channel_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif`
+const attachmentCols = `id, channel_id, uploader_id, message_id, filename, content_type, size, sha256, width, height, thumb_sha256, inline, gif, expires_at, keep, expired_at IS NOT NULL`
 
 func scanAttachment(row pgx.Row, variants bool) (*Attachment, error) {
 	var a Attachment
 	var ch, msg *int64
 	var thumb *string
 	if err := row.Scan(&a.ID, &ch, &a.uploaderID, &msg, &a.Filename, &a.ContentType, &a.Size,
-		&a.sum, &a.Width, &a.Height, &thumb, &a.Inline, &a.GIF); err != nil {
+		&a.sum, &a.Width, &a.Height, &thumb, &a.Inline, &a.GIF, &a.ExpiresAt, &a.Keep, &a.Expired); err != nil {
 		return nil, err
 	}
 	a.ChannelID, a.messageID = id.FromNullable(ch), id.FromNullable(msg)
@@ -166,7 +177,7 @@ func (s *Service) authorized(ctx context.Context, raw string) (*Attachment, erro
 		if a.uploaderID != me {
 			return nil, httpx.NotFound("attachment")
 		}
-		return a, nil
+		return a, expiredErr(a)
 	}
 	if _, _, err := s.channels.Access(ctx, me, *a.ChannelID, perms.ReadHistory); err != nil {
 		var he *httpx.Error
@@ -175,7 +186,15 @@ func (s *Service) authorized(ctx context.Context, raw string) (*Attachment, erro
 		}
 		return nil, err
 	}
-	return a, nil
+	return a, expiredErr(a)
+}
+
+// expiredErr is 410 for an expired attachment. Checked after access, so it never reveals files you cannot read.
+func expiredErr(a *Attachment) error {
+	if a.Expired {
+		return httpx.E(http.StatusGone, "FILE_EXPIRED", "this file was deleted")
+	}
+	return nil
 }
 
 // save processes a staged upload and records it. Images get their metadata
@@ -288,6 +307,11 @@ func lockBlobs(ctx context.Context, tx pgx.Tx, sums ...string) error {
 // nothing references (such as those left by deleting a channel) once they
 // are 24 hours old, then abandoned staging files.
 func (s *Service) Sweep(ctx context.Context, now time.Time) error {
+	if err := s.expire(ctx, `UPDATE attachments SET expired_at = $1
+		WHERE expired_at IS NULL AND NOT keep AND expires_at IS NOT NULL AND expires_at < $1
+		RETURNING channel_id, message_id, sha256, thumb_sha256`, now); err != nil {
+		return err
+	}
 	rows, err := s.db.Query(ctx, `
 		DELETE FROM attachments WHERE message_id IS NULL AND created_at < $1
 		RETURNING sha256, thumb_sha256`, now.Add(-unsentTTL))
@@ -353,7 +377,7 @@ func (s *Service) removeIfUnused(ctx context.Context, sum string) error {
 	if err := lockBlobs(ctx, tx, sum); err != nil {
 		return err
 	}
-	q := `SELECT EXISTS (SELECT 1 FROM attachments WHERE sha256 = $1 OR thumb_sha256 = $1)`
+	q := `SELECT EXISTS (SELECT 1 FROM attachments WHERE (sha256 = $1 OR thumb_sha256 = $1) AND expired_at IS NULL)`
 	for _, bt := range s.blobTables {
 		q += ` OR EXISTS (SELECT 1 FROM ` + bt.table + ` WHERE ` + bt.column + ` = $1)`
 	}
