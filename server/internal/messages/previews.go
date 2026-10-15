@@ -96,6 +96,11 @@ func (s *Service) attachPreview(m Message) {
 	}()
 }
 
+// PublishUpdated re-reads a message and publishes MESSAGE_UPDATE (for files, after a sweep expires attachments).
+func (s *Service) PublishUpdated(ctx context.Context, channelID, messageID id.ID) {
+	s.publishUpdated(ctx, channelID, messageID)
+}
+
 // publishUpdated re-reads a message and publishes MESSAGE_UPDATE.
 func (s *Service) publishUpdated(ctx context.Context, channelID, messageID id.ID) {
 	m, err := scanMessage(s.db.QueryRow(ctx, `SELECT `+messageCols+` FROM messages WHERE id = $1 AND NOT deleted`, messageID))

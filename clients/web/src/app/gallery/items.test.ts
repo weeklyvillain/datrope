@@ -4,7 +4,7 @@ import { audioOnly, audioRun, itemTitle, sections, type GalleryItem } from "./it
 
 let seq = 0;
 const file = (content_type: string, filename = `f${++seq}`): Attachment =>
-  ({ id: `a${++seq}`, channel_id: "c", content_type, filename, inline: true, size: 1, url: `/f/${seq}` });
+  ({ id: `a${++seq}`, channel_id: "c", content_type, filename, inline: true, size: 1, url: `/f/${seq}`, keep: false, expired: false });
 const msg = (id: string, at: string, author: string, attachments: Attachment[], o: Partial<Message> = {}): Message =>
   ({ id, channel_id: "c", content: "", created_at: at, deleted: false, pinned: false, mentions: null, mention_roles: null, reactions: null,
     author: { id: author, username: author } as Message["author"], attachments, ...o });

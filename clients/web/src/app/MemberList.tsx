@@ -20,6 +20,8 @@ import { MemberRoleIcon } from "@/components/role-icon";
 import { ActivityLine } from "@/components/activity";
 import { openProfile } from "./side-panel/panel";
 import { useChrome } from "./desktop-chrome";
+import { canView } from "./member-access";
+import { MemberBanner } from "./MemberBanner";
 
 // The list structure for screen readers; group headings sit between the items without a role.
 const MemberItems = forwardRef<HTMLDivElement, ComponentProps<"div">>(({ children, ...props }, ref) => <div ref={ref} role="list" {...props}>{children}</div>);
@@ -53,11 +55,12 @@ export function MembersSheetBand() {
 }
 
 /**
- * The server's members: those with a hoisted role under their highest hoisted role (in role order),
+ * The members who can see this channel: those with a hoisted role under their highest hoisted role (in role order),
  * then everyone else as Online / Offline. Names take the colour of their highest coloured role.
  */
-export function MemberList({ sheet = false }: { sheet?: boolean } = {}) {
+export function MemberList({ sheet = false, channelId }: { sheet?: boolean; channelId?: string } = {}) {
   const sv = useApp((s) => s.server);
+  const ch = useApp((s) => (channelId ? s.channels[channelId] : undefined));
   const presences = useApp((s) => s.presences);
   const activities = useApp((s) => s.activities);
   const meId = useApp((s) => s.me?.id);
@@ -76,7 +79,7 @@ export function MemberList({ sheet = false }: { sheet?: boolean } = {}) {
   }))));
   const { groups, flat, colors, total } = useMemo(() => {
     const ranked: Role[] = Object.values(sv?.roles ?? {}).filter((r) => r.id !== sv?.server.id).sort((a, b) => b.position - a.position);
-    const members = Object.values(sv?.members ?? {}).sort((a, b) =>
+    const members = Object.values(sv?.members ?? {}).filter((m) => !sv || !ch || ch.type === "dm" || canView(sv, m, ch)).sort((a, b) =>
       (rank[presences[b.user.id] ?? ""] ?? 0) - (rank[presences[a.user.id] ?? ""] ?? 0) ||
       displayName(a.user).localeCompare(displayName(b.user)));
     const hoisted = new Map<string, Group>(ranked.filter((r) => r.hoist).map((r) => [r.id, { key: r.id, name: r.name, members: [] }]));
@@ -91,7 +94,7 @@ export function MemberList({ sheet = false }: { sheet?: boolean } = {}) {
     }
     const groups = [...hoisted.values(), online, offline].filter((g) => g.members.length > 0);
     return { groups, flat: groups.flatMap((g) => g.members), colors, total: members.length };
-  }, [sv, presences]);
+  }, [sv, ch, presences]);
 
   return (
     <aside ref={asideRef} className={cn("flex w-[240px] flex-none flex-col border-l bg-card", sheet ? "min-h-0 w-full flex-1 border-l-0" : undefined)} aria-label="Members">
@@ -125,7 +128,8 @@ function MemberRow({ m, status, line, color, sheet, meId, nav, rows }: {
           <ProfilePopover userId={m.user.id} side="left" disabled={sheet}>
             <RefButton variant="ghost" data-member-row="" aria-label={displayName(m.user)}
               onClick={sheet ? () => openProfile(m.user.id) : undefined}
-              className={cn("h-auto min-h-11 w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal")}>
+              className={cn("group relative isolate overflow-hidden h-auto min-h-11 w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal")}>
+              <MemberBanner url={m.user.banner_url} dim={status === "offline"} />
               <UserAvatar user={m.user} size="md" status={status} className={status === "offline" ? "opacity-60" : undefined} />
               <span className="min-w-0 flex-1">
                 <span className={cn("flex items-center gap-1 truncate", status === "offline" && "text-muted-foreground")} style={{ color: status === "offline" ? undefined : color }}>

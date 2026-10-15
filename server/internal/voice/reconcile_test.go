@@ -30,13 +30,18 @@ func enter(t *testing.T, env *apptest.Env, cfg voice.Config, c *apptest.Client, 
 
 // sourcesOf is what LiveKit lets a user publish in a channel's room (nil if absent).
 func sourcesOf(cfg voice.Config, channelID, userID id.ID) []livekit.TrackSource {
+	return participantOf(cfg, channelID, userID).GetPermission().GetCanPublishSources()
+}
+
+// participantOf is the user's LiveKit participant in a channel's room (nil if absent).
+func participantOf(cfg voice.Config, channelID, userID id.ID) *livekit.ParticipantInfo {
 	ps, err := voice.NewRooms(cfg).Participants(context.Background(), channelID.String())
 	if err != nil {
 		return nil
 	}
 	for _, p := range ps {
 		if p.Identity == userID.String() {
-			return p.GetPermission().GetCanPublishSources()
+			return p
 		}
 	}
 	return nil

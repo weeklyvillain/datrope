@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rate, readSample, type Stat } from "./stats";
+import { HISTORY, metricRating, pushHistory, rate, readSample, type Stat } from "./stats";
 
 const pair: Stat = { type: "candidate-pair", id: "cp", nominated: true, state: "succeeded", currentRoundTripTime: 0.042 };
 
@@ -52,5 +52,25 @@ describe("rate", () => {
     expect(q.rttMs).toBeCloseTo(60);
     expect(q.rating).toBe("good");
     expect(rate([{ rttMs: 50 }, { rttMs: 50 }, { rttMs: 400 }]).rating).toBe("ok"); // one spike: average 166
+  });
+});
+
+describe("metricRating", () => {
+  it("uses the LIMITS thresholds", () => {
+    expect(metricRating("rttMs", 99)).toBe("good");
+    expect(metricRating("rttMs", 100)).toBe("ok");
+    expect(metricRating("rttMs", 250)).toBe("poor");
+    expect(metricRating("lossPct", 0.5)).toBe("good");
+    expect(metricRating("jitterMs", 49)).toBe("ok");
+  });
+});
+
+describe("pushHistory", () => {
+  it("keeps the last 30 samples, newest last", () => {
+    let h: { rttMs?: number }[] = [];
+    for (let i = 0; i < 35; i++) h = pushHistory(h, { rttMs: i });
+    expect(h).toHaveLength(HISTORY);
+    expect(h[0]!.rttMs).toBe(5);
+    expect(h.at(-1)!.rttMs).toBe(34);
   });
 });
