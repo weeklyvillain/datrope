@@ -1,12 +1,13 @@
 import { Perm, hasPerm, type ReplyRef } from "@datrope/core";
-import { LayoutGrid, MessageSquare, Music, Volume2 } from "lucide-react";
+import { LayoutGrid, MessageSquare, Music, Users, Volume2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ErrorText } from "@/components/error-text";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChannelFeed } from "@/hooks/use-channel-feed";
-import { useApp, usePerms } from "../../session";
+import { client, useApp, usePerms } from "../../session";
+import { rerollBody, teamsStore, useTeams } from "../../voice/teams";
 import { useVoice } from "../../voice/voice";
 import { textChannel } from "../Home";
 import { Topic } from "../ChannelView";
@@ -21,6 +22,8 @@ import { EmojiText } from "@/chat/EmojiText";
 import { VoiceStage, useVoiceLayout } from "./VoiceStage";
 import { EmptyView } from "../EmptyView";
 import { MusicPanel } from "./MusicPanel";
+import { useCallIds } from "./TeamsDialog";
+import { TeamsPanel } from "./TeamsPanel";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CallScreen } from "../mobile/CallScreen";
 
@@ -30,7 +33,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   const canRead = hasPerm(perms, Perm.ReadHistory);
   const mobile = useIsMobile();
   // The chat opens beside the call, except on phones, where it would cover it.
-  const [side, setSide] = useState<"chat" | "music" | null>(mobile ? null : "chat");
+  const [side, setSide] = useState<"chat" | "music" | "teams" | null>(mobile ? null : "chat");
   const chat = side === "chat";
   const searching = usePanel((s) => s.panel?.kind === "search");
   useEffect(() => setSide(mobile ? null : "chat"), [channelId, mobile]);
@@ -39,12 +42,26 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   useEffect(() => {
     if (pendingJump) setSide("chat");
   }, [pendingJump]);
+  // A new draw in this call opens its teams for everyone (not on phones, where it would cover the call).
+  useEffect(() => teamsStore.subscribe((s, p) => {
+    if (s.draw && s.draw !== p.draw && s.draw.channel_id === channelId && !mobile) setSide("teams");
+  }), [channelId, mobile]);
+  const hasTeams = !!useTeams(channelId);
+  const inCall = useCallIds(channelId);
+  const reroll = async () => {
+    const draw = teamsStore.getState().draw;
+    if (draw?.channel_id === channelId) await client.drawTeams(channelId, rerollBody(draw, inCall));
+  };
   const { layout, setLayout, canStage } = useVoiceLayout(channelId);
   useLeaveToText(channelId);
 
   if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
   const panel = searching ? (
     <SearchPanel />
+  ) : side === "teams" ? (
+    <SidePanel title="Teams" icon={<Users />} subtitle={ch.name} onClose={() => setSide(null)}>
+      <TeamsPanel channelId={channelId} onReroll={reroll} />
+    </SidePanel>
   ) : side === "music" ? (
     <SidePanel title="Music" icon={<Music />} subtitle={ch.name} onClose={() => setSide(null)}>
       <MusicPanel channelId={channelId} />
@@ -56,7 +73,7 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
   );
   if (mobile) {
     return (
-      <CallScreen channelId={channelId} name={ch.name} canRead={canRead} side={side} onSide={setSide} panel={panel}
+      <CallScreen channelId={channelId} name={ch.name} canRead={canRead} hasTeams={hasTeams} side={side} onSide={setSide} panel={panel}
         layout={{ layout, canStage, toggle: () => setLayout((l) => (l === "grid" ? "stage" : "grid")) }} />
     );
   }
@@ -89,6 +106,20 @@ export function VoiceChannelView({ channelId }: { channelId: string }) {
               </TooltipTrigger>
               <TooltipContent>Music</TooltipContent>
             </Tooltip>
+            {hasTeams && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex">
+                    <Button variant="ghost" size="icon-sm" aria-label="Teams" aria-pressed={side === "teams"}
+                      className={side === "teams" ? "text-foreground" : "text-muted-foreground"}
+                      onClick={() => setSide((s) => (s === "teams" ? null : "teams"))}>
+                      <Users />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Teams</TooltipContent>
+              </Tooltip>
+            )}
             {canRead && (
               <Tooltip>
                 <TooltipTrigger asChild>

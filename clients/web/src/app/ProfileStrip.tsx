@@ -1,8 +1,9 @@
 import type { PresenceStatus } from "@datrope/core";
 import { Settings } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
 import { EmojiText } from "@/chat/EmojiText";
+import { RichInput, type RichInputHandle } from "@/chat/RichInput";
 import { ErrorText } from "@/components/error-text";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,6 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSubmit } from "@/hooks/use-submit";
 import { choosePresence, client, displayName, errorText, signOut, useApp } from "../session";
@@ -83,6 +83,7 @@ const limit = (v: string) => Array.from(v).slice(0, 80).join("");
 export function EditStatusDialog({ current, onClose }: { current: string; onClose: () => void }) {
   const [status, setStatus] = useState(current);
   const fieldId = useId();
+  const statusRef = useRef<RichInputHandle>(null);
   const { busy, error, run } = useSubmit();
   const save = (custom_status: string) => run(async () => {
     await client.updateMe({ custom_status });
@@ -99,9 +100,9 @@ export function EditStatusDialog({ current, onClose }: { current: string; onClos
           void save(status.trim());
         }}>
           <div className="flex items-center gap-1">
-            <Input id={fieldId} aria-label="Status" placeholder="What are you up to?" value={status} autoFocus
-              onChange={(e) => setStatus(limit(e.target.value))} />
-            <EmojiInsertButton fieldId={fieldId} value={status} onChange={(v) => setStatus(limit(v))} />
+            <RichInput ref={statusRef} id={fieldId} aria-label="Status" placeholder="What are you up to?" value={status} autoFocus singleLine variant="input" maxLength={80} lengthUnit="codepoint"
+              onChange={(v) => setStatus(limit(v))} />
+            <EmojiInsertButton field={statusRef} value={status} onChange={(v) => setStatus(limit(v))} />
           </div>
           <ErrorText error={error} />
           <DialogFooter>

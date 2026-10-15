@@ -92,6 +92,11 @@ export class Desktop {
     void this.t.invoke("desktop_start_drag").catch(() => undefined);
   }
 
+  /** Opens a link in the system browser. */
+  openUrl(url: string) {
+    void this.t.invoke("desktop_open_url", { url }).catch(() => undefined);
+  }
+
   setServerInfo(name: string, icon?: string) {
     void this.t.invoke("desktop_server_info", { name, icon: icon ?? null }).catch(() => undefined);
   }
@@ -129,6 +134,23 @@ export class Desktop {
       stop?.();
     };
   }
+}
+
+/**
+ * Which URL a click on `link` should open in the system browser, or null to let the page handle it: links to other
+ * sites, new-tab links (downloads included) and middle clicks. The webview itself only shows this server's app.
+ */
+export function linkToOpen(link: { href: string; target: string }, pageOrigin: string, button: number): string | null {
+  if (button !== 0 && button !== 1) return null;
+  let url: URL;
+  try {
+    url = new URL(link.href, pageOrigin);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "mailto:") return null;
+  const external = url.origin !== pageOrigin;
+  return external || link.target === "_blank" || button === 1 ? url.href : null;
 }
 
 /**

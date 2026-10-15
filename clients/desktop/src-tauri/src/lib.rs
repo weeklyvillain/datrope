@@ -91,6 +91,7 @@ pub fn run() {
             commands::desktop_window,
             commands::desktop_start_drag,
             commands::desktop_set_theme,
+            commands::desktop_open_url,
             commands::screen_pick_request,
             commands::screen_pick_done,
         ])

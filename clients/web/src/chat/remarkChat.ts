@@ -1,7 +1,8 @@
-// A remark plugin for chat syntax that Markdown lacks: ||spoilers||, :emoji: and @mentions.
+// A remark plugin for chat syntax that Markdown lacks: ||spoilers||, :emoji:, @mentions and written times ("9pm").
 // It rewrites text nodes only, never inside code or links.
 
 import { splitHighlights } from "./highlight";
+import { findTimes, resolveTime } from "@/lib/time-mention";
 
 export type ChatOptions = {
   custom: Map<string, { id: string; url: string; srcSet?: string }>; // custom emoji by lower-cased name
@@ -11,6 +12,7 @@ export type ChatOptions = {
   roles?: Map<string, { name: string; color?: string; me: boolean }>; // by role ID; me = it pinged me
   everyone?: boolean; // the message pinged @everyone: show it as a mention of me
   highlight?: string[]; // search terms to mark (outside spoilers, code and links)
+  time?: { sentAt: string; tz?: string }; // the message's send time and sender zone: written times become chips
 };
 
 type Node = { type: string; value?: string; children?: Node[]; data?: Record<string, unknown> };
@@ -101,12 +103,33 @@ function highlight(nodes: Node[], terms: string[] | undefined): Node[] {
       : text(p.text))));
 }
 
+/** Wraps written times ("9pm", "21:00 CET") in plain text nodes; other nodes are left alone. */
+function times(nodes: Node[], t: ChatOptions["time"]): Node[] {
+  if (!t) return nodes;
+  return nodes.flatMap((n) => {
+    if (n.type !== "text" || !n.value) return [n];
+    const out: Node[] = [];
+    let last = 0;
+    for (const m of findTimes(n.value)) {
+      const at = resolveTime(m, t.sentAt, t.tz);
+      if (!at) continue;
+      const src = n.value.slice(m.index, m.index + m.length);
+      if (m.index > last) out.push(text(n.value.slice(last, m.index)));
+      out.push({ type: "chatTime", data: { hName: "span", hProperties: { className: ["time-mention"], "data-time": at.toISOString(), "data-src": src, "data-zone": m.zone ?? t.tz, ...(m.zone ? { "data-written": "" } : {}) } }, children: [text(src)] });
+      last = m.index + m.length;
+    }
+    if (last === 0) return [n];
+    if (last < n.value.length) out.push(text(n.value.slice(last)));
+    return out;
+  });
+}
+
 function walk(node: Node, o: ChatOptions) {
   if (!node.children) return;
   const next: Node[] = [];
   for (const child of node.children) {
     if (child.type === "text" && child.value) {
-      next.push(...highlight(splitText(child.value, o) ?? [child], o.highlight));
+      next.push(...highlight(times(splitText(child.value, o) ?? [child], o.time), o.highlight));
       continue;
     } else if (!SKIP.has(child.type)) {
       walk(child, o);
