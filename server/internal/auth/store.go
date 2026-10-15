@@ -23,6 +23,11 @@ const (
 	ModeAdminOnly  = "admin_only"
 )
 
+// SystemUserID is the System account: it sends reminders and cannot log in. Its ID is one the
+// snowflake generator could only have produced in its epoch's first millisecond, so it never
+// collides with a real user (or with the small IDs tests seed by hand).
+const SystemUserID id.ID = 1<<22 - 1
+
 // User is the full account. Only its owner and admins see it.
 type User struct {
 	ID           id.ID     `json:"id"`
@@ -56,6 +61,7 @@ type PublicUser struct {
 	Links        []string `json:"links,omitempty" doc:"Up to 5 https:// links"`
 	// GuestExpiresAt is set for guests.
 	GuestExpiresAt *time.Time `json:"guest_expires_at,omitempty" doc:"Set for guests: when their access ends"`
+	System         bool       `json:"system,omitempty" doc:"The System account, which sends reminders; it cannot be messaged"`
 }
 
 func (u *User) Public() PublicUser {
@@ -118,7 +124,7 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 		return err
 	}
 	var n int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM users WHERE NOT is_system`).Scan(&n); err != nil {
 		return err
 	}
 	u.IsAdmin = n == 0
@@ -137,7 +143,7 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	var n int
-	err := s.db.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&n)
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM users WHERE NOT is_system`).Scan(&n)
 	return n, err
 }
 
@@ -148,11 +154,11 @@ func (s *Store) UserByID(ctx context.Context, userID id.ID) (*User, error) {
 // UserByLogin finds a user by username or email, ignoring case.
 func (s *Store) UserByLogin(ctx context.Context, login string) (*User, error) {
 	return scanUser(s.db.QueryRow(ctx,
-		`SELECT `+userCols+` FROM users u WHERE lower(u.username) = lower($1) OR lower(u.email) = lower($1)`, login))
+		`SELECT `+userCols+` FROM users u WHERE NOT u.is_system AND (lower(u.username) = lower($1) OR lower(u.email) = lower($1))`, login))
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+userCols+` FROM users u ORDER BY u.id`)
+	rows, err := s.db.Query(ctx, `SELECT `+userCols+` FROM users u WHERE NOT u.is_system ORDER BY u.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +175,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicUser, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256, banner_sha256, links, guest_expires_at FROM users WHERE id = ANY($1)`, id.Int64s(ids))
+	rows, err := s.db.Query(ctx, `SELECT id, username, display_name, custom_status, pronouns, about_me, avatar_sha256, banner_sha256, links, guest_expires_at, is_system FROM users WHERE id = ANY($1)`, id.Int64s(ids))
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +184,7 @@ func (s *Store) PublicUsers(ctx context.Context, ids []id.ID) (map[id.ID]PublicU
 	for rows.Next() {
 		var p PublicUser
 		var avatar, banner *string
-		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar, &banner, &p.Links, &p.GuestExpiresAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Username, &p.DisplayName, &p.CustomStatus, &p.Pronouns, &p.AboutMe, &avatar, &banner, &p.Links, &p.GuestExpiresAt, &p.System); err != nil {
 			return nil, err
 		}
 		p.AvatarURL = avatarKind.imageURL(p.ID, avatar)
@@ -216,11 +222,11 @@ func (s *Store) DeleteUser(ctx context.Context, userID id.ID) error {
 }
 
 func (s *Store) SetPassword(ctx context.Context, userID id.ID, hash string) error {
-	return s.execOne(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1`, userID, hash)
+	return s.execOne(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1 AND NOT is_system`, userID, hash)
 }
 
 func (s *Store) SetDisabled(ctx context.Context, userID id.ID, disabled bool) error {
-	return s.execOne(ctx, `UPDATE users SET disabled = $2 WHERE id = $1`, userID, disabled)
+	return s.execOne(ctx, `UPDATE users SET disabled = $2 WHERE id = $1 AND NOT is_system`, userID, disabled)
 }
 
 func (s *Store) execOne(ctx context.Context, sql string, args ...any) error {
@@ -333,7 +339,7 @@ func (s *Store) TouchSession(ctx context.Context, sessionID id.ID) error {
 
 // UserIDsByUsername maps lower-cased usernames to user IDs; unknown names are absent.
 func (s *Store) UserIDsByUsername(ctx context.Context, names []string) (map[string]id.ID, error) {
-	rows, err := s.db.Query(ctx, `SELECT lower(username), id FROM users WHERE lower(username) = ANY($1)`, names)
+	rows, err := s.db.Query(ctx, `SELECT lower(username), id FROM users WHERE NOT is_system AND lower(username) = ANY($1)`, names)
 	if err != nil {
 		return nil, err
 	}

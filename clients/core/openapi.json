@@ -975,6 +975,34 @@
         ],
         "type": "object"
       },
+      "CreateReminderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "With message_id: the message to be reminded about",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "due_at": {
+            "description": "When to remind; in the future, at most 366 days ahead",
+            "format": "date-time",
+            "type": "string"
+          },
+          "message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "due_at"
+        ],
+        "type": "object"
+      },
       "CreateRoleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2117,9 +2145,10 @@
             "type": "string"
           },
           "kind": {
-            "description": "Set on system messages: member_leave means the author left the group DM",
+            "description": "Set on system messages: member_leave means the author left the group DM; reminder is a reminder System delivered",
             "enum": [
-              "member_leave"
+              "member_leave",
+              "reminder"
             ],
             "type": "string"
           },
@@ -2173,6 +2202,10 @@
               "array",
               "null"
             ]
+          },
+          "reminder": {
+            "$ref": "#/components/schemas/ReminderInfo",
+            "description": "Reminder messages only"
           },
           "reply_to": {
             "$ref": "#/components/schemas/ReplyRef"
@@ -3013,6 +3046,10 @@
             "description": "Up to 40 characters",
             "type": "string"
           },
+          "system": {
+            "description": "The System account, which sends reminders; it cannot be messaged",
+            "type": "boolean"
+          },
           "username": {
             "type": "string"
           }
@@ -3415,6 +3452,137 @@
           "device_name",
           "client"
         ],
+        "type": "object"
+      },
+      "Reminder": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "due_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/ReminderQuote",
+            "description": "The message, as I may see it now; absent for free text or when unavailable"
+          }
+        },
+        "required": [
+          "id",
+          "due_at",
+          "note"
+        ],
+        "type": "object"
+      },
+      "ReminderInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/ReminderQuote"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ReminderTarget",
+            "description": "Absent for a free-text reminder, or when the message is unavailable"
+          },
+          "unavailable": {
+            "description": "The message was deleted, or the reader can no longer see it",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "type": "object"
+      },
+      "ReminderList": {
+        "additionalProperties": false,
+        "properties": {
+          "reminders": {
+            "description": "Pending reminders, soonest first",
+            "items": {
+              "$ref": "#/components/schemas/Reminder"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "reminders"
+        ],
+        "type": "object"
+      },
+      "ReminderQuote": {
+        "additionalProperties": false,
+        "properties": {
+          "author_name": {
+            "description": "The author's display name, or a webhook's name",
+            "type": "string"
+          },
+          "channel_name": {
+            "description": "Empty in a DM",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "excerpt": {
+            "description": "Up to 200 characters; empty when the message is only attachments",
+            "type": "string"
+          }
+        },
+        "required": [
+          "author_name",
+          "channel_name",
+          "created_at",
+          "excerpt"
+        ],
+        "type": "object"
+      },
+      "ReminderTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "message_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id",
+          "message_id"
+        ],
+        "type": "object"
+      },
+      "RemindersUpdate": {
+        "additionalProperties": false,
         "type": "object"
       },
       "RenameRequest": {
@@ -9378,6 +9546,122 @@
         ]
       }
     },
+    "/api/reminders": {
+      "get": {
+        "operationId": "list-reminders",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "reminders"
+        ]
+      },
+      "post": {
+        "operationId": "create-reminder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "reminders"
+        ]
+      }
+    },
+    "/api/reminders/{id}": {
+      "delete": {
+        "operationId": "delete-reminder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "reminders"
+        ]
+      }
+    },
     "/api/search": {
       "get": {
         "operationId": "search-messages",
@@ -12336,6 +12620,9 @@
     },
     "Ready": {
       "$ref": "#/components/schemas/Ready"
+    },
+    "RemindersUpdate": {
+      "$ref": "#/components/schemas/RemindersUpdate"
     },
     "RoleDeleted": {
       "$ref": "#/components/schemas/RoleDeleted"

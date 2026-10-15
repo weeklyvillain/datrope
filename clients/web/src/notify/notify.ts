@@ -2,7 +2,7 @@ import { mentionsMe } from "@datrope/core";
 import type { NotifyPrefs } from "./prefs";
 
 export interface NotifyInput {
-  message: { author?: { id: string }; mentions?: string[] | null; mention_roles?: string[] | null; mention_everyone?: boolean; channel_id: string; deleted?: boolean };
+  message: { author?: { id: string }; mentions?: string[] | null; mention_roles?: string[] | null; mention_everyone?: boolean; channel_id: string; deleted?: boolean; kind?: string };
   meId: string | undefined;
   myRoleIds: readonly string[];
   isDM: boolean;
@@ -15,6 +15,7 @@ export interface NotifyInput {
 /** Whether a new message deserves a system notification (spec M8; mockup Inbox.html 5). */
 export function shouldNotify(i: NotifyInput): boolean {
   if (!i.meId || i.message.author?.id === i.meId || i.message.deleted) return false;
+  if (i.message.kind && i.message.kind !== "reminder") return false; // "X left the group" is not worth a notification
   if (!i.prefs.enabled || i.permission !== "granted" || i.prefs.level === "nothing") return false;
   if (i.prefs.level === "mentions" && !i.isDM && !mentionsMe(i.message, i.meId, i.myRoleIds)) return false;
   return i.hidden || !i.openChannelIds.includes(i.message.channel_id);

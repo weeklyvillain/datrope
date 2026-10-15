@@ -1,5 +1,5 @@
 import type { ClientMessage } from "@datrope/core";
-import { Copy, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { AlarmClock, Copy, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { quickReactions } from "@/chat/recent-emoji";
@@ -9,12 +9,12 @@ import type { MessageAction } from "./message-actions";
 import { BareButton } from "@/components/bare-button";
 
 /** The phone's message menu: quick reactions on top, then the message's actions. */
-export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onAlbumError, onDelete, preview }: {
+export function MessageSheet({ open, onOpenChange, message, actions, hasThread, pinned, onReact, onMoreReactions, onReply, onThread, onEdit, onCopy, onPin, onAlbumError, onRemind, onDelete, preview }: {
   open: boolean; onOpenChange: (open: boolean) => void; message: ClientMessage; actions: MessageAction[];
   hasThread: boolean; pinned: boolean;
   onReact: (emoji: string) => void; onMoreReactions: () => void;
   onReply: () => void; onThread: () => void; onEdit: () => void; onCopy: () => void; onPin: () => void;
-  onAlbumError: (message: string) => void; onDelete: () => void;
+  onAlbumError: (message: string) => void; onRemind: () => void; onDelete: () => void;
   preview: ReactNode;
 }) {
   const [albums, setAlbums] = useState(false);
@@ -49,6 +49,7 @@ export function MessageSheet({ open, onOpenChange, message, actions, hasThread, 
                 {pinned ? "Unpin message" : "Pin message"}
               </ActionSheetItem>
             );
+            case "remind": return <ActionSheetItem key={a} icon={<AlarmClock />} onSelect={run(onRemind)}>Remind me</ActionSheetItem>;
             case "album": return <ActionSheetItem key={a} icon={<Images />} onSelect={run(() => setAlbums(true))}>Add to album</ActionSheetItem>;
             case "delete": return <ActionSheetItem key={a} icon={<Trash2 />} destructive onSelect={run(onDelete)}>Delete message</ActionSheetItem>;
             default: return null;

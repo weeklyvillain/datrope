@@ -1,4 +1,4 @@
-import { Copy, Ellipsis, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
+import { AlarmClock, Copy, Ellipsis, Images, MessageSquare, MessageSquarePlus, Pencil, Pin, PinOff, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { forwardRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { RefButton } from "@/components/ref-button";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker, reactionKey } from "@/chat/EmojiPicker";
 
 /** The floating actions at the top right of a message row, shown on hover and focus. */
-export function MessageToolbar({ onReact, onReply, onThread, hasThread, onEdit, onPin, pinned, onCopy, albumItems, onDelete }: {
+export function MessageToolbar({ onReact, onReply, onThread, hasThread, onEdit, onPin, pinned, onCopy, albumItems, remindItems, onDelete }: {
   /** Adds a reaction (a Unicode emoji or `custom:<id>`) picked from the emoji picker. */
   onReact?: (emoji: string) => void;
   onReply?: () => void;
@@ -26,6 +26,8 @@ export function MessageToolbar({ onReact, onReply, onThread, hasThread, onEdit, 
   onCopy?: () => void;
   /** The "Add to album" submenu's items. */
   albumItems?: ReactNode;
+  /** The "Remind me" submenu's items. */
+  remindItems?: ReactNode;
   onDelete?: () => void;
 }) {
   // The toolbar stays while its picker is open, so the picker keeps its anchor, and until
@@ -33,7 +35,7 @@ export function MessageToolbar({ onReact, onReply, onThread, hasThread, onEdit, 
   const [picking, setPicking] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const openMenu = (o: boolean) => { setMenuOpen(o); if (o) setPicking(true); };
-  const hasMenu = !!(onReply || onThread || onEdit || onPin || onCopy || albumItems || onDelete);
+  const hasMenu = !!(onReply || onThread || onEdit || onPin || onCopy || albumItems || remindItems || onDelete);
   return (
     <div className={cn("absolute -top-4 right-4 z-10 rounded-md border bg-popover p-0.5 shadow-sm group-hover:flex group-focus-within:flex",
       picking ? "flex" : "hidden")}>
@@ -68,6 +70,12 @@ export function MessageToolbar({ onReact, onReply, onThread, hasThread, onEdit, 
           {onEdit && <DropdownMenuItem onSelect={onEdit}><Pencil />Edit message</DropdownMenuItem>}
           {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? <><PinOff />Unpin message</> : <><Pin />Pin message</>}</DropdownMenuItem>}
           {onCopy && <DropdownMenuItem onSelect={onCopy}><Copy />Copy text</DropdownMenuItem>}
+          {remindItems && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><AlarmClock />Remind me</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-60">{remindItems}</DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
           {albumItems && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger><Images />Add to album</DropdownMenuSubTrigger>

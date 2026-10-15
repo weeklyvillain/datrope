@@ -45,7 +45,6 @@ export function NotificationListener() {
   useEffect(() => client.onEvent(async (type, data) => {
     if (type !== "MESSAGE_CREATE") return;
     const m = data as Message;
-    if (m.kind) return; // "X left the group" is not worth a notification
     let s = client.store.getState();
     const open = path.current.match(/^\/(?:channels|messages)\/([^/]+)/)?.[1];
     const panel = panelStore.getState().panel;

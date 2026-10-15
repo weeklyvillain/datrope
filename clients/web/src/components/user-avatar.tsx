@@ -1,3 +1,4 @@
+import { AlarmClock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PresenceDot } from "@/components/presence-dot";
 import { avatarColor } from "@/lib/avatar-color";
@@ -25,12 +26,19 @@ const dots: Record<AvatarSize, string> = {
 
 /** A person's avatar image, or their initials on a colour derived from their ID; `status` adds a presence dot. */
 export function UserAvatar({ user, size = "md", status, ringClassName = "ring-card", className }: {
-  user: { id: string; display_name?: string; username: string; avatar_url?: string };
+  user: { id: string; display_name?: string; username: string; avatar_url?: string; system?: boolean };
   size?: AvatarSize;
   status?: string;
   ringClassName?: string;
   className?: string;
 }) {
+  if (user.system) {
+    return (
+      <Avatar className={cn(sizes[size], className)}>
+        <AvatarFallback aria-hidden className="bg-primary text-primary-foreground"><AlarmClock className="size-1/2" /></AvatarFallback>
+      </Avatar>
+    );
+  }
   const avatar = (
     <Avatar className={cn(sizes[size], className)}>
       {user.avatar_url && <AvatarImage {...sizedImage(user.avatar_url, px[size])} alt="" />}

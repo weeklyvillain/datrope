@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { COMMANDS, availableCommands, commandPending, flip, isCommand, parseCommand, randomInt, roll, runCommand, type CommandContext } from "./commands";
 import { MarkdownView } from "./Markdown";
 
@@ -10,9 +10,16 @@ const opts = { custom: new Map(), shortcodes: new Map(), users: new Map(), meId:
 /** The text a message shows once its Markdown is rendered. */
 const rendered = (md: string) => renderToStaticMarkup(<MarkdownView text={md} options={opts} />).replace(/<[^>]+>/g, "");
 
-const ctx = (): CommandContext & { statuses: string[] } => {
+const ctx = (): CommandContext & { statuses: string[]; reminders: { due_at: string; note: string }[]; panels: number } => {
   const statuses: string[] = [];
-  return { statuses, gifsEnabled: true, canAttach: true, setStatus: async (t) => { statuses.push(t); } };
+  const reminders: { due_at: string; note: string }[] = [];
+  const c = {
+    statuses, reminders, panels: 0, gifsEnabled: true, canAttach: true,
+    setStatus: async (t: string) => { statuses.push(t); },
+    setReminder: async (b: { due_at: string; note: string }) => { reminders.push(b); },
+    openReminders: () => { c.panels++; },
+  };
+  return c;
 };
 const send = async (text: string) => runCommand(text, ctx());
 
@@ -99,7 +106,7 @@ describe("runCommand", () => {
 
   it("lists every command once, in lower case", () => {
     const names = COMMANDS.map((c) => c.name);
-    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "wheel", "status", "gif", "poll",
+    expect(names).toEqual(["shrug", "tableflip", "unflip", "me", "spoiler", "roll", "flip", "wheel", "status", "remind", "reminders", "gif", "poll",
       "play", "skip", "pause", "resume", "stop"]);
   });
 
@@ -176,4 +183,26 @@ describe("/gif", () => {
     expect(await runCommand("/gif cat", off)).toEqual({ error: "Unknown command /gif. Start with // to send it as text." });
     expect(availableCommands(off).map((c) => c.name)).not.toContain("gif");
   });
+});
+
+describe("/remind", () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 9, 14, 14, 2)); });
+  afterEach(() => vi.useRealTimers());
+
+  it("sets a reminder from the compact syntax", async () => {
+    const c = ctx();
+    expect(await runCommand("/remind tomorrow 9 call the dentist", c)).toEqual({ done: true });
+    expect(c.reminders).toEqual([{ due_at: new Date(2026, 9, 15, 9).toISOString(), note: "call the dentist" }]);
+  });
+  it("opens the dialog when bare", async () =>
+    expect(await runCommand("/remind", ctx())).toEqual({ open: "reminder" }));
+  it.each(["/remind soon stuff", "/remind 20m"])("explains usage for %j", async (text) =>
+    expect(await runCommand(text, ctx())).toEqual({ error: "Usage: /remind <20m|2h|14:30|tomorrow 9|fri 13:00> <text>" }));
+  it("/reminders opens the panel", async () => {
+    const c = ctx();
+    expect(await runCommand("/reminders", c)).toEqual({ done: true });
+    expect(c.panels).toBe(1);
+  });
+  it("/reminders is unavailable without a panel", () =>
+    expect(availableCommands({ ...ctx(), openReminders: undefined }).map((x) => x.name)).not.toContain("reminders"));
 });

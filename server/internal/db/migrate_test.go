@@ -157,3 +157,27 @@ func TestWelcomeMigration(t *testing.T) {
 	require.Equal(t, map[string]int{"welcome": 0, "general": 1, "random": 2, "lounge": 3}, got)
 	require.Equal(t, []int{0, 1, 2, 3}, order)
 }
+
+// Migration 43 adds the System user; once a reminder has fired it owns a DM and a message,
+// and rolling back must remove them along with it.
+func TestRemindersMigrationDownAfterAReminderFired(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.New(t)
+	_, err := pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`)
+	require.NoError(t, err)
+	require.NoError(t, db.MigrateTo(ctx, pool, 43))
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO users (id, username, display_name, password_hash) VALUES (1, 'alice', 'alice', 'x');
+		INSERT INTO channels (id, type) VALUES (10, 'dm');
+		INSERT INTO dm_participants (channel_id, user_id) VALUES (10, 1), (10, 4194303);
+		INSERT INTO messages (id, channel_id, author_id, content, kind) VALUES (100, 10, 4194303, 'Reminder', 'reminder')`)
+	require.NoError(t, err)
+
+	require.NoError(t, db.MigrateDownTo(ctx, pool, 42))
+	var n int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM channels) + (SELECT count(*) FROM messages) + (SELECT count(*) FROM users WHERE id = 4194303)`).Scan(&n))
+	require.Zero(t, n)
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE id = 1`).Scan(&n))
+	require.Equal(t, 1, n)
+}

@@ -22,6 +22,12 @@ describe("shouldNotify", () => {
     expect(shouldNotify({ ...base, isDM: true, prefs: { enabled: true, level: "nothing" } })).toBe(false);
   });
 
+  it("skips member_leave notices but notifies on reminders", () => {
+    const all = { ...base, prefs: { enabled: true, level: "all" as const } };
+    expect(shouldNotify({ ...all, message: { ...base.message, kind: "member_leave" } })).toBe(false);
+    expect(shouldNotify({ ...all, message: { ...base.message, kind: "reminder" } })).toBe(true);
+  });
+
   it("notifies on a ping of a role I hold at the mentions level", () => {
     expect(shouldNotify({ ...base, prefs: { ...base.prefs, level: "mentions" }, myRoleIds: ["9"],
       message: { ...base.message, mentions: [], mention_roles: ["9"] } })).toBe(true);

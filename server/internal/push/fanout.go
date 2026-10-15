@@ -83,7 +83,7 @@ func (f *fanout) onEvent(e events.Event) {
 	default:
 		return
 	}
-	if m.Kind != "" || m.Deleted { // "X left the group" is not worth a push
+	if (m.Kind != "" && m.Kind != messages.KindReminder) || m.Deleted { // "X left the group" is not worth a push
 		return
 	}
 	if f.s.o.Inline {

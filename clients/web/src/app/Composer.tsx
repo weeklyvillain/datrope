@@ -1,6 +1,9 @@
 import type { Attachment } from "@datrope/core";
 import { CirclePlus, Code, Reply, Send, Smile, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ReminderDialog } from "./reminders/ReminderDialog";
+import { setReminder } from "./reminders/reminders";
+import { openPanel } from "./side-panel/panel";
 import { client, displayName, errorText, formatBytes, useApp, useInstanceInfo } from "../session";
 import { ErrorText } from "@/components/error-text";
 import { RefButton } from "@/components/ref-button";
@@ -54,6 +57,8 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
   const ctx = useMemo<CommandContext>(
     () => ({
       gifsEnabled, canAttach, setStatus: (custom_status) => client.updateMe({ custom_status }),
+      setReminder: (body) => setReminder(body),
+      openReminders: isVoice ? undefined : () => openPanel({ kind: "reminders" }),
       music: isVoice ? {
         queue: (query) => client.queueMusic(channelId, { query }),
         control: (action) => client.controlMusic(channelId, action),
@@ -367,6 +372,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
         }} />
     )}
     {modal?.open === "poll" && <PollDialog channelId={channelId} question={modal.query} onClose={() => setModal(null)} />}
+    {modal?.open === "reminder" && <ReminderDialog onClose={() => setModal(null)} />}
     </>
   );
 }

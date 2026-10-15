@@ -1,5 +1,5 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
-import { Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "lucide-react";
+import { AlarmClock, Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
@@ -24,6 +24,8 @@ import { useChrome } from "./desktop-chrome";
 import { MessageList, jumpTo } from "./MessageList";
 import { PinsPanel, PinsSheet } from "./PinsPanel";
 import { SearchPanel } from "./search/SearchPanel";
+import { RemindersPanel } from "./reminders/RemindersPanel";
+import { isSystemDM } from "./reminders/reminders";
 import { closePanel, openPanel, panelStore, usePanel } from "./side-panel/panel";
 import { ThreadPanel } from "./side-panel/ThreadPanel";
 import { SidePanel } from "./side-panel/SidePanel";
@@ -76,6 +78,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
   }, [channelId]);
 
   if (!ch) return <EmptyView>This channel is not available.</EmptyView>;
+  const systemDM = isSystemDM(ch);
   const title = ch.type === "dm" ? dmName(ch, me?.id) : `# ${ch.name}`;
   // Threads live in text, webhook, announcement and gallery channels (never in DMs, threads or voice side chats).
   const threads = ch.type === "text" || ch.type === "webhook" || ch.type === "announcement" || ch.type === "gallery";
@@ -87,7 +90,8 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
     ...(threads ? [{ label: "Threads", icon: <MessageSquare />, onSelect: () => (panel?.kind === "threads" ? closePanel() : openPanel({ kind: "threads" })) }] : []),
     { label: "Pinned messages", icon: <Pin />, onSelect: () => setPins(true) },
     ...(members ? [{ label: "Members", icon: <Users />, onSelect: () => setShowMembers(true) }] : []),
-    ...(ch.type === "dm" && !here && inCall === 0 ? [{ label: "Start call", icon: <Phone />, onSelect: () => void voice.join(channelId) }] : []),
+    ...(systemDM ? [{ label: "Reminders", icon: <AlarmClock />, onSelect: () => openPanel({ kind: "reminders" }) }] : []),
+    ...(ch.type === "dm" && !systemDM && !here && inCall === 0 ? [{ label: "Start call", icon: <Phone />, onSelect: () => void voice.join(channelId) }] : []),
     ...(ch.group ? [{ label: "Leave group", icon: <LogOut />, destructive: true, onSelect: () => setLeaving(true) }] : []),
   ];
   return (
@@ -110,6 +114,20 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
               </Tooltip>
             )}
             <PinsPanel channelId={channelId} onJump={jumpToPin} />
+            {systemDM && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex">
+                    <Button variant="ghost" size="icon-sm" aria-label="Reminders" aria-pressed={panel?.kind === "reminders"}
+                      className={panel?.kind === "reminders" ? "text-foreground" : "text-muted-foreground"}
+                      onClick={() => (panel?.kind === "reminders" ? closePanel() : openPanel({ kind: "reminders" }))}>
+                      <AlarmClock />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Reminders</TooltipContent>
+              </Tooltip>
+            )}
             {members && !mobile && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -124,7 +142,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
                 <TooltipContent>{docked && membersDocked ? "Hide members" : "Show members"}</TooltipContent>
               </Tooltip>
             )}
-            {ch.type === "dm" && !here && inCall === 0 && (
+            {ch.type === "dm" && !systemDM && !here && inCall === 0 && (
               <Button variant="outline" size="sm" className="max-md:px-2" onClick={() => void voice.join(channelId)}><Phone /><span className="max-md:sr-only">Start call</span></Button>
             )}
             {ch.group && (
@@ -149,7 +167,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
           <div className="border-b"><VoiceStage channelId={channelId} joinLabel="Join call" compact /></div>
         )}
         {loadError ? <ErrorText error={loadError} /> : <MessageList channelId={channelId} canManage={hasPerm(perms, Perm.ManageMessages)}
-          canReply={hasPerm(perms, Perm.SendMessages)} canReact={hasPerm(perms, Perm.AddReactions)} reply={reply}
+          canReply={hasPerm(perms, Perm.SendMessages) && !systemDM} canReact={hasPerm(perms, Perm.AddReactions)} reply={reply}
           canCreateThread={canCreateThread} onOpenThread={threads ? openThread : undefined}
           variant={kind === "announcement" ? "cards" : "chat"}
           emptyTitle={ch.type === "dm" ? "This is the start of your conversation" : `This is the start of #${ch.name}`} />}
@@ -161,10 +179,10 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
           </p>
         ) : (
           <div className={kind === "announcement" ? "mx-auto w-full max-w-3xl" : undefined}>
-            <Composer channelId={channelId} canSend={canPost(ch, perms)} canAttach={hasPerm(perms, Perm.AttachFiles)}
+            <Composer channelId={channelId} canSend={canPost(ch, perms) && !systemDM} canAttach={hasPerm(perms, Perm.AttachFiles)}
               placeholder={kind === "announcement" ? "Write an announcement" : ch.type === "dm" ? `Message ${dmName(ch, me?.id)}` : `Message #${ch.name}`}
               reply={reply} withTitle={kind === "announcement"}
-              readOnlyText={ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
+              readOnlyText={systemDM ? "You can't reply to System." : ch.type === "webhook" ? "Only webhooks can post in this channel." : undefined} />
           </div>
         )}
         {(mobile || tier === "narrow") && <PinsSheet channelId={channelId} open={pins} onOpenChange={setPins} onJump={jumpToPin} />}
@@ -185,6 +203,8 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
         </SidePanel>
       ) : panel?.kind === "thread" ? (
         <ThreadPanel key={panel.threadId} threadId={panel.threadId} parentChannelId={channelId} onClose={closePanel} />
+      ) : panel?.kind === "reminders" ? (
+        <RemindersPanel onClose={closePanel} />
       ) : panel?.kind === "search" ? (
         <SearchPanel />
       ) : members && docked && membersDocked && <MemberList />}
