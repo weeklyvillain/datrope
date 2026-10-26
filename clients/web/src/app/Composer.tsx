@@ -1,5 +1,5 @@
 import type { Attachment } from "@datrope/core";
-import { CirclePlus, Code, Reply, Send, Smile, X } from "@/components/icons";
+import { AnimatedSend, CirclePlus, Code, Reply, Smile, X } from "@/components/icons";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ReminderDialog } from "./reminders/ReminderDialog";
 import { setReminder } from "./reminders/reminders";
@@ -344,7 +344,7 @@ export function Composer({ channelId, canSend, canAttach, placeholder, reply, la
             } />
           {phone ? (
             <Button type="submit" size="icon" className="size-11 rounded-full bg-primary text-primary-foreground" aria-label={withTitle ? "Post" : "Send"}
-              disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}><Send /></Button>
+              disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}><AnimatedSend /></Button>
           ) : (
             <Button type="submit" size="sm" disabled={uploading || !!pending || (!text.trim() && ready.length === 0)}>{withTitle ? "Post" : "Send"}</Button>
           )}

@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { HeadphoneOff, Headphones, Mic, MicOff, PhoneOff, ScreenShare, ScreenShareOff, Video, VideoOff } from "@/components/icons";
+import { AnimatedHeadphoneOff, AnimatedHeadphones, AnimatedMic, AnimatedMicOff, AnimatedPhoneOff, AnimatedScreenShare, AnimatedScreenShareOff, AnimatedVideo, AnimatedVideoOff } from "@/components/icons";
 import { useRef, useState, type ComponentProps } from "react";
 import { Link } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -53,7 +53,7 @@ export function VoicePanel() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label="Disconnect" className="text-destructive hover:text-destructive"
-                  onClick={() => voice.leave()}><PhoneOff /></Button>
+                  onClick={() => voice.leave()}><AnimatedPhoneOff /></Button>
               </TooltipTrigger>
               <TooltipContent>Leave voice</TooltipContent>
             </Tooltip>
@@ -89,7 +89,7 @@ export function MuteControl(style: ControlStyle) {
   return (
     <Control label="Mute" shortcut="mute" tip={serverMuted && inVoice ? "Muted by a moderator" : afk && inVoice ? "Nobody can talk in the AFK channel" : v.muted ? "Unmute" : "Mute"} {...style}
       pressed={v.muted || !canSpeak} disabled={!canSpeak} onPressedChange={(on) => void voice.setMuted(on)}>
-      {v.muted || !canSpeak ? <MicOff className="text-destructive" /> : <Mic />}
+      {v.muted || !canSpeak ? <AnimatedMicOff className="text-destructive" /> : <AnimatedMic />}
     </Control>
   );
 }
@@ -99,7 +99,7 @@ export function DeafenControl(style: ControlStyle) {
   return (
     <Control label="Deafen" shortcut="deafen" tip={deafened ? "Undeafen" : "Deafen"} {...style} pressed={deafened}
       onPressedChange={(on) => void voice.setDeafened(on)}>
-      {deafened ? <HeadphoneOff className="text-destructive" /> : <Headphones />}
+      {deafened ? <AnimatedHeadphoneOff className="text-destructive" /> : <AnimatedHeadphones />}
     </Control>
   );
 }
@@ -111,7 +111,7 @@ export function CameraControl({ variant = "outline", size = "sm", ...style }: Co
   return (
     <Control label="Camera" tip={afk ? AFK_NO_SHARE : v.camera ? "Turn camera off" : "Turn camera on"} variant={variant} size={size} {...style}
       pressed={v.camera} disabled={!canStream} onPressedChange={() => void voice.toggleCamera()}>
-      {v.camera ? <Video /> : <VideoOff />}
+      {v.camera ? <AnimatedVideo /> : <AnimatedVideoOff />}
     </Control>
   );
 }
@@ -139,7 +139,7 @@ export function ShareScreenControl({ variant = "outline", size = "sm", ...style 
                 else if (nativeScreenAvailable()) void voice.startScreen(streamPrefs.getState());
                 else setGoLive(true);
               }}>
-              {v.screen ? <ScreenShareOff /> : <ScreenShare />}
+              {v.screen ? <AnimatedScreenShareOff /> : <AnimatedScreenShare />}
             </Control>
           </div>
         </PopoverAnchor>

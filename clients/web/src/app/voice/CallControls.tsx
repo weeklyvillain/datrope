@@ -1,5 +1,5 @@
 import { Perm, hasPerm } from "@datrope/core";
-import { Ellipsis, LayoutGrid, Monitor, PhoneOff, ScreenShare, ScreenShareOff, Users, Volume2 } from "@/components/icons";
+import { AnimatedPhoneOff, Ellipsis, LayoutGrid, Monitor, ScreenShare, ScreenShareOff, Users, Volume2 } from "@/components/icons";
 import { useRef, useState } from "react";
 import { useArrowNav } from "@/hooks/use-arrow-nav";
 import { useShallow } from "zustand/react/shallow";
@@ -54,7 +54,7 @@ function DesktopCallControls() {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="destructive" aria-label="Disconnect" className="h-12 w-16 rounded-full [&_svg:not([class*='size-'])]:size-5"
-            onClick={() => voice.leave()}><PhoneOff /></Button>
+            onClick={() => voice.leave()}><AnimatedPhoneOff /></Button>
         </TooltipTrigger>
         <TooltipContent>Leave voice</TooltipContent>
       </Tooltip>
@@ -87,7 +87,7 @@ function PhoneCallControls({ layout }: { layout?: LayoutControl }) {
       <HoldToTalk />
       <Button variant="ghost" size="icon" aria-label="More call controls" className={phoneRound} onClick={() => setMore(true)}><Ellipsis /></Button>
       <Button variant="destructive" size="icon" aria-label="Disconnect" className="size-[48px] flex-none rounded-full [&_svg:not([class*='size-'])]:size-5"
-        onClick={() => voice.leave()}><PhoneOff /></Button>
+        onClick={() => voice.leave()}><AnimatedPhoneOff /></Button>
       <ActionSheet open={more} onOpenChange={setMore} title="More call controls">
         <ActionSheetItem icon={<Volume2 />} disabled={!!soundboard.reason} onSelect={pick(() => setSounds(true))}>
           {soundboard.reason ? `Soundboard: ${soundboard.reason}` : "Soundboard"}

@@ -1,8 +1,11 @@
 import type { Attachment } from "@datrope/core";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Download, Pause, Play } from "@/components/icons";
+import { Download, Pause, Play, Volume1, Volume2, VolumeX } from "@/components/icons";
 import { client, formatBytes } from "../../session";
+import { RefButton } from "@/components/ref-button";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "./media";
 import { BARS, MAX_WAVEFORM_BYTES, loadWaveform } from "./waveform";
@@ -19,6 +22,8 @@ export function AudioPlayer({ attachment: a }: { attachment: Attachment }) {
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
 
   // Decode the waveform once the player scrolls into view.
   useEffect(() => {
@@ -44,6 +49,12 @@ export function AudioPlayer({ attachment: a }: { attachment: Attachment }) {
     return () => cancelAnimationFrame(frame);
   }, [playing]);
 
+  useEffect(() => {
+    if (!audio.current) return;
+    audio.current.volume = volume;
+    audio.current.muted = muted;
+  }, [volume, muted]);
+
   function seek(to: number) {
     const el = audio.current;
     if (!el || !duration) return;
@@ -66,6 +77,8 @@ export function AudioPlayer({ attachment: a }: { attachment: Attachment }) {
   }
 
   const progress = duration ? time / duration : 0;
+  const silent = muted || volume === 0;
+  const VolumeIcon = silent ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   return (
     <div className="flex w-[400px] max-w-full flex-col gap-2 rounded-lg border bg-card p-3">
       <div className="flex items-center gap-2 text-sm">
@@ -95,6 +108,20 @@ export function AudioPlayer({ attachment: a }: { attachment: Attachment }) {
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {formatDuration(time)} / {formatDuration(duration)}
         </span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <RefButton variant="ghost" size="icon-xs" className="shrink-0 text-muted-foreground" aria-label="Volume"><VolumeIcon /></RefButton>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="end" className="flex w-56 items-center gap-2 p-2">
+            <Button variant="ghost" size="icon-xs" aria-label={silent ? "Unmute" : "Mute"}
+              onClick={() => { if (silent) { setMuted(false); if (volume === 0) setVolume(1); } else setMuted(true); }}>
+              <VolumeIcon />
+            </Button>
+            <Slider className="flex-1" min={0} max={1} step={0.05} value={[muted ? 0 : volume]} aria-label={`Volume of ${a.filename}`}
+              onValueChange={([v]) => { setVolume(v ?? 1); setMuted(false); }} />
+            <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{Math.round((muted ? 0 : volume) * 100)}%</span>
+          </PopoverContent>
+        </Popover>
       </div>
       <audio ref={audio} src={src} preload="metadata"
         onDurationChange={(e) => { const d = e.currentTarget.duration; setDuration(Number.isFinite(d) ? d : 0); }}

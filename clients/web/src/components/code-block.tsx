@@ -1,5 +1,5 @@
 import { toJsxRuntime, type Jsx } from "hast-util-to-jsx-runtime";
-import { Check, Copy } from "@/components/icons";
+import { AnimatedCheck, AnimatedCopy } from "@/components/icons";
 import { useMemo, useState, type ReactNode } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1500);
         }).catch(() => undefined);
       }}>
-      {copied ? <Check /> : <Copy />}
+      {copied ? <AnimatedCheck /> : <AnimatedCopy />}
     </Button>
   );
 }
