@@ -151,12 +151,13 @@ To update, use Server settings → Updates, or run `git pull && docker compose e
 
 ## Development
 
-You need **Go 1.25**, **Node.js 22** with **pnpm 9** (`corepack enable`), and **Docker** for Postgres.
+You need **Go 1.25**, **Node.js 22**, **[Bun](https://bun.sh) 1.4**, and **Docker** for Postgres.
+Bun installs packages and runs scripts; Vite, Vitest and ESLint still run on Node.
 
 1. Install the JavaScript dependencies:
 
    ```bash
-   pnpm install
+   bun install
    ```
 
 2. Start a Postgres database:
@@ -178,7 +179,7 @@ You need **Go 1.25**, **Node.js 22** with **pnpm 9** (`corepack enable`), and **
 4. Start the web app in another terminal. Vite forwards API calls to the server:
 
    ```bash
-   DATROPE_DEV_SERVER=localhost:8081 pnpm --filter @datrope/web dev
+   DATROPE_DEV_SERVER=localhost:8081 bun run --filter @datrope/web dev
    ```
 
 5. Open http://localhost:5173/register and create the first account.
@@ -191,9 +192,11 @@ and the webhook pointed at your dev server), and set `DATROPE_LIVEKIT_URL`, `DAT
 Checks, the same as CI:
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm test   # TypeScript
-go -C server test ./...                     # Go (needs Docker for the database tests)
+bun run typecheck && bun run lint && bun run test   # TypeScript
+go -C server test ./...                             # Go (needs Docker for the database tests)
 ```
+
+Use `bun run test`, not `bun test`: the tests use Vitest, and `bun test` starts Bun's own test runner.
 
 ### Desktop app
 
@@ -204,15 +207,15 @@ Prerequisites: Rust (stable, MSVC on Windows), the "Desktop development with C++
 WebView2 (built into Windows 11). See https://tauri.app/start/prerequisites/ for macOS and Linux.
 
 ```bash
-pnpm --filter @datrope/desktop dev     # opens the app; add http://localhost:5173 as a server
-pnpm --filter @datrope/desktop build   # local installer in clients/desktop/src-tauri/target/release/bundle/
+bun run --filter @datrope/desktop dev     # opens the app; add http://localhost:5173 as a server
+bun run --filter @datrope/desktop build   # local installer in clients/desktop/src-tauri/target/release/bundle/
 ```
 
 Dev builds accept http://localhost servers; release builds need https://. Linking Twitch/Spotify opens in
 your browser and does not come back to the app — link accounts from the web app. Links that open in a new
 window, including attachments on the server itself, open in your browser, which isn't signed in to the server.
 
-Releases are switched off. To turn them on: run `pnpm --filter @datrope/desktop tauri signer generate`,
+Releases are switched off. To turn them on: run `bun run --filter @datrope/desktop tauri signer generate`,
 put the public key in `src-tauri/tauri.updater.conf.json`, add `TAURI_SIGNING_PRIVATE_KEY` and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as repository secrets, and uncomment the tag trigger in
 `.github/workflows/desktop-release.yml`. Builds are not code-signed: Windows SmartScreen shows "More info →
