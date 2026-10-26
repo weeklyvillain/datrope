@@ -501,6 +501,30 @@ func (s *Service) handle(ctx context.Context, ev *livekit.WebhookEvent) {
 	}
 }
 
+// Connected is the caller's client saying it is in the room it last joined.
+// LiveKit's participant_joined webhook says the same but can be late or lost;
+// reading the room now shows the caller at once instead of on the next Sync.
+func (s *Service) Connected(ctx context.Context, userID id.ID) error {
+	s.mu.Lock()
+	pj, joining := s.pending[userID]
+	since := s.seq
+	s.mu.Unlock()
+	if !joining {
+		return nil // already reported, or not joining
+	}
+	room := roomName(pj.channelID)
+	ps, err := s.rooms.Participants(ctx, room)
+	if err != nil {
+		return err
+	}
+	for _, p := range ps {
+		if v, ok := fromLiveKit(room, p); ok && v.userID == userID {
+			s.adoptSince(ctx, []seen{v}, since)
+		}
+	}
+	return nil
+}
+
 // Sync rebuilds voice state from LiveKit. Webhooks are the fast path; this
 // repairs missed ones and restarts.
 func (s *Service) Sync(ctx context.Context) error {

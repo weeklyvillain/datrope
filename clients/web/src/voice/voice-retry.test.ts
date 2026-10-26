@@ -36,7 +36,7 @@ const { joinVoice, goAFK, rooms, FakeRoom, app, events } = vi.hoisted(() => {
 vi.mock("../session", () => ({
   client: {
     onEvent: (fn: (type: string, data: unknown) => void) => events.push(fn), joinVoice, goAFK, setVoiceSelf: async () => {},
-    sendPing: async () => {}, store: { getState: () => app, subscribe: () => () => {} },
+    sendPing: async () => {}, voiceConnected: async () => {}, store: { getState: () => app, subscribe: () => () => {} },
   },
   permsIn: () => 0,
 }));

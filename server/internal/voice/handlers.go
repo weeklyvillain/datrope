@@ -36,6 +36,11 @@ func Register(api huma.API, s *Service) {
 			return &struct{ Body *JoinResponse }{res}, err
 		})
 
+	huma.Register(api, op("voice-connected", http.MethodPost, "/api/voice/connected", http.StatusNoContent),
+		func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+			return nil, s.Connected(ctx, me(ctx).ID)
+		})
+
 	huma.Register(api, op("set-voice-state", http.MethodPatch, "/api/voice/state", http.StatusNoContent),
 		func(ctx context.Context, in *struct{ Body SelfStateRequest }) (*struct{}, error) {
 			return nil, s.SetSelf(ctx, me(ctx).ID, in.Body)

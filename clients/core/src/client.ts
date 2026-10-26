@@ -914,6 +914,11 @@ export class DatropeClient {
   }
 
   /** Shares my round trip to the voice server with the others in my call (VOICE_PING). */
+  /** Tells the server this client is in the room it just joined, so others see it without waiting for LiveKit. */
+  async voiceConnected() {
+    await unwrap(this.api.POST("/api/voice/connected"));
+  }
+
   async sendPing(rttMs: number) {
     await unwrap(this.api.POST("/api/voice/ping", { body: { rtt_ms: rttMs } }));
   }

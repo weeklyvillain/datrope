@@ -238,6 +238,28 @@ func TestSyncFollowsLiveKit(t *testing.T) {
 	require.Nil(t, nextState(t, ws, bob).ChannelID)
 }
 
+// A client that says it connected is shown at once, without waiting for the webhook or a sync.
+func TestConnectedShowsCallerWithoutWebhook(t *testing.T) {
+	stub := newStubLiveKit(t, true)
+	env := apptest.NewWithConfig(t, func(c *app.Config) { c.LiveKit = stub.cfg })
+	stub.awaitStartupSync(t)
+	c := newClub(t, env)
+	ws, _ := c.owner.Connect()
+	bob := c.member.User.ID
+
+	c.member.Do(http.MethodPost, "/api/voice/connected", nil, http.StatusNoContent, nil) // not joining: nothing happens
+	c.member.Do(http.MethodPost, joinPath(c.voiceID), map[string]any{"self_mute": true}, http.StatusOK, nil)
+	stub.setRoom(c.voiceID, participant(bob, "PA_1", 100))
+	c.member.Do(http.MethodPost, "/api/voice/connected", nil, http.StatusNoContent, nil)
+	st := nextState(t, ws, bob)
+	require.Equal(t, c.voiceID, *st.ChannelID)
+	require.True(t, st.SelfMute, "flags sent with the join request")
+
+	// The webhook arriving afterwards changes nothing.
+	require.Equal(t, http.StatusNoContent, sendWebhook(t, env, stub.cfg, lkEvent("participant_joined", c.voiceID, bob, "PA_1", 100)))
+	ws.ExpectNoDispatch("VOICE_STATE_UPDATE", 300*time.Millisecond)
+}
+
 func participant(userID id.ID, sid string, joinedAtMs int64) *livekit.ParticipantInfo {
 	return &livekit.ParticipantInfo{Sid: sid, Identity: userID.String(), JoinedAtMs: joinedAtMs}
 }

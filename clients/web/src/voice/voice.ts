@@ -174,6 +174,7 @@ class Voice {
       this.listen(room);
       await room.connect(url, token, { autoSubscribe: false });
       if (this.room !== room) return;
+      void client.voiceConnected().catch(() => undefined); // LiveKit's webhook would tell the server too, later
       for (const p of room.remoteParticipants.values()) {
         for (const pub of p.trackPublications.values()) this.autoSubscribe(pub, p);
       }
