@@ -300,6 +300,19 @@ func TestAttachGIF(t *testing.T) {
 	require.Equal(t, []string{"cat-1", "nope-9"}, f.calls().slugs)
 }
 
+// Klipy's items lookup misses some GIFs its lists return; a listed GIF attaches anyway.
+func TestAttachListedGIFItemsLookupMisses(t *testing.T) {
+	f, _, alice, _, ch := setup(t)
+	setKey(t, alice, klipyKey)
+	require.Equal(t, "NOT_FOUND", code(t, attach(t, alice, "dog-2", ch, http.StatusNotFound)), "the fake's items lookup only knows cat-1")
+
+	get(t, alice, "/api/gifs/trending", http.StatusOK, nil)
+	var a files.Attachment
+	require.NoError(t, json.Unmarshal(attach(t, alice, "dog-2", ch, http.StatusCreated), &a))
+	require.Equal(t, "Dog.mp4", a.Filename)
+	require.Equal(t, []string{"dog-2"}, f.calls().slugs, "the listed GIF is not looked up again")
+}
+
 func TestAttachSizeCap(t *testing.T) {
 	f, env, alice, _, ch := setup(t)
 	setKey(t, alice, klipyKey)

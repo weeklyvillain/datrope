@@ -1,5 +1,6 @@
 export type ShortcutId = "channel-prev" | "channel-next" | "unread-prev" | "unread-next" | "search" | "mute" | "deafen" | "sheet";
-export type KeyLike = { key: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean; isComposing?: boolean; code?: string };
+// key is missing on the keydown Chrome sends when an autofill suggestion is picked.
+export type KeyLike = { key?: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; shiftKey: boolean; isComposing?: boolean; code?: string };
 type Group = "Navigation" | "Messages" | "Voice" | "Help";
 type Target = { tagName?: string; isContentEditable?: boolean; closest?: (selector: string) => unknown } | null;
 
@@ -33,7 +34,7 @@ export const OTHER_KEYS: { keys: string[]; label: string; group: Group }[] = [
 ];
 
 export function matchShortcut(e: KeyLike, mac: boolean): ShortcutId | null {
-  if (e.isComposing) return null;
+  if (e.isComposing || !e.key) return null;
   const mod = mac ? e.metaKey : e.ctrlKey;
   const otherMod = mac ? e.ctrlKey : e.metaKey;
   if (otherMod) return null;
@@ -54,7 +55,7 @@ export function isEditableTarget(t: Target): boolean {
 /** A printable key typed while nothing editable (and no message row, whose letters are actions) has focus: it should land in the message box. */
 export function isTypeToFocus(e: KeyLike, target: Target): boolean {
   return (
-    !e.isComposing && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 && e.key !== " " &&
+    !e.isComposing && !e.ctrlKey && !e.metaKey && !e.altKey && e.key?.length === 1 && e.key !== " " &&
     !isEditableTarget(target) && !target?.closest?.(OWN_KEYS)
   );
 }

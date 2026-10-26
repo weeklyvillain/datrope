@@ -32,6 +32,10 @@ describe("matchShortcut", () => {
     expect(matchShortcut(k("f", { ctrlKey: true, isComposing: true }), false)).toBeNull();
     expect(matchShortcut(k("f", { ctrlKey: true, altKey: true }), false)).toBeNull();
   });
+  it("ignores the keyless keydown Chrome sends for an autofill pick", () => {
+    expect(matchShortcut({ ...k(""), key: undefined }, false)).toBeNull();
+    expect(isTypeToFocus({ ...k(""), key: undefined }, { tagName: "BODY" })).toBe(false);
+  });
 });
 
 describe("type to focus", () => {

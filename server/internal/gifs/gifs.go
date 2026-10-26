@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/datrope/datrope/server/internal/files"
@@ -50,6 +51,8 @@ const (
 	maxGIFBytes = 8 << 20 // the largest GIF stored, if the upload limit is higher
 	perPage     = 24
 	maxPage     = 100
+	seenFor     = time.Hour // how long a listed GIF can be attached without asking Klipy again
+	maxSeen     = 10000
 )
 
 type Service struct {
@@ -58,6 +61,17 @@ type Service struct {
 	klipy       *klipy
 	listLimit   *ratelimit.Limiter
 	attachLimit *ratelimit.Limiter
+
+	// seen remembers the GIFs recently listed, by slug. Klipy's items lookup
+	// does not find some GIFs its search returns (seen with mixed-case slugs
+	// such as pikachu-1gM--kmTHjZACZ), so Attach looks here first.
+	mu   sync.Mutex
+	seen map[string]seenGIF
+}
+
+type seenGIF struct {
+	item klipyItem
+	at   time.Time
 }
 
 // NewService talks to Klipy at klipyURL ("" for DefaultKlipyURL).
@@ -71,6 +85,7 @@ func NewService(cfg Config, f Files, klipyURL string) *Service {
 		klipy:       &klipy{base: strings.TrimSuffix(klipyURL, "/"), client: &http.Client{Timeout: 20 * time.Second}},
 		listLimit:   ratelimit.New(60, 20),
 		attachLimit: ratelimit.New(10, 5),
+		seen:        map[string]seenGIF{},
 	}
 }
 
@@ -132,6 +147,7 @@ func (s *Service) List(ctx context.Context, userID id.ID, q, pos string) (*GIFPa
 			continue
 		}
 		out.Items = append(out.Items, GIF{ID: it.Slug, Title: it.Title, PreviewURL: f.URL, Width: f.Width, Height: f.Height})
+		s.remember(it)
 	}
 	if p.Data.HasNext && page < maxPage {
 		out.Next = strconv.Itoa(page + 1)
@@ -158,20 +174,9 @@ func (s *Service) Attach(ctx context.Context, userID, channelID id.ID, slug stri
 	if !s.attachLimit.Allow(userID.String()) {
 		return nil, httpx.RateLimited()
 	}
-	p, err := s.klipy.list(ctx, key, "items", url.Values{"slugs": {slug}})
+	item, err := s.lookUp(ctx, key, slug)
 	if err != nil {
-		slog.WarnContext(ctx, "gifs: look up", "err", err)
-		return nil, providerError()
-	}
-	var item *klipyItem
-	for i := range p.Data.Data {
-		if it := &p.Data.Data[i]; isGIF(*it) && it.Slug == slug {
-			item = it
-			break
-		}
-	}
-	if item == nil {
-		return nil, httpx.NotFound("gif")
+		return nil, err
 	}
 	f, format, ok := rendition(*item, limit)
 	if !ok {
@@ -194,6 +199,45 @@ func (s *Service) Attach(ctx context.Context, userID, channelID id.ID, slug stri
 		return nil, providerError()
 	}
 	return a, err
+}
+
+// remember notes a GIF Klipy listed, for Attach.
+func (s *Service) remember(it klipyItem) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	if len(s.seen) >= maxSeen {
+		for slug, g := range s.seen {
+			if now.Sub(g.at) > seenFor {
+				delete(s.seen, slug)
+			}
+		}
+		if len(s.seen) >= maxSeen {
+			clear(s.seen)
+		}
+	}
+	s.seen[it.Slug] = seenGIF{item: it, at: now}
+}
+
+// lookUp finds a GIF by its slug: among those recently listed, else with Klipy's items lookup.
+func (s *Service) lookUp(ctx context.Context, key, slug string) (*klipyItem, error) {
+	s.mu.Lock()
+	g, ok := s.seen[slug]
+	s.mu.Unlock()
+	if ok && time.Since(g.at) <= seenFor {
+		return &g.item, nil
+	}
+	p, err := s.klipy.list(ctx, key, "items", url.Values{"slugs": {slug}})
+	if err != nil {
+		slog.WarnContext(ctx, "gifs: look up", "err", err)
+		return nil, providerError()
+	}
+	for i := range p.Data.Data {
+		if it := &p.Data.Data[i]; isGIF(*it) && it.Slug == slug {
+			return it, nil
+		}
+	}
+	return nil, httpx.NotFound("gif")
 }
 
 // tracked remembers a read error from the download, so a broken download is
