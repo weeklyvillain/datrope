@@ -1,3 +1,6 @@
+// @vitest-environment happy-dom
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { SystemUpdates } from "@datrope/core";
@@ -102,5 +105,19 @@ describe("UpdatesView", () => {
     expect(html).toContain("Updated to ccccccc");
     expect(html).toContain("Reload the page to load the new version.");
     expect(html).toContain(">Reload</button>");
+  });
+
+  // Chrome's scrollIntoView returns a Promise; React must not take it for the effect's cleanup.
+  it("keeps following the log when scrollIntoView returns a promise", async () => {
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => Promise.resolve() as never);
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const render = (lines: string[]) => root.render(<UpdatesView {...props} updates={updates()} job={{ phase: "running", lines, next: lines.length }} />);
+    await act(async () => render(["==> git pull"]));
+    await act(async () => render(["==> git pull", "==> docker compose build"]));
+    expect(host.textContent).toContain("==> docker compose build");
+    expect(scroll).toHaveBeenCalledTimes(2);
+    await act(async () => root.unmount());
+    scroll.mockRestore();
   });
 });
