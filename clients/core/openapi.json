@@ -12976,6 +12976,34 @@
         ]
       }
     },
+    "/api/voice/connected": {
+      "post": {
+        "operationId": "voice-connected",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "voice"
+        ]
+      }
+    },
     "/api/voice/members/{userID}": {
       "delete": {
         "operationId": "disconnect-voice-member",
