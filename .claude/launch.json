@@ -7,7 +7,7 @@
       "runtimeArgs": [
         "-NoProfile",
         "-Command",
-        "$env:GOTOOLCHAIN='local'; $env:DATROPE_DATABASE_URL='postgres://postgres:dev@localhost:55432/postgres?sslmode=disable'; $env:DATROPE_PUBLIC_URL='http://localhost:5173'; $env:DATROPE_ADDR=':8081'; $env:DATROPE_DATA_DIR='D:/code/datrope/.data'; $env:DATROPE_LIVEKIT_URL='http://localhost:7880'; $env:DATROPE_LIVEKIT_PUBLIC_URL='ws://localhost:7880'; $env:DATROPE_LIVEKIT_API_KEY='datrope'; $env:DATROPE_LIVEKIT_API_SECRET='944f762269be7b82ae2d5c6cdbc87d891f2b52326b21eaea'; go -C server run ./cmd/datrope"
+        "$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User'); $env:GOTOOLCHAIN='local'; $env:DATROPE_DATABASE_URL='postgres://postgres:dev@localhost:55432/postgres?sslmode=disable'; $env:DATROPE_PUBLIC_URL='http://localhost:5173'; $env:DATROPE_ADDR=':8081'; $env:DATROPE_DATA_DIR='C:/Users/Weeklyvillain/code/datrope/.data'; $env:DATROPE_LIVEKIT_URL='http://localhost:7880'; $env:DATROPE_LIVEKIT_PUBLIC_URL='ws://localhost:7880'; $env:DATROPE_LIVEKIT_API_KEY='datrope'; $env:DATROPE_LIVEKIT_API_SECRET='944f762269be7b82ae2d5c6cdbc87d891f2b52326b21eaea'; go -C server run ./cmd/datrope"
       ],
       "port": 8081
     },
@@ -17,7 +17,7 @@
       "runtimeArgs": [
         "-NoProfile",
         "-Command",
-        "$env:DATROPE_DEV_SERVER='localhost:8081'; corepack pnpm --filter @datrope/web dev"
+        "$env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User'); $env:DATROPE_DEV_SERVER='localhost:8081'; bun run --filter @datrope/web dev"
       ],
       "port": 5173
     }

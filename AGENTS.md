@@ -71,7 +71,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Fetch before you build.** The web client (`clients/web`) is built on shadcn/ui (style `new-york`, Radix) and Tailwind CSS v4. Config: `clients/web/components.json`.
 
-- Before building any UI component, check the shadcn registry (https://ui.shadcn.com/docs/components) and add it with `pnpm dlx shadcn@latest add <name>` from `clients/web`. The shadcn agent skill in `.agents/skills/shadcn/` covers the CLI, registry and customization.
+- Before building any UI component, check the shadcn registry (https://ui.shadcn.com/docs/components) and add it with `bunx --bun shadcn@latest add <name>` from `clients/web`. The shadcn agent skill in `.agents/skills/shadcn/` covers the CLI, registry and customization.
 - Generated components live in `src/components/ui/`. Restyle through design tokens, cva variants, or `className`; don't fork Radix behaviour.
 - Build a custom component only when nothing in the registry fits, and compose it from shadcn primitives. App-level pieces live in `src/components/` (`form-field`, `error-text`, `presence-dot`) and `src/hooks/` (`use-submit`); reuse them.
 - Never hardcode colors. All tokens are CSS variables in `clients/web/src/styles.css` (`:root` + `@theme inline`); use the token utilities (`bg-background`, `bg-card`, `bg-sidebar`, `bg-primary`, `text-muted-foreground`, `border-border`, `bg-destructive`, `bg-online` / `bg-idle` / `bg-offline`, ...). New colors are added as tokens there first.
@@ -80,7 +80,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Local changes to generated components: `Button` defaults to `type="button"` (pass `type="submit"` explicitly), and its `destructive` variant uses `text-destructive-foreground`. Keep these when re-fetching `button`. `Slider` puts its `aria-label` on the thumb (the focusable `role="slider"`), not the root; keep that when re-fetching `slider`. `TooltipContent` defaults to `hideWhenDetached` (a tooltip whose trigger gets hidden, e.g. the message toolbar, must not stay open at the page's top-left); keep that when re-fetching `tooltip`.
 - React is 18: generated components don't forward refs. Wrap a component in `React.forwardRef` before using it as an `asChild` child of a trigger that needs a ref (tooltip, popover, dropdown).
 - Keep accessible names stable (labels, headings, button text); the Playwright e2e tests select by role and label.
-- If the shadcn CLI fails on this machine (exFAT drive, `pnpm add` errors), fetch the component JSON from `https://ui.shadcn.com/r/styles/new-york-v4/<name>.json`, write its files into `src/components/ui/`, fix imports to `@/components/ui/*` and `@/lib/utils`, and add its dependencies to `package.json` by hand.
+- If the shadcn CLI fails on this machine (exFAT drive, `bun add` errors), fetch the component JSON from `https://ui.shadcn.com/r/styles/new-york-v4/<name>.json`, write its files into `src/components/ui/`, fix imports to `@/components/ui/*` and `@/lib/utils`, and add its dependencies to `package.json` by hand.
 
 ---
 

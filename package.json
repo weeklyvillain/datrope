@@ -2,11 +2,12 @@
   "name": "datrope",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "bun@1.4.4",
+  "workspaces": ["clients/*"],
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "typecheck": "bun run --filter './clients/*' typecheck",
+    "test": "bun run --filter './clients/*' test"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

@@ -32,34 +32,37 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
       - name: Generated API types match the server
         run: |
-          pnpm --filter @datrope/core gen
+          bun run --filter @datrope/core gen
           git diff --exit-code clients/core
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
 
   e2e:
     runs-on: ubuntu-latest
     needs: [server, clients]
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @datrope/web exec playwright install --with-deps chromium
+      - run: bun install --frozen-lockfile
+      - working-directory: clients/web
+        run: bunx playwright install --with-deps chromium
       - run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.e2e.yml --env-file deploy/.env.e2e -p datrope-e2e up -d --build --wait
-      - run: pnpm --filter @datrope/web e2e
+      - run: bun run --filter @datrope/web e2e
       - if: failure()
         run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.e2e.yml --env-file deploy/.env.e2e -p datrope-e2e logs
       - if: failure()
@@ -81,14 +84,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: clients/desktop/src-tauri -> target
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
       - name: Build the rail (tauri::generate_context! reads dist/)
-        run: pnpm --filter @datrope/desktop exec vite build
+        working-directory: clients/desktop
+        run: bun run vite build
       - working-directory: clients/desktop/src-tauri
         run: |
           cargo fmt --check
