@@ -226,7 +226,8 @@ export function UpdatesView({ updates, busy, job, onCheck, onUpdateServer, onUpd
 
 function JobLog({ job }: { job: JobView }) {
   const end = useRef<HTMLSpanElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: "nearest" }), [job.lines.length]);
+  // Braces: Chrome's scrollIntoView returns a Promise, which React would take for the cleanup and call.
+  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [job.lines.length]);
   const updated = job.sha ? `Updated to ${short(job.sha)}` : "Updated";
   const label = { running: "Updating…", restarting: "Restarting…", succeeded: updated, failed: "Update failed" }[job.phase];
   const busy = job.phase === "running" || job.phase === "restarting";
