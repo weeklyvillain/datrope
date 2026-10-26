@@ -249,3 +249,36 @@ func TestReminderPushesToItsOwner(t *testing.T) {
 	require.Equal(t, "https://push.example/bob", got[0].Endpoint)
 	require.Contains(t, got[0].Payload.Body, "stand up")
 }
+
+func TestChannelSettings(t *testing.T) {
+	env, f := newEnv(t)
+	alice := env.Register("alice")
+	bob := env.Register("bob")
+	carol := env.Register("carol")
+	dave := env.Register("dave")
+	subscribe(bob, "https://push.example/bob", "all")
+	subscribe(carol, "https://push.example/carol", "nothing")
+	subscribe(dave, "https://push.example/dave", "all")
+	quiet := alice.CreateTextChannel("quiet")
+	notify := func(c *apptest.Client, level string, muted bool) {
+		c.Do(http.MethodPut, "/api/channels/"+quiet.String()+"/notify", map[string]any{"level": level, "muted": muted}, http.StatusOK, nil)
+	}
+	notify(bob, "nothing", false)
+	notify(carol, "all", false)
+	notify(dave, "default", true)
+
+	root := alice.Send(quiet, "plain")
+	require.Equal(t, []string{"https://push.example/carol"}, endpoints(f.take()),
+		"the channel's level replaces the device's; muted dave hears only mentions")
+
+	alice.Send(quiet, "hey @dave")
+	require.Equal(t, []string{"https://push.example/dave"}, endpoints(f.take()), "a mention still reaches a muted channel")
+
+	thread := alice.CreateThread(quiet, root.ID, "plans")
+	alice.Send(thread, "in the thread")
+	require.Equal(t, []string{"https://push.example/carol"}, endpoints(f.take()), "a thread follows its channel")
+
+	alice.Send(alice.General(), "elsewhere")
+	require.ElementsMatch(t, []string{"https://push.example/bob", "https://push.example/dave"}, endpoints(f.take()),
+		"other channels keep the device level")
+}

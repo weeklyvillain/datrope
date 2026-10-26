@@ -676,6 +676,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/{id}/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["put-channel-notify"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/channels/{id}/overrides/{targetType}/{targetID}": {
         parameters: {
             query?: never;
@@ -2720,6 +2736,22 @@ export interface components {
             text?: string;
             title?: string;
         };
+        NotifyRequest: {
+            /** @enum {string} */
+            level: "default" | "all" | "mentions" | "nothing";
+            muted?: boolean;
+        };
+        NotifySetting: {
+            /** @description Snowflake ID as a decimal string */
+            channel_id: string;
+            /**
+             * @description default follows the device's own level
+             * @enum {string}
+             */
+            level: "default" | "all" | "mentions" | "nothing";
+            /** @description Hides the channel's unread marker; notifies at most for mentions */
+            muted: boolean;
+        };
         Override: {
             /** Format: int64 */
             allow: number;
@@ -3004,6 +3036,8 @@ export interface components {
             dms: components["schemas"]["Channel"][] | null;
             /** @description The server custom emoji; empty when the user is not a member */
             emoji: components["schemas"]["Emoji"][] | null;
+            /** @description The user's notification settings, for visible channels and DMs not left at the default */
+            notify_settings: components["schemas"]["NotifySetting"][] | null;
             /** @description People who share the server and are not offline */
             presences: components["schemas"]["PresenceUpdate"][] | null;
             /** @description One per visible channel and DM */
@@ -5680,6 +5714,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Channel"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "put-channel-notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotifyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifySetting"];
                 };
             };
             /** @description Error */

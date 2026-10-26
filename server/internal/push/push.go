@@ -209,11 +209,12 @@ func (s *Service) touch(ctx context.Context, subID id.ID) error {
 	return err
 }
 
-// subscriptionsOf lists the subscriptions of these users, skipping level 'nothing'.
+// subscriptionsOf lists the subscriptions of these users. Level 'nothing' is
+// kept: a channel's own setting can still ask for its messages.
 func (s *Service) subscriptionsOf(ctx context.Context, userIDs []id.ID) ([]Subscription, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT id, user_id, endpoint, p256dh, auth, level FROM push_subscriptions
-		WHERE user_id = ANY($1) AND level <> 'nothing'`, id.Int64s(userIDs))
+		WHERE user_id = ANY($1)`, id.Int64s(userIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +223,45 @@ func (s *Service) subscriptionsOf(ctx context.Context, userIDs []id.ID) ([]Subsc
 		err := r.Scan(&x.ID, &x.UserID, &x.Endpoint, &x.P256dh, &x.Auth, &x.Level)
 		return x, err
 	})
+}
+
+// channelPref is a user's setting for one channel (channels.NotifySetting).
+type channelPref struct {
+	level string // default, all, mentions or nothing
+	muted bool
+}
+
+// channelNotify loads these users' settings for a channel; users at the default are absent.
+func (s *Service) channelNotify(ctx context.Context, channelID id.ID, userIDs []id.ID) (map[id.ID]channelPref, error) {
+	rows, err := s.db.Query(ctx, `SELECT user_id, level, muted FROM channel_notify_settings
+		WHERE channel_id = $1 AND user_id = ANY($2)`, channelID, id.Int64s(userIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[id.ID]channelPref{}
+	for rows.Next() {
+		var u id.ID
+		var p channelPref
+		if err := rows.Scan(&u, &p.level, &p.muted); err != nil {
+			return nil, err
+		}
+		out[u] = p
+	}
+	return out, rows.Err()
+}
+
+// effectiveLevel is the device's level unless the channel sets its own; a
+// muted channel notifies at most for mentions.
+func effectiveLevel(device string, p channelPref) string {
+	level := device
+	if p.level != "" && p.level != "default" {
+		level = p.level
+	}
+	if p.muted && level == "all" {
+		level = "mentions"
+	}
+	return level
 }
 
 // roleIDs lists the roles a user holds (one server per instance).

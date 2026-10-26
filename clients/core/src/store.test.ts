@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  addPending, applyEvent, applyReady, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, myThreadPerms, prependHistory,
+  addPending, applyEvent, applyReady, channelNotify, compareIds, customEmojiId, emojiList, soundList, initialState, isGated, markFailed, myChannelPerms, myThreadPerms, prependHistory,
   rolesByRank, voiceMembers, channelGroups, sidebarChannelIds, findUser, findDM, type State,
   replaceWindow, appendNewer, latestWindow, setMentions, markMentionsRead, ackLocal, setPoll, publicUser, canCreateInvites,
 } from "./store";
@@ -14,7 +14,7 @@ const everyone = { id: "1", name: "@everyone", permissions: Perm.ViewChannel | P
 const mod = { id: "2", name: "Mod", permissions: Perm.Kick, position: 1, hoist: true, color: "#4aa3ff", self_assignable: false, mentionable: false, description: "" } as const;
 const me = { id: "20", username: "bob", display_name: "Bob", custom_status: "", is_admin: false, disabled: false, created_at: "" };
 const ready = (over: Partial<Ready> = {}): Ready => ({
-  session_id: "s", build: "dev", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }],
+  session_id: "s", build: "dev", user: me, dms: [], presences: [{ user_id: "2", status: "online" }], read_states: [{ channel_id: "101", last_message_id: "25" }], notify_settings: [],
   voice_states: [], emoji: [], sounds: [], activities: [],
   server: {
     ...server, roles: [everyone, mod],
@@ -109,6 +109,16 @@ describe("store", () => {
     expect(rolesByRank(s).map((r) => r.name)).toEqual(["Mod", "@everyone"]);
     expect(s.presences["2"]).toBe("online");
     expect(s.readStates["101"].lastMessageId).toBe("25");
+  });
+
+  it("keeps my channel notification settings; a thread follows its channel", () => {
+    let s = applyReady(initialState, ready({ notify_settings: [{ channel_id: "101", level: "all", muted: true }] }));
+    expect(channelNotify(s, "101")).toEqual({ level: "all", muted: true });
+    s = applyEvent(s, "CHANNEL_CREATE", { id: "300", type: "thread", name: "plans", parent_channel_id: "101", position: 0, topic: "", overrides: [], tags: [], require_tag: false });
+    expect(channelNotify(s, "300")).toEqual({ level: "all", muted: true });
+    s = applyEvent(s, "CHANNEL_NOTIFY_UPDATE", { channel_id: "101", level: "default", muted: false });
+    expect(s.notifySettings).toEqual({});
+    expect(channelNotify(s, "101")).toEqual({ level: "default", muted: false });
   });
 
   it("has no server for a non-member", () => {

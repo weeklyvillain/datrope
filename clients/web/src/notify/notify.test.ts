@@ -42,6 +42,15 @@ describe("shouldNotify", () => {
     expect(shouldNotify({ ...dm, meId: undefined })).toBe(false);
   });
 
+  it("lets the channel's setting replace the level; a muted channel notifies only for mentions", () => {
+    expect(shouldNotify({ ...base, channel: { level: "all", muted: false } })).toBe(true);
+    expect(shouldNotify({ ...base, prefs: { enabled: true, level: "all" }, channel: { level: "nothing", muted: false } })).toBe(false);
+    expect(shouldNotify({ ...base, prefs: { enabled: true, level: "all" }, channel: { level: "default", muted: false } })).toBe(true);
+    expect(shouldNotify({ ...base, prefs: { enabled: true, level: "all" }, channel: { level: "default", muted: true } })).toBe(false);
+    expect(shouldNotify({ ...base, channel: { level: "all", muted: true }, message: { ...base.message, mentions: ["1"] } })).toBe(true);
+    expect(shouldNotify({ ...base, prefs: { enabled: false, level: "all" }, channel: { level: "all", muted: false } })).toBe(false);
+  });
+
   it("notifies for a webhook message, which has no author", () => {
     expect(shouldNotify({ ...base, message: { mentions: ["1"], channel_id: "100" } })).toBe(true);
   });

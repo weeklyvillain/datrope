@@ -5,7 +5,7 @@ import {
   appendNewer, findDM, isGated, latestWindow, markMentionsRead, publicUser, replaceWindow, setChannels, setMembers, setMentions, setPoll, type State,
 } from "./store";
 import type {
-  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, MusicState, Note, NoteSummary, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
+  Album, AlbumVisibility, Attachment, Category, Channel, Emoji, FileKind, FilesPage, JoinVoiceResponse, LibraryTrack, Member, MusicPlaylist, NotifySetting, MusicState, Note, NoteSummary, PlaylistAdd, PlaylistAddResult, PlaylistDetail, QueueRequest, QueueResult, RepeatMode, Message, Poll, PollRequest, PresenceStatus, PublicUser, Role, SearchResponse, ReplyRef, SevenTVPage, SevenTVSet, Sound,
   ThreadListItem, User, Webhook, WebhookWithURL, WatchUpdate, Reminder, CreateReminderBody,
 } from "./types";
 
@@ -174,6 +174,11 @@ export class DatropeClient {
       params: { path: { id } },
       body: { ...(to.categoryId === null ? { clear_category: true } : { category_id: to.categoryId }), position: to.position },
     }));
+  }
+
+  /** Sets how I hear about a channel, here and on my other devices. */
+  async setChannelNotify(id: string, n: { level: NotifySetting["level"]; muted: boolean }) {
+    this.apply("CHANNEL_NOTIFY_UPDATE", await unwrap(this.api.PUT("/api/channels/{id}/notify", { params: { path: { id } }, body: n })));
   }
 
   async setTopic(id: string, topic: string): Promise<Channel> {

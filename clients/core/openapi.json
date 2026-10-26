@@ -2608,6 +2608,57 @@
         },
         "type": "object"
       },
+      "NotifyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "enum": [
+              "default",
+              "all",
+              "mentions",
+              "nothing"
+            ],
+            "type": "string"
+          },
+          "muted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "level"
+        ],
+        "type": "object"
+      },
+      "NotifySetting": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_id": {
+            "description": "Snowflake ID as a decimal string",
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "level": {
+            "description": "default follows the device's own level",
+            "enum": [
+              "default",
+              "all",
+              "mentions",
+              "nothing"
+            ],
+            "type": "string"
+          },
+          "muted": {
+            "description": "Hides the channel's unread marker; notifies at most for mentions",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "channel_id",
+          "level",
+          "muted"
+        ],
+        "type": "object"
+      },
       "Override": {
         "additionalProperties": false,
         "properties": {
@@ -3440,6 +3491,16 @@
               "null"
             ]
           },
+          "notify_settings": {
+            "description": "The user's notification settings, for visible channels and DMs not left at the default",
+            "items": {
+              "$ref": "#/components/schemas/NotifySetting"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "presences": {
             "description": "People who share the server and are not offline",
             "items": {
@@ -3498,6 +3559,7 @@
           "dms",
           "presences",
           "read_states",
+          "notify_settings",
           "voice_states",
           "emoji",
           "sounds",
@@ -8776,6 +8838,61 @@
         ],
         "tags": [
           "messages"
+        ]
+      }
+    },
+    "/api/channels/{id}/notify": {
+      "put": {
+        "operationId": "put-channel-notify",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotifySetting"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "tags": [
+          "channels"
         ]
       }
     },

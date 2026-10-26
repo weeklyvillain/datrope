@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { restoreFocus } from "@/lib/focus";
 import { isUnread, lastVisited, rememberVisit, useApp, usePerms } from "../session";
 import { DMList } from "./DMList";
-import { NotesPane } from "./notes/NotesPane";
+import { MePane } from "./MePane";
 import { toggleCommands } from "./palette/command-store";
 import { SidebarFooter } from "./SidebarFooter";
 import { ServersButton } from "./WindowControls";
@@ -28,23 +28,23 @@ import { ChannelTree } from "./sidebar/ChannelTree";
 export const SETTINGS_PERMS = [Perm.ManageServer, Perm.ManageRoles, Perm.Kick, Perm.Ban, Perm.ManageChannels];
 const TAB = "h-8 data-[state=active]:bg-accent data-[state=active]:font-semibold data-[state=active]:shadow-none";
 
-/** The left column: server header, Channels / Messages tabs, voice panel and profile strip. */
+/** The left column: server header, Channels / Messages / Me tabs, voice panel and profile strip. */
 export function ServerSidebar({ className }: { className?: string }) {
   const nav = useLayerNavigate();
   const dmId = useMatch("/messages/:channelId")?.params.channelId;
   const inMessages = !!useMatch("/messages/*");
   const noteId = useMatch("/notes/:noteId")?.params.noteId;
-  const inNotes = !!useMatch("/notes/*");
+  const inMe = !!useMatch("/notes/*");
   const gated = useApp(isGated);
   const dmUnread = useApp((s) => s.dmIds.some((id) => isUnread(s.readStates[id])));
   const dmIds = useApp((s) => s.dmIds);
   useRememberVisits();
 
-  const tab = inMessages ? "messages" : inNotes ? "notes" : "channels";
+  const tab = inMessages ? "messages" : inMe ? "me" : "channels";
   const switchTab = (to: string) => {
     if (to === "channels") {
       nav("/"); // Home opens the last channel visited, else the first text channel
-    } else if (to === "notes") {
+    } else if (to === "me") {
       nav("/notes");
     } else {
       const last = lastVisited("dm");
@@ -53,7 +53,7 @@ export function ServerSidebar({ className }: { className?: string }) {
   };
 
   return (
-    <nav className={cn("flex w-60 flex-none flex-col border-r bg-sidebar", className)} aria-label={tab === "messages" ? "Direct messages" : tab === "notes" ? "Notes sidebar" : "Channels"}>
+    <nav className={cn("flex w-60 flex-none flex-col border-r bg-sidebar", className)} aria-label={tab === "messages" ? "Direct messages" : tab === "me" ? "Me" : "Channels"}>
       <ServerHeader />
       <Tabs value={tab} onValueChange={switchTab} className="min-h-0 flex-1 gap-0">
         <TabsList className="grid h-auto w-auto grid-cols-3 gap-1 bg-transparent px-2 pt-2 pb-0">
@@ -67,7 +67,7 @@ export function ServerSidebar({ className }: { className?: string }) {
               </>
             )}
           </TabsTrigger>
-          <TabsTrigger value="notes" disabled={gated} className={TAB}>Notes</TabsTrigger>
+          <TabsTrigger value="me" disabled={gated} className={TAB}>Me</TabsTrigger>
         </TabsList>
         <TabsContent value="channels" className="min-h-0 overflow-y-auto overscroll-y-contain">
           <ChannelsPane />
@@ -75,8 +75,8 @@ export function ServerSidebar({ className }: { className?: string }) {
         <TabsContent value="messages" className="flex min-h-0 flex-col">
           <DMList activeId={dmId} />
         </TabsContent>
-        <TabsContent value="notes" className="flex min-h-0 flex-col">
-          <NotesPane activeId={noteId} />
+        <TabsContent value="me" className="flex min-h-0 flex-col">
+          <MePane noteId={noteId} />
         </TabsContent>
       </Tabs>
       <SidebarFooter />

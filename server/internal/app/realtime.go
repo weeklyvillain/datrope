@@ -20,8 +20,8 @@ import (
 	"github.com/datrope/datrope/server/internal/integrations"
 	"github.com/datrope/datrope/server/internal/messages"
 	"github.com/datrope/datrope/server/internal/music"
-	"github.com/datrope/datrope/server/internal/reminders"
 	"github.com/datrope/datrope/server/internal/notes"
+	"github.com/datrope/datrope/server/internal/reminders"
 	"github.com/datrope/datrope/server/internal/version"
 	"github.com/datrope/datrope/server/internal/voice"
 	"github.com/datrope/datrope/server/internal/watch"
@@ -36,6 +36,7 @@ type Ready struct {
 	DMs         []channels.Channel       `json:"dms"`
 	Presences   []gateway.PresenceUpdate `json:"presences" doc:"People who share the server and are not offline"`
 	ReadStates  []messages.ReadState     `json:"read_states" doc:"One per visible channel and DM"`
+	Notify      []channels.NotifySetting `json:"notify_settings" doc:"The user's notification settings, for visible channels and DMs not left at the default"`
 	VoiceStates []voice.VoiceState       `json:"voice_states" doc:"Who is in voice, in channels and DMs the user can see"`
 	Emoji       []expressions.Emoji      `json:"emoji" doc:"The server custom emoji; empty when the user is not a member"`
 	Sounds      []expressions.Sound      `json:"sounds" doc:"The server soundboard sounds; empty when the user is not a member"`
@@ -87,7 +88,7 @@ func (b readyBuilder) Build(ctx context.Context, u *auth.User, sessionID string,
 		r.Activities = b.integrations.Activities(memberIDs)
 	}
 	if gated {
-		r.DMs, r.ReadStates, r.VoiceStates = []channels.Channel{}, []messages.ReadState{}, []voice.VoiceState{}
+		r.DMs, r.ReadStates, r.Notify, r.VoiceStates = []channels.Channel{}, []messages.ReadState{}, []channels.NotifySetting{}, []voice.VoiceState{}
 		return r, nil
 	}
 	if r.DMs, err = b.channels.ListDMs(ctx, u.ID); err != nil {
@@ -97,6 +98,9 @@ func (b readyBuilder) Build(ctx context.Context, u *auth.User, sessionID string,
 		channelIDs = append(channelIDs, dm.ID)
 	}
 	if r.ReadStates, err = b.messages.ReadStates(ctx, u.ID, channelIDs); err != nil {
+		return nil, err
+	}
+	if r.Notify, err = b.channels.NotifySettings(ctx, u.ID, channelIDs); err != nil {
 		return nil, err
 	}
 	r.VoiceStates = b.voice.States(channelIDs)

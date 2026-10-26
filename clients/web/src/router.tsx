@@ -2,9 +2,10 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./app/AppShell";
 import { DMView } from "./app/DMView";
 import { ChannelRoute, GalleryAlbumRoute, Home } from "./app/Home";
-import { MentionsRoute, YouRoute } from "./app/mobile/PhoneRoutes";
+import { MentionsRoute, RemindersRoute, YouRoute } from "./app/mobile/PhoneRoutes";
 import { NotesView } from "./app/notes/NotesView";
 import { RequireSession } from "./app/RequireSession";
+import { ChannelSettings } from "./app/channel-settings/ChannelSettings";
 import { ServerSettings } from "./app/server-settings/ServerSettings";
 import { UserSettingsRoute } from "./app/settings/UserSettingsPage";
 import { NotFound, RouteError } from "./pages/errors";
@@ -36,10 +37,12 @@ export const router = createBrowserRouter([{
             { path: "gallery/*", element: <Navigate to="/" replace /> },
             { path: "messages/:channelId?", element: <DMView /> },
             { path: "notes/:noteId?", element: <NotesView /> },
+            { path: "reminders", element: <RemindersRoute /> },
             { path: "mentions", element: <MentionsRoute /> },
             { path: "you/:section?", element: <YouRoute /> },
             { path: "settings/:section?", element: <UserSettingsRoute /> },
             { path: "server-settings/:section?", element: <ServerSettings /> },
+            { path: "channel-settings/:channelId/:section?", element: <ChannelSettings /> },
             { path: "admin", element: <Navigate to="/server-settings/sign-ups" replace /> },
             { path: "*", element: <NotFound inShell /> },
           ],

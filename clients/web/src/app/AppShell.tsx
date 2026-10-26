@@ -105,10 +105,10 @@ export function AppShell() {
       {!mobile && <SkipLinks />}
       <GuestBanner />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Phones: full-screen pages and a tab bar. Desktop: server settings bring their own nav in place of the sidebar. */}
+        {/* Phones: full-screen pages and a tab bar. Desktop: server and channel settings bring their own nav in place of the sidebar. */}
         {mobile ? <MobileShell /> : (
           <>
-            {!pathname.startsWith("/server-settings") && !pathname.startsWith("/settings") && tier !== "narrow" && <ServerSidebar />}
+            {!pathname.startsWith("/server-settings") && !pathname.startsWith("/channel-settings") && !pathname.startsWith("/settings") && tier !== "narrow" && <ServerSidebar />}
             {tier === "narrow" && <ChannelsSheet />}
             <Outlet />
           </>

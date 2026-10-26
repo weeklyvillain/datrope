@@ -409,6 +409,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByRole("radio", { name: "Voice" }).click();
   await alice.getByLabel("Name").fill("Lounge");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await backToChat(alice);
   await expect(alice.getByRole("main", { name: "Lounge" })).toBeVisible();
   await alice.getByRole("button", { name: "Join voice" }).click();
   await expect(alice.getByRole("status").filter({ hasText: "Voice connected" })).toBeVisible();
@@ -525,6 +526,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByRole("radio", { name: "Voice" }).click();
   await alice.getByLabel("Name").fill("Den");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await backToChat(alice);
   await lounge.getByText("bob").hover();
   await alice.mouse.down();
   const den = (await alice.getByRole("link", { name: "Den" }).boundingBox())!;
@@ -548,9 +550,11 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByRole("button", { name: "Options for general" }).click();
   await alice.getByRole("menuitem", { name: "Channel settings" }).click();
   await alice.getByLabel("Category", { exact: true }).selectOption({ label: "Hangouts" });
-  // Topic: set in the same dialog; the header shows it.
+  // Topic: set on the same page; the header shows it.
   await alice.getByLabel("Topic", { exact: true }).fill("Plans and memes");
   await alice.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(alice.getByText("Saved", { exact: true })).toBeVisible();
+  await backToChat(alice);
   await expect(alice.getByRole("group", { name: "Hangouts" }).getByRole("link", { name: "general" })).toBeVisible();
   await expect(bob.getByRole("group", { name: "Hangouts" }).getByRole("link", { name: "general" })).toBeVisible();
 
@@ -692,6 +696,7 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByRole("radio", { name: "Webhook" }).click();
   await alice.getByLabel("Name").fill("alerts");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await backToChat(alice);
   const aliceAlerts = alice.getByRole("main", { name: "# alerts" });
   await expect(aliceAlerts.getByText("Only webhooks can post in this channel.")).toBeVisible();
   await expect(aliceAlerts.getByLabel("Message", { exact: true })).toHaveCount(0);
@@ -700,12 +705,12 @@ test("the owner sets up the server, a friend joins by invite, accepts the rules,
   await alice.getByRole("link", { name: "alerts" }).hover();
   await alice.getByRole("button", { name: "Options for alerts" }).click();
   await alice.getByRole("menuitem", { name: "Channel settings" }).click();
-  await alice.getByRole("tab", { name: "Webhooks" }).click();
+  await alice.getByRole("link", { name: "Webhooks" }).click();
   await alice.getByLabel("Webhook name").fill("CI");
   await alice.getByRole("button", { name: "Create webhook" }).click();
   const hookUrl = await alice.getByLabel("Webhook URL").inputValue();
   expect(hookUrl).toMatch(/\/api\/webhooks\/\d+\/[A-Za-z0-9_-]{43}$/);
-  await alice.keyboard.press("Escape");
+  await backToChat(alice);
 
   // A service posts in Discord's format, with no session (the test's own request context never logs in); bob sees the message and its embed.
   const posted = await request.post(new URL(hookUrl).pathname, {
@@ -775,6 +780,11 @@ async function signIn(page: Page, username: string) {
   await expect(page.getByRole("tab", { name: "Channels" })).toBeVisible();
 }
 
+/** Leaves channel settings (where creating a channel lands) for the channel itself. */
+async function backToChat(page: Page) {
+  await page.getByRole("button", { name: /^Back to chat/ }).click();
+}
+
 async function createChannel(page: Page, type: string, name: string) {
   await page.getByRole("button", { name: "Datrope menu" }).click();
   await page.getByRole("menuitem", { name: "Create channel" }).click();
@@ -793,6 +803,7 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   // Announcement: alice posts a titled card; bob may not post, but replies in its thread.
   await createChannel(alice, "Announcement", "news");
   await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await backToChat(alice);
   const aliceNews = alice.getByRole("main", { name: "# news" });
   await expect(aliceNews).toBeVisible();
   await aliceNews.getByLabel("Title", { exact: true }).fill("Game night");
@@ -821,12 +832,14 @@ test("announcement, forum and gallery channels", async ({ browser }) => {
   await expect(bobThread.getByText("count me in")).toBeVisible();
   await expect(card.getByRole("button", { name: /^1 reply/ })).toBeVisible();
 
-  // Forum: alice offers the tags Feature and Bug, requires one, and posts "Soundboard" tagged Feature.
+  // Forum: alice offers the tags Feature and Bug (in the settings that open after Create), requires one, and posts "Soundboard" tagged Feature.
   await createChannel(alice, "Forum", "ideas");
-  const create = alice.getByRole("dialog", { name: "Create a channel" });
-  await create.getByRole("button", { name: "Remove Question" }).click();
-  await create.getByRole("checkbox", { name: "Require a tag on new posts" }).click();
-  await create.getByRole("button", { name: "Create", exact: true }).click();
+  await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await alice.getByRole("button", { name: "Remove Question" }).click();
+  await alice.getByRole("checkbox", { name: "Require a tag on new posts" }).click();
+  await alice.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(alice.getByText("Saved", { exact: true })).toBeVisible();
+  await backToChat(alice);
   const aliceIdeas = alice.getByRole("main", { name: "ideas" });
   await expect(aliceIdeas.getByText("No posts yet. Start one with New post.")).toBeVisible();
   await aliceIdeas.getByRole("button", { name: "New post" }).click();
@@ -937,8 +950,11 @@ test("gallery sources: files from other channels, music player and playlists", a
   await expect(bob.getByRole("link", { name: "general" })).toBeVisible();
   await expect(bob.getByRole("link", { name: "Gallery", exact: true })).toHaveCount(0);
   await createChannel(alice, "Gallery", "everything");
-  await alice.getByRole("dialog", { name: "Create a channel" }).getByRole("radio", { name: /Every channel/ }).click();
   await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await alice.getByRole("radio", { name: /Every channel/ }).click();
+  await alice.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(alice.getByText("Saved", { exact: true })).toBeVisible();
+  await backToChat(alice);
   await expect(alice.getByRole("main", { name: "everything" })).toBeVisible();
   const galleryId = new URL(alice.url()).pathname.split("/").pop()!;
 
@@ -1102,12 +1118,14 @@ test("albums live in a gallery: collect a file, upload into the album, share it 
   await expect(alice.getByRole("list", { name: "Attachments" })).not.toContainText("Uploading");
   await alice.getByRole("button", { name: "Send" }).click();
 
-  // A gallery fed by #general, picked in the dialog.
+  // A gallery fed by #general, picked in its settings after Create.
   await createChannel(alice, "Gallery", "trips");
-  const dialog = alice.getByRole("dialog", { name: "Create a channel" });
-  await dialog.getByRole("radio", { name: /Channels I pick/ }).click();
-  await dialog.getByRole("group", { name: "Channels" }).getByRole("checkbox", { name: "general", exact: true }).click();
   await alice.getByRole("button", { name: "Create", exact: true }).click();
+  await alice.getByRole("radio", { name: /Channels I pick/ }).click();
+  await alice.getByRole("group", { name: "Channels" }).getByRole("checkbox", { name: "general", exact: true }).click();
+  await alice.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(alice.getByText("Saved", { exact: true })).toBeVisible();
+  await backToChat(alice);
   const trips = alice.getByRole("main", { name: "trips" });
   await expect(trips.getByRole("button", { name: /^Photo: harbour.png/ })).toBeVisible();
 
@@ -1158,7 +1176,7 @@ test("personal notes: write a note, it survives a reload, then delete it", async
   const alice = await (await browser.newContext()).newPage();
   await signIn(alice, "alice");
 
-  await alice.getByRole("tab", { name: "Notes" }).click();
+  await alice.getByRole("tab", { name: "Me" }).click();
   await alice.getByRole("button", { name: "New note" }).click();
   await expect(alice).toHaveURL(/\/notes\/\d+$/);
   const noteLink = alice.getByRole("navigation", { name: "Notes", exact: true }).locator(`a[href="${new URL(alice.url()).pathname}"]`);

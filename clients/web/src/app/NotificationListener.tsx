@@ -1,4 +1,4 @@
-import { channelRef, findUser, myRoleIds } from "@datrope/core";
+import { channelNotify, channelRef, findUser, myRoleIds } from "@datrope/core";
 import type { Message } from "@datrope/core";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -46,6 +46,11 @@ export function NotificationListener() {
     if (type !== "MESSAGE_CREATE") return;
     const m = data as Message;
     let s = client.store.getState();
+    // Threads are not in READY: fetch an unknown one so its channel's setting, the title and the click can use its parent.
+    if (!s.channels[m.channel_id] && notifyPrefs.getState().enabled && m.author?.id !== s.me?.id) {
+      await client.getChannel(m.channel_id).catch(() => undefined);
+      s = client.store.getState();
+    }
     const open = path.current.match(/^\/(?:channels|messages)\/([^/]+)/)?.[1];
     const panel = panelStore.getState().panel;
     // A thread or post panel left open from another view is not on screen: it only counts under its parent channel.
@@ -63,16 +68,12 @@ export function NotificationListener() {
       myRoleIds: myRoleIds(s),
       isDM: s.channels[m.channel_id]?.type === "dm",
       prefs: notifyPrefs.getState(),
+      channel: channelNotify(s, m.channel_id),
       permission: desktop ? "granted" : "Notification" in window ? Notification.permission : "unsupported",
       hidden: document.visibilityState === "hidden" || !document.hasFocus() || (desktop !== null && !desktop.visible),
       openChannelIds,
     });
     if (!ok || !claimForThisTab(m.id)) return;
-    // Threads are not in READY: fetch an unknown one so the title and the click can name its parent.
-    if (!s.channels[m.channel_id]) {
-      await client.getChannel(m.channel_id).catch(() => undefined);
-      s = client.store.getState();
-    }
     const where = channelRef(s, m.channel_id);
     const author = shownAuthor(m, m.author && findUser(s, m.author.id));
     const icon = author.avatar_url || s.server?.server.icon_url;

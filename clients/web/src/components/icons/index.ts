@@ -1,7 +1,7 @@
 // Static by default: lucide-react under the same names. Animated versions (hover/keyboard-focus of their
 // control plays them) are opt-in as `AnimatedX`; keep them for primary actions where the motion adds feedback.
 export {
-  Activity, AlarmClock, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AtSign, Ban, Bell, Bold, BookOpen,
+  Activity, AlarmClock, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AtSign, Ban, Bell, BellOff, Bold, BookOpen,
   Check, CheckCheck, CheckIcon, ChevronDown, ChevronDownIcon, ChevronLeft, ChevronRight, ChevronRightIcon,
   ChevronUp, ChevronUpIcon, Clock, Code, Command, Copy, Crown, Database, Download, Ellipsis, EllipsisVertical,
   ExternalLink, Eye, EyeIcon, EyeOff, EyeOffIcon, File, FileArchive, FileText, FileX, Film, FilterX,

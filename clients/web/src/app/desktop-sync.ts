@@ -4,10 +4,10 @@ import { createStore } from "zustand/vanilla";
 import { isUnread } from "../session";
 import { isUnreadType } from "./channel-types";
 
-/** What the desktop rail shows for this server: a dot for unread channels, a count of mentions and unread DMs. */
-export function badgeFor(s: Pick<State, "readStates" | "channels" | "dmIds" | "mentions">): { unread: boolean; mentions: number } {
+/** What the desktop rail shows for this server: a dot for unread channels (not muted ones), a count of mentions and unread DMs. */
+export function badgeFor(s: Pick<State, "readStates" | "channels" | "dmIds" | "mentions" | "notifySettings">): { unread: boolean; mentions: number } {
   const dms = s.dmIds.filter((id) => isUnread(s.readStates[id])).length;
-  const unread = Object.entries(s.readStates).some(([id, rs]) => isUnreadType(s.channels[id]?.type) && isUnread(rs));
+  const unread = Object.entries(s.readStates).some(([id, rs]) => isUnreadType(s.channels[id]?.type) && !s.notifySettings[id]?.muted && isUnread(rs));
   return { unread: unread || dms > 0, mentions: s.mentions.unread + dms };
 }
 

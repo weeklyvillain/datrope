@@ -20,20 +20,26 @@ describe("badgeFor", () => {
         d1: { lastMessageId: "9", lastReadId: "8" },
         d2: { lastMessageId: "3", lastReadId: "3" },
       },
-      mentions: { items: [], unread: 2, hasMore: false, loaded: true },
+      notifySettings: {}, mentions: { items: [], unread: 2, hasMore: false, loaded: true },
     } as never);
     expect(b).toEqual({ unread: true, mentions: 3 });
   });
 
   it("is quiet when everything is read", () => {
     const b = badgeFor({ channels: { t1: ch("text") }, dmIds: [], readStates: { t1: { lastMessageId: "5", lastReadId: "5" } },
-      mentions: { items: [], unread: 0, hasMore: false, loaded: true } } as never);
+      notifySettings: {}, mentions: { items: [], unread: 0, hasMore: false, loaded: true } } as never);
     expect(b).toEqual({ unread: false, mentions: 0 });
+  });
+
+  it("ignores muted channels", () => {
+    const b = badgeFor({ channels: { t1: ch("text") }, dmIds: [], readStates: { t1: { lastMessageId: "5" } },
+      notifySettings: { t1: { channel_id: "t1", level: "default", muted: true } }, mentions: { items: [], unread: 0, hasMore: false, loaded: true } } as never);
+    expect(b.unread).toBe(false);
   });
 
   it("ignores channel types without unread state (voice)", () => {
     const b = badgeFor({ channels: { v1: ch("voice") }, dmIds: [], readStates: { v1: { lastMessageId: "5" } },
-      mentions: { items: [], unread: 0, hasMore: false, loaded: true } } as never);
+      notifySettings: {}, mentions: { items: [], unread: 0, hasMore: false, loaded: true } } as never);
     expect(b.unread).toBe(false);
   });
 });

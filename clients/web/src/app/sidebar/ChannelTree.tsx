@@ -1,5 +1,5 @@
 import {
-  Perm, channelGroups, hasPerm, myBasePerms, myChannelPerms, unwrap, type Category, type Channel,
+  Perm, channelGroups, channelNotify, hasPerm, myBasePerms, myChannelPerms, unwrap, type Category, type Channel,
 } from "@datrope/core";
 import {
   DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, pointerWithin, useDroppable, useSensor, useSensors,
@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, CheckCheck, Ellipsis, Link2, Phone, Settings } from "@/components/icons";
+import { ArrowDown, ArrowUp, Bell, BellOff, CheckCheck, Ellipsis, Link2, Phone, Settings, SlidersHorizontal } from "@/components/icons";
 import {
   createContext, useContext, useEffect, useMemo, useRef, useState,
   type CSSProperties, type HTMLAttributes, type ReactNode, type Ref,
@@ -31,7 +31,6 @@ import { restoreFocus } from "@/lib/focus";
 import { client, errorText, isUnread, useApp, userName } from "../../session";
 import { channelIcon, isUnreadType } from "../channel-types";
 import { CategoryDialog, DeleteCategoryDialog } from "../dialogs/CategoryDialog";
-import { ChannelSettingsDialog } from "../dialogs/ChannelSettingsDialog";
 import { CreateChannelDialog } from "../dialogs/CreateChannelDialog";
 import { voice } from "../../voice/voice";
 import { VoiceMembers } from "../voice/VoiceMembers";
@@ -63,7 +62,7 @@ interface Tree {
   dropGroup?: string; // the group a dragged channel is in now
   canManage: boolean;
   manageable: string[];
-  openSettings: (id: string) => void;
+  toggleMute: (id: string) => void;
   canMoveChannel: (id: string, dir: -1 | 1) => boolean;
   moveChannelBy: (id: string, dir: -1 | 1) => void;
   justDropped: () => boolean; // the click that ends a pointer drag is not a click
@@ -91,7 +90,6 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
 
   const [drag, setDrag] = useState<Layout & { id: UniqueIdentifier }>();
   const view = drag ?? base;
-  const [settingsFor, setSettingsFor] = useState<string>();
   const [dialog, setDialog] = useState<{ action: Exclude<CategoryAction, "up" | "down">; category: Category }>();
   const [error, setError] = useState<string>();
   const treeRef = useRef<HTMLDivElement>(null);
@@ -199,7 +197,10 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
     activeId, canManage, manageable, dropGroup,
     dragKind: drag ? kindOf(drag.id) : undefined,
     dragId: drag ? rawId(drag.id) : undefined,
-    openSettings: setSettingsFor,
+    toggleMute: (id) => {
+      const n = channelNotify(client.store.getState(), id);
+      void client.setChannelNotify(id, { ...n, muted: !n.muted }).catch(showError);
+    },
     canMoveChannel: (id, dir) => {
       const g = groupOf(base.groups, id);
       return !!g && neighbourMove(base.groups[g], id, dir) !== null;
@@ -262,7 +263,6 @@ export function ChannelTree({ activeId }: { activeId?: string }) {
           {draggedUser && <div className="rounded-md bg-accent px-2 py-1 text-sm text-foreground shadow-md">{draggedUser}</div>}
         </DragOverlay>
       </DndContext>
-      {settingsFor && <ChannelSettingsDialog channelId={settingsFor} onClose={() => setSettingsFor(undefined)} />}
       {dialog?.action === "create" && <CreateChannelDialog categoryId={dialog.category.id} onClose={() => setDialog(undefined)} />}
       {dialog?.action === "rename" && <CategoryDialog category={dialog.category} onClose={() => setDialog(undefined)} />}
       {dialog?.action === "delete" && <DeleteCategoryDialog category={dialog.category} onClose={() => setDialog(undefined)} />}
@@ -310,13 +310,14 @@ function CategorySection({ category, ids, canMoveUp, canMoveDown, onAction }: {
   const [collapsed, setCollapsed] = useCollapsed(category.id);
   const channels = useApp((s) => s.channels);
   const readStates = useApp((s) => s.readStates);
+  const notify = useApp((s) => s.notifySettings);
   const { setNodeRef, setActivatorNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({
     id: `cat:${category.id}`,
     disabled: !canManage || dragKind === "ch",
   });
   // Collapsed, it still shows the current channel, unread ones and one being dragged in.
   const shown = collapsed
-    ? ids.filter((id) => id === activeId || id === dragId || (isUnreadType(channels[id]?.type) && isUnread(readStates[id])))
+    ? ids.filter((id) => id === activeId || id === dragId || (isUnreadType(channels[id]?.type) && !notify[id]?.muted && isUnread(readStates[id])))
     : ids;
   return (
     <div ref={setNodeRef} role="group" aria-label={category.name}
@@ -376,10 +377,11 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
   className?: string;
   handle?: HTMLAttributes<HTMLAnchorElement> & { ref?: Ref<HTMLAnchorElement> };
 }) {
-  const { activeId, manageable, openSettings, justDropped, dragKind, canMoveChannel, moveChannelBy } = useTree();
+  const { activeId, manageable, toggleMute, justDropped, dragKind, canMoveChannel, moveChannelBy } = useTree();
   const ch = useApp((s) => s.channels[id]);
   const drop = useDroppable({ id: `vc:${id}`, disabled: dragKind !== "vm" || ch?.type !== "voice" });
-  const unread = useApp((s) => isUnreadType(s.channels[id]?.type) && isUnread(s.readStates[id]));
+  const muted = useApp((s) => !!s.notifySettings[id]?.muted);
+  const unread = useApp((s) => isUnreadType(s.channels[id]?.type) && !s.notifySettings[id]?.muted && isUnread(s.readStates[id]));
   const canConnect = useApp((s) => hasPerm(myChannelPerms(s, id), Perm.ConnectVoice));
   const trigger = useRef<HTMLDivElement | null>(null);
   const nav = useLayerNavigate();
@@ -404,7 +406,7 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
               if (ch.type === "voice" && canConnect) void voice.join(id); // clicking a voice channel joins it
             }}
             className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground no-underline hover:text-foreground pointer-coarse:self-stretch pointer-coarse:[-webkit-touch-callout:none]",
-              (active || unread || ch.type === "welcome") && "text-foreground", unread && "font-semibold")}>
+              (active || unread || ch.type === "welcome") && "text-foreground", unread && "font-semibold", muted && !active && "opacity-50")}>
             <ChannelIcon ch={ch} />
             <span className="truncate"><EmojiText text={ch.name} /></span>
           </Link>
@@ -424,10 +426,16 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
                 <DropdownMenuItem onSelect={() => { nav(`/channels/${id}`); void voice.join(id); }}><Phone />Join voice</DropdownMenuItem>
               )}
               <DropdownMenuItem onSelect={() => void navigator.clipboard?.writeText(`${location.origin}/channels/${id}`).catch(() => undefined)}><Link2 />Copy link</DropdownMenuItem>
+              {ch.type !== "welcome" && (
+                <>
+                  <DropdownMenuItem onSelect={() => toggleMute(id)}>{muted ? <Bell /> : <BellOff />}{muted ? "Unmute channel" : "Mute channel"}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => nav(`/channel-settings/${id}/notifications`)}><SlidersHorizontal />Notification settings</DropdownMenuItem>
+                </>
+              )}
               {manageable.includes(id) && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => openSettings(id)}><Settings />Channel settings</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => nav(`/channel-settings/${id}`)}><Settings />Channel settings</DropdownMenuItem>
                   {ch.type !== "welcome" && (
                     <>
                       <DropdownMenuItem disabled={!canMoveChannel(id, -1)} onSelect={() => moveChannelBy(id, -1)}><ArrowUp />Move up</DropdownMenuItem>
@@ -448,10 +456,16 @@ function ChannelRow({ id, itemRef, style, className, handle }: {
             <ContextMenuItem onSelect={() => { nav(`/channels/${id}`); void voice.join(id); }}><Phone />Join voice</ContextMenuItem>
           )}
           <ContextMenuItem onSelect={() => void navigator.clipboard?.writeText(`${location.origin}/channels/${id}`).catch(() => undefined)}><Link2 />Copy link</ContextMenuItem>
+          {ch.type !== "welcome" && (
+            <>
+              <ContextMenuItem onSelect={() => toggleMute(id)}>{muted ? <Bell /> : <BellOff />}{muted ? "Unmute channel" : "Mute channel"}</ContextMenuItem>
+              <ContextMenuItem onSelect={() => nav(`/channel-settings/${id}/notifications`)}><SlidersHorizontal />Notification settings</ContextMenuItem>
+            </>
+          )}
           {manageable.includes(id) && (
             <>
               <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => openSettings(id)}><Settings />Channel settings</ContextMenuItem>
+              <ContextMenuItem onSelect={() => nav(`/channel-settings/${id}`)}><Settings />Channel settings</ContextMenuItem>
               {/* The welcome channel always stays first. */}
               {ch.type !== "welcome" && (
                 <>

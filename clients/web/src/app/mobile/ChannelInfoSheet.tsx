@@ -1,17 +1,22 @@
+import { channelNotify } from "@datrope/core";
 import { Bell, Hash, Megaphone, MessageSquare, Pin, Settings, User, Users } from "@/components/icons";
 import { Markdown } from "@/chat/Markdown";
 import { EmojiText } from "@/chat/EmojiText";
 import { ActionSheet, ActionSheetItem } from "@/components/action-sheet";
 import { useLayerNavigate } from "@/hooks/use-history-layer";
+import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp } from "../../session";
 
-/** The phone's channel info: name, topic, and shortcuts to the channel's panels and settings. A row is hidden when its handler is missing. */
-export function ChannelInfoSheet({ channelId, kind, open, onOpenChange, onPins, onMembers, onThreads, onSettings }: {
+const LEVELS = { all: "All messages", mentions: "Only mentions", nothing: "Nothing" };
+
+/** The phone's channel info: name, topic, and shortcuts to the channel's panels and settings. A row is hidden when its handler (or canSettings) is missing. */
+export function ChannelInfoSheet({ channelId, kind, open, onOpenChange, onPins, onMembers, onThreads, canSettings }: {
   channelId: string; kind: "chat" | "announcement"; open: boolean; onOpenChange: (open: boolean) => void;
-  onPins: () => void; onMembers?: () => void; onThreads?: () => void; onSettings?: () => void;
+  onPins: () => void; onMembers?: () => void; onThreads?: () => void; canSettings?: boolean;
 }) {
   const ch = useApp((s) => s.channels[channelId]);
   const meId = useApp((s) => s.me?.id);
+  const notify = useApp(useShallow((s) => channelNotify(s, channelId)));
   const navigate = useLayerNavigate();
   if (!ch) return null;
   const dm = ch.type === "dm";
@@ -34,13 +39,13 @@ export function ChannelInfoSheet({ channelId, kind, open, onOpenChange, onPins, 
       {onMembers && <ActionSheetItem icon={<Users />} onSelect={run(onMembers)}>Members</ActionSheetItem>}
       {onThreads && <ActionSheetItem icon={<MessageSquare />} onSelect={run(onThreads)}>Threads</ActionSheetItem>}
       {/* Leaving the channel screen unmounts this sheet, which drops its history layer. */}
-      <ActionSheetItem icon={<Bell />} onSelect={() => navigate("/you/notifications")}>
+      <ActionSheetItem icon={<Bell />} onSelect={() => navigate(dm ? "/you/notifications" : `/channel-settings/${channelId}/notifications`)}>
         <span className="flex min-w-0 flex-1 flex-col">
           Notifications
-          <span className="text-xs text-muted-foreground">Uses your device setting</span>
+          <span className="text-xs text-muted-foreground">{notify.level === "default" ? (notify.muted ? "Muted" : "Uses your device setting") : `${LEVELS[notify.level]}${notify.muted ? ", muted" : ""}`}</span>
         </span>
       </ActionSheetItem>
-      {onSettings && <ActionSheetItem icon={<Settings />} onSelect={run(onSettings)}>Channel settings</ActionSheetItem>}
+      {canSettings && <ActionSheetItem icon={<Settings />} onSelect={() => navigate(`/channel-settings/${channelId}`)}>Channel settings</ActionSheetItem>}
     </ActionSheet>
   );
 }

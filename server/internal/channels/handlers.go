@@ -385,6 +385,23 @@ func Register(api huma.API, s *Service) {
 			return nil, s.publishVisibility(ctx, c.ID, before)
 		})
 
+	huma.Register(api, op("put-channel-notify", http.MethodPut, "/api/channels/{id}/notify", 0),
+		func(ctx context.Context, in *struct {
+			ID   string `path:"id"`
+			Body NotifyRequest
+		}) (*struct{ Body *NotifySetting }, error) {
+			chID, err := httpx.ParseID(in.ID, "channel")
+			if err != nil {
+				return nil, err
+			}
+			c, _, err := s.Access(ctx, me(ctx), chID, perms.ViewChannel)
+			if err != nil {
+				return nil, err
+			}
+			n, err := s.setNotify(ctx, me(ctx), c, in.Body)
+			return &struct{ Body *NotifySetting }{n}, err
+		})
+
 	huma.Register(api, op("list-dms", http.MethodGet, "/api/dms", 0),
 		func(ctx context.Context, _ *struct{}) (*struct{ Body []Channel }, error) {
 			chs, err := s.ListDMs(ctx, me(ctx))

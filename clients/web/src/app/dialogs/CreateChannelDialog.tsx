@@ -2,7 +2,6 @@ import { unwrap } from "@datrope/core";
 import { useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInsertButton } from "@/chat/EmojiInsertButton";
 import { RichInput, type RichInputHandle } from "@/chat/RichInput";
@@ -15,12 +14,12 @@ import { useSubmit } from "@/hooks/use-submit";
 import { cn } from "@/lib/utils";
 import { client, useApp } from "../../session";
 import { CHANNEL_TYPES, type CreatableChannelType } from "../channel-types";
-import { TagsEditor } from "../TagsEditor";
-import { GallerySourcesField, sourcesBody, type SourcesValue } from "../gallery/GallerySourcesField";
 
 const PLACEHOLDERS: Record<CreatableChannelType, string> = {
   text: "general", voice: "Lounge", webhook: "alerts", announcement: "announcements", forum: "ideas", gallery: "photos",
 };
+// A new forum starts with these; they and everything else type-specific are changed in its settings, which open next.
+const FORUM_TAGS = ["Feature", "Bug", "Question"];
 
 export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: string; onClose: () => void }) {
   const nav = useNavigate();
@@ -29,10 +28,7 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
   const nameRef = useRef<RichInputHandle>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<CreatableChannelType>("text");
-  const [tags, setTags] = useState(["Feature", "Bug", "Question"]);
-  const [requireTag, setRequireTag] = useState(false);
   const [category, setCategory] = useState(categoryId ?? "");
-  const [sources, setSources] = useState<SourcesValue>({ mode: "none", ids: [] });
   const byId = useApp((s) => s.server?.categories);
   const categories = useMemo(() => Object.values(byId ?? {}).sort((a, b) => a.position - b.position), [byId]);
   const { busy, error, run } = useSubmit();
@@ -46,10 +42,10 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
           e.preventDefault();
           if (!name.trim()) return;
           void run(async () => {
-            const ch = await unwrap(client.api.POST("/api/server/channels", { body: { name, type, ...(category && { category_id: category }), ...(type === "forum" && { tags, require_tag: requireTag && tags.length > 0 }), ...(type === "gallery" && sourcesBody(sources)) } }));
+            const ch = await unwrap(client.api.POST("/api/server/channels", { body: { name, type, ...(category && { category_id: category }), ...(type === "forum" && { tags: FORUM_TAGS }) } }));
             client.apply("CHANNEL_CREATE", ch);
             onClose();
-            nav(`/channels/${ch.id}`);
+            nav(`/channel-settings/${ch.id}`);
           });
         }}>
           <RadioGroup aria-label="Type" value={type} onValueChange={(v) => setType(v as CreatableChannelType)} className="gap-2">
@@ -84,23 +80,9 @@ export function CreateChannelDialog({ categoryId, onClose }: { categoryId?: stri
             </Field>
           )}
           {type === "announcement" && <p className="text-sm text-muted-foreground">Members with Manage messages can post. Everyone else can react and reply in threads.</p>}
-          {type === "gallery" && <GallerySourcesField value={sources} onChange={setSources} />}
-          {type === "forum" && (
-            <>
-              <Field>
-                <FieldLabel htmlFor={`${id}-tags`}>Tags</FieldLabel>
-                <TagsEditor id={`${id}-tags`} value={tags} onChange={setTags} />
-              </Field>
-              <div className="flex items-center gap-2">
-                <Checkbox id={`${id}-require-tag`} checked={requireTag && tags.length > 0} disabled={tags.length === 0}
-                  onCheckedChange={(v) => setRequireTag(v === true)} />
-                <Label htmlFor={`${id}-require-tag`}>Require a tag on new posts</Label>
-              </div>
-            </>
-          )}
           <ErrorText error={error} />
           <DialogFooter>
-            <Button type="submit" disabled={busy || !name.trim() || (type === "gallery" && sources.mode === "selected" && sources.ids.length === 0)}>Create</Button>
+            <Button type="submit" disabled={busy || !name.trim()}>Create</Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
           </DialogFooter>
         </form>

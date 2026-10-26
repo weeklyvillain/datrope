@@ -17,7 +17,7 @@ export function TabBar() {
   const current = tabFor(useLocation().pathname);
   const id = useId();
   // Server: a dot for unread channels (DMs count under Messages). Messages and Mentions: counts.
-  const channelUnread = useApp((s) => Object.entries(s.readStates).some(([cid, rs]) => !s.dmIds.includes(cid) && isUnread(rs)));
+  const channelUnread = useApp((s) => Object.entries(s.readStates).some(([cid, rs]) => !s.dmIds.includes(cid) && !s.notifySettings[cid]?.muted && isUnread(rs)));
   const dmUnread = useApp((s) => s.dmIds.filter((cid) => isUnread(s.readStates[cid])).length);
   const mentions = useApp((s) => s.mentions.unread);
   const counts: Record<PhoneTab, number> = { server: 0, messages: dmUnread, mentions, you: 0 };

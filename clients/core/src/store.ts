@@ -3,7 +3,7 @@ import { mentionsMe } from "./mentions";
 import type { ConnectionStatus } from "./gateway";
 import { Perm, WEBHOOK_MASKED, basePerms, channelPerms, hasPerm } from "./perms";
 import type {
-  Activity, Attachment, Category, MusicPlaylist, MusicState, WatchState, WatchUpdate, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
+  Activity, Attachment, Category, MusicPlaylist, MusicState, WatchState, WatchUpdate, Channel, ChannelRef, Emoji, Member, MentionItem, MentionsPage, Message, Poll, PollUpdate, NotifySetting, ReadState, PresenceStatus, PublicUser, ReactionEvent, Ready, ReplyRef, Role, Server, Sound, User,
   PostDeleted, PostUpdate, ThreadListItem, ThreadUpdate, VoiceState, Welcome,
 } from "./types";
 
@@ -43,6 +43,7 @@ export interface State {
   posts: Record<string, ThreadListItem[] | undefined>; // forum ID → its posts, once loaded
   presences: Record<string, "online" | "idle" | "offline">;
   readStates: Record<string, { lastReadId?: string; lastMessageId?: string }>;
+  notifySettings: Record<string, NotifySetting>; // by channel ID: my settings for channels not left at the default
   typing: Record<string, Record<string, number>>; // channel → user → expiry (ms)
   presence: PresenceStatus; // my chosen status
   voice: Record<string, VoiceState>; // by user ID: who is in voice, in channels I can see
@@ -69,6 +70,7 @@ export const initialState: State = {
   posts: {},
   presences: {},
   readStates: {},
+  notifySettings: {},
   typing: {},
   presence: "online",
   voice: {},
@@ -131,6 +133,7 @@ export function applyReady(s: State, r: Ready): State {
     readStates: Object.fromEntries(
       (r.read_states ?? []).map((x) => [x.channel_id, { lastReadId: x.last_read_id, lastMessageId: x.last_message_id }]),
     ),
+    notifySettings: byKey(r.notify_settings ?? [], (x) => x.channel_id),
   };
 }
 
@@ -410,6 +413,11 @@ export function applyEvent(s: State, type: string, data: unknown, now = Date.now
         channel: { ...p.channel, tags: (p.channel.tags ?? []).flatMap((t) => offered.get(t.toLowerCase()) ?? []) },
       }));
       return upsertChannel({ ...s, posts: { ...s.posts, [c.id]: posts } }, c);
+    }
+    case "CHANNEL_NOTIFY_UPDATE": {
+      const n = data as NotifySetting;
+      const { [n.channel_id]: _old, ...rest } = s.notifySettings;
+      return { ...s, notifySettings: n.level === "default" && !n.muted ? rest : { ...rest, [n.channel_id]: n } };
     }
     case "CHANNEL_DELETE":
       return removeChannel(s, (data as { id: string }).id);
@@ -699,6 +707,13 @@ export function myChannelPerms(s: State, channelId: string): number {
 export function myThreadPerms(s: State, parentChannelId: string): number {
   const ch = s.channels[parentChannelId];
   return ch ? rawChannelPerms(s, ch) : 0;
+}
+
+/** My notification setting for a channel; a thread follows its channel. */
+export function channelNotify(s: State, channelId: string): { level: NotifySetting["level"]; muted: boolean } {
+  const ch = s.channels[channelId];
+  const n = s.notifySettings[ch?.type === "thread" && ch.parent_channel_id ? ch.parent_channel_id : channelId];
+  return n ? { level: n.level, muted: n.muted } : { level: "default", muted: false };
 }
 
 /** Roles from highest to lowest; @everyone last. Returns a new array: select it with useShallow. */

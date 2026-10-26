@@ -1,6 +1,7 @@
 import { Perm, canPost, hasPerm, myThreadPerms, voiceMembers, type ReplyRef } from "@datrope/core";
 import { AlarmClock, Lock, LogOut, Megaphone, MessageSquare, Phone, Pin, Users } from "@/components/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { dmName, useApp, usePerms, userName } from "../session";
 import { ErrorText } from "@/components/error-text";
@@ -14,7 +15,6 @@ import { readMembersPref, writeMembersPref } from "@/lib/members-pref";
 import { useHistoryLayer } from "@/hooks/use-history-layer";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Markdown } from "../chat/Markdown";
-import { ChannelSettingsDialog } from "./dialogs/ChannelSettingsDialog";
 import { LeaveGroupDialog } from "./dialogs/LeaveGroupDialog";
 import { useVoice, voice } from "../voice/voice";
 import { Composer } from "./Composer";
@@ -65,7 +65,6 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
   useEffect(() => { if (docked) setShowMembers(false); }, [docked]);
   const [info, setInfo] = useState(false); // phones: the channel info sheet
   const [pins, setPins] = useState(false); // phones: the pinned messages sheet
-  const [settings, setSettings] = useState(false); // phones: channel settings, from the info sheet
   const reply = useMemo(() => ({ replyTo, setReplyTo }), [replyTo]);
 
   // A reply and the side panel belong to their channel.
@@ -191,8 +190,7 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
             <ChannelInfoSheet channelId={channelId} kind={kind} open={info} onOpenChange={setInfo}
               onPins={() => setPins(true)} onMembers={members ? () => setShowMembers(true) : undefined}
               onThreads={threads ? () => openPanel({ kind: "threads" }) : undefined}
-              onSettings={ch.type !== "dm" && hasPerm(perms, Perm.ManageChannels) ? () => setSettings(true) : undefined} />
-            {settings && <ChannelSettingsDialog channelId={channelId} onClose={() => setSettings(false)} />}
+              canSettings={ch.type !== "dm" && hasPerm(perms, Perm.ManageChannels)} />
           </>
         )}
         {leaving && <LeaveGroupDialog channelId={channelId} onClose={() => setLeaving(false)} />}
@@ -227,16 +225,17 @@ export function ChannelView({ channelId, members = false, kind = "chat" }: { cha
 
 /** The channel topic, one truncated line; click shows all of it. */
 export function Topic({ channelId, name, topic, canEdit }: { channelId: string; name: string; topic: string; canEdit: boolean }) {
-  const [open, setOpen] = useState<"topic" | "settings">();
+  const [open, setOpen] = useState(false);
+  const nav = useNavigate();
   return (
     <>
       <span className="h-5 w-px flex-none bg-border max-md:hidden" aria-hidden />
       <BareButton className="min-w-0 flex-1 truncate text-left max-md:hidden text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
-        title="Show topic" onClick={() => setOpen("topic")}>
+        title="Show topic" onClick={() => setOpen(true)}>
         <Markdown text={topic} inline />
       </BareButton>
-      {open === "topic" && (
-        <Dialog open onOpenChange={(o) => !o && setOpen(undefined)}>
+      {open && (
+        <Dialog open onOpenChange={setOpen}>
           <DialogContent aria-describedby={undefined} className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
             <DialogHeader>
               <DialogTitle>{`# ${name}`}</DialogTitle>
@@ -244,13 +243,12 @@ export function Topic({ channelId, name, topic, canEdit }: { channelId: string; 
             <div className="break-words"><Markdown text={topic} /></div>
             {canEdit && (
               <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen("settings")}>Edit</Button>
+                <Button variant="outline" onClick={() => nav(`/channel-settings/${channelId}/general`)}>Edit</Button>
               </DialogFooter>
             )}
           </DialogContent>
         </Dialog>
       )}
-      {open === "settings" && <ChannelSettingsDialog channelId={channelId} onClose={() => setOpen(undefined)} />}
     </>
   );
 }

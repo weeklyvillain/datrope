@@ -1,5 +1,5 @@
 import { mentionsMe } from "@datrope/core";
-import type { NotifyPrefs } from "./prefs";
+import type { NotifyLevel, NotifyPrefs } from "./prefs";
 
 export interface NotifyInput {
   message: { author?: { id: string }; mentions?: string[] | null; mention_roles?: string[] | null; mention_everyone?: boolean; channel_id: string; deleted?: boolean; kind?: string };
@@ -7,6 +7,7 @@ export interface NotifyInput {
   myRoleIds: readonly string[];
   isDM: boolean;
   prefs: NotifyPrefs;
+  channel?: { level: NotifyLevel | "default"; muted: boolean }; // my setting for the message's channel (a thread: its parent's)
   permission: NotificationPermission | "unsupported";
   hidden: boolean; // document.visibilityState === "hidden"
   openChannelIds: string[]; // the conversation on screen and an open thread
@@ -16,9 +17,16 @@ export interface NotifyInput {
 export function shouldNotify(i: NotifyInput): boolean {
   if (!i.meId || i.message.author?.id === i.meId || i.message.deleted) return false;
   if (i.message.kind && i.message.kind !== "reminder") return false; // "X left the group" is not worth a notification
-  if (!i.prefs.enabled || i.permission !== "granted" || i.prefs.level === "nothing") return false;
-  if (i.prefs.level === "mentions" && !i.isDM && !mentionsMe(i.message, i.meId, i.myRoleIds)) return false;
+  const level = effectiveLevel(i.prefs.level, i.channel);
+  if (!i.prefs.enabled || i.permission !== "granted" || level === "nothing") return false;
+  if (level === "mentions" && !i.isDM && !mentionsMe(i.message, i.meId, i.myRoleIds)) return false;
   return i.hidden || !i.openChannelIds.includes(i.message.channel_id);
+}
+
+/** The device's level unless the channel sets its own; a muted channel notifies at most for mentions (as push/fanout.go does). */
+export function effectiveLevel(device: NotifyLevel, channel?: NotifyInput["channel"]): NotifyLevel {
+  const level = channel && channel.level !== "default" ? channel.level : device;
+  return channel?.muted && level === "all" ? "mentions" : level;
 }
 
 /** The name a notification shows: a webhook is labelled, so it cannot pass for a person. */

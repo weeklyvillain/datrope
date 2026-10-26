@@ -45,6 +45,7 @@ export type Webhook = Schemas["Webhook"];
 export type WebhookWithURL = Schemas["WebhookWithURL"];
 export type Ready = Schemas["Ready"];
 export type ReadState = Schemas["ReadState"];
+export type NotifySetting = Schemas["NotifySetting"];
 export type Invite = Schemas["Invite"];
 export type InvitePreview = Schemas["InvitePreview"];
 export type ServerPreview = Schemas["ServerPreview"];
@@ -140,6 +141,7 @@ export interface EventMap {
   NOTE_CREATE: NoteSummary;
   NOTE_UPDATE: Note;
   NOTE_DELETE: Schemas["NoteDeleted"];
+  CHANNEL_NOTIFY_UPDATE: NotifySetting;
 }
 
 export type SystemStats = Schemas["SystemStats"];

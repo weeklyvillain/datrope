@@ -145,9 +145,21 @@ func (f *fanout) deliver(ctx context.Context, m *messages.Message) error {
 		icon = "/api/server/icon/192.png" + iconVersion(*sv.IconURL)
 	}
 	isDM := ch.Type == "dm"
+	key := m.ChannelID // a thread follows its channel's setting
+	if ch.Type == channels.TypeThread && ch.ParentChannelID != nil {
+		key = *ch.ParentChannelID
+	}
+	prefs, err := s.channelNotify(ctx, key, users)
+	if err != nil {
+		return err
+	}
 
 	roles := map[id.ID][]id.ID{} // per recipient, loaded only when a role was pinged
 	for _, sub := range subs {
+		level := effectiveLevel(sub.Level, prefs[sub.UserID])
+		if level == "nothing" {
+			continue
+		}
 		mentioned := isDM || m.MentionEveryone || slices.Contains(m.Mentions, sub.UserID)
 		if !mentioned && len(m.MentionRoles) > 0 {
 			r, ok := roles[sub.UserID]
@@ -159,7 +171,7 @@ func (f *fanout) deliver(ctx context.Context, m *messages.Message) error {
 			}
 			mentioned = slices.ContainsFunc(m.MentionRoles, func(x id.ID) bool { return slices.Contains(r, x) })
 		}
-		if sub.Level == "mentions" && !mentioned {
+		if level == "mentions" && !mentioned {
 			continue
 		}
 		if !f.allow(sub.ID, m.ChannelID, time.Now(), mentioned) {
